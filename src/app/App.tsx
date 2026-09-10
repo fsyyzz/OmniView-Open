@@ -15,6 +15,7 @@ import { RenderErrorBoundary } from '../features/viewers/components/common/Rende
 import { loadStoredSettings, saveStoredSettings } from '../shared/lib/settingsStorage';
 import { loadStoredFiles, saveStoredFiles, resetStoredFiles } from '../shared/lib/fileStorage';
 import { WorkbenchSettingsModal } from '../features/workbench/components/WorkbenchSettingsModal';
+import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../shared/lib/nativeTheme';
 
 function getEmbeddedInitialFile(): FileItem | undefined {
   try {
@@ -32,7 +33,13 @@ export default function App() {
   const [vscode] = useState<VsCodeApi | undefined>(() => getVsCodeApi());
   const embeddedInitial = useMemo(() => getEmbeddedInitialFile(), []);
   const [pluginFile, setPluginFile] = useState<FileItem | undefined>(embeddedInitial);
-  const [initialSettings] = useState<WorkbenchSettings>(() => loadStoredSettings());
+  const [initialSettings] = useState<WorkbenchSettings>(() => {
+    const loaded = loadStoredSettings();
+    if (isVsCodeEnvironment() && !window.localStorage.getItem('omniview:workbench:settings:v2')) {
+      loaded.theme = 'system';
+    }
+    return loaded;
+  });
   const [settings, setSettings] = useState<WorkbenchSettings>(initialSettings);
   const [files, setFiles] = useState<FileItem[]>(() => {
     if (embeddedInitial) return [embeddedInitial];
@@ -148,8 +155,17 @@ export default function App() {
     const reportError = (event: ErrorEvent) => {
       vscode?.postMessage({ type: 'webview-error', message: event.message, source: event.filename, line: event.lineno });
     };
-    const handleMessage = (event: MessageEvent<{ type?: string; file?: FileItem }>) => {
+    const handleMessage = (event: MessageEvent<{ type?: string; file?: FileItem; themeKind?: string }>) => {
       const msgType = event.data?.type;
+      if (msgType === 'theme-changed') {
+        // VS Code 宿主主动广播色彩主题切换 (例如切换为 One Dark Pro / Dracula)
+        setTheme((curr) => (curr === 'system' ? 'system' : curr));
+        return;
+      }
+      if (msgType === 'editor-scroll-sync' || msgType === 'editor-cursor-sync') {
+        window.dispatchEvent(new CustomEvent('omniview-editor-sync', { detail: event.data }));
+        return;
+      }
       if (!['document', 'document-update'].includes(msgType || '') || !event.data.file) return;
       const incomingFile = event.data.file;
       setPluginFile(incomingFile);
@@ -176,6 +192,17 @@ export default function App() {
       window.removeEventListener('error', reportError);
     };
   }, [vscode]);
+
+  // 监听 VS Code DOM 变动以捕获第三方主题热切换
+  useEffect(() => {
+    const unsub = setupVsCodeThemeObserver(() => {
+      // 当 VS Code 宿主主题切换时，触发状态更新
+      if (theme === 'system') {
+        setTheme('system');
+      }
+    });
+    return unsub;
+  }, [theme]);
 
   // File content modification
   const handleContentChange = (newContent: string) => {
@@ -390,6 +417,7 @@ flowchart LR
       data-theme={theme}
       data-density={density}
       className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans transition-colors duration-200"
+      style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)' }}
     >
       {/* Top Application Bar */}
       <WorkbenchHeader

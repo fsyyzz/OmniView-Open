@@ -100,6 +100,8 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     const extension = extname(document.uri.fsPath).toLowerCase();
     const isPdf = extension === '.pdf';
     const disposables: vscode.Disposable[] = [];
+    let isSyncingFromWebview = false;
+    let syncFromWebviewTimeout: NodeJS.Timeout | undefined;
 
     const loadDocData = async () => {
       const buffer = await readFile(document.uri.fsPath);
@@ -152,6 +154,45 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
           options.selection = new vscode.Range(pos, pos);
         }
         await vscode.window.showTextDocument(document.uri, options);
+        return;
+      }
+      if (message?.type === 'reveal-source-line') {
+        const line = typeof message?.line === 'number' ? Math.max(1, message.line) : 1;
+        const lineIdx = line - 1;
+        const revealType = message?.revealType || 'scroll'; // 'scroll' | 'select'
+
+        isSyncingFromWebview = true;
+        clearTimeout(syncFromWebviewTimeout);
+        syncFromWebviewTimeout = setTimeout(() => {
+          isSyncingFromWebview = false;
+        }, 350);
+
+        // 查找当前是否已分屏打开此文件的文本编辑器
+        const visibleEditor = vscode.window.visibleTextEditors.find(
+          (editor) => editor.document.uri.fsPath === document.uri.fsPath
+        );
+
+        if (visibleEditor) {
+          const pos = new vscode.Position(lineIdx, 0);
+          const range = new vscode.Range(pos, pos);
+          if (revealType === 'select') {
+            visibleEditor.selection = new vscode.Selection(pos, pos);
+          }
+          visibleEditor.revealRange(
+            range,
+            revealType === 'select'
+              ? vscode.TextEditorRevealType.InCenter
+              : vscode.TextEditorRevealType.AtTop
+          );
+        } else if (revealType === 'select') {
+          // 用户显式双击反向定位，若未分屏则在侧边打开源码并定位光标
+          const pos = new vscode.Position(lineIdx, 0);
+          await vscode.window.showTextDocument(document.uri, {
+            viewColumn: vscode.ViewColumn.Beside,
+            selection: new vscode.Range(pos, pos),
+            preview: false,
+          });
+        }
         return;
       }
       if (message?.type !== 'ready') return;
@@ -218,9 +259,65 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     });
     disposables.push(fileWatcher);
 
+    // 3. 监听编辑器滚动范围变更 (onDidChangeTextEditorVisibleRanges)，建立平滑双向同步
+    const visibleRangesListener = vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
+      if (isSyncingFromWebview) return;
+      if (event.textEditor.document.uri.fsPath === document.uri.fsPath) {
+        const visibleRange = event.visibleRanges[0];
+        if (!visibleRange) return;
+        const topLine = visibleRange.start.line + 1;
+        const bottomLine = visibleRange.end.line + 1;
+        const activeLine = event.textEditor.selection.active.line + 1;
+        const totalLines = event.textEditor.document.lineCount;
+
+        webview.postMessage({
+          type: 'editor-scroll-sync',
+          topLine,
+          bottomLine,
+          activeLine,
+          totalLines,
+        });
+      }
+    });
+    disposables.push(visibleRangesListener);
+
+    // 4. 监听编辑器光标选择位置变更 (onDidChangeTextEditorSelection)
+    const selectionListener = vscode.window.onDidChangeTextEditorSelection((event) => {
+      if (isSyncingFromWebview) return;
+      if (event.textEditor.document.uri.fsPath === document.uri.fsPath) {
+        const activeLine = event.selections[0]?.active.line + 1;
+        if (activeLine) {
+          webview.postMessage({
+            type: 'editor-cursor-sync',
+            activeLine,
+            totalLines: event.textEditor.document.lineCount,
+          });
+        }
+      }
+    });
+    disposables.push(selectionListener);
+
+    // 监听 VS Code 原生色彩主题切换 (如切换为 One Dark Pro / Dracula / Tokyo Night) 并实时向 Webview 广播
+    const themeListener = vscode.window.onDidChangeActiveColorTheme((colorTheme) => {
+      const kindStr = colorTheme.kind === vscode.ColorThemeKind.Light
+        ? 'light'
+        : colorTheme.kind === vscode.ColorThemeKind.HighContrast
+        ? 'high-contrast'
+        : colorTheme.kind === vscode.ColorThemeKind.HighContrastLight
+        ? 'high-contrast-light'
+        : 'dark';
+      webview.postMessage({
+        type: 'theme-changed',
+        themeKind: kindStr,
+      });
+      log(`Active color theme changed: kind=${kindStr}`);
+    });
+    disposables.push(themeListener);
+
     // Webview 销毁时统一释放所有监听器与 Watcher，杜绝内存泄漏
     webviewPanel.onDidDispose(() => {
       clearTimeout(editDebounceTimer);
+      clearTimeout(syncFromWebviewTimeout);
       log(`Panel disposed, releasing ${disposables.length} watchers/listeners for: ${document.uri.fsPath}`);
       disposables.forEach(d => {
         try {

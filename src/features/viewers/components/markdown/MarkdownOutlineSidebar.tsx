@@ -1,7 +1,7 @@
 /**
- * Markdown 文档大纲侧边栏组件 (支持靠左、靠右、悬浮三种布局模式切换与多语言)
+ * Markdown 文档大纲侧边栏组件 (支持靠左、靠右、悬浮三种布局模式切换、自由拖拽调整宽度与双滚动条防护)
  */
-import React from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { MarkdownHeading } from '../../lib/markdownAst';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { OutlinePosition } from '../../../../shared/types';
@@ -18,7 +18,13 @@ interface MarkdownOutlineSidebarProps {
   position?: OutlinePosition;
   onPositionChange?: (pos: OutlinePosition) => void;
   onClose?: () => void;
+  width?: number;
+  onWidthChange?: (width: number) => void;
 }
+
+const MIN_OUTLINE_WIDTH = 180;
+const MAX_OUTLINE_WIDTH = 600;
+const DEFAULT_OUTLINE_WIDTH = 260;
 
 export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
   headings,
@@ -31,15 +37,105 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
   position = 'right',
   onPositionChange,
   onClose,
+  width = DEFAULT_OUTLINE_WIDTH,
+  onWidthChange,
 }) => {
+  const activeItemRef = useRef<HTMLButtonElement | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(width || DEFAULT_OUTLINE_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const currentWidthRef = useRef(sidebarWidth);
+  currentWidthRef.current = sidebarWidth;
+
+  // 外部 width 变化时同步
+  useEffect(() => {
+    if (width && width !== currentWidthRef.current) {
+      setSidebarWidth(width);
+    }
+  }, [width]);
+
+  // 随正文阅读自动将当前对应高亮标题滚动至侧栏视口可见区域
+  useEffect(() => {
+    if (activeItemRef.current) {
+      activeItemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [activeHeadingIndex]);
+
+  // 拖拽手柄开始调整宽度
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    const startX = e.clientX;
+    const startW = currentWidthRef.current;
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      // 靠左布局: 向右拖动增大，向左拖动减小
+      // 靠右或悬浮布局: 向左拖动增大，向右拖动减小
+      const calculated = position === 'left' ? startW + deltaX : startW - deltaX;
+      const nextWidth = Math.min(MAX_OUTLINE_WIDTH, Math.max(MIN_OUTLINE_WIDTH, Math.round(calculated)));
+      setSidebarWidth(nextWidth);
+      currentWidthRef.current = nextWidth;
+    };
+
+    const handlePointerUp = () => {
+      setIsResizing(false);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
+      onWidthChange?.(currentWidthRef.current);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+  }, [position, onWidthChange]);
+
+  // 双击手柄恢复默认宽度
+  const handleResetWidth = useCallback(() => {
+    setSidebarWidth(DEFAULT_OUTLINE_WIDTH);
+    currentWidthRef.current = DEFAULT_OUTLINE_WIDTH;
+    onWidthChange?.(DEFAULT_OUTLINE_WIDTH);
+  }, [onWidthChange]);
+
+  const resizeTooltip = t('outlineResizeTooltip', locale);
+
   return (
     <aside
-      className="markdown-outline"
+      className={`markdown-outline relative select-none ${isResizing ? 'is-resizing' : ''}`}
       data-position={position}
       aria-label={t('outlineHeading', locale)}
+      style={
+        position === 'floating'
+          ? { width: `${sidebarWidth}px` }
+          : { width: `${sidebarWidth}px`, flex: `0 0 ${sidebarWidth}px` }
+      }
     >
-      <div className="flex items-center justify-between px-2 pb-2.5 border-b border-slate-800/80 mb-2 gap-2 select-none">
-        <span className="markdown-outline-heading !p-0 truncate text-xs font-semibold text-slate-300">
+      {/* 调整大小手柄 (根据位置自动停靠在大纲与正文的交界边缘) */}
+      <div
+        onPointerDown={handleResizeStart}
+        onDoubleClick={handleResetWidth}
+        title={resizeTooltip}
+        aria-label={resizeTooltip}
+        className={`absolute top-0 bottom-0 z-30 w-3 cursor-col-resize flex items-center justify-center group select-none transition-colors ${
+          position === 'left' ? '-right-1.5' : '-left-1.5'
+        }`}
+      >
+        <div
+          className={`w-[2px] h-full transition-colors ${
+            isResizing
+              ? 'bg-blue-500 shadow-sm'
+              : 'bg-transparent group-hover:bg-blue-400/80 group-active:bg-blue-500'
+          }`}
+        />
+      </div>
+
+      {/* 顶部标题与控制栏: 固定高度 shrink-0，禁止随内容滚动 */}
+      <div className="flex items-center justify-between px-2 pb-2.5 border-b border-slate-800/80 mb-2 gap-1.5 select-none shrink-0 min-w-0">
+        <span className="markdown-outline-heading !p-0 truncate text-xs font-semibold text-slate-300 min-w-0 flex-1">
           {t('outlineHeading', locale)} ({filteredHeadings.length})
         </span>
 
@@ -124,17 +220,20 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
         </div>
       </div>
 
-      <nav className="overflow-y-auto max-h-[calc(100vh-140px)]">
+      {/* 目录列表: 唯一纵向滚动容器 (flex-1 min-h-0, 禁止横向溢出) */}
+      <nav className="markdown-outline-nav flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-0.5 space-y-0.5">
         {filteredHeadings.length === 0 ? (
           <div className="markdown-outline-empty">{t('noHeadings', locale)}</div>
         ) : (
           filteredHeadings.map(heading => {
             const originalIndex = headings.findIndex(h => h.index === heading.index);
             const isActive = originalIndex === activeHeadingIndex;
+            const indentClass = heading.level <= 1 ? 'pl-2' : heading.level === 2 ? 'pl-3.5' : heading.level === 3 ? 'pl-5' : 'pl-6';
             return (
               <button
                 key={`${heading.index}-${heading.text}`}
-                className={`markdown-outline-item level-${heading.level} ${isActive ? 'is-active' : ''}`}
+                ref={isActive ? activeItemRef : null}
+                className={`markdown-outline-item level-${heading.level} ${indentClass} ${isActive ? 'is-active' : ''}`}
                 onClick={() => onJumpToHeading(originalIndex)}
                 title={heading.text}
               >

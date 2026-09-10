@@ -16,6 +16,7 @@ import {
   ResizeHandleDirection,
   CalculatedResizeBBox,
   calculateResizeBBox,
+  LinePresetType,
 } from './svgUtils';
 import { SvgInspectorPanel } from './SvgInspectorPanel';
 
@@ -44,6 +45,9 @@ interface SvgCanvasProps {
   onResizeElementGeometry?: (newBBox: CalculatedResizeBBox, initialBBox: ElementBBox) => void;
   onAlignElement: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', bbox: ElementBBox) => void;
   onAlignLineOrthogonal: (mode: 'horizontal' | 'vertical') => void;
+  onReverseLine?: () => void;
+  onConvertToStepLine?: (mode: 'hv' | 'vh') => void;
+  onApplyLinePreset?: (preset: LinePresetType) => void;
 }
 
 export const SvgCanvas: React.FC<SvgCanvasProps> = ({
@@ -68,6 +72,9 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
   onResizeElementGeometry,
   onAlignElement,
   onAlignLineOrthogonal,
+  onReverseLine,
+  onConvertToStepLine,
+  onApplyLinePreset,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -979,32 +986,72 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         </div>
       )}
 
-      {/* 线条专属：视口顶层起点与终点独立拖拽圆形手柄 */}
+      {/* 线条专属：视口顶层起点与终点独立拖拽圆形手柄与动态指标气泡 */}
       {selectedElementIndex !== null && screenLineCoords && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-25 overflow-visible">
-          {/* P1 起点圆形手柄 */}
-          <circle
-            cx={screenLineCoords.x1 + (dragMode === 'element' || dragMode === 'line-p1' ? screenDragOffset.x : 0)}
-            cy={screenLineCoords.y1 + (dragMode === 'element' || dragMode === 'line-p1' ? screenDragOffset.y : 0)}
-            r={7}
-            fill="#3b82f6"
-            stroke="#ffffff"
-            strokeWidth={2}
-            data-line-handle="p1"
-            className="cursor-crosshair hover:scale-125 transition-transform pointer-events-auto filter drop-shadow(0 0 4px rgba(59,130,246,0.8))"
-          />
-          {/* P2 终点圆形手柄 */}
-          <circle
-            cx={screenLineCoords.x2 + (dragMode === 'element' || dragMode === 'line-p2' ? screenDragOffset.x : 0)}
-            cy={screenLineCoords.y2 + (dragMode === 'element' || dragMode === 'line-p2' ? screenDragOffset.y : 0)}
-            r={7}
-            fill="#06b6d4"
-            stroke="#ffffff"
-            strokeWidth={2}
-            data-line-handle="p2"
-            className="cursor-crosshair hover:scale-125 transition-transform pointer-events-auto filter drop-shadow(0 0 4px rgba(6,182,212,0.8))"
-          />
-        </svg>
+        <>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-25 overflow-visible">
+            {/* P1 起点圆形手柄 */}
+            <circle
+              cx={screenLineCoords.x1 + (dragMode === 'element' || dragMode === 'line-p1' ? screenDragOffset.x : 0)}
+              cy={screenLineCoords.y1 + (dragMode === 'element' || dragMode === 'line-p1' ? screenDragOffset.y : 0)}
+              r={7}
+              fill="#3b82f6"
+              stroke="#ffffff"
+              strokeWidth={2}
+              data-line-handle="p1"
+              className="cursor-crosshair hover:scale-125 transition-transform pointer-events-auto filter drop-shadow(0 0 4px rgba(59,130,246,0.8))"
+            />
+            {/* P2 终点圆形手柄 */}
+            <circle
+              cx={screenLineCoords.x2 + (dragMode === 'element' || dragMode === 'line-p2' ? screenDragOffset.x : 0)}
+              cy={screenLineCoords.y2 + (dragMode === 'element' || dragMode === 'line-p2' ? screenDragOffset.y : 0)}
+              r={7}
+              fill="#06b6d4"
+              stroke="#ffffff"
+              strokeWidth={2}
+              data-line-handle="p2"
+              className="cursor-crosshair hover:scale-125 transition-transform pointer-events-auto filter drop-shadow(0 0 4px rgba(6,182,212,0.8))"
+            />
+          </svg>
+
+          {/* 实时几何指标浮标 (显示在线条中点上方) */}
+          <div
+            className="absolute z-26 pointer-events-none -translate-x-1/2 -translate-y-1/2 select-none"
+            style={{
+              left: (screenLineCoords.x1 + screenLineCoords.x2) / 2 + (dragMode === 'element' ? screenDragOffset.x : 0),
+              top: (screenLineCoords.y1 + screenLineCoords.y2) / 2 + (dragMode === 'element' ? screenDragOffset.y : 0) - 16,
+            }}
+          >
+            <div className="px-1.5 py-0.5 rounded bg-slate-950/90 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono whitespace-nowrap shadow-lg flex items-center gap-1.5 backdrop-blur-xs">
+              <span>
+                📏{' '}
+                {Math.round(
+                  Math.hypot(
+                    parseFloat(selectedElementInfo?.x2 || '0') - parseFloat(selectedElementInfo?.x1 || '0'),
+                    parseFloat(selectedElementInfo?.y2 || '0') - parseFloat(selectedElementInfo?.y1 || '0')
+                  )
+                )}
+                px
+              </span>
+              <span className="text-slate-600">|</span>
+              <span>
+                📐{' '}
+                {Math.round(
+                  (((Math.atan2(
+                    parseFloat(selectedElementInfo?.y2 || '0') - parseFloat(selectedElementInfo?.y1 || '0'),
+                    parseFloat(selectedElementInfo?.x2 || '0') - parseFloat(selectedElementInfo?.x1 || '0')
+                  ) *
+                    180) /
+                    Math.PI +
+                    360) %
+                    360) *
+                    10
+                ) / 10}
+                °
+              </span>
+            </div>
+          </div>
+        </>
       )}
 
       {/* 智能吸附参考对齐辅助线图层 (Smart Snapping Alignment Guides) */}
@@ -1056,6 +1103,9 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
           onLocateInCode={onLocateInCode}
           onAlign={alignment => measuredBBox && onAlignElement(alignment, measuredBBox)}
           onAlignLine={onAlignLineOrthogonal}
+          onReverseLine={onReverseLine}
+          onConvertToStepLine={onConvertToStepLine}
+          onApplyLinePreset={onApplyLinePreset}
           snapEnabled={snapEnabled}
           onToggleSnap={() => setSnapEnabled(prev => !prev)}
           onClose={() => onSelectElement(null)}

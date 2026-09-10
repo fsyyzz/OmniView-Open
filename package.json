@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "0.9.14",
+  "version": "0.9.15",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -145,7 +145,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "check:structure": "node scripts/analyze-structure.mjs",
-    "test": "(esbuild scripts/test-diagram-diagnostics.mjs --bundle --platform=node | node) && (esbuild scripts/test-mindmap-driver.mjs --bundle --platform=node | node) && (esbuild scripts/test-settings-storage.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-security-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-driver-routing.mjs --bundle --platform=node | node) && (esbuild scripts/test-svg-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-table-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-structured-data.mjs --bundle --platform=node | node) && (esbuild scripts/test-okf-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-undo-redo.mjs --bundle --platform=node | node)",
+    "test": "(esbuild scripts/test-diagram-diagnostics.mjs --bundle --platform=node | node) && (esbuild scripts/test-mindmap-driver.mjs --bundle --platform=node | node) && (esbuild scripts/test-settings-storage.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-security-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-driver-routing.mjs --bundle --platform=node | node) && (esbuild scripts/test-svg-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-table-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-structured-data.mjs --bundle --platform=node | node) && (esbuild scripts/test-okf-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-undo-redo.mjs --bundle --platform=node | node) && node scripts/test-markdown-outline.mjs && node scripts/test-native-theme.mjs && node scripts/test-scroll-sync.mjs",
     "verify": "npm run check:structure && npm run lint && npm run test && npm run build:plugin",
     "vscode:prepublish": "npm run build:plugin"
   },

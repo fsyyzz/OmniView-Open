@@ -17,6 +17,10 @@ import {
   moveSvgElementGeometry,
   alignSvgElement,
   alignLineOrthogonal,
+  reverseLineEndpoints,
+  convertLineToStepPath,
+  applyLinePreset,
+  LinePresetType,
   resizeSvgElementGeometry,
   CalculatedResizeBBox,
   ElementBBox,
@@ -223,6 +227,33 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
     (mode: 'horizontal' | 'vertical') => {
       if (selectedElementIndex === null) return;
       const updatedCode = alignLineOrthogonal(code, selectedElementIndex, mode);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndex, handleCodeChange]
+  );
+
+  // 反转线条端点 (P1 <-> P2)
+  const handleReverseLine = useCallback(() => {
+    if (selectedElementIndex === null) return;
+    const updatedCode = reverseLineEndpoints(code, selectedElementIndex);
+    handleCodeChange(updatedCode);
+  }, [code, selectedElementIndex, handleCodeChange]);
+
+  // 将直线转换为阶梯折线 (HV / VH)
+  const handleConvertToStepLine = useCallback(
+    (mode: 'hv' | 'vh') => {
+      if (selectedElementIndex === null) return;
+      const updatedCode = convertLineToStepPath(code, selectedElementIndex, mode);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndex, handleCodeChange]
+  );
+
+  // 一键套用线条工业预设样式
+  const handleApplyLinePreset = useCallback(
+    (preset: LinePresetType) => {
+      if (selectedElementIndex === null) return;
+      const updatedCode = applyLinePreset(code, selectedElementIndex, preset);
       handleCodeChange(updatedCode);
     },
     [code, selectedElementIndex, handleCodeChange]
@@ -451,6 +482,9 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
               onResizeElementGeometry={handleResizeElementGeometry}
               onAlignElement={handleAlignElement}
               onAlignLineOrthogonal={handleAlignLineOrthogonal}
+              onReverseLine={handleReverseLine}
+              onConvertToStepLine={handleConvertToStepLine}
+              onApplyLinePreset={handleApplyLinePreset}
             />
           </div>
         )}

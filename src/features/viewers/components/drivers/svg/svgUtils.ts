@@ -29,6 +29,13 @@ export interface SvgElementInfo {
   fill?: string;
   stroke?: string;
   strokeWidth?: string;
+  strokeDasharray?: string;
+  strokeDashoffset?: string;
+  strokeLinecap?: 'butt' | 'round' | 'square' | string;
+  strokeLinejoin?: 'miter' | 'round' | 'bevel' | string;
+  strokeMiterlimit?: string;
+  markerStart?: string;
+  markerEnd?: string;
   opacity?: string;
   textContent?: string;
   d?: string;
@@ -616,6 +623,13 @@ export function getSvgElementInfo(svgText: string, targetIndex: number): SvgElem
       const fill = el.getAttribute('fill') || undefined;
       const stroke = el.getAttribute('stroke') || undefined;
       const strokeWidth = el.getAttribute('stroke-width') || undefined;
+      const strokeDasharray = el.getAttribute('stroke-dasharray') || undefined;
+      const strokeDashoffset = el.getAttribute('stroke-dashoffset') || undefined;
+      const strokeLinecap = el.getAttribute('stroke-linecap') || undefined;
+      const strokeLinejoin = el.getAttribute('stroke-linejoin') || undefined;
+      const strokeMiterlimit = el.getAttribute('stroke-miterlimit') || undefined;
+      const markerStart = el.getAttribute('marker-start') || undefined;
+      const markerEnd = el.getAttribute('marker-end') || undefined;
       const opacity = el.getAttribute('opacity') || undefined;
       const transform = el.getAttribute('transform') || undefined;
       const d = el.getAttribute('d') || undefined;
@@ -648,6 +662,13 @@ export function getSvgElementInfo(svgText: string, targetIndex: number): SvgElem
         fill,
         stroke,
         strokeWidth,
+        strokeDasharray,
+        strokeDashoffset,
+        strokeLinecap,
+        strokeLinejoin,
+        strokeMiterlimit,
+        markerStart,
+        markerEnd,
         opacity,
         transform,
         fontSize,
@@ -691,6 +712,13 @@ export function getSvgElementInfo(svgText: string, targetIndex: number): SvgElem
         const fill = getAttr('fill');
         const stroke = getAttr('stroke');
         const strokeWidth = getAttr('stroke-width');
+        const strokeDasharray = getAttr('stroke-dasharray');
+        const strokeDashoffset = getAttr('stroke-dashoffset');
+        const strokeLinecap = getAttr('stroke-linecap');
+        const strokeLinejoin = getAttr('stroke-linejoin');
+        const strokeMiterlimit = getAttr('stroke-miterlimit');
+        const markerStart = getAttr('marker-start');
+        const markerEnd = getAttr('marker-end');
         const opacity = getAttr('opacity');
         const transform = getAttr('transform');
         const d = getAttr('d');
@@ -724,6 +752,13 @@ export function getSvgElementInfo(svgText: string, targetIndex: number): SvgElem
           fill,
           stroke,
           strokeWidth,
+          strokeDasharray,
+          strokeDashoffset,
+          strokeLinecap,
+          strokeLinejoin,
+          strokeMiterlimit,
+          markerStart,
+          markerEnd,
           opacity,
           transform,
           textContent,
@@ -784,6 +819,13 @@ export function updateSvgElement(
       setOrRemove('fill', updates.fill);
       setOrRemove('stroke', updates.stroke);
       setOrRemove('stroke-width', updates.strokeWidth);
+      setOrRemove('stroke-dasharray', updates.strokeDasharray);
+      setOrRemove('stroke-dashoffset', updates.strokeDashoffset);
+      setOrRemove('stroke-linecap', updates.strokeLinecap);
+      setOrRemove('stroke-linejoin', updates.strokeLinejoin);
+      setOrRemove('stroke-miterlimit', updates.strokeMiterlimit);
+      setOrRemove('marker-start', updates.markerStart);
+      setOrRemove('marker-end', updates.markerEnd);
       setOrRemove('opacity', updates.opacity);
       setOrRemove('transform', updates.transform);
       setOrRemove('x', updates.x);
@@ -835,6 +877,13 @@ export function updateSvgElement(
         applyAttr('fill', updates.fill);
         applyAttr('stroke', updates.stroke);
         applyAttr('stroke-width', updates.strokeWidth);
+        applyAttr('stroke-dasharray', updates.strokeDasharray);
+        applyAttr('stroke-dashoffset', updates.strokeDashoffset);
+        applyAttr('stroke-linecap', updates.strokeLinecap);
+        applyAttr('stroke-linejoin', updates.strokeLinejoin);
+        applyAttr('stroke-miterlimit', updates.strokeMiterlimit);
+        applyAttr('marker-start', updates.markerStart);
+        applyAttr('marker-end', updates.markerEnd);
         applyAttr('opacity', updates.opacity);
         applyAttr('transform', updates.transform);
         applyAttr('x', updates.x);
@@ -1529,4 +1578,308 @@ export function resizeSvgElementGeometry(
   }
 
   return updateSvgElement(svgText, targetIndex, updates);
+}
+
+/**
+ * 标准工业制图与流程图箭头及端点 Marker 定义模板
+ */
+export const STANDARD_SVG_MARKERS = `
+  <defs id="omni-defs-markers">
+    <marker id="omni-arrow-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="currentColor" />
+    </marker>
+    <marker id="omni-arrow-start" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 10 1 L 0 5 L 10 9 z" fill="currentColor" />
+    </marker>
+    <marker id="omni-circle-end" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <circle cx="5" cy="5" r="4" fill="currentColor" />
+    </marker>
+    <marker id="omni-circle-start" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <circle cx="5" cy="5" r="4" fill="currentColor" />
+    </marker>
+    <marker id="omni-stealth-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 L 3 5 z" fill="currentColor" />
+    </marker>
+    <marker id="omni-dimension-start" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="8" orient="auto">
+      <line x1="5" y1="0" x2="5" y2="10" stroke="currentColor" stroke-width="2" />
+    </marker>
+    <marker id="omni-dimension-end" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="8" orient="auto">
+      <line x1="5" y1="0" x2="5" y2="10" stroke="currentColor" stroke-width="2" />
+    </marker>
+  </defs>
+`;
+
+/**
+ * 确保 SVG 中包含标准的流程箭头与端点 Marker 规范
+ */
+export function ensureSvgMarkers(svgText: string): string {
+  if (svgText.includes('id="omni-arrow-end"') || svgText.includes("id='omni-arrow-end'")) {
+    return svgText;
+  }
+  // 若已存在 <defs>，在第一个 <defs> 内部追加 markers；若不存在，在 <svg ...> 后新建 <defs>
+  if (/<defs\b[^>]*>/i.test(svgText)) {
+    const innerMarkers = STANDARD_SVG_MARKERS.replace(/<\/?defs[^>]*>/gi, '');
+    return svgText.replace(/(<defs\b[^>]*>)/i, `$1\n${innerMarkers.trim()}`);
+  }
+  return svgText.replace(/(<svg\b[^>]*>)/i, `$1\n${STANDARD_SVG_MARKERS.trim()}`);
+}
+
+export interface LineMetrics {
+  dx: number;
+  dy: number;
+  length: number;
+  angleDeg: number;
+  midPoint: { x: number; y: number };
+  slopeType: 'horizontal' | 'vertical' | 'diagonal-45' | 'diagonal-135' | 'arbitrary';
+}
+
+/**
+ * 计算线条的几何特征：距离、极角 (0°~360°)、中点与斜率分类
+ * 支持传 (p1, p2) 对象或 (x1, y1, x2, y2) 平铺数值
+ */
+export function calculateLineMetrics(
+  p1OrX1: { x: number; y: number } | number,
+  p2OrY1: { x: number; y: number } | number,
+  optX2?: number,
+  optY2?: number
+): LineMetrics {
+  let p1: { x: number; y: number };
+  let p2: { x: number; y: number };
+
+  if (typeof p1OrX1 === 'number') {
+    p1 = { x: p1OrX1, y: Number(p2OrY1) || 0 };
+    p2 = { x: Number(optX2) || 0, y: Number(optY2) || 0 };
+  } else {
+    p1 = p1OrX1;
+    p2 = p2OrY1 as { x: number; y: number };
+  }
+
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const length = Math.hypot(dx, dy);
+  const rad = Math.atan2(dy, dx);
+  let angleDeg = (rad * 180) / Math.PI;
+  if (angleDeg < 0) angleDeg += 360;
+  const normalizedAngle = Math.round(angleDeg * 10) / 10;
+
+  let slopeType: LineMetrics['slopeType'] = 'arbitrary';
+  if (Math.abs(dy) < 0.05) slopeType = 'horizontal';
+  else if (Math.abs(dx) < 0.05) slopeType = 'vertical';
+  else if (Math.abs(Math.abs(dx) - Math.abs(dy)) < 0.1) {
+    slopeType = (dx * dy > 0) ? 'diagonal-45' : 'diagonal-135';
+  }
+
+  return {
+    dx: Math.round(dx * 100) / 100,
+    dy: Math.round(dy * 100) / 100,
+    length: Math.round(length * 100) / 100,
+    angleDeg: normalizedAngle,
+    midPoint: {
+      x: Math.round(((p1.x + p2.x) / 2) * 100) / 100,
+      y: Math.round(((p1.y + p2.y) / 2) * 100) / 100,
+    },
+    slopeType,
+  };
+}
+
+/**
+ * 根据起点、目标长度和角度直接解算并更新终点坐标 (极坐标几何定位)
+ */
+export function updateLineByLengthAndAngle(
+  p1: { x: number; y: number },
+  length: number,
+  angleDeg: number
+): { x1: number; y1: number; x2: number; y2: number } {
+  const safeLen = Math.max(1, length);
+  const rad = (angleDeg * Math.PI) / 180;
+  const x2 = p1.x + safeLen * Math.cos(rad);
+  const y2 = p1.y + safeLen * Math.sin(rad);
+  return {
+    x1: Math.round(p1.x * 100) / 100,
+    y1: Math.round(p1.y * 100) / 100,
+    x2: Math.round(x2 * 100) / 100,
+    y2: Math.round(y2 * 100) / 100,
+  };
+}
+
+/**
+ * 在 SVG 文本中对指定序号的 line 元素直接套用极坐标解算结果
+ */
+export function applyLinePolarCoords(
+  svgText: string,
+  targetIndex: number,
+  length: number,
+  angleDeg: number
+): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info || info.tagName !== 'line') return svgText;
+
+  const p1 = { x: parseFloat(info.x1 || '0'), y: parseFloat(info.y1 || '0') };
+  const coords = updateLineByLengthAndAngle(p1, length, angleDeg);
+
+  return updateSvgElement(svgText, targetIndex, {
+    x1: String(coords.x1),
+    y1: String(coords.y1),
+    x2: String(coords.x2),
+    y2: String(coords.y2),
+  });
+}
+
+/**
+ * 一键反转线条起止点方向 (P1 ⇄ P2 互换，并智能互换起点与终点 Marker)
+ */
+export function reverseLineEndpoints(svgText: string, targetIndex: number): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info || info.tagName !== 'line') return svgText;
+
+  const updates: Partial<SvgElementInfo> = {
+    x1: info.x2,
+    y1: info.y2,
+    x2: info.x1,
+    y2: info.y1,
+  };
+
+  if (info.markerStart || info.markerEnd) {
+    updates.markerStart = info.markerEnd || '';
+    updates.markerEnd = info.markerStart || '';
+  }
+
+  return updateSvgElement(svgText, targetIndex, updates);
+}
+
+/**
+ * 将直线升级为阶梯折线 (HV: 先水平再垂直 / VH: 先垂直再水平)
+ */
+export function convertLineToStepPath(
+  svgText: string,
+  targetIndex: number,
+  mode: 'hv' | 'vh' = 'hv'
+): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info || info.tagName !== 'line') return svgText;
+
+  const x1 = parseFloat(info.x1 || '0');
+  const y1 = parseFloat(info.y1 || '0');
+  const x2 = parseFloat(info.x2 || '0');
+  const y2 = parseFloat(info.y2 || '0');
+
+  const d = mode === 'hv'
+    ? `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}`
+    : `M ${x1} ${y1} L ${x1} ${y2} L ${x2} ${y2}`;
+
+  let newSvg = svgText;
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+      const target = elements[targetIndex];
+      if (target && target.tagName.toLowerCase() === 'line') {
+        const pathEl = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+        for (let i = 0; i < target.attributes.length; i++) {
+          const attr = target.attributes[i];
+          if (!['x1', 'y1', 'x2', 'y2'].includes(attr.name)) {
+            pathEl.setAttribute(attr.name, attr.value);
+          }
+        }
+        pathEl.setAttribute('d', d);
+        if (!pathEl.getAttribute('fill')) pathEl.setAttribute('fill', 'none');
+        target.parentElement?.replaceChild(pathEl, target);
+        cleanOmniAttributes(doc);
+        return prettifySvg(new XMLSerializer().serializeToString(doc));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  // Node.js fallback 替换
+  const lineRegex = /<line\b([^>]*)>/gi;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = lineRegex.exec(newSvg)) !== null) {
+    if (idx === targetIndex) {
+      let attrs = match[1]
+        .replace(/\s*(?:x1|y1|x2|y2)=["'][^"']*["']/gi, '')
+        .trim();
+      if (!/fill=/i.test(attrs)) attrs += ' fill="none"';
+      const replacement = `<path d="${d}" ${attrs}>`;
+      const before = newSvg.slice(0, match.index);
+      const after = newSvg.slice(match.index + match[0].length);
+      return prettifySvg(before + replacement + after);
+    }
+    idx++;
+  }
+
+  return svgText;
+}
+
+export type LinePresetType =
+  | 'solid'
+  | 'dashed'
+  | 'dotted'
+  | 'dash-dot'
+  | 'flow-arrow'
+  | 'bidirectional'
+  | 'dimension'
+  | 'flowing-glow';
+
+/**
+ * 一键为线条应用常用工业工程风格预设
+ */
+export function applyLinePreset(
+  svgText: string,
+  targetIndex: number,
+  preset: LinePresetType
+): string {
+  let textWithMarkers = svgText;
+  if (['flow-arrow', 'bidirectional', 'dimension'].includes(preset)) {
+    textWithMarkers = ensureSvgMarkers(svgText);
+  }
+
+  const updates: Partial<SvgElementInfo> = {};
+  switch (preset) {
+    case 'solid':
+      updates.strokeDasharray = '';
+      updates.strokeLinecap = 'round';
+      updates.strokeLinejoin = 'round';
+      updates.markerStart = '';
+      updates.markerEnd = '';
+      break;
+    case 'dashed':
+      updates.strokeDasharray = '6,4';
+      updates.strokeLinecap = 'butt';
+      break;
+    case 'dotted':
+      updates.strokeDasharray = '2,3';
+      updates.strokeLinecap = 'round';
+      break;
+    case 'dash-dot':
+      updates.strokeDasharray = '10,4,2,4';
+      updates.strokeLinecap = 'round';
+      break;
+    case 'flow-arrow':
+      updates.strokeDasharray = '';
+      updates.strokeLinecap = 'round';
+      updates.markerEnd = 'url(#omni-arrow-end)';
+      break;
+    case 'bidirectional':
+      updates.strokeDasharray = '';
+      updates.strokeLinecap = 'round';
+      updates.markerStart = 'url(#omni-arrow-start)';
+      updates.markerEnd = 'url(#omni-arrow-end)';
+      break;
+    case 'dimension':
+      updates.strokeDasharray = '';
+      updates.strokeLinecap = 'square';
+      updates.markerStart = 'url(#omni-dimension-start)';
+      updates.markerEnd = 'url(#omni-dimension-end)';
+      break;
+    case 'flowing-glow':
+      updates.strokeDasharray = '8,4';
+      updates.strokeLinecap = 'round';
+      break;
+  }
+
+  return updateSvgElement(textWithMarkers, targetIndex, updates);
 }

@@ -20,8 +20,21 @@ import {
   Compass,
   Move,
   CornerDownRight,
+  ArrowRight,
+  ArrowLeftRight,
+  Sparkles,
+  Sliders,
+  RotateCcw,
+  Minimize2,
+  Spline,
 } from 'lucide-react';
-import { SvgElementInfo, ElementBBox } from './svgUtils';
+import {
+  SvgElementInfo,
+  ElementBBox,
+  LinePresetType,
+  calculateLineMetrics,
+  updateLineByLengthAndAngle,
+} from './svgUtils';
 
 interface SvgInspectorPanelProps {
   element: SvgElementInfo;
@@ -32,6 +45,9 @@ interface SvgInspectorPanelProps {
   onLocateInCode: () => void;
   onAlign?: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
   onAlignLine?: (mode: 'horizontal' | 'vertical') => void;
+  onReverseLine?: () => void;
+  onConvertToStepLine?: (mode: 'hv' | 'vh') => void;
+  onApplyLinePreset?: (preset: LinePresetType) => void;
   snapEnabled?: boolean;
   onToggleSnap?: () => void;
   onClose: () => void;
@@ -58,6 +74,9 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
   onLocateInCode,
   onAlign,
   onAlignLine,
+  onReverseLine,
+  onConvertToStepLine,
+  onApplyLinePreset,
   snapEnabled = true,
   onToggleSnap,
   onClose,
@@ -68,6 +87,11 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
   const [fill, setFill] = useState(element.fill || 'currentColor');
   const [stroke, setStroke] = useState(element.stroke || 'none');
   const [strokeWidth, setStrokeWidth] = useState(element.strokeWidth || '1');
+  const [strokeDasharray, setStrokeDasharray] = useState(element.strokeDasharray || '');
+  const [strokeLinecap, setStrokeLinecap] = useState(element.strokeLinecap || 'round');
+  const [strokeLinejoin, setStrokeLinejoin] = useState(element.strokeLinejoin || 'round');
+  const [markerStart, setMarkerStart] = useState(element.markerStart || '');
+  const [markerEnd, setMarkerEnd] = useState(element.markerEnd || '');
   const [opacity, setOpacity] = useState(element.opacity || '1');
   const [textContent, setTextContent] = useState(element.textContent || '');
 
@@ -84,6 +108,11 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
     setFill(element.fill || 'currentColor');
     setStroke(element.stroke || 'none');
     setStrokeWidth(element.strokeWidth || '1');
+    setStrokeDasharray(element.strokeDasharray || '');
+    setStrokeLinecap(element.strokeLinecap || 'round');
+    setStrokeLinejoin(element.strokeLinejoin || 'round');
+    setMarkerStart(element.markerStart || '');
+    setMarkerEnd(element.markerEnd || '');
     setOpacity(element.opacity || '1');
     setTextContent(element.textContent || '');
     setXVal(element.x ?? element.cx ?? '');
@@ -118,6 +147,31 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
     onUpdate({ strokeWidth: val });
   };
 
+  const handleStrokeDasharrayChange = (val: string) => {
+    setStrokeDasharray(val);
+    onUpdate({ strokeDasharray: val });
+  };
+
+  const handleStrokeLinecapChange = (val: string) => {
+    setStrokeLinecap(val);
+    onUpdate({ strokeLinecap: val });
+  };
+
+  const handleStrokeLinejoinChange = (val: string) => {
+    setStrokeLinejoin(val);
+    onUpdate({ strokeLinejoin: val });
+  };
+
+  const handleMarkerStartChange = (val: string) => {
+    setMarkerStart(val);
+    onUpdate({ markerStart: val });
+  };
+
+  const handleMarkerEndChange = (val: string) => {
+    setMarkerEnd(val);
+    onUpdate({ markerEnd: val });
+  };
+
   const handleOpacityChange = (val: string) => {
     setOpacity(val);
     onUpdate({ opacity: val });
@@ -136,6 +190,23 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
   const isTextTag = element.tagName === 'text' || element.tagName === 'tspan';
   const isLineTag = element.tagName === 'line';
+
+  // 极坐标与几何特征实时解算
+  const lineMetrics = isLineTag
+    ? calculateLineMetrics(
+        { x: parseFloat(lineX1) || 0, y: parseFloat(lineY1) || 0 },
+        { x: parseFloat(lineX2) || 0, y: parseFloat(lineY2) || 0 }
+      )
+    : null;
+
+  // 根据长度和角度重算 P2 并同步
+  const handleUpdateLineAngleOrLength = (targetLen: number, targetAngle: number) => {
+    const p1 = { x: parseFloat(lineX1) || 0, y: parseFloat(lineY1) || 0 };
+    const updated = updateLineByLengthAndAngle(p1, targetLen, targetAngle);
+    setLineX2(String(updated.x2));
+    setLineY2(String(updated.y2));
+    onUpdate({ x2: String(updated.x2), y2: String(updated.y2) });
+  };
 
   return (
     <div
@@ -245,53 +316,163 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
           </div>
         )}
 
-        {/* 线条专属正交化与端点吸附控制 (Line Controls) */}
-        {isLineTag && (
-          <div className="space-y-2 bg-slate-800/60 p-2.5 rounded-lg border border-cyan-500/40">
+        {/* 线条专属几何特征、极坐标、正交化与折线转换 (Enhanced Line Controls) */}
+        {isLineTag && lineMetrics && (
+          <div className="space-y-2.5 bg-slate-800/70 p-2.5 rounded-lg border border-cyan-500/50 shadow-sm">
+            {/* 顶部指示与状态胶囊 */}
             <div className="flex items-center justify-between text-cyan-300 font-medium text-[11px]">
               <div className="flex items-center gap-1.5">
                 <Move className="w-3.5 h-3.5 text-cyan-400" />
-                <span>线条端点与自动校准</span>
+                <span>线条几何与方向工程</span>
               </div>
-              <span className="text-[10px] text-cyan-400/80 font-mono">智能吸附</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono">
+                {lineMetrics.slopeType === 'horizontal' && '水平 (0°)'}
+                {lineMetrics.slopeType === 'vertical' && '垂直 (90°)'}
+                {lineMetrics.slopeType === 'diagonal-45' && '45° 斜角'}
+                {lineMetrics.slopeType === 'diagonal-135' && '135° 斜角'}
+                {lineMetrics.slopeType === 'arbitrary' && `${lineMetrics.angleDeg}° 任意角度`}
+              </span>
             </div>
 
-            <div className="text-[10px] text-slate-400 leading-relaxed">
-              💡 可在画布中直接拖拽 <span className="text-blue-400 font-bold">P1</span> 与{' '}
-              <span className="text-cyan-400 font-bold">P2</span> 端点手柄，自动吸附到水平/垂直/45°角与图形边缘！
-            </div>
-
-            {/* 一键正交化操作 */}
-            {onAlignLine && (
-              <div className="flex items-center gap-1.5 pt-1">
-                <button
-                  onClick={() => onAlignLine('horizontal')}
-                  className="flex-1 py-1 px-2 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 text-[10px] font-medium transition flex items-center justify-center gap-1"
-                  title="自动将线条调整为绝对水平 (0°)"
-                >
-                  <span>📐 水平正交 (0°)</span>
-                </button>
-                <button
-                  onClick={() => onAlignLine('vertical')}
-                  className="flex-1 py-1 px-2 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 text-[10px] font-medium transition flex items-center justify-center gap-1"
-                  title="自动将线条调整为绝对垂直 (90°)"
-                >
-                  <span>📐 垂直正交 (90°)</span>
-                </button>
-              </div>
-            )}
-
-            {/* 端点数值精调 */}
-            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+            {/* 实时几何指标卡片 (长度与极角) */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-950/70 p-2 rounded border border-slate-700/60 text-[11px] font-mono">
               <div className="space-y-1">
-                <span className="text-slate-400 text-[10px]">起点 P1 (x1, y1)</span>
+                <div className="flex items-center justify-between text-slate-400 text-[10px]">
+                  <span>长度 (px)</span>
+                  <span className="text-cyan-400 font-bold">{lineMetrics.length}</span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={lineMetrics.length}
+                  onChange={e => {
+                    const newLen = parseFloat(e.target.value) || 1;
+                    handleUpdateLineAngleOrLength(newLen, lineMetrics.angleDeg);
+                  }}
+                  className="w-full p-1 bg-slate-900 border border-slate-700 rounded text-center text-slate-200 text-xs outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-slate-400 text-[10px]">
+                  <span>极角 (°)</span>
+                  <span className="text-cyan-400 font-bold">{lineMetrics.angleDeg}°</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="360"
+                  step="1"
+                  value={lineMetrics.angleDeg}
+                  onChange={e => {
+                    const newAngle = parseFloat(e.target.value) || 0;
+                    handleUpdateLineAngleOrLength(lineMetrics.length, newAngle);
+                  }}
+                  className="w-full p-1 bg-slate-900 border border-slate-700 rounded text-center text-slate-200 text-xs outline-none focus:border-cyan-400"
+                />
+              </div>
+            </div>
+
+            {/* 常用角度快捷点选 (0°, 45°, 90°, 135°, 180°, 270°) */}
+            <div className="space-y-1">
+              <span className="text-[10px] text-slate-400 font-medium">快速校准方向与角度</span>
+              <div className="grid grid-cols-6 gap-1">
+                {[
+                  { label: '0°', val: 0, title: '水平向右 (0°)' },
+                  { label: '45°', val: 45, title: '下斜 45°' },
+                  { label: '90°', val: 90, title: '垂直向下 (90°)' },
+                  { label: '135°', val: 135, title: '下钝角 135°' },
+                  { label: '180°', val: 180, title: '水平向左 (180°)' },
+                  { label: '270°', val: 270, title: '垂直向上 (270°)' },
+                ].map(item => (
+                  <button
+                    key={item.val}
+                    onClick={() => handleUpdateLineAngleOrLength(lineMetrics.length, item.val)}
+                    className={`py-1 rounded text-[10px] font-mono transition border ${
+                      Math.abs(lineMetrics.angleDeg - item.val) < 0.5
+                        ? 'bg-cyan-600/40 text-cyan-200 border-cyan-400'
+                        : 'bg-slate-900/90 text-slate-300 border-slate-700/80 hover:bg-slate-800'
+                    }`}
+                    title={item.title}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 一键正交化与高级拓扑转换 */}
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex items-center gap-1.5">
+                {onAlignLine && (
+                  <>
+                    <button
+                      onClick={() => onAlignLine('horizontal')}
+                      className="flex-1 py-1 px-1.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                      title="快速正交化为绝对水平直线 (0°)"
+                    >
+                      <span>📐 水平正交</span>
+                    </button>
+                    <button
+                      onClick={() => onAlignLine('vertical')}
+                      className="flex-1 py-1 px-1.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                      title="快速正交化为绝对垂直直线 (90°)"
+                    >
+                      <span>📐 垂直正交</span>
+                    </button>
+                  </>
+                )}
+
+                {onReverseLine && (
+                  <button
+                    onClick={onReverseLine}
+                    className="py-1 px-2 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[10px] font-medium transition flex items-center gap-1"
+                    title="互换起止点 (P1 ⇄ P2) 并反转箭头标记"
+                  >
+                    <ArrowLeftRight className="w-3 h-3 text-cyan-400" />
+                    <span>反转方向</span>
+                  </button>
+                )}
+              </div>
+
+              {/* 折线转换 */}
+              {onConvertToStepLine && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => onConvertToStepLine('hv')}
+                    className="flex-1 py-1 px-1.5 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                    title="转为水平-垂直正交阶梯折线 (HV Path)"
+                  >
+                    <CornerDownRight className="w-3 h-3 text-blue-400" />
+                    <span>转 HV 阶梯线</span>
+                  </button>
+                  <button
+                    onClick={() => onConvertToStepLine('vh')}
+                    className="flex-1 py-1 px-1.5 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                    title="转为垂直-水平正交阶梯折线 (VH Path)"
+                  >
+                    <CornerDownRight className="w-3 h-3 text-cyan-400 rotate-90" />
+                    <span>转 VH 阶梯线</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 端点坐标精确定位 */}
+            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px] border-t border-slate-700/60">
+              <div className="space-y-1">
+                <span className="text-blue-300 text-[10px] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
+                  <span>起点 P1 (x1, y1)</span>
+                </span>
                 <div className="flex gap-1">
                   <input
                     type="number"
                     value={lineX1}
                     onChange={e => setLineX1(e.target.value)}
                     onBlur={e => handleCoordCommit('x1', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500"
+                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
                     placeholder="x1"
                   />
                   <input
@@ -299,21 +480,24 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     value={lineY1}
                     onChange={e => setLineY1(e.target.value)}
                     onBlur={e => handleCoordCommit('y1', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500"
+                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
                     placeholder="y1"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <span className="text-slate-400 text-[10px]">终点 P2 (x2, y2)</span>
+                <span className="text-cyan-300 text-[10px] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" />
+                  <span>终点 P2 (x2, y2)</span>
+                </span>
                 <div className="flex gap-1">
                   <input
                     type="number"
                     value={lineX2}
                     onChange={e => setLineX2(e.target.value)}
                     onBlur={e => handleCoordCommit('x2', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500"
+                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
                     placeholder="x2"
                   />
                   <input
@@ -321,12 +505,80 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     value={lineY2}
                     onChange={e => setLineY2(e.target.value)}
                     onBlur={e => handleCoordCommit('y2', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500"
+                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
                     placeholder="y2"
                   />
                 </div>
               </div>
             </div>
+
+            {/* 工业线条工程预设快捷应用 */}
+            {onApplyLinePreset && (
+              <div className="space-y-1 pt-1 border-t border-slate-700/60">
+                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  <span>一键工程风格预设</span>
+                </span>
+                <div className="grid grid-cols-4 gap-1 text-[10px]">
+                  <button
+                    onClick={() => onApplyLinePreset('solid')}
+                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    title="标准实线"
+                  >
+                    实线
+                  </button>
+                  <button
+                    onClick={() => onApplyLinePreset('dashed')}
+                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    title="工程虚线 (6,4)"
+                  >
+                    虚线
+                  </button>
+                  <button
+                    onClick={() => onApplyLinePreset('dotted')}
+                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    title="紧凑点线 (2,3)"
+                  >
+                    点线
+                  </button>
+                  <button
+                    onClick={() => onApplyLinePreset('dash-dot')}
+                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    title="长短点划线 (10,4,2,4)"
+                  >
+                    点划线
+                  </button>
+                  <button
+                    onClick={() => onApplyLinePreset('flow-arrow')}
+                    className="py-1 px-1 rounded bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/50 text-cyan-200 transition text-center"
+                    title="流程箭头线"
+                  >
+                    流程箭头
+                  </button>
+                  <button
+                    onClick={() => onApplyLinePreset('bidirectional')}
+                    className="py-1 px-1 rounded bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/50 text-cyan-200 transition text-center"
+                    title="双向指示线"
+                  >
+                    双向指示
+                  </button>
+                  <button
+                    onClick={() => onApplyLinePreset('dimension')}
+                    className="py-1 px-1 rounded bg-amber-950/70 hover:bg-amber-900/80 border border-amber-500/50 text-amber-200 transition text-center"
+                    title="尺寸标注线"
+                  >
+                    尺寸标注
+                  </button>
+                  <button
+                    onClick={() => onApplyLinePreset('flowing-glow')}
+                    className="py-1 px-1 rounded bg-purple-950/70 hover:bg-purple-900/80 border border-purple-500/50 text-purple-200 transition text-center"
+                    title="动态流光虚线"
+                  >
+                    流光动效
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -459,6 +711,155 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               onChange={e => handleStrokeWidthChange(e.target.value)}
               className="w-14 px-1.5 py-0.5 bg-slate-950 border border-slate-700 rounded text-slate-200 text-xs font-mono text-center outline-none focus:border-blue-500"
             />
+          </div>
+        </div>
+
+        {/* 虚线与线型样式 (Stroke Dasharray) */}
+        <div className="space-y-1.5 pt-1.5 border-t border-slate-800">
+          <div className="flex items-center justify-between text-slate-300 text-[11px]">
+            <span className="font-medium">线型样式 (Dasharray)</span>
+            <span className="font-mono text-slate-400 text-[10px]">{strokeDasharray || '实线'}</span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1 text-[10px]">
+            <button
+              onClick={() => handleStrokeDasharrayChange('')}
+              className={`py-1 px-1.5 rounded border transition text-center ${
+                !strokeDasharray
+                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+            >
+              实线
+            </button>
+            <button
+              onClick={() => handleStrokeDasharrayChange('6,4')}
+              className={`py-1 px-1.5 rounded border transition text-center ${
+                strokeDasharray === '6,4'
+                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+            >
+              虚线 6,4
+            </button>
+            <button
+              onClick={() => handleStrokeDasharrayChange('2,3')}
+              className={`py-1 px-1.5 rounded border transition text-center ${
+                strokeDasharray === '2,3'
+                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+            >
+              点线 2,3
+            </button>
+            <button
+              onClick={() => handleStrokeDasharrayChange('10,4,2,4')}
+              className={`py-1 px-1.5 rounded border transition text-center ${
+                strokeDasharray === '10,4,2,4'
+                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+            >
+              点划线
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={strokeDasharray}
+            onChange={e => handleStrokeDasharrayChange(e.target.value)}
+            placeholder="自定义虚线序列 (如 8,4 或 12,3,3,3)"
+            className="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-xs font-mono outline-none focus:border-cyan-500"
+          />
+        </div>
+
+        {/* 线端帽与拐角连接 (Line Cap & Line Join) */}
+        <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-800">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-400 font-medium">线端帽 (Cap)</span>
+            <div className="flex rounded border border-slate-700 overflow-hidden text-[10px]">
+              {[
+                { id: 'butt', label: '平齐' },
+                { id: 'round', label: '圆头' },
+                { id: 'square', label: '方头' },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleStrokeLinecapChange(item.id)}
+                  className={`flex-1 py-1 text-center transition ${
+                    strokeLinecap === item.id
+                      ? 'bg-cyan-600/40 text-cyan-200 font-bold'
+                      : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-400 font-medium">拐角连接 (Join)</span>
+            <div className="flex rounded border border-slate-700 overflow-hidden text-[10px]">
+              {[
+                { id: 'miter', label: '尖角' },
+                { id: 'round', label: '圆角' },
+                { id: 'bevel', label: '斜切' },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleStrokeLinejoinChange(item.id)}
+                  className={`flex-1 py-1 text-center transition ${
+                    strokeLinejoin === item.id
+                      ? 'bg-cyan-600/40 text-cyan-200 font-bold'
+                      : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 端点箭头与标记 (Markers) */}
+        <div className="space-y-1.5 pt-1.5 border-t border-slate-800">
+          <div className="flex items-center justify-between text-slate-300 text-[11px]">
+            <span className="font-medium flex items-center gap-1">
+              <ArrowRight className="w-3.5 h-3.5 text-cyan-400" />
+              <span>端点箭头与标记 (Markers)</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="space-y-1">
+              <span className="text-slate-400">起点端点 (Start)</span>
+              <select
+                value={markerStart}
+                onChange={e => handleMarkerStartChange(e.target.value)}
+                className="w-full p-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-[11px] outline-none focus:border-cyan-500"
+              >
+                <option value="">无 (none)</option>
+                <option value="url(#omni-arrow-start)">反向箭头 (←)</option>
+                <option value="url(#omni-circle-start)">起点圆点 (●)</option>
+                <option value="url(#omni-dimension-start)">尺寸刻度 (│)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-slate-400">终点端点 (End)</span>
+              <select
+                value={markerEnd}
+                onChange={e => handleMarkerEndChange(e.target.value)}
+                className="w-full p-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-[11px] outline-none focus:border-cyan-500"
+              >
+                <option value="">无 (none)</option>
+                <option value="url(#omni-arrow-end)">标准箭头 (→)</option>
+                <option value="url(#omni-stealth-end)">掠翼箭头 (➤)</option>
+                <option value="url(#omni-circle-end)">终点圆点 (●)</option>
+                <option value="url(#omni-dimension-end)">尺寸刻度 (│)</option>
+              </select>
+            </div>
           </div>
         </div>
 

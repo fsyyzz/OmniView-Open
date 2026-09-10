@@ -262,13 +262,13 @@ export const DocCenter: React.FC<DocCenterProps> = ({ onOpenInWorkbench }) => {
 
         {/* 右侧大纲快速导航面板 */}
         {headings.length > 0 && (
-          <div className="hidden 2xl:flex w-64 border-l border-slate-800 bg-slate-900/30 p-4 flex-col shrink-0 overflow-y-auto">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-300 pb-3 border-b border-slate-800">
+          <div className="hidden 2xl:flex w-64 border-l border-slate-800 bg-slate-900/30 p-4 flex-col shrink-0 overflow-hidden">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-300 pb-3 border-b border-slate-800 shrink-0">
               <ListTree className="w-3.5 h-3.5 text-blue-400" />
               <span>本篇目录大纲</span>
             </div>
 
-            <div className="mt-3 space-y-1 text-xs">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden my-3 space-y-1 text-xs pr-1">
               {headings.map((h, i) => (
                 <div
                   key={i}
@@ -282,7 +282,7 @@ export const DocCenter: React.FC<DocCenterProps> = ({ onOpenInWorkbench }) => {
               ))}
             </div>
 
-            <div className="mt-auto pt-4 border-t border-slate-800/80 text-[10px] text-slate-500 leading-relaxed">
+            <div className="shrink-0 pt-4 border-t border-slate-800/80 text-[10px] text-slate-500 leading-relaxed">
               * 图表支持在视图内点击放大（全屏灯箱）与一键导出独立 SVG 矢量图。
             </div>
           </div>

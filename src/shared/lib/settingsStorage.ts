@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS: WorkbenchSettings = {
   fontSize: 15,
   outlineOpen: true,
   outlinePosition: 'right',
+  outlineWidth: 260,
+  scrollSync: true,
 
   // 3. 布局与侧边栏
   sidebarOpen: true,
@@ -62,8 +64,8 @@ export function loadStoredSettings(): WorkbenchSettings {
     if (!raw) return { ...DEFAULT_SETTINGS };
 
     const parsed = JSON.parse(raw);
-    const theme: ThemeId = ['dark', 'light', 'sepia', 'midnight', 'cyber', 'nord', 'dracula', 'forest', 'solarized'].includes(parsed.theme)
-      ? parsed.theme
+    const theme: ThemeId = ['system', 'vscode', 'dark', 'light', 'sepia', 'midnight', 'cyber', 'nord', 'dracula', 'forest', 'solarized'].includes(parsed.theme)
+      ? (parsed.theme === 'vscode' ? 'system' : parsed.theme)
       : DEFAULT_SETTINGS.theme;
 
     const density: DensityMode = ['compact', 'standard', 'comfortable'].includes(parsed.density)
@@ -198,9 +200,13 @@ export function saveStoredSettings(partial: Partial<WorkbenchSettings>): Workben
 
   try {
     const current = loadStoredSettings();
+    const normalizedPartial = { ...partial };
+    if (normalizedPartial.theme === 'vscode') {
+      normalizedPartial.theme = 'system';
+    }
     const updated: WorkbenchSettings = {
       ...current,
-      ...partial,
+      ...normalizedPartial,
     };
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
     return updated;

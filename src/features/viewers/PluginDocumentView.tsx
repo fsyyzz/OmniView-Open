@@ -15,6 +15,7 @@ import { DocStatusBar } from './components/DocStatusBar';
 import { ExternalLink } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
+import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
 
 interface PluginDocumentViewProps {
   file?: FileItem;
@@ -35,9 +36,28 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
   onContentChange,
   vscode,
 }) => {
-  const [initialSettings] = useState(() => loadStoredSettings());
+  const [initialSettings] = useState(() => {
+    const loaded = loadStoredSettings();
+    if (isVsCodeEnvironment() && !window.localStorage.getItem('omniview:workbench:settings:v2')) {
+      loaded.theme = 'system';
+    }
+    return loaded;
+  });
   const [currentTheme, setCurrentTheme] = useState<ThemeId>(theme || initialSettings.theme);
   const [currentDensity, setCurrentDensity] = useState<DensityMode>(density || initialSettings.density);
+
+  useEffect(() => {
+    if (theme) setCurrentTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const unsub = setupVsCodeThemeObserver(() => {
+      if (currentTheme === 'system') {
+        setCurrentTheme('system');
+      }
+    });
+    return unsub;
+  }, [currentTheme]);
 
   const handleThemeSelect = (newTheme: ThemeId) => {
     setCurrentTheme(newTheme);
@@ -132,10 +152,18 @@ const MarkdownPluginView: React.FC<{
   const [outlinePosition, setOutlinePosition] = useState<OutlinePosition>(
     () => initialSettings.outlinePosition || 'right'
   );
+  const [outlineWidth, setOutlineWidth] = useState<number>(
+    () => initialSettings.outlineWidth || 260
+  );
 
   const handleOutlinePositionChange = useCallback((pos: OutlinePosition) => {
     setOutlinePosition(pos);
     saveStoredSettings({ outlinePosition: pos });
+  }, []);
+
+  const handleOutlineWidthChange = useCallback((width: number) => {
+    setOutlineWidth(width);
+    saveStoredSettings({ outlineWidth: width });
   }, []);
   const [toolbarVisible, setToolbarVisible] = useState(false);
   const [zoom, setZoom] = useState(initialSettings.zoom ?? 1);
@@ -381,6 +409,22 @@ const MarkdownPluginView: React.FC<{
     saveStoredSettings({ zoom: nextZoom });
   };
 
+  const handleOpenSourceAtLine = useCallback(
+    (line: number) => {
+      if (vscode) {
+        vscode.postMessage({
+          type: 'reveal-source-line',
+          path: file.path,
+          line,
+          revealType: 'select',
+        });
+      } else {
+        setViewMode('split');
+      }
+    },
+    [vscode, file.path]
+  );
+
   const currentHeading = headings[activeHeadingIndex];
   const fileWordCount = Math.max(1, file.content.trim().split(/\s+/).length);
 
@@ -458,6 +502,8 @@ const MarkdownPluginView: React.FC<{
             position={outlinePosition}
             onPositionChange={handleOutlinePositionChange}
             onClose={handleToggleOutline}
+            width={outlineWidth}
+            onWidthChange={handleOutlineWidthChange}
           />
         )}
 
@@ -474,7 +520,7 @@ const MarkdownPluginView: React.FC<{
               locale={locale}
               onContentChange={handleContentUpdate}
               onRenderComplete={handleRenderComplete}
-              onOpenSourceAtLine={vscode ? (line: number) => vscode.postMessage({ type: 'open-source', path: file.path, line }) : undefined}
+              onOpenSourceAtLine={handleOpenSourceAtLine}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
             />
@@ -491,7 +537,7 @@ const MarkdownPluginView: React.FC<{
               locale={locale}
               onContentChange={handleContentUpdate}
               onRenderComplete={handleRenderComplete}
-              onOpenSourceAtLine={vscode ? (line: number) => vscode.postMessage({ type: 'open-source', path: file.path, line }) : undefined}
+              onOpenSourceAtLine={handleOpenSourceAtLine}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
             />
@@ -514,7 +560,7 @@ const MarkdownPluginView: React.FC<{
                 locale={locale}
                 onContentChange={handleContentUpdate}
                 onRenderComplete={handleRenderComplete}
-                onOpenSourceAtLine={vscode ? (line: number) => vscode.postMessage({ type: 'open-source', path: file.path, line }) : undefined}
+                onOpenSourceAtLine={handleOpenSourceAtLine}
                 enableOkf={enableOkfRendering}
                 onToggleOkf={handleToggleOkf}
               />

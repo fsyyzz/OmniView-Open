@@ -75,6 +75,10 @@ export const TRANSLATIONS = {
     outlinePosLeftTooltip: '大纲停靠在正文左侧',
     outlinePosRightTooltip: '大纲停靠在正文右侧',
     outlinePosFloatingTooltip: '大纲以浮动面板悬浮显示',
+    outlineResizeTooltip: '拖动调整大纲宽度，双击恢复默认宽度 (260px)',
+    scrollSync: '双向滚动同步',
+    scrollSyncTooltip: '开启/关闭 Markdown 源码与预览双向滚动同步 (双击段落反向定位光标)',
+    doubleClickToLocate: '双击段落反向定位到源码对应行',
 
     // Diagrams & code
     linesCode: '行代码',
@@ -306,6 +310,10 @@ export const TRANSLATIONS = {
     outlinePosLeftTooltip: 'Dock outline on the left',
     outlinePosRightTooltip: 'Dock outline on the right',
     outlinePosFloatingTooltip: 'Show outline as a floating panel',
+    outlineResizeTooltip: 'Drag to resize outline width, double-click to reset (260px)',
+    scrollSync: 'Scroll Sync',
+    scrollSyncTooltip: 'Toggle bidirectional scroll sync between editor and preview (double-click paragraph to reveal source)',
+    doubleClickToLocate: 'Double-click to reveal line in source editor',
 
     // Diagrams & code
     linesCode: 'lines of code',

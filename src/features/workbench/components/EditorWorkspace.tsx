@@ -37,7 +37,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   onToggleOkf,
 }) => (
   <div className="flex-1 flex flex-col overflow-hidden" data-theme={theme} data-density={density}>
-    <div className="h-9 bg-slate-950 border-b border-slate-800 flex items-center px-1 overflow-x-auto select-none shrink-0 no-scrollbar">
+    <div className="editor-tab-bar-container h-9 bg-slate-950 border-b border-slate-800 flex items-center px-1 overflow-x-auto select-none shrink-0 no-scrollbar">
       {openTabIds.map((tabId) => {
         const tabFile = files.find((file) => file.id === tabId);
         if (!tabFile) return null;
@@ -48,8 +48,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             onClick={() => onSelectTab(tabId)}
             className={`group h-full flex items-center gap-2 px-3 border-r border-slate-800 text-xs cursor-pointer transition max-w-[200px] ${
               isActive
-                ? 'bg-slate-900 text-slate-100 border-t-2 border-t-blue-500 font-medium'
-                : 'bg-slate-950/80 text-slate-400 hover:bg-slate-900/50 hover:text-slate-200'
+                ? 'editor-workspace-tab-active bg-slate-900 text-slate-100 border-t-2 border-t-blue-500 font-medium'
+                : 'editor-workspace-tab bg-slate-950/80 text-slate-400 hover:bg-slate-900/50 hover:text-slate-200'
             }`}
           >
             <span className="truncate">{tabFile.name}</span>

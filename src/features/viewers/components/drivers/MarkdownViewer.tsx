@@ -22,6 +22,7 @@ import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { parseOkfFrontmatter, OkfParseResult } from '../../lib/okfParser';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
+import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
 
 export interface MarkdownViewerProps {
   content: string;
@@ -76,7 +77,8 @@ const DOMPURIFY_SVG_CONFIG: Record<string, any> = {
     'offset', 'stop-color', 'stop-opacity', 'preserveAspectRatio', 'text-anchor', 'font-family',
     'font-size', 'font-weight', 'letter-spacing', 'dominant-baseline', 'href', 'xlink:href',
     'target', 'rel', 'crossorigin', 'points', 'dx', 'dy', 'stdDeviation', 'flood-color', 'flood-opacity',
-    'marker-end', 'marker-start', 'marker-mid'
+    'marker-end', 'marker-start', 'marker-mid',
+    'data-source-line', 'data-source-end-line'
   ],
 };
 
@@ -129,19 +131,22 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
     const parseAndRender = async () => {
       setIsRendering(true);
-      // 若存在 Frontmatter，正文始终剥离掉头部原始 YAML（由卡片或折叠条专职展示），保持排版纯净
+      // 若存在 Frontmatter，正文剥离头部原始 YAML，并准确计算 YAML 所占行数以严丝合缝对齐源文件行号
       const cleanBody = okfData.hasFrontmatter ? okfData.markdownBody : content;
+      const frontmatterLines = okfData.hasFrontmatter
+        ? (content.slice(0, content.length - cleanBody.length).match(/\n/g) || []).length
+        : 0;
       const tokens = marked.lexer(cleanBody);
       const parsedBlocks: RenderedBlock[] = [];
-      let htmlAccumulator: any[] = [];
       let counter = 0;
-      let runningLine = 1;
+      let runningLine = frontmatterLines + 1;
+      let currentTokenStartLine = runningLine;
 
       const customRenderer = new marked.Renderer();
       const origTable = customRenderer.table.bind(customRenderer);
       customRenderer.table = function (headerOrToken: any, body?: any) {
         const rendered = origTable(headerOrToken, body);
-        return `<div class="ov-table-wrapper">${rendered}</div>`;
+        return `<div class="ov-table-wrapper" data-source-line="${currentTokenStartLine}">${rendered}</div>`;
       };
       customRenderer.image = function (hrefOrToken: any, title?: any, text?: any) {
         const href = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.href : hrefOrToken;
@@ -150,6 +155,39 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         const safeAlt = (alt || '').replace(/"/g, '&quot;');
         const safeTitle = (imgTitle || '').replace(/"/g, '&quot;');
         return `<span class="ov-image-container"><img src="${href}" alt="${safeAlt}" title="${safeTitle}" loading="lazy" onerror="this.classList.add('ov-img-broken');this.insertAdjacentHTML('afterend','<span class=\\'ov-image-fallback\\'>⚠️ ${t('imageNotFound', locale)}: <code>${href}</code></span>');this.style.display='none';" /></span>`;
+      };
+
+      customRenderer.heading = function (headerOrToken: any, depth?: any) {
+        let text = '';
+        let level = depth || 1;
+        if (typeof headerOrToken === 'object' && headerOrToken !== null) {
+          level = headerOrToken.depth || 1;
+          text = this.parser.parseInline(headerOrToken.tokens || []);
+        } else {
+          text = headerOrToken;
+        }
+        const slug = text.toLowerCase().replace(/[^\w\u4e00-\u9fa5]+/g, '-').replace(/^-+|-+$/g, '') || `h-${Math.random().toString(36).slice(2, 7)}`;
+        return `<h${level} id="${slug}" data-source-line="${currentTokenStartLine}">${text}</h${level}>\n`;
+      };
+
+      customRenderer.paragraph = function (tokenOrText: any) {
+        let text = '';
+        if (typeof tokenOrText === 'object' && tokenOrText !== null) {
+          text = this.parser.parseInline(tokenOrText.tokens || []);
+        } else {
+          text = tokenOrText;
+        }
+        return `<p data-source-line="${currentTokenStartLine}">${text}</p>\n`;
+      };
+
+      customRenderer.blockquote = function (tokenOrQuote: any) {
+        let body = '';
+        if (typeof tokenOrQuote === 'object' && tokenOrQuote !== null) {
+          body = this.parser.parse(tokenOrQuote.tokens || []);
+        } else {
+          body = tokenOrQuote;
+        }
+        return `<blockquote data-source-line="${currentTokenStartLine}">${body}</blockquote>\n`;
       };
 
       // 编译 HTML 中的 KaTeX 行内与块级数学公式
@@ -174,18 +212,18 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         return res;
       };
 
-      const flushHtml = async () => {
-        if (htmlAccumulator.length === 0) return;
-        const rawMarkdown = htmlAccumulator.map(t => t.raw).join('');
-        const html = marked.parser(htmlAccumulator, { renderer: customRenderer });
+      const renderHtmlToken = (token: any, startLine: number, endLine: number) => {
+        currentTokenStartLine = startLine;
+        const html = marked.parser([token], { renderer: customRenderer });
         const htmlWithMath = renderKatexInHtml(html);
         parsedBlocks.push({
           id: `block-html-${counter++}`,
           type: 'html',
-          raw: rawMarkdown,
+          raw: token.raw,
+          startLine,
+          endLine,
           renderedHtml: DOMPurify.sanitize(htmlWithMath, DOMPURIFY_SVG_CONFIG) as string,
         });
-        htmlAccumulator = [];
       };
 
       for (const token of tokens) {
@@ -199,7 +237,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         if (token.type === 'code') {
           const primaryLang = (token.lang || '').split(/\s+/)[0].toLowerCase();
           if (['mermaid'].includes(primaryLang)) {
-            await flushHtml();
             parsedBlocks.push({
               id: `block-mermaid-${counter++}`,
               type: 'mermaid',
@@ -208,7 +245,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               endLine: tokenEndLine,
             });
           } else if (['plantuml', 'puml'].includes(primaryLang)) {
-            await flushHtml();
             parsedBlocks.push({
               id: `block-plantuml-${counter++}`,
               type: 'plantuml',
@@ -217,7 +253,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               endLine: tokenEndLine,
             });
           } else if (['dot', 'graphviz'].includes(primaryLang)) {
-            await flushHtml();
             parsedBlocks.push({
               id: `block-graphviz-${counter++}`,
               type: 'graphviz',
@@ -226,7 +261,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               endLine: tokenEndLine,
             });
           } else if (primaryLang === 'svg' || (primaryLang === 'xml' && token.text.includes('<svg'))) {
-            await flushHtml();
             const sanitized = DOMPurify.sanitize(token.text, DOMPURIFY_SVG_CONFIG) as string;
             parsedBlocks.push({
               id: `block-svg-${counter++}`,
@@ -239,7 +273,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               endLine: tokenEndLine,
             });
           } else if (['math', 'katex', 'latex'].includes(primaryLang)) {
-            await flushHtml();
             parsedBlocks.push({
               id: `block-math-${counter++}`,
               type: 'math',
@@ -248,7 +281,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               endLine: tokenEndLine,
             });
           } else {
-            await flushHtml();
             parsedBlocks.push({
               id: `block-code-${counter++}`,
               type: 'code',
@@ -266,7 +298,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           token.text.trim().length >= 4 &&
           !token.text.trim().slice(2, -2).includes('$$')
         ) {
-          await flushHtml();
           const mathFormula = token.text.trim().slice(2, -2).trim();
           parsedBlocks.push({
             id: `block-math-${counter++}`,
@@ -294,7 +325,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           );
 
           if (matchedFile && matchedFile.extension.toLowerCase() === 'svg') {
-            await flushHtml();
             const sanitized = DOMPurify.sanitize(matchedFile.content, DOMPURIFY_SVG_CONFIG) as string;
             parsedBlocks.push({
               id: `block-svg-${counter++}`,
@@ -308,10 +338,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               endLine: tokenEndLine,
             });
           } else {
-            htmlAccumulator.push(token);
+            renderHtmlToken(token, tokenStartLine, tokenEndLine);
           }
         } else if (token.type === 'table') {
-          await flushHtml();
           const tableToken = token as any;
           parsedBlocks.push({
             id: `block-table-${counter++}`,
@@ -326,11 +355,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             endLine: tokenEndLine,
           });
         } else {
-          htmlAccumulator.push(token);
+          renderHtmlToken(token, tokenStartLine, tokenEndLine);
         }
       }
-
-      await flushHtml();
 
       // Render Mermaid diagrams asynchronously
       for (const block of parsedBlocks) {
@@ -471,9 +498,153 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       }
     };
 
+    const handleContainerDblClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('button, input, textarea, select')) return;
+      const sourceElement = target.closest('[data-source-line]');
+      if (sourceElement) {
+        const lineAttr = sourceElement.getAttribute('data-source-line');
+        if (lineAttr) {
+          const lineNum = parseInt(lineAttr, 10);
+          if (!isNaN(lineNum) && lineNum > 0) {
+            onOpenSourceAtLine?.(lineNum);
+          }
+        }
+      }
+    };
+
     container.addEventListener('click', handleContainerClick);
-    return () => container.removeEventListener('click', handleContainerClick);
-  }, [onSelectFile]);
+    container.addEventListener('dblclick', handleContainerDblClick);
+    return () => {
+      container.removeEventListener('click', handleContainerClick);
+      container.removeEventListener('dblclick', handleContainerDblClick);
+    };
+  }, [onSelectFile, onOpenSourceAtLine]);
+
+  // Markdown 与 VS Code 编辑器双向光标/滚动同步监听器
+  useEffect(() => {
+    let activeHighlightTimer: any = null;
+
+    const handleEditorSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        type: 'editor-scroll-sync' | 'editor-cursor-sync';
+        path?: string;
+        topLine?: number;
+        bottomLine?: number;
+        totalLines?: number;
+        activeLine?: number;
+      }>;
+      const detail = customEvent.detail;
+      if (!detail) return;
+
+      // 验证是否已开启 scrollSync（默认开启）
+      const settings = loadStoredSettings();
+      if (settings.scrollSync === false) return;
+
+      const container = containerRef.current;
+      if (!container) return;
+
+      // 获取当前实际产生滚动的视口容器
+      const scrollViewport = container.closest<HTMLElement>('.markdown-plugin-scroll') ||
+                             container.parentElement ||
+                             document.documentElement;
+
+      const isScrollSync = detail.type === 'editor-scroll-sync';
+      const targetLine = isScrollSync
+        ? (detail.topLine ?? 1)
+        : (detail.activeLine ?? 1);
+
+      if (typeof targetLine !== 'number' || isNaN(targetLine) || targetLine < 1) return;
+
+      // 查询全部带有源码行属性的 AST 渲染节点
+      const elements = Array.from(
+        container.querySelectorAll<HTMLElement>('[data-source-line]')
+      ).map(el => {
+        const start = parseInt(el.getAttribute('data-source-line') || '1', 10);
+        const end = parseInt(el.getAttribute('data-source-end-line') || String(start), 10);
+        return {
+          element: el,
+          startLine: start,
+          endLine: Math.max(start, end),
+          offsetTop: el.offsetTop,
+          offsetHeight: el.offsetHeight,
+        };
+      }).sort((a, b) => a.offsetTop - b.offsetTop);
+
+      if (elements.length === 0) return;
+
+      let targetScrollTop = 0;
+      let matchedElement: HTMLElement | null = null;
+
+      if (targetLine <= 1) {
+        targetScrollTop = 0;
+        matchedElement = elements[0]?.element || null;
+      } else if (detail.totalLines && targetLine >= detail.totalLines) {
+        targetScrollTop = scrollViewport.scrollHeight - scrollViewport.clientHeight;
+        matchedElement = elements[elements.length - 1]?.element || null;
+      } else {
+        // 查找与 targetLine 匹配或相邻的 AST 节点
+        let foundExact = false;
+        for (let i = 0; i < elements.length; i++) {
+          const item = elements[i];
+          if (targetLine >= item.startLine && targetLine <= item.endLine) {
+            // 命中节点内部：根据行号在该节点所占比例微调滚动偏移量
+            const lineProgress = (targetLine - item.startLine) / Math.max(1, item.endLine - item.startLine);
+            targetScrollTop = item.offsetTop + lineProgress * item.offsetHeight;
+            matchedElement = item.element;
+            foundExact = true;
+            break;
+          }
+          if (targetLine < item.startLine) {
+            // 位于前一个节点与当前节点之间的空行/留白处
+            const prevItem = elements[i - 1];
+            if (prevItem) {
+              const prevBottom = prevItem.offsetTop + prevItem.offsetHeight;
+              const ratio = (targetLine - prevItem.endLine) / Math.max(1, item.startLine - prevItem.endLine);
+              targetScrollTop = prevBottom + ratio * Math.max(0, item.offsetTop - prevBottom);
+              matchedElement = prevItem.element;
+            } else {
+              targetScrollTop = Math.max(0, item.offsetTop * (targetLine / item.startLine));
+              matchedElement = item.element;
+            }
+            foundExact = true;
+            break;
+          }
+        }
+
+        if (!foundExact) {
+          const lastItem = elements[elements.length - 1];
+          targetScrollTop = lastItem.offsetTop;
+          matchedElement = lastItem.element;
+        }
+      }
+
+      // 执行平滑视口滚动，并保留上边缘安全间距
+      const safeScrollTop = Math.max(0, targetScrollTop - 24);
+      scrollViewport.scrollTo({
+        top: safeScrollTop,
+        behavior: isScrollSync ? 'auto' : 'smooth',
+      });
+
+      // 若是光标导航（editor-cursor-sync），为匹配的 AST 段落注入高亮辉光
+      if (detail.type === 'editor-cursor-sync' && matchedElement) {
+        container.querySelectorAll('.ov-cursor-synced-line').forEach(el => {
+          el.classList.remove('ov-cursor-synced-line');
+        });
+        matchedElement.classList.add('ov-cursor-synced-line');
+        if (activeHighlightTimer) clearTimeout(activeHighlightTimer);
+        activeHighlightTimer = setTimeout(() => {
+          matchedElement?.classList.remove('ov-cursor-synced-line');
+        }, 1800);
+      }
+    };
+
+    window.addEventListener('omniview-editor-sync', handleEditorSync);
+    return () => {
+      window.removeEventListener('omniview-editor-sync', handleEditorSync);
+      if (activeHighlightTimer) clearTimeout(activeHighlightTimer);
+    };
+  }, []);
 
   return (
     <div
@@ -531,6 +702,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             <RenderErrorBoundary key={block.id} blockName="Document Content" locale={locale}>
               <div
                 className="markdown-content"
+                data-source-line={block.startLine}
+                data-source-end-line={block.endLine}
+                title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
                 dangerouslySetInnerHTML={{ __html: block.renderedHtml }}
               />
             </RenderErrorBoundary>
@@ -541,40 +715,54 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         if (block.type === 'code') {
           const isCollapsed = Boolean(collapsedCodeBlocks[block.id]);
           return (
-            <RenderErrorBoundary key={block.id} blockName={`Code (${block.lang || 'text'})`} locale={locale}>
-              <CodeBlock
-                id={block.id}
-                lang={block.lang}
-                code={block.raw}
-                isCollapsed={isCollapsed}
-                isCopied={copiedId === block.id}
-                onToggleCollapse={() => setCollapsedCodeBlocks(prev => ({ ...prev, [block.id]: !isCollapsed }))}
-                onCopy={() => handleCopy(block.id, block.raw)}
-                locale={locale}
-              />
-            </RenderErrorBoundary>
+            <div
+              key={block.id}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName={`Code (${block.lang || 'text'})`} locale={locale}>
+                <CodeBlock
+                  id={block.id}
+                  lang={block.lang}
+                  code={block.raw}
+                  isCollapsed={isCollapsed}
+                  isCopied={copiedId === block.id}
+                  onToggleCollapse={() => setCollapsedCodeBlocks(prev => ({ ...prev, [block.id]: !isCollapsed }))}
+                  onCopy={() => handleCopy(block.id, block.raw)}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </div>
           );
         }
 
         // Enhanced Interactive Markdown Table Block
         if (block.type === 'table' && block.tableData) {
           return (
-            <RenderErrorBoundary key={block.id} blockName="Markdown Table" locale={locale}>
-              <TableBlock
-                id={block.id}
-                header={block.tableData.header}
-                rows={block.tableData.rows.map(row => ({
-                  cells: Array.isArray(row) ? row : [],
-                }))}
-                align={block.tableData.align}
-                rawMarkdown={block.raw}
-                startLine={block.startLine}
-                endLine={block.endLine}
-                isDarkTheme={isDarkTheme}
-                locale={locale}
-                onOpenSourceAtLine={onOpenSourceAtLine}
-              />
-            </RenderErrorBoundary>
+            <div
+              key={block.id}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="Markdown Table" locale={locale}>
+                <TableBlock
+                  id={block.id}
+                  header={block.tableData.header}
+                  rows={block.tableData.rows.map(row => ({
+                    cells: Array.isArray(row) ? row : [],
+                  }))}
+                  align={block.tableData.align}
+                  rawMarkdown={block.raw}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  isDarkTheme={isDarkTheme}
+                  locale={locale}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                />
+              </RenderErrorBoundary>
+            </div>
           );
         }
 
@@ -585,30 +773,37 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <RenderErrorBoundary key={block.id} blockName="Mermaid Diagram" locale={locale}>
-              <MermaidBlock
-                id={block.id}
-                code={block.raw}
-                startLine={block.startLine}
-                endLine={block.endLine}
-                svgContent={block.svgContent}
-                error={block.error}
-                isCopied={copiedId === block.id}
-                viewMode={currentMode}
-                zoom={zoom}
-                editedCode={currentCode}
-                onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
-                onZoomChange={delta => adjustZoom(block.id, delta)}
-                onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
-                onOpenLightbox={() => setLightboxItem({ title: t('mermaidTitle', locale), content: block.svgContent })}
-                onReRender={() => handleReRenderMermaid(block.id, currentCode)}
-                onDownloadSvg={() => handleDownloadSvg(block.svgContent!, 'mermaid-diagram')}
-                onCopy={() => handleCopy(block.id, currentCode)}
-                onOpenSourceAtLine={onOpenSourceAtLine}
-                locale={locale}
-              />
-            </RenderErrorBoundary>
+            <div
+              key={block.id}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="Mermaid Diagram" locale={locale}>
+                <MermaidBlock
+                  id={block.id}
+                  code={block.raw}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  svgContent={block.svgContent}
+                  error={block.error}
+                  isCopied={copiedId === block.id}
+                  viewMode={currentMode}
+                  zoom={zoom}
+                  editedCode={currentCode}
+                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
+                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onZoomChange={delta => adjustZoom(block.id, delta)}
+                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onOpenLightbox={() => setLightboxItem({ title: t('mermaidTitle', locale), content: block.svgContent })}
+                  onReRender={() => handleReRenderMermaid(block.id, currentCode)}
+                  onDownloadSvg={() => handleDownloadSvg(block.svgContent!, 'mermaid-diagram')}
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </div>
           );
         }
 
@@ -619,33 +814,40 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <RenderErrorBoundary key={block.id} blockName="KaTeX Math Formula" locale={locale}>
-              <MathBlock
-                id={block.id}
-                code={block.raw}
-                startLine={block.startLine}
-                endLine={block.endLine}
-                isCopied={copiedId === block.id}
-                viewMode={currentMode}
-                zoom={zoom}
-                editedCode={currentCode}
-                onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
-                onZoomChange={delta => adjustZoom(block.id, delta)}
-                onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
-                onOpenLightbox={() => {
-                  let html = '';
-                  try {
-                    html = katex.renderToString(currentCode.trim(), { displayMode: true, throwOnError: false, errorColor: '#f43f5e' });
-                  } catch {}
-                  setLightboxItem({ title: t('mathFormula', locale), content: html || `<pre>${currentCode}</pre>` });
-                }}
-                onReRender={() => setEditedCodes(prev => ({ ...prev, [block.id]: currentCode }))}
-                onCopy={() => handleCopy(block.id, currentCode)}
-                onOpenSourceAtLine={onOpenSourceAtLine}
-                locale={locale}
-              />
-            </RenderErrorBoundary>
+            <div
+              key={block.id}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="KaTeX Math Formula" locale={locale}>
+                <MathBlock
+                  id={block.id}
+                  code={block.raw}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  isCopied={copiedId === block.id}
+                  viewMode={currentMode}
+                  zoom={zoom}
+                  editedCode={currentCode}
+                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
+                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onZoomChange={delta => adjustZoom(block.id, delta)}
+                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onOpenLightbox={() => {
+                    let html = '';
+                    try {
+                      html = katex.renderToString(currentCode.trim(), { displayMode: true, throwOnError: false, errorColor: '#f43f5e' });
+                    } catch {}
+                    setLightboxItem({ title: t('mathFormula', locale), content: html || `<pre>${currentCode}</pre>` });
+                  }}
+                  onReRender={() => setEditedCodes(prev => ({ ...prev, [block.id]: currentCode }))}
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </div>
           );
         }
 
@@ -657,28 +859,35 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           const svgUrl = block.renderedHtml || getPlantUmlSvgUrl(currentCode);
 
           return (
-            <RenderErrorBoundary key={block.id} blockName="PlantUML Diagram" locale={locale}>
-              <PlantUmlBlock
-                id={block.id}
-                code={block.raw}
-                startLine={block.startLine}
-                endLine={block.endLine}
-                svgUrl={svgUrl}
-                isCopied={copiedId === block.id}
-                viewMode={currentMode}
-                zoom={zoom}
-                editedCode={currentCode}
-                onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
-                onZoomChange={delta => adjustZoom(block.id, delta)}
-                onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
-                onOpenLightbox={() => setLightboxItem({ title: t('plantUmlTitle', locale), url: svgUrl })}
-                onReRender={() => handleReRenderPlantUml(block.id, currentCode)}
-                onCopy={() => handleCopy(block.id, currentCode)}
-                onOpenSourceAtLine={onOpenSourceAtLine}
-                locale={locale}
-              />
-            </RenderErrorBoundary>
+            <div
+              key={block.id}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="PlantUML Diagram" locale={locale}>
+                <PlantUmlBlock
+                  id={block.id}
+                  code={block.raw}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  svgUrl={svgUrl}
+                  isCopied={copiedId === block.id}
+                  viewMode={currentMode}
+                  zoom={zoom}
+                  editedCode={currentCode}
+                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
+                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onZoomChange={delta => adjustZoom(block.id, delta)}
+                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onOpenLightbox={() => setLightboxItem({ title: t('plantUmlTitle', locale), url: svgUrl })}
+                  onReRender={() => handleReRenderPlantUml(block.id, currentCode)}
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </div>
           );
         }
 
@@ -690,31 +899,38 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <RenderErrorBoundary key={block.id} blockName="SVG Vector" locale={locale}>
-              <SvgBlock
-                id={block.id}
-                mode={block.mode}
-                title={block.title}
-                fileName={block.fileName}
-                rawCode={block.raw}
-                svgContent={block.svgContent}
-                isCopied={copiedId === block.id}
-                viewMode={viewMode}
-                bgMode={bgMode}
-                zoom={zoom}
-                editedCode={currentCode}
-                onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                onSetViewMode={mode => setSvgViewModes(prev => ({ ...prev, [block.id]: mode }))}
-                onSetBgMode={mode => setSvgBgModes(prev => ({ ...prev, [block.id]: mode }))}
-                onZoomChange={delta => adjustZoom(block.id, delta)}
-                onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
-                onOpenLightbox={() => setLightboxItem({ title: block.title || 'SVG', content: block.svgContent || block.raw })}
-                onReRender={() => handleReRenderSvg(block.id, currentCode)}
-                onDownloadSvg={() => handleDownloadSvg(currentCode, 'diagram')}
-                onCopy={() => handleCopy(block.id, currentCode)}
-                locale={locale}
-              />
-            </RenderErrorBoundary>
+            <div
+              key={block.id}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="SVG Vector" locale={locale}>
+                <SvgBlock
+                  id={block.id}
+                  mode={block.mode}
+                  title={block.title}
+                  fileName={block.fileName}
+                  rawCode={block.raw}
+                  svgContent={block.svgContent}
+                  isCopied={copiedId === block.id}
+                  viewMode={viewMode}
+                  bgMode={bgMode}
+                  zoom={zoom}
+                  editedCode={currentCode}
+                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
+                  onSetViewMode={mode => setSvgViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onSetBgMode={mode => setSvgBgModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onZoomChange={delta => adjustZoom(block.id, delta)}
+                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onOpenLightbox={() => setLightboxItem({ title: block.title || 'SVG', content: block.svgContent || block.raw })}
+                  onReRender={() => handleReRenderSvg(block.id, currentCode)}
+                  onDownloadSvg={() => handleDownloadSvg(currentCode, 'diagram')}
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </div>
           );
         }
 
@@ -725,40 +941,47 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <RenderErrorBoundary key={block.id} blockName="Graphviz Diagram" locale={locale}>
-              <GraphvizBlock
-                id={block.id}
-                code={currentCode}
-                startLine={block.startLine}
-                endLine={block.endLine}
-                isCopied={copiedId === block.id}
-                viewMode={currentMode}
-                zoom={zoom}
-                editedCode={currentCode}
-                onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
-                onZoomChange={delta => adjustZoom(block.id, delta)}
-                onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
-                onOpenLightbox={async () => {
-                  try {
-                    const svg = await graphvizRenderer.render(currentCode, 'dot');
-                    setLightboxItem({ title: t('graphvizTitle', locale), content: svg });
-                  } catch {
-                    setLightboxItem({ title: t('graphvizTitle', locale), content: `<pre>${currentCode}</pre>` });
-                  }
-                }}
-                onReRender={() => setEditedCodes(prev => ({ ...prev, [block.id]: currentCode }))}
-                onDownloadSvg={async () => {
-                  try {
-                    const svg = await graphvizRenderer.render(currentCode, 'dot');
-                    handleDownloadSvg(svg, 'graphviz');
-                  } catch {}
-                }}
-                onCopy={() => handleCopy(block.id, currentCode)}
-                onOpenSourceAtLine={onOpenSourceAtLine}
-                locale={locale}
-              />
-            </RenderErrorBoundary>
+            <div
+              key={block.id}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="Graphviz Diagram" locale={locale}>
+                <GraphvizBlock
+                  id={block.id}
+                  code={currentCode}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  isCopied={copiedId === block.id}
+                  viewMode={currentMode}
+                  zoom={zoom}
+                  editedCode={currentCode}
+                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
+                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onZoomChange={delta => adjustZoom(block.id, delta)}
+                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onOpenLightbox={async () => {
+                    try {
+                      const svg = await graphvizRenderer.render(currentCode, 'dot');
+                      setLightboxItem({ title: t('graphvizTitle', locale), content: svg });
+                    } catch {
+                      setLightboxItem({ title: t('graphvizTitle', locale), content: `<pre>${currentCode}</pre>` });
+                    }
+                  }}
+                  onReRender={() => setEditedCodes(prev => ({ ...prev, [block.id]: currentCode }))}
+                  onDownloadSvg={async () => {
+                    try {
+                      const svg = await graphvizRenderer.render(currentCode, 'dot');
+                      handleDownloadSvg(svg, 'graphviz');
+                    } catch {}
+                  }}
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </div>
           );
         }
 

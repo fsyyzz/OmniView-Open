@@ -20,6 +20,8 @@ import {
   FileText,
   Sliders,
   Globe,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 import {
   WorkbenchSettings,
@@ -42,6 +44,12 @@ import {
 import { resetStoredFiles } from '../../../shared/lib/fileStorage';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../../shared/lib/i18n';
 import { PLANTUML_SERVER_PRESETS, setPlantUmlServerBase } from '../../../shared/lib/plantuml';
+import {
+  isVsCodeEnvironment,
+  getVsCodeThemeInfo,
+  THIRD_PARTY_THEMES,
+  applySimulatedTheme,
+} from '../../../shared/lib/nativeTheme';
 
 interface WorkbenchSettingsModalProps {
   isOpen: boolean;
@@ -65,6 +73,8 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   const [storageStats, setStorageStats] = useState(() => getStorageStats());
   const [copied, setCopied] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [themeInfo, setThemeInfo] = useState(() => getVsCodeThemeInfo());
+  const [activeSimulatedTheme, setActiveSimulatedTheme] = useState<string>('one-dark-pro');
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -74,6 +84,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
     if (isOpen) {
       setStorageStats(getStorageStats());
       setStatusMessage(null);
+      setThemeInfo(getVsCodeThemeInfo());
     }
   }, [isOpen]);
 
@@ -266,6 +277,89 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* VS Code 原生主题动态注入卡片 */}
+              <div className="p-3 rounded-lg border border-blue-500/30 bg-blue-950/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-blue-400 font-medium text-xs">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>VS Code 原生主题动态注入 (Native Theme Injection)</span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium ${
+                    themeInfo.isVsCode
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                  }`}>
+                    {themeInfo.isVsCode ? '● VS Code 宿主直连' : '○ Webview 仿真模式'}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  {themeInfo.isVsCode
+                    ? '已深度绑定 VS Code 内置 CSS 变量（--vscode-editor-*、--vscode-sideBar-* 等），支持与 One Dark Pro、Dracula、Tokyo Night 等任意第三方主题 100% 像素级无缝融合。'
+                    : '已就绪原生 CSS 变量注入机制。在浏览器独立预览下，您可通过下方仿真器一键注入知名第三方主题的内置变量，验证像素级融合效果：'}
+                </p>
+
+                {/* 活跃变量指示器 */}
+                <div className="grid grid-cols-3 gap-2 bg-slate-900/80 p-2 rounded-md border border-slate-800 text-[10px]">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
+                      style={{ backgroundColor: themeInfo.editorBackground }}
+                    />
+                    <span className="text-slate-400 truncate">背景: {themeInfo.editorBackground}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
+                      style={{ backgroundColor: themeInfo.editorForeground }}
+                    />
+                    <span className="text-slate-400 truncate">前景色: {themeInfo.editorForeground}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
+                      style={{ backgroundColor: themeInfo.buttonBackground }}
+                    />
+                    <span className="text-slate-400 truncate">按钮: {themeInfo.buttonBackground}</span>
+                  </div>
+                </div>
+
+                {/* 第三方主题模拟注入切换器 */}
+                <div>
+                  <div className="text-[10px] text-slate-400 mb-1.5 font-medium flex items-center gap-1">
+                    <Info className="w-3 h-3 text-slate-500" />
+                    <span>第三方主题模拟注入 (选择后生效并切换为 system 主题):</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {THIRD_PARTY_THEMES.map((themePreset) => {
+                      const isActiveSim = activeSimulatedTheme === themePreset.id;
+                      return (
+                        <button
+                          key={themePreset.id}
+                          onClick={() => {
+                            applySimulatedTheme(themePreset.id);
+                            setActiveSimulatedTheme(themePreset.id);
+                            updateSetting('theme', 'system');
+                            setThemeInfo(getVsCodeThemeInfo());
+                          }}
+                          className={`px-2 py-1 rounded text-[11px] flex items-center gap-1.5 border transition ${
+                            isActiveSim
+                              ? 'bg-blue-600/30 text-white border-blue-500 font-medium shadow-xs'
+                              : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800'
+                          }`}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full border border-white/20"
+                            style={{ backgroundColor: themePreset.variables['--vscode-editor-background'] }}
+                          />
+                          <span>{themePreset.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -485,6 +579,19 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                     type="checkbox"
                     checked={localSettings.enableOkfRendering ?? true}
                     onChange={(e) => updateSetting('enableOkfRendering', e.target.checked)}
+                    className="w-4 h-4 rounded accent-blue-600"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer p-2 rounded-lg bg-slate-850 hover:bg-slate-800 transition">
+                  <div>
+                    <div className="font-medium text-slate-200">Markdown 源码与预览双向同步 (Scroll Sync)</div>
+                    <div className="text-[10px] text-slate-400">分屏模式下编辑器滚动实时同步预览位置；双击段落反向精确定位光标行</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={localSettings.scrollSync ?? true}
+                    onChange={(e) => updateSetting('scrollSync', e.target.checked)}
                     className="w-4 h-4 rounded accent-blue-600"
                   />
                 </label>

@@ -23,6 +23,13 @@ import {
   alignSvgElement,
   alignLineOrthogonal,
   parseSvgDimensions,
+  calculateLineMetrics,
+  updateLineByLengthAndAngle,
+  applyLinePolarCoords,
+  reverseLineEndpoints,
+  convertLineToStepPath,
+  applyLinePreset,
+  ensureSvgMarkers,
 } from '../src/features/viewers/components/drivers/svg/svgUtils.ts';
 
 console.log('🧪 开始 SVG 开发者工程工具与转换引擎单元测试...');
@@ -214,4 +221,47 @@ const alignedSvgCenter = alignSvgElement(lineSvg, 1, 'center', { x: 50, y: 50, w
 assert.ok(alignedSvgCenter.includes('x="85"'), '居中对齐时 x 应被精确计算为 85');
 console.log('✅ 快速对齐到画布视口测试通过');
 
-console.log('🎉 全部 14 组 SVG 开发者工程引擎、拖拽微调与智能吸附测试用例 100% 通过！\n');
+// --- 测试 15: 线条几何参数分析与极坐标调整 ---
+console.log('--- 测试 15: 线条几何参数分析与极坐标调整 ---');
+const metrics = calculateLineMetrics(0, 0, 100, 0);
+assert.strictEqual(Math.round(metrics.length), 100, '水平线长度应为 100');
+assert.strictEqual(Math.round(metrics.angleDeg), 0, '水平向右角度应为 0');
+
+const computedCoords = updateLineByLengthAndAngle({ x: 20, y: 20 }, 100, 90);
+assert.strictEqual(computedCoords.x2, 20, '90 度时 x2 应等于 x1 (20)');
+assert.strictEqual(computedCoords.y2, 120, '90 度时 y2 应等于 y1 + length (120)');
+
+const polarSvg = applyLinePolarCoords(lineSvg, 0, 100, 90);
+assert.ok(polarSvg.includes('x2="10"'), '90 度时 x2 应等于 x1 (10)');
+assert.ok(polarSvg.includes('y2="120"'), '90 度时 y2 应等于 y1 + length (120)');
+console.log('✅ 线条几何分析与极坐标调整测试通过');
+
+// --- 测试 16: 线条起点/终点坐标反转 ---
+console.log('--- 测试 16: 线条起点/终点坐标反转 ---');
+const testLineToReverse = `<svg><line x1="10" y1="20" x2="80" y2="90" stroke="#000" /></svg>`;
+const reversedSvg = reverseLineEndpoints(testLineToReverse, 0);
+assert.ok(reversedSvg.includes('x1="80"') && reversedSvg.includes('y1="90"'), '反转后起点应为原终点 (80, 90)');
+assert.ok(reversedSvg.includes('x2="10"') && reversedSvg.includes('y2="20"'), '反转后终点应为原起点 (10, 20)');
+console.log('✅ 线条起点/终点反转测试通过');
+
+// --- 测试 17: 直线转换为正交阶梯折线 (HV / VH) ---
+console.log('--- 测试 17: 直线转换为正交阶梯折线 ---');
+const hvStepSvg = convertLineToStepPath(testLineToReverse, 0, 'hv');
+assert.ok(hvStepSvg.includes('<path'), '直线转换后标签应升级为 path');
+assert.ok(hvStepSvg.includes('d="M 10 20 L 80 20 L 80 90"'), 'HV 模式路径应为先水平再垂直折线');
+
+const vhStepSvg = convertLineToStepPath(testLineToReverse, 0, 'vh');
+assert.ok(vhStepSvg.includes('d="M 10 20 L 10 90 L 80 90"'), 'VH 模式路径应为先垂直再水平折线');
+console.log('✅ 直线转正交阶梯折线测试通过');
+
+// --- 测试 18: 线条工业预设与箭头 Marker 注入 ---
+console.log('--- 测试 18: 线条工业预设与箭头 Marker 注入 ---');
+const arrowPresetSvg = applyLinePreset(testLineToReverse, 0, 'flow-arrow');
+assert.ok(arrowPresetSvg.includes('marker-end="url(#omni-arrow-end)"'), 'flow-arrow 预设应包含 marker-end');
+assert.ok(arrowPresetSvg.includes('<marker id="omni-arrow-end"'), 'SVG 中应自动注入箭头 marker 定义');
+
+const dashedPresetSvg = applyLinePreset(testLineToReverse, 0, 'dashed');
+assert.ok(dashedPresetSvg.includes('stroke-dasharray="6,4"'), 'dashed 预设应设置虚线序列');
+console.log('✅ 线条工业预设与 Marker 注入测试通过');
+
+console.log('🎉 全部 18 组 SVG 开发者工程引擎、线条微调、拓扑转换与智能吸附测试用例 100% 通过！\n');

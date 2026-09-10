@@ -41,7 +41,7 @@ export interface SoftwareDoc {
   tags: string[];
 }
 
-export type ThemeId = 'dark' | 'light' | 'sepia' | 'midnight' | 'cyber' | 'nord' | 'dracula' | 'forest' | 'solarized';
+export type ThemeId = 'system' | 'vscode' | 'dark' | 'light' | 'sepia' | 'midnight' | 'cyber' | 'nord' | 'dracula' | 'forest' | 'solarized';
 
 export interface RenderTheme {
   id: ThemeId;
@@ -54,6 +54,15 @@ export interface RenderTheme {
 }
 
 export const RENDER_THEMES: RenderTheme[] = [
+  {
+    id: 'system',
+    name: 'VS Code 原生',
+    label: 'Native Theme Injection',
+    description: '深度绑定 VS Code 内置变量，实时融合 One Dark Pro、Dracula、Tokyo Night 等任意第三方主题',
+    isDark: true,
+    colorDot: '#007acc',
+    badgeBg: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
+  },
   {
     id: 'dark',
     name: '暗夜深蓝',
@@ -184,6 +193,8 @@ export interface WorkbenchSettings {
   fontSize?: number;
   outlineOpen: boolean;
   outlinePosition?: OutlinePosition;
+  outlineWidth?: number;
+  scrollSync?: boolean;
 
   // 3. 布局与侧边栏
   sidebarOpen?: boolean;

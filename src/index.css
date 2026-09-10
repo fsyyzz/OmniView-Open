@@ -14,6 +14,99 @@ body,
    OmniView Theme Design Tokens. 
    ========================================================= */
 
+/* VS Code 原生主题动态注入 (Native Theme Injection) 
+   深度绑定 VS Code 内置 CSS 变量，使 OmniView 与用户安装的任意第三方主题 (如 One Dark Pro, Dracula, Tokyo Night 等) 实现 100% 像素级无缝融合 */
+:root[data-theme="system"],
+:root[data-theme="vscode"],
+[data-theme="system"],
+[data-theme="vscode"],
+body.vscode-dark[data-theme="system"],
+body.vscode-light[data-theme="system"],
+body.vscode-high-contrast[data-theme="system"],
+body.vscode-high-contrast-light[data-theme="system"] {
+  --ov-bg: var(--vscode-editor-background, #1e1e1e);
+  --ov-bg-elevated: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, #252526));
+  --ov-surface: var(--vscode-editor-background, #1e1e1e);
+  --ov-surface-header: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-sideBarSectionHeader-background, #2d2d2d));
+  --ov-border: var(--vscode-panel-border, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.25)));
+  --ov-border-subtle: var(--vscode-widget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.15)));
+  --ov-text: var(--vscode-editor-foreground, #cccccc);
+  --ov-text-secondary: var(--vscode-descriptionForeground, var(--vscode-editor-foreground, #9d9d9d));
+  --ov-text-muted: var(--vscode-disabledForeground, rgba(160, 160, 160, 0.7));
+  --ov-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  --ov-inline-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.18));
+  --ov-inline-code-color: var(--vscode-textPreformat-foreground, var(--vscode-textLink-foreground, #4fc1ff));
+  --ov-quote-bg: var(--vscode-textBlockQuote-background, rgba(128, 128, 128, 0.08));
+  --ov-quote-border: var(--vscode-textBlockQuote-border, var(--vscode-focusBorder, #007acc));
+  --ov-accent: var(--vscode-button-background, var(--vscode-focusBorder, #007acc));
+  --ov-table-th: var(--vscode-editorGroupHeader-tabsBackground, rgba(128, 128, 128, 0.1));
+  --ov-table-alt: rgba(128, 128, 128, 0.04);
+  --ov-shadow: 0 8px 24px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+}
+
+/* VS Code 原生工作台外壳层深度映射 (像素级无缝融合) */
+[data-theme="system"] #workbench-header,
+[data-theme="vscode"] #workbench-header {
+  background: var(--vscode-titleBar-activeBackground, var(--vscode-editorGroupHeader-tabsBackground, var(--ov-surface-header))) !important;
+  border-bottom-color: var(--vscode-panel-border, var(--ov-border)) !important;
+  color: var(--vscode-titleBar-activeForeground, var(--ov-text)) !important;
+}
+
+[data-theme="system"] #workbench-sidebar,
+[data-theme="vscode"] #workbench-sidebar {
+  background: var(--vscode-sideBar-background, var(--ov-bg-elevated)) !important;
+  border-right-color: var(--vscode-sideBar-border, var(--ov-border)) !important;
+  color: var(--vscode-sideBar-foreground, var(--ov-text)) !important;
+}
+
+[data-theme="system"] #workbench-sidebar > div:first-child,
+[data-theme="vscode"] #workbench-sidebar > div:first-child {
+  background: var(--vscode-activityBar-background, var(--vscode-sideBar-background, var(--ov-bg-elevated))) !important;
+  border-right-color: var(--vscode-activityBar-border, var(--ov-border)) !important;
+}
+
+[data-theme="system"] #workbench-statusbar,
+[data-theme="vscode"] #workbench-statusbar {
+  background: var(--vscode-statusBar-background, var(--ov-surface-header)) !important;
+  color: var(--vscode-statusBar-foreground, var(--ov-text-muted)) !important;
+  border-top-color: var(--vscode-statusBar-border, var(--ov-border)) !important;
+}
+
+[data-theme="system"] .editor-tab-bar-container,
+[data-theme="vscode"] .editor-tab-bar-container {
+  background: var(--vscode-editorGroupHeader-tabsBackground, var(--ov-bg-elevated)) !important;
+  border-bottom-color: var(--vscode-tab-border, var(--ov-border)) !important;
+}
+
+[data-theme="system"] .editor-workspace-tab-active,
+[data-theme="vscode"] .editor-workspace-tab-active {
+  background: var(--vscode-tab-activeBackground, var(--ov-bg)) !important;
+  color: var(--vscode-tab-activeForeground, var(--ov-text)) !important;
+  border-top-color: var(--vscode-tab-activeBorderTop, var(--vscode-tab-activeBorder, var(--ov-accent))) !important;
+}
+
+[data-theme="system"] .editor-workspace-tab,
+[data-theme="vscode"] .editor-workspace-tab {
+  background: var(--vscode-tab-inactiveBackground, var(--ov-bg-elevated)) !important;
+  color: var(--vscode-tab-inactiveForeground, var(--ov-text-muted)) !important;
+}
+
+[data-theme="system"] ::-webkit-scrollbar-thumb,
+[data-theme="vscode"] ::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4)) !important;
+}
+
+[data-theme="system"] ::-webkit-scrollbar-thumb:hover,
+[data-theme="vscode"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7)) !important;
+}
+
+[data-theme="system"] ::selection,
+[data-theme="vscode"] ::selection {
+  background: var(--vscode-editor-selectionBackground, rgba(38, 79, 120, 0.75));
+  color: var(--vscode-editor-selectionForeground, inherit);
+}
+
 :root,
 [data-theme="dark"] {
   --ov-bg: #0b1120;
@@ -297,11 +390,22 @@ body,
 }
 
 .markdown-outline {
-  flex: 0 0 240px;
-  overflow-y: auto;
-  padding: 12px 10px 24px;
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden !important;
+  box-sizing: border-box;
+  padding: 12px 10px 16px;
   background: var(--ov-bg-elevated);
+  position: relative;
   transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.markdown-outline.is-resizing {
+  transition: none !important;
+  user-select: none !important;
 }
 
 .markdown-outline[data-position="left"] {
@@ -329,6 +433,38 @@ body,
   -webkit-backdrop-filter: blur(20px);
   background: var(--ov-surface-header);
   border: 1px solid var(--ov-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden !important;
+  box-sizing: border-box;
+}
+
+/* 侧边大纲列表唯一滚动容器规范 (彻底杜绝外层与内层双滚动条) */
+.markdown-outline-nav {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+.markdown-outline-nav::-webkit-scrollbar {
+  width: 5px;
+}
+
+.markdown-outline-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-outline-nav::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(148, 163, 184, 0.25));
+  border-radius: 3px;
+}
+
+.markdown-outline-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(148, 163, 184, 0.5));
 }
 
 .markdown-outline-heading {
@@ -1620,6 +1756,26 @@ mark.ov-search-match.is-active-match {
   background-color: rgba(249, 115, 22, 0.75);
   box-shadow: 0 0 0 2px #ea580c;
   border-radius: 2px;
+}
+
+/* =========================================================
+   Markdown & VS Code Bidirectional Sync Styles
+   ========================================================= */
+.ov-cursor-synced-line {
+  position: relative;
+  outline: 2px solid rgba(59, 130, 246, 0.45) !important;
+  outline-offset: 4px;
+  border-radius: 6px;
+  background-color: rgba(59, 130, 246, 0.08) !important;
+  transition: outline 0.25s ease, background-color 0.35s ease;
+}
+
+[data-source-line] {
+  transition: background-color 0.2s ease, outline-color 0.2s ease;
+}
+
+.markdown-document [data-source-line]:hover {
+  cursor: text;
 }
 
 
