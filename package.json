@@ -1,0 +1,187 @@
+{
+  "name": "omniview",
+  "private": true,
+  "version": "0.9.14",
+  "displayName": "OmniView",
+  "description": "OmniView 多格式文件渲染与预览插件",
+  "publisher": "zhouzan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsyyzz/OmniView-Open"
+  },
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=24.0.0"
+  },
+  "main": "./dist/extension.cjs",
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCustomEditor:omniview.editor",
+    "onCommand:omniview.openSidePreview"
+  ],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "omniview.editor",
+        "displayName": "OmniView 文件渲染器",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          },
+          {
+            "filenamePattern": "*.okf"
+          },
+          {
+            "filenamePattern": "*.puml"
+          },
+          {
+            "filenamePattern": "*.plantuml"
+          },
+          {
+            "filenamePattern": "*.iuml"
+          },
+          {
+            "filenamePattern": "*.svg"
+          },
+          {
+            "filenamePattern": "*.pdf"
+          },
+          {
+            "filenamePattern": "*.csv"
+          },
+          {
+            "filenamePattern": "*.tsv"
+          },
+          {
+            "filenamePattern": "*.json"
+          },
+          {
+            "filenamePattern": "*.yaml"
+          },
+          {
+            "filenamePattern": "*.yml"
+          },
+          {
+            "filenamePattern": "*.xml"
+          },
+          {
+            "filenamePattern": "*.ts"
+          },
+          {
+            "filenamePattern": "*.tsx"
+          },
+          {
+            "filenamePattern": "*.js"
+          },
+          {
+            "filenamePattern": "*.jsx"
+          },
+          {
+            "filenamePattern": "*.txt"
+          },
+          {
+            "filenamePattern": "*.markmap"
+          },
+          {
+            "filenamePattern": "*.mm"
+          },
+          {
+            "filenamePattern": "*.mindmap"
+          },
+          {
+            "filenamePattern": "*.km"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "omniview.openSidePreview",
+        "title": "OmniView: 在侧边打开预览",
+        "icon": "$(layout-sidebar-right)"
+      },
+      {
+        "command": "omniview.openSource",
+        "title": "OmniView: 打开源文件编辑",
+        "icon": "$(code)"
+      },
+      {
+        "command": "omniview.showLogs",
+        "title": "OmniView: 打开日志"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "omniview.openSidePreview",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|svg|pdf|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km)$/i && activeCustomEditorId != 'omniview.editor'",
+          "group": "navigation"
+        },
+        {
+          "command": "omniview.openSource",
+          "when": "activeCustomEditorId == 'omniview.editor'",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "build": "vite build",
+    "build:webview": "vite build",
+    "build:extension": "esbuild src/extension/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node",
+    "build:plugin": "npm run build:webview && npm run build:extension",
+    "package:vsix": "npm run build:plugin && vsce package --no-dependencies",
+    "preview": "vite preview",
+    "clean": "rm -rf dist server.js",
+    "lint": "tsc --noEmit",
+    "check:structure": "node scripts/analyze-structure.mjs",
+    "test": "(esbuild scripts/test-diagram-diagnostics.mjs --bundle --platform=node | node) && (esbuild scripts/test-mindmap-driver.mjs --bundle --platform=node | node) && (esbuild scripts/test-settings-storage.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-security-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-driver-routing.mjs --bundle --platform=node | node) && (esbuild scripts/test-svg-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-table-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-structured-data.mjs --bundle --platform=node | node) && (esbuild scripts/test-okf-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-undo-redo.mjs --bundle --platform=node | node)",
+    "verify": "npm run check:structure && npm run lint && npm run test && npm run build:plugin",
+    "vscode:prepublish": "npm run build:plugin"
+  },
+  "dependencies": {
+    "@hpcc-js/wasm-graphviz": "^1.29.0",
+    "@types/js-yaml": "^4.0.9",
+    "dompurify": "^3.4.14",
+    "js-yaml": "^5.4.1",
+    "jszip": "^3.10.1",
+    "katex": "^0.16.22",
+    "lucide-react": "^0.546.0",
+    "marked": "^18.0.11",
+    "markmap-lib": "^0.18.12",
+    "markmap-view": "^0.18.12",
+    "mermaid": "^11.17.2",
+    "pdfjs-dist": "^4.10.38",
+    "plantuml-encoder": "^1.4.0",
+    "prismjs": "^1.30.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/dompurify": "^3.2.0",
+    "@types/jszip": "^3.4.1",
+    "@types/katex": "^0.16.7",
+    "@types/node": "^22.14.0",
+    "@types/prismjs": "^1.26.6",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/vscode": "^1.85.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.1.14",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3"
+  }
+}

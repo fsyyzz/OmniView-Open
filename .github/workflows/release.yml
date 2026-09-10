@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '版本号 (例 0.9.10)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build VSIX
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node24-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node24-
+
+      - name: Resolve release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
+
+      - name: Sync package.json version
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
+
+      - name: Build plugin
+        run: npm run package:vsix
+
+      - name: Verify VSIX exists
+        run: |
+          ls -la omniview-*.vsix
+          test -f "omniview-${{ steps.version.outputs.version }}.vsix"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omniview-${{ github.sha }}
+          path: omniview-${{ steps.version.outputs.version }}.vsix
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "OmniView v${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: omniview-${{ steps.version.outputs.version }}.vsix
+
+  publish-marketplace:
+    name: Publish to VS Code Marketplace
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: omniview-${{ github.sha }}
+          path: ./dist
+        continue-on-error: true
+
+      - name: Publish via vsce
+        run: npx vsce publish --packagePath ./dist/omniview-${{ steps.version.outputs.version }}.vsix --no-dependencies
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        continue-on-error: true

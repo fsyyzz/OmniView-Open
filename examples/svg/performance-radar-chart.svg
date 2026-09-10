@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 560" width="100%" height="100%">
+  <defs>
+    <radialGradient id="radarBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </radialGradient>
+    <linearGradient id="polyGradA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.2" />
+    </linearGradient>
+    <linearGradient id="polyGradB" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#be185d" stop-opacity="0.15" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="700" height="560" fill="url(#radarBg)" rx="12" />
+
+  <!-- Header -->
+  <g transform="translate(40, 45)">
+    <text x="0" y="0" fill="#f8fafc" font-family="sans-serif" font-size="18" font-weight="700">OmniView 引擎性能多维雷达评估</text>
+    <text x="0" y="22" fill="#94a3b8" font-family="sans-serif" font-size="12">Engine Benchmarks: 渲染帧率、冷启动时延、内存消耗、GC开销、包体积与兼容性</text>
+  </g>
+
+  <!-- Radar Center at (350, 310), Radius = 170 -->
+  <g transform="translate(350, 310)">
+    <!-- Concentric Hexagons (5 levels: 20%, 40%, 60%, 80%, 100%) -->
+    <polygon points="0,-34 29.4,-17 29.4,17 0,34 -29.4,17 -29.4,-17" fill="none" stroke="#334155" stroke-width="0.8" stroke-dasharray="3 3" />
+    <polygon points="0,-68 58.8,-34 58.8,34 0,68 -58.8,34 -58.8,-34" fill="none" stroke="#334155" stroke-width="0.8" stroke-dasharray="3 3" />
+    <polygon points="0,-102 88.2,-51 88.2,51 0,102 -88.2,51 -88.2,-51" fill="none" stroke="#334155" stroke-width="1" />
+    <polygon points="0,-136 117.6,-68 117.6,68 0,136 -117.6,68 -117.6,-68" fill="none" stroke="#334155" stroke-width="1" />
+    <polygon points="0,-170 147.2,-85 147.2,85 0,170 -147.2,85 -147.2,-85" fill="#0f172a" fill-opacity="0.5" stroke="#475569" stroke-width="1.5" />
+
+    <!-- Axes radiating from center -->
+    <line x1="0" y1="0" x2="0" y2="-170" stroke="#475569" stroke-width="1" />
+    <line x1="0" y1="0" x2="147.2" y2="-85" stroke="#475569" stroke-width="1" />
+    <line x1="0" y1="0" x2="147.2" y2="85" stroke="#475569" stroke-width="1" />
+    <line x1="0" y1="0" x2="0" y2="170" stroke="#475569" stroke-width="1" />
+    <line x1="0" y1="0" x2="-147.2" y2="85" stroke="#475569" stroke-width="1" />
+    <line x1="0" y1="0" x2="-147.2" y2="-85" stroke="#475569" stroke-width="1" />
+
+    <!-- Axis Labels -->
+    <text x="0" y="-182" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">60 FPS 稳帧率 (98%)</text>
+    <text x="160" y="-90" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="start">冷启动时延 (&lt;120ms)</text>
+    <text x="160" y="90" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="start">低显存占用 (42MB)</text>
+    <text x="0" y="195" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">GC 防抖与零死锁 (99%)</text>
+    <text x="-160" y="90" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="end">包体积轻量 (1.1MB)</text>
+    <text x="-160" y="-90" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="end">多平台兼容性 (100%)</text>
+
+    <!-- Polygon A: OmniView 2.0 (High Performance) -->
+    <!-- Points: [0, -165], [138, -80], [132, 76], [0, 160], [-135, 78], [-140, -81] -->
+    <polygon points="0,-165 138,-80 132,76 0,160 -135,78 -140,-81" fill="url(#polyGradA)" stroke="#38bdf8" stroke-width="2.5" />
+    <circle cx="0" cy="-165" r="4" fill="#38bdf8" />
+    <circle cx="138" cy="-80" r="4" fill="#38bdf8" />
+    <circle cx="132" cy="76" r="4" fill="#38bdf8" />
+    <circle cx="0" cy="160" r="4" fill="#38bdf8" />
+    <circle cx="-135" cy="78" r="4" fill="#38bdf8" />
+    <circle cx="-140" cy="-81" r="4" fill="#38bdf8" />
+
+    <!-- Polygon B: Baseline Legacy Viewer -->
+    <polygon points="0,-100 80,-46 70,40 0,90 -85,49 -95,-55" fill="url(#polyGradB)" stroke="#ec4899" stroke-width="1.8" stroke-dasharray="4 3" />
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(480, 50)">
+    <rect width="180" height="60" rx="6" fill="#1e293b" fill-opacity="0.8" stroke="#334155" />
+    <line x1="15" y1="20" x2="40" y2="20" stroke="#38bdf8" stroke-width="3" />
+    <circle cx="27" cy="20" r="4" fill="#38bdf8" />
+    <text x="50" y="24" fill="#f8fafc" font-family="sans-serif" font-size="11" font-weight="600">OmniView 当前版本</text>
+
+    <line x1="15" y1="42" x2="40" y2="42" stroke="#ec4899" stroke-width="2" stroke-dasharray="3 2" />
+    <text x="50" y="46" fill="#cbd5e1" font-family="sans-serif" font-size="11">传统 Webview 渲染</text>
+  </g>
+
+  <text x="40" y="540" fill="#475569" font-family="sans-serif" font-size="11">SVG Vector Inspector Test Asset</text>
+</svg>

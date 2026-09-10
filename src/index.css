@@ -1,0 +1,1626 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* =========================================================
+   OmniView Theme Design Tokens. 
+   ========================================================= */
+
+:root,
+[data-theme="dark"] {
+  --ov-bg: #0b1120;
+  --ov-bg-elevated: #0f172a;
+  --ov-surface: #111827;
+  --ov-surface-header: #172033;
+  --ov-border: #263244;
+  --ov-border-subtle: #1e293b;
+  --ov-text: #f1f5f9;
+  --ov-text-secondary: #cbd5e1;
+  --ov-text-muted: #94a3b8;
+  --ov-code-bg: #0f172a;
+  --ov-inline-code-bg: #1e293b;
+  --ov-inline-code-color: #bae6fd;
+  --ov-quote-bg: rgba(51, 65, 85, 0.25);
+  --ov-quote-border: #3b82f6;
+  --ov-accent: #3b82f6;
+  --ov-table-th: #1e293b;
+  --ov-table-alt: rgba(30, 41, 59, 0.28);
+  --ov-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+[data-theme="light"] {
+  --ov-bg: #f8fafc;
+  --ov-bg-elevated: #ffffff;
+  --ov-surface: #ffffff;
+  --ov-surface-header: #f1f5f9;
+  --ov-border: #e2e8f0;
+  --ov-border-subtle: #cbd5e1;
+  --ov-text: #0f172a;
+  --ov-text-secondary: #334155;
+  --ov-text-muted: #64748b;
+  --ov-code-bg: #f8fafc;
+  --ov-inline-code-bg: #e2e8f0;
+  --ov-inline-code-color: #0369a1;
+  --ov-quote-bg: rgba(226, 232, 240, 0.45);
+  --ov-quote-border: #2563eb;
+  --ov-accent: #2563eb;
+  --ov-table-th: #f1f5f9;
+  --ov-table-alt: rgba(241, 245, 249, 0.65);
+  --ov-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="sepia"] {
+  --ov-bg: #fbf3e4;
+  --ov-bg-elevated: #f4ecd8;
+  --ov-surface: #fffbf0;
+  --ov-surface-header: #ede4ce;
+  --ov-border: #ddceb4;
+  --ov-border-subtle: #cbbba1;
+  --ov-text: #38291a;
+  --ov-text-secondary: #564330;
+  --ov-text-muted: #7c6853;
+  --ov-code-bg: #f4ecda;
+  --ov-inline-code-bg: #ebdcc3;
+  --ov-inline-code-color: #92400e;
+  --ov-quote-bg: rgba(221, 206, 180, 0.35);
+  --ov-quote-border: #b45309;
+  --ov-accent: #b45309;
+  --ov-table-th: #ede3cc;
+  --ov-table-alt: rgba(237, 227, 204, 0.5);
+  --ov-shadow: 0 6px 20px rgba(78, 56, 30, 0.08);
+}
+
+[data-theme="midnight"] {
+  --ov-bg: #000000;
+  --ov-bg-elevated: #080808;
+  --ov-surface: #0a0a0a;
+  --ov-surface-header: #121212;
+  --ov-border: #222222;
+  --ov-border-subtle: #181818;
+  --ov-text: #f9fafb;
+  --ov-text-secondary: #d1d5db;
+  --ov-text-muted: #9ca3af;
+  --ov-code-bg: #050505;
+  --ov-inline-code-bg: #171717;
+  --ov-inline-code-color: #6ee7b7;
+  --ov-quote-bg: rgba(16, 185, 129, 0.08);
+  --ov-quote-border: #10b981;
+  --ov-accent: #10b981;
+  --ov-table-th: #141414;
+  --ov-table-alt: rgba(20, 20, 20, 0.6);
+  --ov-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="cyber"] {
+  --ov-bg: #0f0a1c;
+  --ov-bg-elevated: #150e28;
+  --ov-surface: #1a1233;
+  --ov-surface-header: #241945;
+  --ov-border: #3b2066;
+  --ov-border-subtle: #2b164c;
+  --ov-text: #f5f3ff;
+  --ov-text-secondary: #ddd6fe;
+  --ov-text-muted: #c084fc;
+  --ov-code-bg: #120b24;
+  --ov-inline-code-bg: #2e1a54;
+  --ov-inline-code-color: #f472b6;
+  --ov-quote-bg: rgba(192, 132, 252, 0.12);
+  --ov-quote-border: #c084fc;
+  --ov-accent: #ec4899;
+  --ov-table-th: #261647;
+  --ov-table-alt: rgba(38, 22, 71, 0.5);
+  --ov-shadow: 0 8px 30px rgba(168, 85, 247, 0.18);
+}
+
+[data-theme="nord"] {
+  --ov-bg: #242933;
+  --ov-bg-elevated: #2e3440;
+  --ov-surface: #3b4252;
+  --ov-surface-header: #434c5e;
+  --ov-border: #4c566a;
+  --ov-border-subtle: #3b4252;
+  --ov-text: #eceff4;
+  --ov-text-secondary: #e5e9f0;
+  --ov-text-muted: #88c0d0;
+  --ov-code-bg: #2e3440;
+  --ov-inline-code-bg: #3b4252;
+  --ov-inline-code-color: #88c0d0;
+  --ov-quote-bg: rgba(136, 192, 208, 0.12);
+  --ov-quote-border: #88c0d0;
+  --ov-accent: #88c0d0;
+  --ov-table-th: #434c5e;
+  --ov-table-alt: rgba(67, 76, 94, 0.4);
+  --ov-shadow: 0 8px 26px rgba(15, 17, 23, 0.35);
+}
+
+[data-theme="dracula"] {
+  --ov-bg: #1e1f29;
+  --ov-bg-elevated: #282a36;
+  --ov-surface: #2d303e;
+  --ov-surface-header: #343746;
+  --ov-border: #44475a;
+  --ov-border-subtle: #383a4c;
+  --ov-text: #f8f8f2;
+  --ov-text-secondary: #e2e8f0;
+  --ov-text-muted: #bd93f9;
+  --ov-code-bg: #21222c;
+  --ov-inline-code-bg: #44475a;
+  --ov-inline-code-color: #ff79c6;
+  --ov-quote-bg: rgba(189, 147, 249, 0.12);
+  --ov-quote-border: #bd93f9;
+  --ov-accent: #bd93f9;
+  --ov-table-th: #343746;
+  --ov-table-alt: rgba(68, 71, 90, 0.35);
+  --ov-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="forest"] {
+  --ov-bg: #0d1514;
+  --ov-bg-elevated: #131e1c;
+  --ov-surface: #182624;
+  --ov-surface-header: #1f322f;
+  --ov-border: #2b4540;
+  --ov-border-subtle: #1c2e2b;
+  --ov-text: #ecfdf5;
+  --ov-text-secondary: #a7f3d0;
+  --ov-text-muted: #6ee7b7;
+  --ov-code-bg: #0f1a18;
+  --ov-inline-code-bg: #1f322f;
+  --ov-inline-code-color: #34d399;
+  --ov-quote-bg: rgba(16, 185, 129, 0.12);
+  --ov-quote-border: #10b981;
+  --ov-accent: #10b981;
+  --ov-table-th: #1f322f;
+  --ov-table-alt: rgba(31, 50, 47, 0.45);
+  --ov-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="solarized"] {
+  --ov-bg: #f5edd6;
+  --ov-bg-elevated: #fdf6e3;
+  --ov-surface: #fffdf6;
+  --ov-surface-header: #eee8d5;
+  --ov-border: #d3cbb7;
+  --ov-border-subtle: #e0d8c3;
+  --ov-text: #073642;
+  --ov-text-secondary: #586e75;
+  --ov-text-muted: #657b83;
+  --ov-code-bg: #f7f0dc;
+  --ov-inline-code-bg: #eee8d5;
+  --ov-inline-code-color: #cb4b16;
+  --ov-quote-bg: rgba(181, 137, 0, 0.08);
+  --ov-quote-border: #b58900;
+  --ov-accent: #268bd2;
+  --ov-table-th: #eee8d5;
+  --ov-table-alt: rgba(238, 232, 213, 0.55);
+  --ov-shadow: 0 6px 20px rgba(7, 54, 66, 0.07);
+}
+
+/* =========================================================
+   Plugin View Layout
+   ========================================================= */
+
+.markdown-plugin-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.markdown-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 46px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--ov-border);
+  background: var(--ov-surface);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.markdown-toolbar-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ov-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.markdown-search-box { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 5px 0 8px; border: 1px solid var(--ov-border); border-radius: 5px; background: var(--ov-bg-elevated); color: var(--ov-text-muted); }
+.markdown-search-box input { width: 130px; border: 0; outline: 0; background: transparent; color: var(--ov-text); font-size: 12px; }
+.markdown-search-box input::placeholder { color: var(--ov-text-muted); }
+.markdown-search-box button { border: 0; background: transparent; color: var(--ov-text-muted); cursor: pointer; }
+.markdown-search-box button:hover { color: var(--ov-text); }
+.markdown-more-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; width: 190px; padding: 5px; border: 1px solid var(--ov-border); border-radius: 6px; background: var(--ov-surface); box-shadow: 0 10px 28px rgba(0,0,0,.28); }
+.markdown-more-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ov-text-secondary); font-size: 12px; text-align: left; cursor: pointer; }
+.markdown-more-menu button:hover { background: var(--ov-surface-header); color: var(--ov-text); }
+.markdown-more-stat { padding: 8px; border-top: 1px solid var(--ov-border); color: var(--ov-text-muted); font-size: 10px; line-height: 1.5; }
+
+.markdown-tool-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ov-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.markdown-tool-button:hover {
+  border-color: var(--ov-border);
+  background: var(--ov-surface-header);
+  color: var(--ov-text);
+}
+
+.markdown-zoom-label {
+  min-width: 38px;
+  color: var(--ov-text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.markdown-plugin-body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.markdown-outline {
+  flex: 0 0 240px;
+  overflow-y: auto;
+  padding: 12px 10px 24px;
+  background: var(--ov-bg-elevated);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.markdown-outline[data-position="left"] {
+  order: -1;
+  border-right: 1px solid var(--ov-border);
+  border-left: none;
+}
+
+.markdown-outline[data-position="right"] {
+  order: 1;
+  border-left: 1px solid var(--ov-border);
+  border-right: none;
+}
+
+.markdown-outline[data-position="floating"] {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 30;
+  width: 270px;
+  max-height: calc(100% - 24px);
+  border-radius: 12px;
+  box-shadow: 0 20px 35px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--ov-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: var(--ov-surface-header);
+  border: 1px solid var(--ov-border);
+}
+
+.markdown-outline-heading {
+  padding: 0 10px 10px;
+  color: var(--ov-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.markdown-outline-item {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ov-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.markdown-outline-item:hover {
+  background: var(--ov-surface-header);
+  color: var(--ov-text);
+}
+
+.markdown-outline-item.is-active {
+  background: var(--ov-accent);
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.markdown-reading-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, #3b82f6, #06b6d4, #10b981);
+  transition: width 0.1s ease;
+  z-index: 40;
+}
+
+.markdown-focus-mode .markdown-outline {
+  display: none !important;
+}
+
+.markdown-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: zoom-out;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.markdown-lightbox-content {
+  position: relative;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.markdown-lightbox-content img,
+.markdown-lightbox-content svg {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  background: var(--ov-surface);
+}
+
+.markdown-lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.markdown-lightbox-close:hover {
+  background: rgba(239, 68, 68, 0.85);
+  color: #ffffff;
+}
+
+.markdown-outline-empty {
+  padding: 0 10px;
+  color: var(--ov-text-muted);
+  font-size: 12px;
+}
+
+.markdown-plugin-scroll {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  background: var(--ov-bg);
+  scroll-behavior: smooth;
+  transition: background-color 0.2s ease;
+}
+
+.markdown-plugin-scroll > div {
+  min-height: 100%;
+}
+
+/* =========================================================
+   Document Surface Styling
+   ========================================================= */
+
+.markdown-document {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--ov-content-max-width, 880px);
+  margin: 24px auto 60px;
+  padding: 42px 56px 84px;
+  background: var(--ov-surface);
+  border: 1px solid var(--ov-border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--ov-shadow);
+  color: var(--ov-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 15px;
+  line-height: 1.78;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+[data-width="narrow"] { --ov-content-max-width: 720px; }
+[data-width="standard"] { --ov-content-max-width: 880px; }
+[data-width="wide"] { --ov-content-max-width: 1180px; }
+[data-width="full"] { --ov-content-max-width: min(96vw, 1680px); }
+
+[data-width="narrow"] .markdown-document,
+.markdown-document[data-width="narrow"] {
+  max-width: 720px !important;
+  width: 100% !important;
+}
+
+[data-width="standard"] .markdown-document,
+.markdown-document[data-width="standard"] {
+  max-width: 880px !important;
+  width: 100% !important;
+}
+
+[data-width="wide"] .markdown-document,
+.markdown-document[data-width="wide"] {
+  max-width: 1180px !important;
+  width: 100% !important;
+}
+
+[data-width="full"] .markdown-document,
+.markdown-document[data-width="full"] {
+  max-width: min(96vw, 1680px) !important;
+  width: 100% !important;
+  padding-left: clamp(24px, 4vw, 56px) !important;
+  padding-right: clamp(24px, 4vw, 56px) !important;
+}
+
+[data-font-size="13"] .markdown-document { font-size: 13px !important; }
+[data-font-size="14"] .markdown-document { font-size: 14px !important; }
+[data-font-size="15"] .markdown-document { font-size: 15px !important; }
+[data-font-size="16"] .markdown-document { font-size: 16px !important; }
+[data-font-size="18"] .markdown-document { font-size: 18px !important; }
+
+.markdown-document ::selection {
+  background: var(--ov-accent);
+  color: #fff;
+}
+
+.markdown-content {
+  margin: 0 0 28px;
+  color: var(--ov-text-secondary);
+}
+
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  color: var(--ov-text);
+  font-weight: 700;
+  line-height: 1.32;
+  margin: 1.7em 0 0.55em;
+  letter-spacing: -0.01em;
+}
+
+.markdown-content h1 {
+  font-size: 28px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ov-border);
+  margin-top: 0.2em;
+}
+
+.markdown-content h2 {
+  font-size: 21px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ov-border-subtle);
+}
+
+.markdown-content h3 { font-size: 17px; }
+.markdown-content h4, .markdown-content h5, .markdown-content h6 { font-size: 15px; }
+
+.markdown-content p { margin: 0 0 1em; }
+.markdown-content a { color: var(--ov-accent); text-decoration: none; font-weight: 500; }
+.markdown-content a:hover { text-decoration: underline; }
+.markdown-content strong { color: var(--ov-text); font-weight: 650; }
+.markdown-content em { color: var(--ov-text-secondary); }
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0.5em 0 1.15em;
+  padding-left: 1.65em;
+}
+
+.markdown-content li { margin: 0.3em 0; padding-left: 0.25em; }
+.markdown-content li > p { margin: 0; }
+.markdown-content hr { border: 0; border-top: 1px solid var(--ov-border); margin: 2.2em 0; }
+
+.markdown-content blockquote {
+  margin: 1.25em 0;
+  padding: 0.7em 1.1em;
+  border-left: 3.5px solid var(--ov-quote-border);
+  background: var(--ov-quote-bg);
+  color: var(--ov-text-secondary);
+  border-radius: 0 6px 6px 0;
+}
+
+.markdown-content blockquote > :last-child { margin-bottom: 0; }
+
+.markdown-content :not(pre) > code {
+  padding: 0.16em 0.42em;
+  border: 1px solid var(--ov-border);
+  border-radius: 4px;
+  background: var(--ov-inline-code-bg);
+  color: var(--ov-inline-code-color);
+  font: 0.88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.markdown-content pre {
+  overflow-x: auto;
+  margin: 1.25em 0;
+  padding: 14px 16px;
+  border: 1px solid var(--ov-border);
+  border-radius: 6px;
+  background: var(--ov-code-bg);
+  color: var(--ov-text);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.markdown-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border: 0;
+}
+
+.markdown-content table {
+  display: block;
+  width: max-content;
+  min-width: 60%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1.35em 0;
+  font-size: 13.5px;
+}
+
+.markdown-content th,
+.markdown-content td {
+  padding: 9px 14px;
+  border: 1px solid var(--ov-border);
+  text-align: left;
+}
+
+.markdown-content th {
+  background: var(--ov-table-th);
+  color: var(--ov-text);
+  font-weight: 650;
+}
+
+.markdown-content tr:nth-child(even) td {
+  background: var(--ov-table-alt);
+}
+
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+/* Keep diagrams readable without stretching their aspect ratio. */
+.diagram-canvas {
+  width: min(100%, 900px);
+  min-width: 0;
+  align-items: center;
+}
+.diagram-canvas > svg {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: auto !important;
+  max-height: 72vh;
+}
+.diagram-canvas > img {
+  display: block;
+  width: min(100%, 900px) !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: 72vh;
+  object-fit: contain;
+}
+
+/* =========================================================
+   Density Modes (紧凑度排版系统)
+   ========================================================= */
+
+/* 极致紧凑模式 (Compact): 收紧边距、字号与图表间距，最大化信息承载密度 */
+[data-density="compact"] .markdown-document,
+.density-compact.markdown-document {
+  padding: 16px 24px 48px;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+[data-density="compact"]:not([data-width]) .markdown-document {
+  max-width: 100%;
+}
+
+[data-density="compact"] .markdown-content,
+.density-compact .markdown-content {
+  margin: 0 0 16px;
+}
+
+[data-density="compact"] .markdown-content h1,
+.density-compact .markdown-content h1 {
+  font-size: 22px;
+  margin: 1.2em 0 0.4em;
+  padding-bottom: 6px;
+}
+
+[data-density="compact"] .markdown-content h2,
+.density-compact .markdown-content h2 {
+  font-size: 18px;
+  margin: 1.1em 0 0.35em;
+  padding-bottom: 5px;
+}
+
+[data-density="compact"] .markdown-content h3,
+.density-compact .markdown-content h3 {
+  font-size: 15px;
+  margin: 0.9em 0 0.3em;
+}
+
+[data-density="compact"] .markdown-content p,
+.density-compact .markdown-content p {
+  margin: 0 0 0.65em;
+}
+
+[data-density="compact"] .markdown-content ul,
+[data-density="compact"] .markdown-content ol,
+.density-compact .markdown-content ul,
+.density-compact .markdown-content ol {
+  margin: 0.35em 0 0.75em;
+  padding-left: 1.35em;
+}
+
+[data-density="compact"] .markdown-content li,
+.density-compact .markdown-content li {
+  margin: 0.15em 0;
+}
+
+[data-density="compact"] .markdown-code-block,
+[data-density="compact"] .markdown-diagram,
+.density-compact .markdown-code-block,
+.density-compact .markdown-diagram {
+  margin: 14px 0;
+  border-radius: 6px;
+}
+
+[data-density="compact"] .markdown-diagram > div:last-child,
+.density-compact .markdown-diagram > div:last-child {
+  padding: 14px !important;
+  min-height: 110px !important;
+}
+
+/* 标准模式 (Standard): 默认平衡配置 */
+[data-density="standard"] .markdown-document,
+.density-standard.markdown-document {
+  padding: 32px 40px 64px;
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+[data-density="standard"]:not([data-width]) .markdown-document {
+  max-width: 880px;
+}
+
+[data-density="standard"] .markdown-code-block,
+[data-density="standard"] .markdown-diagram,
+.density-standard .markdown-code-block,
+.density-standard .markdown-diagram {
+  margin: 20px 0;
+}
+
+/* 宽裕舒适模式 (Comfortable): 放大间距，长篇文档护眼研读 */
+[data-density="comfortable"] .markdown-document,
+.density-comfortable.markdown-document {
+  padding: 48px 64px 96px;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+[data-density="comfortable"]:not([data-width]) .markdown-document {
+  max-width: 1040px;
+}
+
+[data-density="comfortable"] .markdown-code-block,
+[data-density="comfortable"] .markdown-diagram,
+.density-comfortable .markdown-code-block,
+.density-comfortable .markdown-diagram {
+  margin: 30px 0;
+  border-radius: 10px;
+}
+
+[data-density="comfortable"] .markdown-diagram > div:last-child,
+.density-comfortable .markdown-diagram > div:last-child {
+  padding: 32px !important;
+}
+
+.markdown-code-block,
+.markdown-diagram {
+  margin: 24px 0;
+  border: 1px solid var(--ov-border);
+  border-radius: 8px;
+  background: var(--ov-surface);
+  box-shadow: var(--ov-shadow);
+  overflow: hidden;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.markdown-code-block > div:first-child {
+  min-height: 38px;
+  background: var(--ov-surface-header);
+  border-bottom: 1px solid var(--ov-border);
+}
+
+/* 浮动悬停工具栏 (Floating Overlay Toolbar) - 鼠标移入时纯悬浮显示，不占用垂直文档流，杜绝内容向下抖动/闪现 */
+.diagram-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(51, 65, 85, 0.65);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] .diagram-header,
+[data-theme="sepia"] .diagram-header {
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom-color: rgba(203, 213, 225, 0.8);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.markdown-diagram:hover .diagram-header {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* 源码编辑模式下固定常驻于卡片顶部 */
+.diagram-header.is-code {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: 1;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  background: var(--ov-surface-header);
+  border-bottom: 1px solid var(--ov-border);
+  box-shadow: none;
+}
+
+.markdown-code-block .overflow-x-auto {
+  background: var(--ov-code-bg);
+}
+
+.markdown-code-block pre {
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.markdown-diagram-graphviz .diagram-canvas svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+
+/* =========================================================
+   Print and Responsive Media
+   ========================================================= */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 18mm 15mm 18mm 15mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    line-height: 1.65 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 彻底隐藏所有非正文交互 UI 元素 */
+  #workbench-header,
+  .markdown-toolbar,
+  .markdown-outline-sidebar,
+  .markdown-outline,
+  .sidebar-container,
+  .doc-status-bar,
+  #doc-status-bar,
+  .diagram-header,
+  .code-block-header,
+  .markdown-tool-button,
+  .diagram-tools,
+  .markdown-more-menu,
+  button,
+  .ov-image-fallback,
+  .lightbox-modal {
+    display: none !important;
+  }
+
+  /* 展开滚动容器，允许跨页连续打印 */
+  .markdown-plugin-shell,
+  .markdown-plugin-body,
+  .markdown-plugin-scroll,
+  .markdown-document,
+  .markdown-content {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    position: static !important;
+  }
+
+  /* 核心防跨页截断策略 (Smart Page Break Protection) */
+  .markdown-diagram,
+  .markdown-code-block,
+  .ov-katex-block,
+  .ov-table-wrapper,
+  table,
+  img,
+  figure,
+  blockquote,
+  .diagram-canvas {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 标题防孤行策略 (Orphan Prevention) */
+  h1, h2, h3, h4, h5, h6 {
+    color: #0f172a !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  h1 {
+    font-size: 18pt !important;
+    margin-top: 24pt !important;
+    margin-bottom: 8pt !important;
+    border-bottom: 1.5pt solid #cbd5e1 !important;
+    padding-bottom: 4pt !important;
+  }
+
+  h2 {
+    font-size: 14pt !important;
+    margin-top: 18pt !important;
+    margin-bottom: 6pt !important;
+    border-bottom: 1pt solid #e2e8f0 !important;
+    padding-bottom: 3pt !important;
+  }
+
+  h3 {
+    font-size: 12pt !important;
+    margin-top: 14pt !important;
+    margin-bottom: 5pt !important;
+  }
+
+  /* 段落与文本排版 */
+  p, ul, ol {
+    color: #1e293b !important;
+    margin-top: 0 !important;
+    margin-bottom: 8pt !important;
+    orphans: 3 !important;
+    widows: 3 !important;
+  }
+
+  /* 打印代码块：拒绝黑墨水灾难，使用优雅的出版物浅灰底色与深色代码 */
+  .markdown-code-block,
+  pre {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1pt solid #e2e8f0 !important;
+    border-radius: 4pt !important;
+    padding: 10pt 14pt !important;
+    margin: 12pt 0 !important;
+    box-shadow: none !important;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+  }
+
+  .markdown-code-block code,
+  pre code {
+    color: #0f172a !important;
+    background: transparent !important;
+    font-family: 'Consolas', 'Courier New', ui-monospace, monospace !important;
+    font-size: 9pt !important;
+    line-height: 1.5 !important;
+  }
+
+  /* 代码高亮关键字清晰度净化 */
+  .token.keyword { color: #0284c7 !important; font-weight: 600 !important; }
+  .token.string { color: #059669 !important; }
+  .token.comment { color: #64748b !important; font-style: italic !important; }
+  .token.function { color: #7c3aed !important; }
+  .token.number { color: #d97706 !important; }
+  .token.operator { color: #475569 !important; }
+
+  /* 行内代码标签 */
+  :not(pre) > code {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 1pt 3pt !important;
+    border-radius: 3pt !important;
+  }
+
+  /* 矢量图表打印保护 */
+  .markdown-diagram {
+    background: #ffffff !important;
+    border: 1pt solid #e2e8f0 !important;
+    border-radius: 6pt !important;
+    margin: 14pt 0 !important;
+    padding: 12pt !important;
+    box-shadow: none !important;
+  }
+
+  .markdown-diagram .diagram-canvas {
+    transform: none !important;
+    display: flex !important;
+    justify-content: center !important;
+    cursor: default !important;
+  }
+
+  .markdown-diagram svg {
+    max-width: 100% !important;
+    height: auto !important;
+    filter: none !important;
+  }
+
+  /* 表格打印优化 */
+  .ov-table-wrapper {
+    margin: 14pt 0 !important;
+    overflow: visible !important;
+  }
+
+  .ov-table-wrapper table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .ov-table-wrapper th,
+  .ov-table-wrapper td {
+    border: 1pt solid #cbd5e1 !important;
+    padding: 6pt 10pt !important;
+    color: #0f172a !important;
+    font-size: 9.5pt !important;
+  }
+
+  .ov-table-wrapper th {
+    background-color: #f1f5f9 !important;
+    font-weight: bold !important;
+  }
+
+  .ov-table-wrapper tr:nth-child(even) td {
+    background-color: #f8fafc !important;
+  }
+
+  /* 数学公式与定界符 */
+  .ov-katex-block,
+  .ov-katex-inline,
+  .katex {
+    color: #000000 !important;
+    text-shadow: none !important;
+  }
+
+  /* 引用块 Callout */
+  blockquote {
+    border-left: 3pt solid #3b82f6 !important;
+    background-color: #f0f9ff !important;
+    color: #1e40af !important;
+    padding: 6pt 12pt !important;
+    margin: 10pt 0 !important;
+    border-radius: 0 4pt 4pt 0 !important;
+  }
+
+  /* 链接与图片 */
+  a {
+    color: #0284c7 !important;
+    text-decoration: underline !important;
+  }
+
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .markdown-toolbar { padding: 0 8px; }
+  .markdown-tool-button span, .markdown-zoom-label { display: none; }
+  .markdown-search-box input { width: 72px; }
+  .markdown-outline { flex-basis: 188px; }
+  .markdown-document { padding: 24px 16px 48px; font-size: 14.5px; }
+  .markdown-content h1 { font-size: 24px; }
+  .markdown-content h2 { font-size: 19px; }
+  .markdown-code-block, .markdown-diagram { margin-left: -4px; margin-right: -4px; }
+  .markdown-diagram > div:first-child { flex-wrap: wrap; gap: 6px; height: auto; }
+}
+
+/* =========================================================
+   OmniView Search Highlight & Selection Themes
+   高对比度搜索命中高亮与当前选中样式
+   ========================================================= */
+
+::selection {
+  background-color: #38bdf8 !important;
+  color: #030712 !important;
+}
+
+::-moz-selection {
+  background-color: #38bdf8 !important;
+  color: #030712 !important;
+}
+
+[data-theme="light"] ::selection,
+[data-theme="sepia"] ::selection {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* 页面文本搜索命中高亮标记 (Search Match Highlight) */
+mark.ov-search-match {
+  background-color: #facc15 !important;
+  color: #000000 !important;
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.6) !important;
+  font-weight: 600 !important;
+}
+
+mark.ov-search-match.is-active-match {
+  background-color: #fb923c !important;
+  color: #000000 !important;
+  box-shadow: 0 0 0 2px #ea580c, 0 0 8px rgba(251, 146, 60, 0.8) !important;
+  animation: ov-pulse-match 1.2s infinite ease-in-out;
+}
+
+@keyframes ov-pulse-match {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* =========================================================
+   Document Bottom Status Bar
+   ========================================================= */
+
+.doc-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 24px;
+  height: 24px;
+  padding: 0 14px;
+  border-top: 1px solid var(--ov-border);
+  background: var(--ov-surface);
+  color: var(--ov-text-muted);
+  font-size: 11px;
+  line-height: 1;
+  user-select: none;
+  z-index: 20;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.doc-status-left,
+.doc-status-center,
+.doc-status-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.doc-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.doc-status-value {
+  color: var(--ov-text);
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.doc-status-label {
+  color: var(--ov-text-muted);
+}
+
+.doc-status-sep {
+  color: var(--ov-border);
+  opacity: 0.9;
+}
+
+.doc-status-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #fb923c;
+  font-weight: 600;
+}
+
+.doc-status-no-match {
+  color: #f87171;
+  font-size: 11px;
+}
+
+/* =========================================================
+   Markdown Table Interactive Toolbar (Hover to Show)
+   ========================================================= */
+
+.ov-table-block {
+  position: relative;
+}
+
+/* 表格交互操作工具栏：像图形一样，移动上去才平滑浮现，避免日常浏览时的视觉干扰 */
+.table-block-toolbar {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-bottom-width: 0 !important;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-bottom-width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+/* 鼠标悬停在表格块上、或处于搜索/图表/全屏/图钉锁定活跃状态时平滑展开显现 */
+.ov-table-block:hover .table-block-toolbar,
+.table-block-toolbar.is-active,
+.table-block-toolbar.is-pinned {
+  max-height: 72px;
+  opacity: 1;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  border-bottom-width: 1px !important;
+  pointer-events: auto;
+  transform: translateY(0);
+  overflow: visible;
+}
+
+/* =========================================================
+   Responsive Table Wrapper (.ov-table-wrapper)
+   ========================================================= */
+
+.ov-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  border-radius: 6px;
+  border: 1px solid var(--ov-border);
+  background: var(--ov-surface);
+  -webkit-overflow-scrolling: touch;
+}
+
+.ov-table-wrapper table {
+  margin: 0 !important;
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+}
+
+.ov-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ov-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ov-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--ov-border);
+  border-radius: 3px;
+}
+
+.ov-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--ov-text-muted);
+}
+
+/* 单元格交互复选框 */
+.ov-table-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.2);
+  margin-right: 6px;
+  vertical-align: middle;
+  font-size: 10px;
+  line-height: 1;
+  user-select: none;
+}
+
+.ov-table-checkbox-checked {
+  background: #3b82f6;
+  border-color: #2563eb;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+/* 表格状态微徽标 */
+.ov-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 2px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.ov-badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.ov-badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.ov-badge-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.ov-badge-info {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+/* 单元格检索匹配高亮 */
+.ov-table-search-mark {
+  background: rgba(245, 158, 11, 0.35);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* =========================================================
+   Error Boundary & Diagnostics Cards
+   ========================================================= */
+
+.ov-error-boundary-card {
+  margin: 1.5em 0;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(136, 19, 55, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: var(--ov-text);
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.ov-error-boundary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ov-error-boundary-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #fb7185;
+}
+
+.ov-error-icon {
+  color: #f43f5e;
+  flex-shrink: 0;
+}
+
+.ov-error-title {
+  letter-spacing: -0.01em;
+}
+
+.ov-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ov-error-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.ov-error-btn-primary {
+  background: #e11d48;
+  color: #ffffff;
+}
+
+.ov-error-btn-primary:hover {
+  background: #be123c;
+}
+
+.ov-error-btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ov-text-secondary);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.ov-error-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--ov-text);
+}
+
+.ov-error-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fecdd3;
+  margin: 0 0 10px;
+}
+
+.ov-error-stack-container {
+  margin-top: 8px;
+  border-top: 1px solid rgba(244, 63, 94, 0.2);
+  padding-top: 8px;
+}
+
+.ov-error-stack-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  color: var(--ov-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.ov-error-stack-toggle:hover {
+  color: var(--ov-text);
+}
+
+.ov-error-stack-content {
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #fca5a5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* =========================================================
+   Image Fallback & Broken Asset Placeholder
+   ========================================================= */
+
+.ov-image-container {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.ov-image-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  border-radius: 6px;
+  border: 1px dashed rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.08);
+  color: #fbbf24;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.ov-image-fallback code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #fef3c7;
+}
+
+/* =========================================================
+   KaTeX Math Formula Styles
+   ========================================================= */
+
+.ov-katex-inline {
+  display: inline-block;
+  padding: 0 3px;
+  vertical-align: middle;
+  color: var(--ov-text);
+}
+
+.ov-katex-block {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+  text-align: center;
+  color: var(--ov-text);
+}
+
+.ov-katex-block .katex-display {
+  margin: 0.5em 0;
+}
+
+.ov-katex-block-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+.ov-math-block-wrapper {
+  background: var(--ov-surface-header);
+  border-color: var(--ov-border);
+  color: var(--ov-text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ov-math-block-wrapper:hover {
+  border-color: var(--ov-accent);
+}
+
+/* Ensure KaTeX uses theme color */
+.katex {
+  color: inherit;
+  font-size: 1.08em;
+}
+
+/* =========================================================
+   OmniView PDF.js TextLayer & Highlight Layer. 
+   ========================================================= */
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  transform-origin: 0 0;
+  z-index: 5;
+  pointer-events: auto;
+  line-height: 1;
+  text-align: initial;
+}
+
+.pdf-text-layer :is(span, br) {
+  color: transparent !important;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.pdf-text-layer ::selection {
+  background: rgba(59, 130, 246, 0.45) !important;
+  color: transparent !important;
+}
+
+.pdf-text-layer .markedContent {
+  top: 0;
+  height: 0;
+}
+
+.pdf-search-highlight {
+  background-color: rgba(250, 204, 21, 0.55);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.7);
+}
+
+.pdf-search-highlight-active {
+  background-color: rgba(249, 115, 22, 0.75);
+  box-shadow: 0 0 0 2px #ea580c;
+  border-radius: 2px;
+}
+
+
+

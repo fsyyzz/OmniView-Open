@@ -1,0 +1,22 @@
+---
+type: Knowledge Catalog Bundle
+title: Omnichannel Analytics OKF Bundle (原生 .okf 概念包)
+description: 基于 Google Open Knowledge Format 规范编排的全渠道零售与智能体知识库索引。
+resource: https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf
+tags: [okf, standard, knowledge-graph, ai-agent]
+timestamp: 2026-06-12T12:00:00Z
+specification_version: 0.1
+---
+
+# 🌐 Google Open Knowledge Format 原生演示
+
+本文件扩展名为 `.okf`，已被 OmniView 原生关联并自动分发至高精度知识渲染引擎。
+
+---
+
+## 概念目录索引 (Concepts Index)
+
+- 📊 **订单事实表**：[tables/orders.md](tables/orders.md)
+- 👤 **客户维度表**：[tables/customers.md](tables/customers.md)
+- 📈 **核心增长指标**：[metrics/weekly_active_users.md](metrics/weekly_active_users.md)
+- 🏠 **回到总目录**：[index.md](index.md)

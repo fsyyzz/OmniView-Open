@@ -1,0 +1,541 @@
+/**
+ * OmniView 文档视图插件外壳 (支持多语言 + 纯图标悬浮设计 + DOM搜索高亮变色与直接源码打开)
+ */
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition } from '../../shared/types';
+import { ViewerRenderer } from './ViewerRenderer';
+import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
+import { VsCodeApi } from '../../shared/lib/vscode';
+import { parseMarkdownHeadings, extractSectionContent } from './lib/markdownAst';
+import { exportToWordDocument, exportToPortableHtml } from './lib/exportEngine';
+import { useScrollHeadingSpy } from './hooks/useScrollHeadingSpy';
+import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
+import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
+import { DocStatusBar } from './components/DocStatusBar';
+import { ExternalLink } from 'lucide-react';
+import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
+import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
+
+interface PluginDocumentViewProps {
+  file?: FileItem;
+  theme?: ThemeId;
+  density?: DensityMode;
+  onThemeChange?: (theme: ThemeId) => void;
+  onDensityChange?: (density: DensityMode) => void;
+  onContentChange?: (content: string) => void;
+  vscode?: VsCodeApi;
+}
+
+export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
+  file,
+  theme,
+  density,
+  onThemeChange,
+  onDensityChange,
+  onContentChange,
+  vscode,
+}) => {
+  const [initialSettings] = useState(() => loadStoredSettings());
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>(theme || initialSettings.theme);
+  const [currentDensity, setCurrentDensity] = useState<DensityMode>(density || initialSettings.density);
+
+  const handleThemeSelect = (newTheme: ThemeId) => {
+    setCurrentTheme(newTheme);
+    saveStoredSettings({ theme: newTheme });
+    onThemeChange?.(newTheme);
+  };
+
+  const handleDensitySelect = (newDensity: DensityMode) => {
+    setCurrentDensity(newDensity);
+    saveStoredSettings({ density: newDensity });
+    onDensityChange?.(newDensity);
+  };
+
+  if (!file) {
+    const _locale = getStoredLocale();
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-slate-950 text-slate-400 text-sm">
+        {_locale === 'en-US' ? 'Loading document…' : '正在加载文档…'}
+      </div>
+    );
+  }
+
+  if (!['md', 'markdown', 'okf'].includes(file.extension.toLowerCase())) {
+    const _locale = getStoredLocale();
+    return (
+      <main
+        className="flex h-full w-full min-h-0 flex-col overflow-hidden text-slate-100"
+        data-theme={currentTheme}
+        data-density={currentDensity}
+        style={{ background: 'var(--ov-bg)' }}
+      >
+        {/* Top Action Bar for non-markdown files */}
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none">
+          <div className="flex items-center gap-2 font-mono text-slate-300">
+            <span className="font-semibold text-slate-200">{file.name}</span>
+            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+              {file.extension}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {vscode && (
+              <button
+                onClick={() => vscode.postMessage({ type: 'open-source', path: file.path })}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded transition text-xs font-medium"
+                title={t('openInEditor', _locale)}
+              >
+                <ExternalLink size={13} />
+                <span>{t('openSource', _locale)}</span>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden h-full w-full">
+          <ViewerRenderer
+            file={file}
+            files={[file]}
+            mode="preview"
+            theme={currentTheme}
+            density={currentDensity}
+            onContentChange={onContentChange || (() => undefined)}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <MarkdownPluginView
+      file={file}
+      theme={currentTheme}
+      density={currentDensity}
+      onThemeChange={handleThemeSelect}
+      onDensityChange={handleDensitySelect}
+      onContentChange={onContentChange}
+      vscode={vscode}
+    />
+  );
+};
+
+const MarkdownPluginView: React.FC<{
+  file: FileItem;
+  theme: ThemeId;
+  density: DensityMode;
+  onThemeChange: (theme: ThemeId) => void;
+  onDensityChange: (density: DensityMode) => void;
+  onContentChange?: (content: string) => void;
+  vscode?: VsCodeApi;
+}> = ({ file, theme, density, onThemeChange, onDensityChange, onContentChange, vscode }) => {
+  const initialSettings = useMemo(() => loadStoredSettings(), []);
+  const [locale, setLocale] = useState<Locale>(() => getStoredLocale());
+  const [outlineOpen, setOutlineOpen] = useState(initialSettings.outlineOpen ?? true);
+  const [outlinePosition, setOutlinePosition] = useState<OutlinePosition>(
+    () => initialSettings.outlinePosition || 'right'
+  );
+
+  const handleOutlinePositionChange = useCallback((pos: OutlinePosition) => {
+    setOutlinePosition(pos);
+    saveStoredSettings({ outlinePosition: pos });
+  }, []);
+  const [toolbarVisible, setToolbarVisible] = useState(false);
+  const [zoom, setZoom] = useState(initialSettings.zoom ?? 1);
+  const [copied, setCopied] = useState(false);
+  const [copiedSection, setCopiedSection] = useState(false);
+  const [copiedRich, setCopiedRich] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [matchCount, setMatchCount] = useState<number>(0);
+  const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
+  const [contentWidth, setContentWidth] = useState<'narrow' | 'standard' | 'wide' | 'full'>(initialSettings.contentWidth || 'standard');
+  const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize || 15);
+  const [focusMode, setFocusMode] = useState(false);
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState<number>(0);
+  const [headingFilterLevel, setHeadingFilterLevel] = useState<number>(6);
+  const [viewMode, setViewMode] = useState<ViewMode>('preview');
+  const [enableOkfRendering, setEnableOkfRendering] = useState<boolean>(
+    () => initialSettings.enableOkfRendering ?? true
+  );
+
+  const handleToggleOkf = useCallback(() => {
+    setEnableOkfRendering(prev => {
+      const next = !prev;
+      saveStoredSettings({ enableOkfRendering: next });
+      return next;
+    });
+  }, []);
+
+  // Interactive Markdown content state for in-place editing & real-time re-rendering
+  const [documentContent, setDocumentContent] = useState(file.content);
+  const prevFileIdRef = useRef(file.id);
+  const prevContentRef = useRef(file.content);
+
+  useEffect(() => {
+    if (file.id !== prevFileIdRef.current || file.content !== prevContentRef.current) {
+      prevFileIdRef.current = file.id;
+      prevContentRef.current = file.content;
+      setDocumentContent(file.content);
+    }
+  }, [file.id, file.content]);
+
+  const handleContentUpdate = useCallback(
+    (newContent: string) => {
+      setDocumentContent(newContent);
+      onContentChange?.(newContent);
+      if (vscode) {
+        vscode.postMessage({
+          type: 'document-change',
+          path: file.path,
+          content: newContent,
+        });
+        vscode.postMessage({
+          type: 'save-content',
+          path: file.path,
+          content: newContent,
+        });
+      }
+    },
+    [file.path, onContentChange, vscode]
+  );
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleLocaleChange = (newLocale: Locale) => {
+    setLocale(newLocale);
+    saveStoredLocale(newLocale);
+  };
+
+  // Parse headings with AST helper based on live documentContent
+  const headings = useMemo(() => parseMarkdownHeadings(documentContent), [documentContent]);
+
+  // Filtered headings by level
+  const filteredHeadings = useMemo(() => {
+    return headings.filter(h => h.level <= headingFilterLevel);
+  }, [headings, headingFilterLevel]);
+
+  // Custom hook: scroll tracking & active heading detection
+  const {
+    readingProgress,
+    activeHeadingIndex,
+    jumpToHeading,
+    scrollToTop,
+  } = useScrollHeadingSpy({
+    scrollRef,
+    headings,
+    autoScrollSpeed,
+  });
+
+  const activeFile = useMemo(
+    () => ({
+      ...file,
+      content: documentContent,
+      size: new TextEncoder().encode(documentContent).length,
+      lastModified: Date.now(),
+      isModified: true,
+    }),
+    [file, documentContent]
+  );
+
+  const viewerFiles = useMemo(() => [activeFile, ...(file.relatedFiles || [])], [activeFile, file.relatedFiles]);
+
+  // 搜索关键字高亮与变色联动（仅做高亮标注，绝不打断用户滚动）
+  useEffect(() => {
+    const canvas = scrollRef.current?.querySelector<HTMLElement>('.markdown-document') || null;
+    if (!searchText.trim()) {
+      clearSearchHighlights(canvas);
+      setMatchCount(0);
+      setActiveMatchIndex(-1);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const count = highlightSearchMatches(canvas, searchText);
+      setMatchCount(count);
+      if (count > 0) {
+        setActiveMatchIndex(0);
+        activateMatch(canvas, 0, false); // 仅高亮当前匹配项，不滚动视口
+      } else {
+        setActiveMatchIndex(-1);
+      }
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  // 渲染完成后立即重新注入搜索高亮，防止 dangerouslySetInnerHTML 刷新导致 <mark> 节点丢失（不触发视口滚动）
+  const handleRenderComplete = useCallback(() => {
+    if (!searchText.trim()) return;
+    const canvas = scrollRef.current?.querySelector<HTMLElement>('.markdown-document') || null;
+    // 用 requestAnimationFrame 确保 React 完成 DOM commit 后再注入
+    requestAnimationFrame(() => {
+      const count = highlightSearchMatches(canvas, searchText);
+      setMatchCount(count);
+      setActiveMatchIndex(prev => {
+        const next = Math.min(prev < 0 ? 0 : prev, count - 1);
+        if (count > 0) activateMatch(canvas, next, false); // 仅恢复高亮态，不触发滚动
+        return count > 0 ? next : -1;
+      });
+    });
+  }, [searchText]);
+
+  // 搜索前进/后退导航（用户主动按键/点击触发，平滑滚动至目标项）
+  const handleFindText = useCallback((backwards = false) => {
+    if (!searchText.trim()) return;
+    const canvas = scrollRef.current?.querySelector<HTMLElement>('.markdown-document') || null;
+    if (!canvas) return;
+
+    let currentCount = matchCount;
+    if (currentCount === 0) {
+      currentCount = highlightSearchMatches(canvas, searchText);
+      setMatchCount(currentCount);
+    }
+    if (currentCount === 0) return;
+
+    setActiveMatchIndex(prev => {
+      let nextIndex = backwards ? prev - 1 : prev + 1;
+      if (nextIndex < 0) nextIndex = currentCount - 1;
+      if (nextIndex >= currentCount) nextIndex = 0;
+      activateMatch(canvas, nextIndex, true); // 用户主动寻找，滚动至可视区域中央
+      return nextIndex;
+    });
+  }, [searchText, matchCount]);
+
+  // Copy operations
+  const handleCopyRawMarkdown = async () => {
+    await navigator.clipboard.writeText(documentContent);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
+  const handleCopyCurrentSection = async () => {
+    const sectionText = extractSectionContent(documentContent, headings, activeHeadingIndex);
+    await navigator.clipboard.writeText(sectionText);
+    setCopiedSection(true);
+    setTimeout(() => setCopiedSection(false), 1600);
+  };
+
+  const handleCopyRichText = async () => {
+    const canvas = scrollRef.current?.querySelector('.markdown-document');
+    if (!canvas) return;
+    try {
+      const html = canvas.innerHTML;
+      const blob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([documentContent], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': blob,
+          'text/plain': textBlob,
+        }),
+      ]);
+      setCopiedRich(true);
+      setTimeout(() => setCopiedRich(false), 1600);
+    } catch {
+      await handleCopyRawMarkdown();
+    }
+  };
+
+  const [isExportingWord, setIsExportingWord] = useState(false);
+
+  const handleExportHtml = () => {
+    const canvas = scrollRef.current?.querySelector('.markdown-document') as HTMLElement | null;
+    if (!canvas) return;
+    exportToPortableHtml(file.name, canvas);
+  };
+
+  const handleExportWord = async () => {
+    const canvas = scrollRef.current?.querySelector('.markdown-document') as HTMLElement | null;
+    if (!canvas) return;
+    try {
+      setIsExportingWord(true);
+      await exportToWordDocument(file.name, canvas);
+    } catch (err) {
+      console.error('Word export error:', err);
+    } finally {
+      setIsExportingWord(false);
+    }
+  };
+
+  const handleCycleWidth = () => {
+    const next: Record<'narrow' | 'standard' | 'wide' | 'full', 'narrow' | 'standard' | 'wide' | 'full'> = {
+      narrow: 'standard',
+      standard: 'wide',
+      wide: 'full',
+      full: 'narrow',
+    };
+    const updated = next[contentWidth];
+    setContentWidth(updated);
+    saveStoredSettings({ contentWidth: updated });
+  };
+
+  const handleFontSizeSelect = (size: number) => {
+    setFontSize(size);
+    saveStoredSettings({ fontSize: size });
+  };
+
+  const handleToggleOutline = () => {
+    const next = !outlineOpen;
+    setOutlineOpen(next);
+    saveStoredSettings({ outlineOpen: next });
+  };
+
+  const handleZoomChange = (nextZoom: number) => {
+    setZoom(nextZoom);
+    saveStoredSettings({ zoom: nextZoom });
+  };
+
+  const currentHeading = headings[activeHeadingIndex];
+  const fileWordCount = Math.max(1, file.content.trim().split(/\s+/).length);
+
+  return (
+    <main
+      className={`markdown-plugin-shell ${focusMode ? 'markdown-focus-mode' : ''}`}
+      data-theme={theme}
+      data-density={density}
+      data-width={contentWidth}
+      data-font-size={fontSize}
+      onMouseMove={event => setToolbarVisible(event.clientY <= 56)}
+    >
+      {/* Top Document Toolbar */}
+      <MarkdownToolbar
+        fileName={file.name}
+        filePath={file.path}
+        headingsCount={headings.length}
+        currentHeading={currentHeading}
+        readingProgress={readingProgress}
+        outlineOpen={outlineOpen}
+        onToggleOutline={handleToggleOutline}
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
+        onFindText={handleFindText}
+        theme={theme}
+        onThemeChange={onThemeChange}
+        density={density}
+        onDensityChange={onDensityChange}
+        fontSize={fontSize}
+        onFontSizeChange={handleFontSizeSelect}
+        contentWidth={contentWidth}
+        onCycleWidth={handleCycleWidth}
+        focusMode={focusMode}
+        onToggleFocusMode={() => setFocusMode(v => !v)}
+        autoScrollSpeed={autoScrollSpeed}
+        onToggleAutoScroll={() => setAutoScrollSpeed(v => (v === 0 ? 1 : v === 1 ? 2 : 0))}
+        zoom={zoom}
+        onZoomChange={handleZoomChange}
+        onCopyRawMarkdown={handleCopyRawMarkdown}
+        onCopyCurrentSection={handleCopyCurrentSection}
+        onCopyRichText={handleCopyRichText}
+        onExportHtml={handleExportHtml}
+        onExportWord={handleExportWord}
+        isExportingWord={isExportingWord}
+        onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file.path }) : undefined}
+        onScrollToTop={scrollToTop}
+        copied={copied}
+        copiedSection={copiedSection}
+        copiedRich={copiedRich}
+        fileCharCount={documentContent.length}
+        fileWordCount={fileWordCount}
+        isVisible={toolbarVisible}
+        onMouseEnter={() => setToolbarVisible(true)}
+        locale={locale}
+        onLocaleChange={handleLocaleChange}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        isMindmap={viewMode === 'mindmap'}
+        onToggleMindmap={() => setViewMode(m => (m === 'mindmap' ? 'preview' : 'mindmap'))}
+        enableOkf={enableOkfRendering}
+        onToggleOkf={handleToggleOkf}
+      />
+
+      {/* Main Body: Outline Sidebar + Canvas */}
+      <div className="markdown-plugin-body">
+        {outlineOpen && !focusMode && viewMode !== 'mindmap' && viewMode !== 'source' && (
+          <MarkdownOutlineSidebar
+            headings={headings}
+            filteredHeadings={filteredHeadings}
+            activeHeadingIndex={activeHeadingIndex}
+            headingFilterLevel={headingFilterLevel}
+            onFilterLevelChange={setHeadingFilterLevel}
+            onJumpToHeading={jumpToHeading}
+            locale={locale}
+            position={outlinePosition}
+            onPositionChange={handleOutlinePositionChange}
+            onClose={handleToggleOutline}
+          />
+        )}
+
+        {/* Canvas / Mindmap / Split / Source View */}
+        {viewMode === 'mindmap' ? (
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <ViewerRenderer
+              file={activeFile}
+              files={viewerFiles}
+              mode="mindmap"
+              theme={theme}
+              density={density}
+              contentWidth={contentWidth}
+              locale={locale}
+              onContentChange={handleContentUpdate}
+              onRenderComplete={handleRenderComplete}
+              onOpenSourceAtLine={vscode ? (line: number) => vscode.postMessage({ type: 'open-source', path: file.path, line }) : undefined}
+              enableOkf={enableOkfRendering}
+              onToggleOkf={handleToggleOkf}
+            />
+          </div>
+        ) : viewMode === 'source' || viewMode === 'split' ? (
+          <div className="flex-1 min-h-0 flex overflow-hidden">
+            <ViewerRenderer
+              file={activeFile}
+              files={viewerFiles}
+              mode={viewMode}
+              theme={theme}
+              density={density}
+              contentWidth={contentWidth}
+              locale={locale}
+              onContentChange={handleContentUpdate}
+              onRenderComplete={handleRenderComplete}
+              onOpenSourceAtLine={vscode ? (line: number) => vscode.postMessage({ type: 'open-source', path: file.path, line }) : undefined}
+              enableOkf={enableOkfRendering}
+              onToggleOkf={handleToggleOkf}
+            />
+          </div>
+        ) : (
+          <div
+            ref={scrollRef}
+            className="markdown-plugin-scroll"
+            data-width={contentWidth}
+            data-font-size={fontSize}
+          >
+            <div style={{ zoom }} data-width={contentWidth} data-font-size={fontSize}>
+              <ViewerRenderer
+                file={activeFile}
+                files={viewerFiles}
+                mode="preview"
+                theme={theme}
+                density={density}
+                contentWidth={contentWidth}
+                locale={locale}
+                onContentChange={handleContentUpdate}
+                onRenderComplete={handleRenderComplete}
+                onOpenSourceAtLine={vscode ? (line: number) => vscode.postMessage({ type: 'open-source', path: file.path, line }) : undefined}
+                enableOkf={enableOkfRendering}
+                onToggleOkf={handleToggleOkf}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Status Bar */}
+      <DocStatusBar
+        wordCount={fileWordCount}
+        sectionCount={headings.length}
+        readingProgress={readingProgress}
+        activeMatchIndex={activeMatchIndex}
+        matchCount={matchCount}
+        searchText={searchText}
+        zoom={zoom}
+        fontSize={fontSize}
+        contentWidth={contentWidth}
+        locale={locale}
+      />
+    </main>
+  );
+};
