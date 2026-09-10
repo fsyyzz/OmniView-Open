@@ -37,6 +37,7 @@ export interface MarkdownViewerProps {
   onSelectFile?: (file: any) => void;
   enableOkf?: boolean;
   onToggleOkf?: () => void;
+  onContentChange?: (content: string) => void;
 }
 
 interface RenderedBlock {
@@ -68,7 +69,8 @@ const DOMPURIFY_SVG_CONFIG: Record<string, any> = {
     'feBlend', 'feColorMatrix', 'feComponentTransfer', 'feComposite', 'feConvolveMatrix',
     'feDiffuseLighting', 'feDisplacementMap', 'feDistantLight', 'feFlood', 'feFuncA',
     'feFuncB', 'feFuncG', 'feFuncR', 'feImage', 'feMorphology', 'fePointLight',
-    'feSpecularLighting', 'feSpotLight', 'feTile', 'feTurbulence', 'image', 'pattern', 'mask'
+    'feSpecularLighting', 'feSpotLight', 'feTile', 'feTurbulence', 'image', 'pattern', 'mask',
+    'details', 'summary', 'input', 'label'
   ],
   ADD_ATTR: [
     'viewBox', 'xmlns', 'xmlns:xlink', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2',
@@ -79,8 +81,95 @@ const DOMPURIFY_SVG_CONFIG: Record<string, any> = {
     'font-size', 'font-weight', 'letter-spacing', 'dominant-baseline', 'href', 'xlink:href',
     'target', 'rel', 'crossorigin', 'points', 'dx', 'dy', 'stdDeviation', 'flood-color', 'flood-opacity',
     'marker-end', 'marker-start', 'marker-mid',
-    'data-source-line', 'data-source-end-line'
+    'data-source-line', 'data-source-end-line', 'data-task-line', 'data-checked', 'data-callout',
+    'open', 'type', 'checked', 'aria-label'
   ],
+};
+
+/**
+ * 辅助函数：根据 GitHub / Obsidian Callout 类型生成语义元数据、图标与默认标题
+ */
+const getCalloutMeta = (typeStr: string, locale: Locale) => {
+  const tStr = typeStr.toLowerCase();
+  switch (tStr) {
+    case 'note':
+    case 'info':
+      return {
+        type: 'note',
+        title: locale === 'zh-CN' ? '备注' : 'Note',
+        colorClass: 'ov-callout-note',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
+      };
+    case 'tip':
+    case 'hint':
+      return {
+        type: 'tip',
+        title: locale === 'zh-CN' ? '技巧提示' : 'Tip',
+        colorClass: 'ov-callout-tip',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path><path d="M9 18h6"></path><path d="M10 22h4"></path></svg>`,
+      };
+    case 'important':
+      return {
+        type: 'important',
+        title: locale === 'zh-CN' ? '重要' : 'Important',
+        colorClass: 'ov-callout-important',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
+      };
+    case 'warning':
+    case 'attention':
+      return {
+        type: 'warning',
+        title: locale === 'zh-CN' ? '警告' : 'Warning',
+        colorClass: 'ov-callout-warning',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
+      };
+    case 'caution':
+    case 'danger':
+    case 'error':
+    case 'failure':
+    case 'bug':
+      return {
+        type: 'caution',
+        title: locale === 'zh-CN' ? '注意' : 'Caution',
+        colorClass: 'ov-callout-caution',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
+      };
+    case 'success':
+    case 'done':
+    case 'check':
+      return {
+        type: 'success',
+        title: locale === 'zh-CN' ? '成功' : 'Success',
+        colorClass: 'ov-callout-success',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`,
+      };
+    case 'question':
+    case 'help':
+    case 'faq':
+      return {
+        type: 'question',
+        title: locale === 'zh-CN' ? '帮助' : 'Question',
+        colorClass: 'ov-callout-question',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
+      };
+    case 'example':
+      return {
+        type: 'example',
+        title: locale === 'zh-CN' ? '示例' : 'Example',
+        colorClass: 'ov-callout-example',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`,
+      };
+    case 'quote':
+    case 'cite':
+      return {
+        type: 'quote',
+        title: locale === 'zh-CN' ? '引用' : 'Quote',
+        colorClass: 'ov-callout-quote',
+        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>`,
+      };
+    default:
+      return null;
+  }
 };
 
 export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
@@ -95,6 +184,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   onSelectFile,
   enableOkf = true,
   onToggleOkf,
+  onContentChange,
 }) => {
   const [blocks, setBlocks] = useState<RenderedBlock[]>([]);
   // 同步计算 Frontmatter / OKF 元数据，消除异步时序延迟与竞争
@@ -182,13 +272,71 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       };
 
       customRenderer.blockquote = function (tokenOrQuote: any) {
-        let body = '';
-        if (typeof tokenOrQuote === 'object' && tokenOrQuote !== null) {
-          body = this.parser.parse(tokenOrQuote.tokens || []);
-        } else {
-          body = tokenOrQuote;
+        if (typeof tokenOrQuote === 'object' && tokenOrQuote !== null && tokenOrQuote.tokens) {
+          const firstToken = tokenOrQuote.tokens[0];
+          if (firstToken && (firstToken.type === 'paragraph' || firstToken.type === 'text')) {
+            const firstRaw = (firstToken.raw || firstToken.text || '').trimStart();
+            const calloutMatch = firstRaw.match(/^\[!([a-zA-Z]+)\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/);
+            if (calloutMatch) {
+              const typeRaw = calloutMatch[1];
+              const fold = calloutMatch[2];
+              const customTitle = (calloutMatch[3] || '').trim();
+              const remainingText = (calloutMatch[4] || '');
+              const meta = getCalloutMeta(typeRaw, locale) || {
+                type: typeRaw.toLowerCase(),
+                title: customTitle || typeRaw.toUpperCase(),
+                colorClass: `ov-callout-${typeRaw.toLowerCase()}`,
+                icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
+              };
+
+              const displayTitle = customTitle || meta.title;
+              const restTokens = [...tokenOrQuote.tokens];
+              if (remainingText.trim()) {
+                const innerTokens = marked.lexer(remainingText);
+                restTokens[0] = {
+                  type: 'paragraph',
+                  raw: remainingText,
+                  text: remainingText,
+                  tokens: (innerTokens[0] as any)?.tokens || [],
+                };
+              } else {
+                restTokens.shift();
+              }
+
+              const bodyHtml = restTokens.length > 0 ? this.parser.parse(restTokens) : '';
+              const isCollapsible = fold === '+' || fold === '-';
+              const isOpen = fold !== '-';
+              const chevronSvg = `<svg class="ov-callout-fold-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+              if (isCollapsible) {
+                return `<details class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span>${chevronSvg}</summary><div class="ov-callout-body">${bodyHtml}</div></details>\n`;
+              }
+
+              return `<div class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" data-source-line="${currentTokenStartLine}"><div class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span></div><div class="ov-callout-body">${bodyHtml}</div></div>\n`;
+            }
+          }
+          const body = this.parser.parse(tokenOrQuote.tokens);
+          return `<blockquote data-source-line="${currentTokenStartLine}">${body}</blockquote>\n`;
         }
-        return `<blockquote data-source-line="${currentTokenStartLine}">${body}</blockquote>\n`;
+        return `<blockquote data-source-line="${currentTokenStartLine}">${tokenOrQuote}</blockquote>\n`;
+      };
+
+      const origListitem = customRenderer.listitem.bind(customRenderer);
+      customRenderer.listitem = function (itemOrText: any, task?: boolean, checked?: boolean) {
+        if (typeof itemOrText === 'object' && itemOrText !== null) {
+          const isTask = itemOrText.task;
+          const isChecked = itemOrText.checked;
+          const itemLine = itemOrText._startLine || currentTokenStartLine;
+          let body = this.parser.parse(itemOrText.tokens || []);
+          if (isTask) {
+            // 清除 marked 默认插入的不可控 checkbox html
+            body = body.replace(/<input[^>]*type=["']checkbox["'][^>]*>/gi, '').trim();
+            const checkboxHtml = `<input type="checkbox" class="ov-task-checkbox" data-task-line="${itemLine}" ${isChecked ? 'checked' : ''} aria-label="${isChecked ? 'Mark incomplete' : 'Mark complete'}" title="${t('taskToggleTooltip', locale)}" />`;
+            return `<li class="ov-task-list-item ${isChecked ? 'ov-task-done' : ''}" data-task-line="${itemLine}" data-checked="${isChecked ? 'true' : 'false'}"><label class="ov-task-label">${checkboxHtml}<span class="ov-task-text">${body}</span></label></li>\n`;
+          }
+          return `<li data-source-line="${itemLine}">${body}</li>\n`;
+        }
+        return origListitem(itemOrText, task, checked);
       };
 
       // 编译 HTML 中的 KaTeX 行内与块级数学公式
@@ -234,6 +382,15 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           ? tokenStartLine + Math.max(0, tokenNewlines - 1)
           : tokenStartLine + tokenNewlines;
         runningLine += tokenNewlines;
+
+        if (token.type === 'list' && (token as any).items) {
+          let itemRunningLine = tokenStartLine;
+          for (const item of (token as any).items) {
+            item._startLine = itemRunningLine;
+            const itemNewlines = (item.raw.match(/\n/g) || []).length;
+            itemRunningLine += itemNewlines;
+          }
+        }
 
         // 识别 A4 物理分页符指令 (<!-- pagebreak -->, ---page---, \pagebreak, 等)
         const isPageBreakToken = (t: any): boolean => {
@@ -470,13 +627,69 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     setSvgViewModes(prev => ({ ...prev, [blockId]: 'visual' }));
   };
 
-  // 点击正文中的任何图片自动呼出高清全屏灯箱
+  // 双向回写：任务复选框状态改变时，精确定位源码行并回写
+  const handleToggleTask = (targetLineNum: number, newChecked: boolean) => {
+    if (!onContentChange) return;
+    const lines = content.split('\n');
+    const zeroIndex = targetLineNum - 1;
+    const taskRegex = /^(\s*(?:[-*+]|\d+\.)\s*\[)([ xX])(\]\s*.*)$/;
+
+    let matchedIndex = -1;
+    if (zeroIndex >= 0 && zeroIndex < lines.length && taskRegex.test(lines[zeroIndex])) {
+      matchedIndex = zeroIndex;
+    } else {
+      // 容错搜索周围行
+      for (let offset = -3; offset <= 3; offset++) {
+        const idx = zeroIndex + offset;
+        if (idx >= 0 && idx < lines.length && taskRegex.test(lines[idx])) {
+          matchedIndex = idx;
+          break;
+        }
+      }
+    }
+
+    if (matchedIndex !== -1) {
+      const line = lines[matchedIndex];
+      const replacement = newChecked ? '$1x$3' : '$1 $3';
+      lines[matchedIndex] = line.replace(taskRegex, replacement);
+      const newContent = lines.join('\n');
+      onContentChange(newContent);
+    }
+  };
+
+  // 点击正文中的任何图片自动呼出高清全屏灯箱 / 任务复选框微交互 / 概念链接跳转
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleContainerClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+
+      // 1. 交互式 Task List（复选清单）双向回写
+      const taskCheckbox = (target.closest('input.ov-task-checkbox') || (target.matches('input.ov-task-checkbox') ? target : null)) as HTMLInputElement | null;
+      if (taskCheckbox) {
+        const lineAttr = taskCheckbox.getAttribute('data-task-line');
+        if (lineAttr) {
+          const lineNum = parseInt(lineAttr, 10);
+          if (!isNaN(lineNum) && lineNum > 0) {
+            const isChecked = taskCheckbox.checked;
+            const listItem = taskCheckbox.closest('.ov-task-list-item');
+            if (listItem) {
+              if (isChecked) {
+                listItem.classList.add('ov-task-done');
+                listItem.setAttribute('data-checked', 'true');
+              } else {
+                listItem.classList.remove('ov-task-done');
+                listItem.setAttribute('data-checked', 'false');
+              }
+            }
+            handleToggleTask(lineNum, isChecked);
+          }
+        }
+        return;
+      }
+
+      // 2. 图片灯箱放大
       if (target.tagName.toLowerCase() === 'img') {
         const img = target as HTMLImageElement;
         // 避开 404 缺失占位图
@@ -490,7 +703,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         return;
       }
 
-      // 智能拦截相对 Markdown/OKF 概念链接，支持知识图谱跨文件跳转
+      // 3. 智能拦截相对 Markdown/OKF 概念链接，支持知识图谱跨文件跳转
       const anchor = target.closest('a');
       if (anchor) {
         const href = anchor.getAttribute('href');
@@ -521,7 +734,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
     const handleContainerDblClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.closest('button, input, textarea, select')) return;
+      if (target.closest('button, input, textarea, select, details, summary')) return;
       const sourceElement = target.closest('[data-source-line]');
       if (sourceElement) {
         const lineAttr = sourceElement.getAttribute('data-source-line');
@@ -540,7 +753,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       container.removeEventListener('click', handleContainerClick);
       container.removeEventListener('dblclick', handleContainerDblClick);
     };
-  }, [onSelectFile, onOpenSourceAtLine]);
+  }, [onSelectFile, onOpenSourceAtLine, onContentChange, content]);
 
   // Markdown 与 VS Code 编辑器双向光标/滚动同步监听器
   useEffect(() => {

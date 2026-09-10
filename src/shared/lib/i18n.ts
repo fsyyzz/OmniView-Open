@@ -246,6 +246,18 @@ export const TRANSLATIONS = {
     mindmapDepth: '层深度',
     mindmapNoMatches: '未找到匹配节点',
     switchToDocView: '返回文档模式',
+
+    // Callout / Alerts & Task List
+    calloutNote: '备注',
+    calloutTip: '技巧提示',
+    calloutImportant: '重要',
+    calloutWarning: '警告',
+    calloutCaution: '注意',
+    calloutSuccess: '成功',
+    calloutQuestion: '帮助',
+    calloutExample: '示例',
+    calloutQuote: '引用',
+    taskToggleTooltip: '点击切换任务完成状态 (自动回写源码)',
   },
   'en-US': {
     // Toolbar buttons & tooltips
@@ -485,6 +497,18 @@ export const TRANSLATIONS = {
     mindmapDepth: 'levels',
     mindmapNoMatches: 'No matching nodes',
     switchToDocView: 'Back to Document',
+
+    // Callout / Alerts & Task List
+    calloutNote: 'Note',
+    calloutTip: 'Tip',
+    calloutImportant: 'Important',
+    calloutWarning: 'Warning',
+    calloutCaution: 'Caution',
+    calloutSuccess: 'Success',
+    calloutQuestion: 'Question',
+    calloutExample: 'Example',
+    calloutQuote: 'Quote',
+    taskToggleTooltip: 'Click to toggle task status (auto syncs to source)',
   },
 };
 
