@@ -2,7 +2,7 @@
  * OmniView 文档视图插件外壳 (支持多语言 + 纯图标悬浮设计 + DOM搜索高亮变色与直接源码打开)
  */
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
-import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition } from '../../shared/types';
+import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition, ContentWidthMode } from '../../shared/types';
 import { ViewerRenderer } from './ViewerRenderer';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { VsCodeApi } from '../../shared/lib/vscode';
@@ -173,7 +173,7 @@ const MarkdownPluginView: React.FC<{
   const [searchText, setSearchText] = useState('');
   const [matchCount, setMatchCount] = useState<number>(0);
   const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
-  const [contentWidth, setContentWidth] = useState<'narrow' | 'standard' | 'wide' | 'full'>(initialSettings.contentWidth || 'standard');
+  const [contentWidth, setContentWidth] = useState<ContentWidthMode>(initialSettings.contentWidth || 'standard');
   const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize || 15);
   const [focusMode, setFocusMode] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState<number>(0);
@@ -382,11 +382,12 @@ const MarkdownPluginView: React.FC<{
   };
 
   const handleCycleWidth = () => {
-    const next: Record<'narrow' | 'standard' | 'wide' | 'full', 'narrow' | 'standard' | 'wide' | 'full'> = {
+    const next: Record<ContentWidthMode, ContentWidthMode> = {
       narrow: 'standard',
       standard: 'wide',
       wide: 'full',
-      full: 'narrow',
+      full: 'a4',
+      a4: 'narrow',
     };
     const updated = next[contentWidth];
     setContentWidth(updated);

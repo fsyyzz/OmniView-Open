@@ -3,7 +3,7 @@
  * 支持 Markdown, SVG, PDF, PlantUML, CSV, Code
  */
 import React, { useState, Suspense, lazy } from 'react';
-import { FileItem, DriverId, ViewMode, ThemeId } from '../../shared/types';
+import { FileItem, DriverId, ViewMode, ThemeId, ContentWidthMode } from '../../shared/types';
 import { Locale } from '../../shared/lib/i18n';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { Eye, Network, Loader2 } from 'lucide-react';
@@ -39,7 +39,7 @@ interface ViewerRendererProps {
   mode: ViewMode;
   theme?: ThemeId;
   density?: 'compact' | 'standard' | 'comfortable';
-  contentWidth?: 'narrow' | 'standard' | 'wide' | 'full';
+  contentWidth?: ContentWidthMode;
   zoom?: number;
   locale?: Locale;
   onContentChange: (content: string) => void;
@@ -139,9 +139,10 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                   title="富文本渲染预览"
+                  aria-label="富文本渲染预览"
                 >
-                  <Eye className="w-3 h-3" />
-                  <span>预览</span>
+                  <Eye className="w-3 h-3 shrink-0" />
+                  <span className="hidden sm:inline">预览</span>
                 </button>
                 <button
                   onClick={() => {
@@ -154,9 +155,10 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                   title="全景思维导图 (Markmap)"
+                  aria-label="全景思维导图"
                 >
-                  <Network className="w-3 h-3" />
-                  <span>思维导图</span>
+                  <Network className="w-3 h-3 shrink-0" />
+                  <span className="hidden sm:inline">思维导图</span>
                 </button>
               </div>
 

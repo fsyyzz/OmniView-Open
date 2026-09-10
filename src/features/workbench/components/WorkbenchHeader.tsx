@@ -244,56 +244,60 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
       </div>
 
       {/* Center: View Modes (when in editor view) & Zoom Controls */}
-      <div className="hidden lg:flex items-center gap-2">
+      <div className="hidden md:flex items-center gap-1.5 shrink-0">
         {currentView === 'editor' && (
           <div className="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/80">
             <button
               onClick={() => onViewModeChange('preview')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${
+              className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
                 viewMode === 'preview' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="预览模式：查看富文本与即时渲染图表"
+              aria-label="预览模式"
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>预览</span>
+              <Eye className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xl:inline">预览</span>
             </button>
             <button
               onClick={() => onViewModeChange('split')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${
+              className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
                 viewMode === 'split' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="分屏模式：左侧源码编辑，右侧同步渲染"
+              aria-label="分屏模式"
             >
-              <Split className="w-3.5 h-3.5" />
-              <span>分屏</span>
+              <Split className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xl:inline">分屏</span>
             </button>
             <button
               onClick={() => onViewModeChange('source')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${
+              className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
                 viewMode === 'source' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="源码模式：查看与编辑原始文件"
+              aria-label="源码模式"
             >
-              <Code className="w-3.5 h-3.5" />
-              <span>源码</span>
+              <Code className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xl:inline">源码</span>
             </button>
             {activeFile && ['md', 'markdown'].includes(activeFile.extension.toLowerCase()) && (
               <button
                 onClick={() => onViewModeChange('mindmap')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${
+                className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
                   viewMode === 'mindmap' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
                 }`}
                 title="思维导图模式：整篇文档大纲全景树图与动态交互 (Markmap)"
+                aria-label="思维导图模式"
               >
-                <Network className="w-3.5 h-3.5 text-indigo-300" />
-                <span>思维导图</span>
+                <Network className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+                <span className="hidden xl:inline">思维导图</span>
               </button>
             )}
           </div>
         )}
 
         {/* Zoom Control Group */}
-        <div className="flex items-center bg-slate-800/80 rounded-lg border border-slate-700/80 px-1 py-0.5">
+        <div className="hidden lg:flex items-center bg-slate-800/80 rounded-lg border border-slate-700/80 px-1 py-0.5">
           <button
             onClick={() => onZoomChange(Math.max(0.5, Number((zoom - 0.1).toFixed(1))))}
             className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 transition"
@@ -329,7 +333,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
       </div>
 
       {/* Right: Theme Selector, Quick Tools & File Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
         {/* Theme Selector Dropdown */}
         <div className="relative" ref={themeDropdownRef}>
           <button
@@ -337,16 +341,17 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               setThemeDropdownOpen((prev) => !prev);
               setDensityDropdownOpen(false);
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-md border border-slate-700 transition shadow-sm"
+            className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-md border border-slate-700 transition shadow-sm text-xs"
             title="切换渲染色彩主题"
+            aria-label="渲染色彩主题"
           >
-            <Palette className="w-3.5 h-3.5 text-blue-400" />
+            <Palette className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <span
-              className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"
+              className="w-2 h-2 rounded-full inline-block shadow-sm shrink-0"
               style={{ backgroundColor: activeThemeObj.colorDot }}
             />
-            <span className="hidden sm:inline font-medium">{activeThemeObj.name}</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
+            <span className="hidden 2xl:inline font-medium max-w-[64px] truncate">{activeThemeObj.name}</span>
+            <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
           </button>
 
           {/* Theme Dropdown Menu */}
@@ -399,12 +404,13 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               setDensityDropdownOpen((prev) => !prev);
               setThemeDropdownOpen(false);
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-md border border-slate-700 transition shadow-sm"
+            className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-md border border-slate-700 transition shadow-sm text-xs"
             title="切换文档与图表紧凑排版密度"
+            aria-label="排版紧凑度"
           >
-            <AlignJustify className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden sm:inline font-medium">{activeDensityObj.name}</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
+            <AlignJustify className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="hidden 2xl:inline font-medium">{activeDensityObj.name}</span>
+            <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
           </button>
 
           {/* Density Dropdown Menu */}
@@ -445,27 +451,27 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         </div>
 
         {/* Quick Action Buttons Group */}
-        <div className="flex items-center bg-slate-800/80 rounded-md border border-slate-700 p-0.5">
+        <div className="flex items-center bg-slate-800/80 rounded-md border border-slate-700 p-0.5 gap-0.5">
           {/* Copy Document Content */}
           <button
             onClick={handleCopy}
             disabled={!activeFile}
-            className={`flex items-center gap-1 px-2 py-1 rounded transition text-xs ${
+            className={`flex items-center p-1 sm:p-1.5 rounded transition text-xs ${
               copied
                 ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50'
                 : 'text-slate-300 hover:text-white hover:bg-slate-700'
             }`}
             title="一键复制当前文档完整源码内容"
+            aria-label="复制源码"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden md:inline">{copied ? '已复制' : '复制'}</span>
           </button>
 
           {/* Export File */}
           <button
             onClick={handleExport}
             disabled={!activeFile}
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="p-1 sm:p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
             title="导出/下载当前文件到本地"
             aria-label="导出文件"
           >
@@ -475,7 +481,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           {/* Print / Export PDF */}
           <button
             onClick={handlePrint}
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="p-1 sm:p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
             title="打印或另存为 PDF"
             aria-label="打印或导出 PDF"
           >
@@ -485,7 +491,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           {/* Fullscreen Preview Toggle */}
           <button
             onClick={handleToggleFullscreen}
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="p-1 sm:p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
             title={isFullscreen ? '退出全屏' : '全屏沉浸式预览'}
             aria-label="全屏预览"
           >
@@ -504,29 +510,32 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md border border-slate-700 transition shadow-sm"
+          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md border border-slate-700 transition shadow-sm text-xs"
           title="导入本地文件测试渲染"
+          aria-label="打开本地文件"
         >
-          <Upload className="w-3.5 h-3.5 text-blue-400" />
-          <span className="hidden sm:inline">打开本地文件</span>
+          <Upload className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+          <span className="hidden xl:inline">导入</span>
         </button>
 
         {/* 新建文件复合按钮与下拉菜单 */}
         <div ref={newFileDropdownRef} className="relative flex items-center">
           <button
             onClick={() => onNewFile()}
-            className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-l-md shadow-sm shadow-blue-600/30 transition text-xs"
+            className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-l-md shadow-sm shadow-blue-600/30 transition text-xs"
             title="新建 Markdown 文件"
+            aria-label="新建文件"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">新建文件</span>
+            <Plus className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden xl:inline">新建</span>
           </button>
           <button
             onClick={() => setNewFileDropdownOpen(!newFileDropdownOpen)}
             className="p-1 bg-blue-700 hover:bg-blue-600 text-white rounded-r-md border-l border-blue-500/50 shadow-sm transition"
             title="选择要新建的文件类型"
+            aria-label="更多新建类型"
           >
-            <ChevronDown className="w-3.5 h-3.5" />
+            <ChevronDown className="w-3 h-3" />
           </button>
 
           {newFileDropdownOpen && (
@@ -580,11 +589,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md border border-slate-700 transition shadow-sm"
+            className="p-1 sm:p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md border border-slate-700 transition shadow-sm"
             title="打开工作台全局偏好与持久化配置中心"
             aria-label="工作台偏好设置"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5" />
           </button>
         )}
       </div>

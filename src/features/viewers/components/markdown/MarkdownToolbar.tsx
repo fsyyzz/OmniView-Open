@@ -29,7 +29,7 @@ import {
   Code,
   Sparkles,
 } from 'lucide-react';
-import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode } from '../../../../shared/types';
+import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
 import { Locale, t } from '../../../../shared/lib/i18n';
 
@@ -50,7 +50,7 @@ interface MarkdownToolbarProps {
   onDensityChange: (density: DensityMode) => void;
   fontSize: number;
   onFontSizeChange: (size: number) => void;
-  contentWidth: 'narrow' | 'standard' | 'wide' | 'full';
+  contentWidth: ContentWidthMode;
   onCycleWidth: () => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
@@ -167,6 +167,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
     standard: `${t('width', locale)}: ${t('widthStandard', locale)}`,
     wide: `${t('width', locale)}: ${t('widthWide', locale)}`,
     full: `${t('width', locale)}: ${t('widthFull', locale)}`,
+    a4: `${t('width', locale)}: ${t('widthA4', locale)}`,
   }[contentWidth];
 
   return (
@@ -457,6 +458,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
               ? '1180px'
               : contentWidth === 'full'
               ? 'Fluid'
+              : contentWidth === 'a4'
+              ? 'A4'
               : '720px'}
           </span>
         </button>
@@ -533,7 +536,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
         <button
           className="markdown-tool-button"
           onClick={() => window.print()}
-          title={t('exportPdf', locale)}
+          title={t('printPdfA4Tooltip', locale)}
           aria-label={t('exportPdf', locale)}
         >
           <Printer size={14} />

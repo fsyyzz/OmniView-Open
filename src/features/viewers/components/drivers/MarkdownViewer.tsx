@@ -23,12 +23,13 @@ import { Locale, t } from '../../../../shared/lib/i18n';
 import { parseOkfFrontmatter, OkfParseResult } from '../../lib/okfParser';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
+import { ContentWidthMode } from '../../../../shared/types';
 
 export interface MarkdownViewerProps {
   content: string;
   isDarkTheme?: boolean;
   density?: 'compact' | 'standard' | 'comfortable';
-  contentWidth?: 'narrow' | 'standard' | 'wide' | 'full';
+  contentWidth?: ContentWidthMode;
   files?: Array<{ name: string; content: string; extension: string; path?: string }>;
   locale?: Locale;
   onRenderComplete?: () => void;
@@ -40,7 +41,7 @@ export interface MarkdownViewerProps {
 
 interface RenderedBlock {
   id: string;
-  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table';
+  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak';
   mode?: 'code-block' | 'file';
   lang?: string;
   raw: string;
@@ -234,7 +235,27 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           : tokenStartLine + tokenNewlines;
         runningLine += tokenNewlines;
 
-        if (token.type === 'code') {
+        // 识别 A4 物理分页符指令 (<!-- pagebreak -->, ---page---, \pagebreak, 等)
+        const isPageBreakToken = (t: any): boolean => {
+          const rawText = (t.raw || t.text || '').trim();
+          if (/^(<!--\s*page-?break\s*-->|---page---|\\pagebreak|\[page-?break\]|<div[^>]*class=["'][^"']*page-?break[^"']*["'][^>]*>\s*(<\/div>)?)$/i.test(rawText)) {
+            return true;
+          }
+          if (t.type === 'hr' && /page/i.test(t.raw || '')) {
+            return true;
+          }
+          return false;
+        };
+
+        if (isPageBreakToken(token)) {
+          parsedBlocks.push({
+            id: `block-pagebreak-${counter++}`,
+            type: 'pagebreak',
+            raw: token.raw,
+            startLine: tokenStartLine,
+            endLine: tokenEndLine,
+          });
+        } else if (token.type === 'code') {
           const primaryLang = (token.lang || '').split(/\s+/)[0].toLowerCase();
           if (['mermaid'].includes(primaryLang)) {
             parsedBlocks.push({
@@ -697,6 +718,28 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       )}
 
       {blocks.map(block => {
+        if (block.type === 'pagebreak') {
+          return (
+            <div
+              key={block.id}
+              className="page-break-container my-6"
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('pageBreakBadge', locale)} (L${block.startLine})` : undefined}
+            >
+              <div className="page-break-screen-indicator flex items-center gap-3 py-2 text-xs font-mono text-slate-400 select-none">
+                <div className="flex-1 border-b border-dashed border-slate-300 dark:border-slate-700" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full border border-dashed border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/80 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  <span className="text-slate-400 dark:text-slate-500 text-xs">✂️</span>
+                  <span>{t('pageBreakBadge', locale)}</span>
+                </span>
+                <div className="flex-1 border-b border-dashed border-slate-300 dark:border-slate-700" />
+              </div>
+              <div className="page-break-print-divider print-pagebreak" />
+            </div>
+          );
+        }
+
         if (block.type === 'html' && block.renderedHtml) {
           return (
             <RenderErrorBoundary key={block.id} blockName="Document Content" locale={locale}>

@@ -176,7 +176,7 @@ export const DENSITY_PRESETS: DensityPreset[] = [
   },
 ];
 
-export type ContentWidthMode = 'narrow' | 'standard' | 'wide' | 'full';
+export type ContentWidthMode = 'narrow' | 'standard' | 'wide' | 'full' | 'a4';
 export type OutlinePosition = 'left' | 'right' | 'floating';
 
 export interface WorkbenchSettings {

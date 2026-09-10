@@ -58,6 +58,7 @@ console.log('✅ 1. 空存储环境下默认设置完整性通过');
 saveStoredSettings({
   theme: 'cyber',
   zoom: 1.25,
+  contentWidth: 'a4',
   mindmapSplitRatio: 50,
   wordWrap: false,
   plantUmlServerUrl: 'https://custom-plantuml.internal',
@@ -68,6 +69,7 @@ saveStoredSettings({
 const updated = loadStoredSettings();
 assert.strictEqual(updated.theme, 'cyber');
 assert.strictEqual(updated.zoom, 1.25);
+assert.strictEqual(updated.contentWidth, 'a4', '应支持 a4 纸张宽度排版模式');
 assert.strictEqual(updated.mindmapSplitRatio, 50);
 assert.strictEqual(updated.wordWrap, false);
 assert.strictEqual(updated.plantUmlServerUrl, 'https://custom-plantuml.internal');

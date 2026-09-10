@@ -410,6 +410,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                     <option value="standard">标准适中 (Standard · 960px)</option>
                     <option value="wide">宽屏视野 (Wide · 1280px)</option>
                     <option value="full">全幅铺展 (Full · 100%)</option>
+                    <option value="a4">A4 纸张排版 (A4 Paper · 210mm 物理印刷视图)</option>
                   </select>
                 </div>
 

@@ -92,7 +92,7 @@ export function loadStoredSettings(): WorkbenchSettings {
       ? parsed.outlineOpen
       : DEFAULT_SETTINGS.outlineOpen;
 
-    const contentWidth: ContentWidthMode = ['narrow', 'standard', 'wide', 'full'].includes(parsed.contentWidth)
+    const contentWidth: ContentWidthMode = ['narrow', 'standard', 'wide', 'full', 'a4'].includes(parsed.contentWidth)
       ? parsed.contentWidth
       : 'standard';
 

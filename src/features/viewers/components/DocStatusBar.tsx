@@ -55,6 +55,7 @@ export const DocStatusBar: React.FC<DocStatusBarProps> = ({
     standard: locale === 'en-US' ? '880px' : '标准 880px',
     wide: locale === 'en-US' ? '1180px' : '全景 1180px',
     full: locale === 'en-US' ? 'Full' : '自适应铺满',
+    a4: locale === 'en-US' ? 'A4 (210mm)' : 'A4 纸张排版',
   };
 
   return (

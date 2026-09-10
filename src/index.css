@@ -623,6 +623,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
 [data-width="standard"] { --ov-content-max-width: 880px; }
 [data-width="wide"] { --ov-content-max-width: 1180px; }
 [data-width="full"] { --ov-content-max-width: min(96vw, 1680px); }
+[data-width="a4"] { --ov-content-max-width: 210mm; }
 
 [data-width="narrow"] .markdown-document,
 .markdown-document[data-width="narrow"] {
@@ -648,6 +649,31 @@ body.vscode-high-contrast-light[data-theme="system"] {
   width: 100% !important;
   padding-left: clamp(24px, 4vw, 56px) !important;
   padding-right: clamp(24px, 4vw, 56px) !important;
+}
+
+/* A4 纸张排版仿真视图 (A4 Paper Print & Layout Simulation) */
+[data-width="a4"] .markdown-document,
+.markdown-document[data-width="a4"] {
+  max-width: 210mm !important;
+  width: 100% !important;
+  min-height: 297mm;
+  margin: 32px auto 80px !important;
+  padding: 24mm 20mm 28mm !important;
+  border-radius: 4px !important;
+  border: 1px solid var(--ov-border-subtle) !important;
+  box-shadow: 0 10px 32px -4px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06) !important;
+  position: relative;
+}
+
+/* 屏幕上的 A4 分页指示器 */
+.page-break-container {
+  position: relative;
+  margin: 28px 0;
+  user-select: none;
+}
+
+.page-break-print-divider {
+  display: none;
 }
 
 [data-font-size="13"] .markdown-document { font-size: 13px !important; }
@@ -1021,6 +1047,12 @@ body.vscode-high-contrast-light[data-theme="system"] {
     margin: 18mm 15mm 18mm 15mm;
   }
 
+  /* 强制保留背景色彩与打印清晰度 (Color Fidelity) */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   html, body {
     background: #ffffff !important;
     color: #0f172a !important;
@@ -1046,8 +1078,23 @@ body.vscode-high-contrast-light[data-theme="system"] {
   .markdown-more-menu,
   button,
   .ov-image-fallback,
-  .lightbox-modal {
+  .lightbox-modal,
+  .page-break-screen-indicator {
     display: none !important;
+  }
+
+  /* A4 物理分页符生效 */
+  .page-break-container,
+  .page-break-print-divider,
+  .page-break,
+  .print-pagebreak {
+    display: block !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    page-break-after: always !important;
+    break-after: page !important;
   }
 
   /* 展开滚动容器，允许跨页连续打印 */
@@ -1074,11 +1121,25 @@ body.vscode-high-contrast-light[data-theme="system"] {
   .markdown-code-block,
   .ov-katex-block,
   .ov-table-wrapper,
-  table,
   img,
   figure,
   blockquote,
   .diagram-canvas {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 表格行切断防护与表头跨页自动复用 */
+  table {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
