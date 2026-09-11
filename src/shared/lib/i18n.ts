@@ -580,3 +580,15 @@ export function t(key: TranslationKey, locale?: string): string {
   const dict = TRANSLATIONS[effectiveLocale] || TRANSLATIONS['zh-CN'];
   return dict[key] || TRANSLATIONS['zh-CN'][key] || key;
 }
+
+/**
+ * React 国际化 Hook 封装
+ */
+export function useI18n(initialLocale?: Locale) {
+  const currentLocale = initialLocale || getStoredLocale();
+  return {
+    locale: currentLocale,
+    t: (key: TranslationKey) => t(key, currentLocale),
+  };
+}
+

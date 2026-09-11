@@ -127,6 +127,34 @@ export const SUPPORTED_DRIVERS: ViewerDriver[] = [
     engine: 'Markmap Lib + D3 Tree Layout + SVG Engine',
     license: 'MIT',
   },
+  {
+    id: 'notebook',
+    name: 'Jupyter Notebook Studio',
+    displayName: 'Jupyter Notebook (.ipynb) 交互式数据科学工作台',
+    description: '纯端侧 Jupyter Notebook 阅读器，支持单元格折叠、ANSI 彩色 Traceback、多类型富文本与图表输出、脚本导出与 A4 打印。',
+    iconName: 'Sparkles',
+    supportedExtensions: ['ipynb'],
+    isBuiltin: true,
+    version: '1.0.0',
+    category: 'core',
+    lazyLoaded: true,
+    engine: 'Jupyter nbformat v4 Engine + KaTeX',
+    license: 'BSD-3-Clause',
+  },
+  {
+    id: 'typst',
+    name: 'Typst Typesetting Studio',
+    displayName: 'Typst (.typ) 现代学术与出版级排版引擎',
+    description: '现代排版系统查看器，支持 A4 出版级多页排版、目录大纲跳转、单/双页排版模式、数学公式与 SVG 矢量导出。',
+    iconName: 'BookOpen',
+    supportedExtensions: ['typ', 'typst'],
+    isBuiltin: true,
+    version: '1.0.0',
+    category: 'core',
+    lazyLoaded: true,
+    engine: 'Typst AST Engine + KaTeX + SVG Vector Pipeline',
+    license: 'Apache-2.0',
+  },
 ];
 
 export const INITIAL_FILES: FileItem[] = [
@@ -2220,6 +2248,168 @@ cluster_nodes:
     network_gbps: 25.0
     status: "Degraded"
     zone: "us-east-1b"
+`,
+  },
+  {
+    id: 'file-jupyter-notebook',
+    name: 'deep-learning-analysis.ipynb',
+    path: '/workspace/deep-learning-analysis.ipynb',
+    extension: 'ipynb',
+    size: 4800,
+    lastModified: Date.now(),
+    content: JSON.stringify(
+      {
+        nbformat: 4,
+        nbformat_minor: 5,
+        metadata: {
+          kernelspec: {
+            name: 'python3',
+            display_name: 'Python 3.11 (PyTorch GPU)',
+            language: 'python',
+          },
+          language_info: {
+            name: 'python',
+            version: '3.11.8',
+            file_extension: '.py',
+          },
+          title: '深度学习模型收敛性与度量分析实验',
+        },
+        cells: [
+          {
+            id: 'cell_intro',
+            cell_type: 'markdown',
+            source: [
+              '# 🚀 深度学习模型收敛性与度量分析实验\n',
+              '本文档展示使用 PyTorch 训练 Transformer 编码器过程中的损失函数收敛曲线与模型评估度量。\n',
+              '\n',
+              '$$\\mathcal{L}_{\\text{total}} = \\frac{1}{N} \\sum_{i=1}^N \\ell(y_i, \\hat{y}_i) + \\lambda \\|\\Theta\\|_2^2$$\n',
+            ],
+            metadata: {},
+          },
+          {
+            id: 'cell_imports',
+            cell_type: 'code',
+            execution_count: 1,
+            source: [
+              'import torch\n',
+              'import torch.nn as nn\n',
+              'import numpy as np\n',
+              '\n',
+              'device = torch.device("cuda" if torch.cuda.is_available() else "cpu")\n',
+              'print(f"Using compute backend: {device}")',
+            ],
+            outputs: [
+              {
+                output_type: 'stream',
+                name: 'stdout',
+                text: ['Using compute backend: cuda:0 (NVIDIA A100-SXM4-80GB)\n'],
+              },
+            ],
+            metadata: {},
+          },
+          {
+            id: 'cell_training',
+            cell_type: 'code',
+            execution_count: 2,
+            source: [
+              '# 模拟 5 个 Epoch 的验证集损失收敛度量\n',
+              'epochs = 5\n',
+              'for epoch in range(1, epochs + 1):\n',
+              '    loss = 0.85 * np.exp(-0.4 * epoch) + 0.05\n',
+              '    acc = 0.70 + 0.25 * (1 - np.exp(-0.5 * epoch))\n',
+              '    print(f"Epoch [{epoch}/{epochs}] - Loss: {loss:.4f} | Val Accuracy: {acc*100:.2f}%")',
+            ],
+            outputs: [
+              {
+                output_type: 'stream',
+                name: 'stdout',
+                text: [
+                  'Epoch [1/5] - Loss: 0.6198 | Val Accuracy: 79.84%\n',
+                  'Epoch [2/5] - Loss: 0.4319 | Val Accuracy: 85.80%\n',
+                  'Epoch [3/5] - Loss: 0.3060 | Val Accuracy: 89.42%\n',
+                  'Epoch [4/5] - Loss: 0.2216 | Val Accuracy: 91.62%\n',
+                  'Epoch [5/5] - Loss: 0.1650 | Val Accuracy: 92.95%\n',
+                ],
+              },
+            ],
+            metadata: {},
+          },
+          {
+            id: 'cell_chart',
+            cell_type: 'code',
+            execution_count: 3,
+            source: [
+              '# 绘制模型收敛图表与混淆矩阵\n',
+              'import matplotlib.pyplot as plt\n',
+              'plt.figure(figsize=(8, 4.5))\n',
+              'plt.title("Convergence Curve")\n',
+              'plt.show()',
+            ],
+            outputs: [
+              {
+                output_type: 'display_data',
+                data: {
+                  'text/plain': ['<Figure size 800x450 with 1 Axes>'],
+                  'image/png':
+                    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                },
+                metadata: {},
+              },
+            ],
+            metadata: {},
+          },
+        ],
+      },
+      null,
+      2
+    ),
+  },
+  {
+    id: 'file-typst-academic',
+    name: 'quantum-computing-paper.typ',
+    path: '/workspace/quantum-computing-paper.typ',
+    extension: 'typ',
+    size: 3600,
+    lastModified: Date.now(),
+    content: `#set page(paper: "a4", columns: 1)
+#set document(title: "Fault-Tolerant Quantum Computation with Surface Codes", author: ("Dr. Alice Zhang", "Prof. Robert Chen"))
+#set text(font: "Linux Libertine", size: 10.5pt)
+
+= 1. Introduction and Overview
+Surface codes represent one of the most promising avenues for achieving fault-tolerant quantum computation under realistic physical hardware constraints.
+
+In this work, we investigate the threshold error rates for lattice surgery operations and topological error correction cycles.
+
+== 1.1 Stabilizer Formalism
+The stabilizer group $cal(S)$ is an abelian subgroup of the $n$-qubit Pauli group $-I_n$:
+
+$ S_i |psi angle.r = |psi angle.r quad forall S_i in cal(S) $
+
+Where the syndrome measurement operators correspond to vertex and plaquette operators:
+
+$ A_v = product_(j in star(v)) X_j, quad B_p = product_(j in partial p) Z_j $
+
+#pagebreak()
+
+= 2. Topological Error Correction Circuits
+To evaluate decoding performance, we simulate minimum-weight perfect matching (MWPM) decoders on planar code patches of distance $d = 3, 5, 7$.
+
+- Threshold error rate exceeds $1.05\\%$ under phenomenological noise.
+- Transversal gate execution preserves code distances across logical boundaries.
+- Syndrome extraction rounds scale linearly with logical depth.
+
+== 2.1 Syndrome Extraction Algorithm
+\`\`\`python
+def decode_surface_code(syndrome_history, code_distance):
+    matching_graph = build_matching_graph(syndrome_history, code_distance)
+    correction = min_weight_perfect_matching(matching_graph)
+    return apply_pauli_corrections(correction)
+\`\`\`
+
+#pagebreak()
+
+= 3. Experimental Conclusion and Future Work
+Our empirical results demonstrate that 2D square lattice layouts can achieve arbitrary logical fault tolerance provided physical error rates stay below $0.75\\%$.
 `,
   },
 ];

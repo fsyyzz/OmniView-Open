@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "0.9.23",
+  "version": "0.9.24",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -113,6 +113,15 @@
           },
           {
             "filenamePattern": "*.km"
+          },
+          {
+            "filenamePattern": "*.ipynb"
+          },
+          {
+            "filenamePattern": "*.typ"
+          },
+          {
+            "filenamePattern": "*.typst"
           }
         ],
         "priority": "option"
@@ -138,7 +147,7 @@
       "editor/title": [
         {
           "command": "omniview.openSidePreview",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|pdf|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km)$/i && activeCustomEditorId != 'omniview.editor'",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|pdf|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst)$/i && activeCustomEditorId != 'omniview.editor'",
           "group": "navigation"
         },
         {
@@ -161,7 +170,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "check:structure": "node scripts/analyze-structure.mjs",
-    "test": "(esbuild scripts/test-diagram-diagnostics.mjs --bundle --platform=node | node) && (esbuild scripts/test-mindmap-driver.mjs --bundle --platform=node | node) && (esbuild scripts/test-settings-storage.mjs --bundle --platform=node | node) && (esbuild scripts/test-a4-print-pagination.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-security-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-driver-routing.mjs --bundle --platform=node | node) && (esbuild scripts/test-svg-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-table-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-structured-data.mjs --bundle --platform=node | node) && (esbuild scripts/test-okf-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-undo-redo.mjs --bundle --platform=node | node) && (esbuild scripts/test-print-bridge.mjs --bundle --platform=node | node) && (esbuild scripts/test-dom-search-highlighter.mjs --bundle --platform=node | node) && (esbuild scripts/test-plantuml-url.mjs --bundle --platform=node | node) && node scripts/test-i18n.mjs && node scripts/test-markdown-callout-task.mjs && node scripts/test-markdown-outline.mjs && node scripts/test-native-theme.mjs && node scripts/test-scroll-sync.mjs && node scripts/test-lazy-viewport-block.mjs",
+    "test": "(esbuild scripts/test-diagram-diagnostics.mjs --bundle --platform=node | node) && (esbuild scripts/test-mindmap-driver.mjs --bundle --platform=node | node) && (esbuild scripts/test-settings-storage.mjs --bundle --platform=node | node) && (esbuild scripts/test-a4-print-pagination.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-security-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-driver-routing.mjs --bundle --platform=node | node) && (esbuild scripts/test-svg-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-table-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-structured-data.mjs --bundle --platform=node | node) && (esbuild scripts/test-okf-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-undo-redo.mjs --bundle --platform=node | node) && (esbuild scripts/test-print-bridge.mjs --bundle --platform=node | node) && (esbuild scripts/test-dom-search-highlighter.mjs --bundle --platform=node | node) && (esbuild scripts/test-plantuml-url.mjs --bundle --platform=node | node) && node scripts/test-i18n.mjs && node scripts/test-markdown-callout-task.mjs && node scripts/test-markdown-outline.mjs && node scripts/test-native-theme.mjs && node scripts/test-scroll-sync.mjs && node scripts/test-lazy-viewport-block.mjs && (esbuild scripts/test-notebook-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-typst-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-a4-typography-engine.mjs --bundle --platform=node | node)",
     "verify": "npm run check:structure && npm run lint && npm run test && npm run build:plugin",
     "vscode:prepublish": "npm run build:plugin"
   },

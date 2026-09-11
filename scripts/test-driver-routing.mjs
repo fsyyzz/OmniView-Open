@@ -60,8 +60,17 @@ assert.strictEqual(getDriverIdForFile(mockFile('metrics.tsv', 'tsv')), 'csv');
 assert.strictEqual(getDriverIdForFile(mockFile('EXPORT.CSV', 'CSV')), 'csv', '大写 CSV 后缀路由错误');
 console.log('✅ PDF 与数据表格驱动路由测试通过');
 
-// 5. 源码与结构化文本路由至 code 驱动
-console.log('--- 测试 5: 代码高亮与工程配置文件路由 ---');
+// 5. Jupyter Notebook 与 Typst 现代排版路由测试
+console.log('--- 测试 5: Jupyter Notebook 与 Typst 现代排版引擎路由 ---');
+assert.strictEqual(getDriverIdForFile(mockFile('analysis.ipynb', 'ipynb')), 'notebook');
+assert.strictEqual(getDriverIdForFile(mockFile('LAB.IPYNB', 'IPYNB')), 'notebook', '大写 IPYNB 后缀路由错误');
+assert.strictEqual(getDriverIdForFile(mockFile('paper.typ', 'typ')), 'typst');
+assert.strictEqual(getDriverIdForFile(mockFile('thesis.typst', 'typst')), 'typst');
+assert.strictEqual(getDriverIdForFile(mockFile('REPORT.TYP', 'TYP')), 'typst', '大写 TYP 后缀路由错误');
+console.log('✅ Jupyter Notebook 与 Typst 驱动路由测试通过');
+
+// 6. 源码与结构化文本路由至 code 驱动
+console.log('--- 测试 6: 代码高亮与工程配置文件路由 ---');
 const codeExtensions = ['ts', 'tsx', 'js', 'jsx', 'json', 'py', 'java', 'go', 'rs', 'html', 'css', 'yaml', 'yml'];
 for (const ext of codeExtensions) {
   assert.strictEqual(
@@ -72,8 +81,8 @@ for (const ext of codeExtensions) {
 }
 console.log('✅ 常见代码格式驱动分配测试通过');
 
-// 6. 异常边界与未知扩展名安全降级
-console.log('--- 测试 6: 无扩展名文件与未知格式安全降级 ---');
+// 7. 异常边界与未知扩展名安全降级
+console.log('--- 测试 7: 无扩展名文件与未知格式安全降级 ---');
 assert.strictEqual(getDriverIdForFile(mockFile('LICENSE', '')), 'code', '无扩展名协议文件应降级至 code 驱动');
 assert.strictEqual(getDriverIdForFile(mockFile('Dockerfile', '')), 'code', 'Dockerfile 应降级至 code 驱动');
 assert.strictEqual(getDriverIdForFile(mockFile('Makefile', '')), 'code', 'Makefile 应降级至 code 驱动');
