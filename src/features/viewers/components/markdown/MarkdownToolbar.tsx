@@ -219,11 +219,11 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
       </div>
 
       {/* Center: View Mode Switcher (Preview / Split / Source / Mindmap) */}
-      <div className="flex items-center bg-slate-900/90 border border-slate-750/80 rounded-lg p-0.5 shadow-inner gap-0.5">
+      <div className="markdown-view-mode-switcher flex items-center bg-slate-900/90 border border-slate-750/80 rounded-lg p-0.5 shadow-inner gap-0.5">
         <button
           type="button"
           onClick={() => onViewModeChange?.('preview')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition select-none ${
+          className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
             viewMode === 'preview'
               ? 'bg-blue-600 text-white font-medium shadow-xs'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -232,13 +232,13 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           aria-label={t('viewModePreview', locale)}
         >
           <Eye size={13} className={viewMode === 'preview' ? 'text-white' : 'text-slate-400'} />
-          <span className="text-[11px] font-medium">{t('viewModePreview', locale)}</span>
+          <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModePreview', locale)}</span>
         </button>
 
         <button
           type="button"
           onClick={() => onViewModeChange?.('split')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition select-none ${
+          className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
             viewMode === 'split'
               ? 'bg-blue-600 text-white font-medium shadow-xs'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -247,13 +247,13 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           aria-label={t('viewModeSplit', locale)}
         >
           <Split size={13} className={viewMode === 'split' ? 'text-white' : 'text-slate-400'} />
-          <span className="text-[11px] font-medium">{t('viewModeSplit', locale)}</span>
+          <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModeSplit', locale)}</span>
         </button>
 
         <button
           type="button"
           onClick={() => onViewModeChange?.('source')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition select-none ${
+          className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
             viewMode === 'source'
               ? 'bg-blue-600 text-white font-medium shadow-xs'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -262,13 +262,13 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           aria-label={t('viewModeSource', locale)}
         >
           <Code size={13} className={viewMode === 'source' ? 'text-white' : 'text-slate-400'} />
-          <span className="text-[11px] font-medium">{t('viewModeSource', locale)}</span>
+          <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModeSource', locale)}</span>
         </button>
 
         <button
           type="button"
           onClick={() => onViewModeChange?.('mindmap')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition select-none ${
+          className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
             viewMode === 'mindmap'
               ? 'bg-indigo-600 text-white font-medium shadow-xs'
               : 'text-slate-400 hover:text-indigo-300 hover:bg-slate-800/60'
@@ -277,7 +277,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           aria-label={t('viewModeMindmap', locale)}
         >
           <Network size={13} className={viewMode === 'mindmap' ? 'text-white' : 'text-indigo-400'} />
-          <span className="text-[11px] font-medium">{t('viewModeMindmap', locale)}</span>
+          <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModeMindmap', locale)}</span>
         </button>
       </div>
 

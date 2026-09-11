@@ -1,11 +1,26 @@
 /**
- * Markdown 文档大纲侧边栏组件 (支持靠左、靠右、悬浮三种布局模式切换、自由拖拽调整宽度与双滚动条防护)
+ * Markdown 文档大纲侧边栏
+ * 支持靠左/靠右/悬浮布局、宽度拖拽，以及列表 / 可折叠树形两种展示模式
  */
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { MarkdownHeading } from '../../lib/markdownAst';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import {
+  MarkdownHeading,
+  buildOutlineTree,
+  flattenVisibleOutlineTree,
+  collectOutlineAncestorIndexes,
+} from '../../lib/markdownAst';
 import { Locale, t } from '../../../../shared/lib/i18n';
-import { OutlinePosition } from '../../../../shared/types';
-import { PanelLeft, PanelRight, Layers, X } from 'lucide-react';
+import { OutlineDisplayMode, OutlinePosition } from '../../../../shared/types';
+import {
+  PanelLeft,
+  PanelRight,
+  Layers,
+  X,
+  List,
+  ListTree,
+  ChevronRight,
+  ChevronDown,
+} from 'lucide-react';
 
 interface MarkdownOutlineSidebarProps {
   headings: MarkdownHeading[];
@@ -17,6 +32,8 @@ interface MarkdownOutlineSidebarProps {
   locale?: Locale;
   position?: OutlinePosition;
   onPositionChange?: (pos: OutlinePosition) => void;
+  displayMode?: OutlineDisplayMode;
+  onDisplayModeChange?: (mode: OutlineDisplayMode) => void;
   onClose?: () => void;
   width?: number;
   onWidthChange?: (width: number) => void;
@@ -36,6 +53,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
   locale = 'zh-CN',
   position = 'right',
   onPositionChange,
+  displayMode = 'tree',
+  onDisplayModeChange,
   onClose,
   width = DEFAULT_OUTLINE_WIDTH,
   onWidthChange,
@@ -43,24 +62,54 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
   const activeItemRef = useRef<HTMLButtonElement | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number>(width || DEFAULT_OUTLINE_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
+  const [collapsedIndexes, setCollapsedIndexes] = useState<Set<number>>(() => new Set());
   const currentWidthRef = useRef(sidebarWidth);
   currentWidthRef.current = sidebarWidth;
 
-  // 外部 width 变化时同步
+  const outlineTree = useMemo(
+    () => buildOutlineTree(filteredHeadings),
+    [filteredHeadings],
+  );
+
+  const visibleTreeRows = useMemo(
+    () => flattenVisibleOutlineTree(outlineTree, collapsedIndexes),
+    [outlineTree, collapsedIndexes],
+  );
+
   useEffect(() => {
     if (width && width !== currentWidthRef.current) {
       setSidebarWidth(width);
     }
   }, [width]);
 
-  // 随正文阅读自动将当前对应高亮标题滚动至侧栏视口可见区域
+  // 过滤级别变化时清空折叠，避免隐藏节点残留折叠状态
+  useEffect(() => {
+    setCollapsedIndexes(new Set());
+  }, [headingFilterLevel]);
+
+  // 当前章节路径自动展开，便于在树形模式下看到高亮项
+  useEffect(() => {
+    if (displayMode !== 'tree' || activeHeadingIndex < 0) return;
+    const active = headings[activeHeadingIndex];
+    if (!active) return;
+    const ancestors = collectOutlineAncestorIndexes(outlineTree, active.index);
+    if (!ancestors || ancestors.length === 0) return;
+    setCollapsedIndexes(prev => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const index of ancestors) {
+        if (next.delete(index)) changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [displayMode, activeHeadingIndex, headings, outlineTree]);
+
   useEffect(() => {
     if (activeItemRef.current) {
       activeItemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
-  }, [activeHeadingIndex]);
+  }, [activeHeadingIndex, displayMode, visibleTreeRows.length]);
 
-  // 拖拽手柄开始调整宽度
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -73,8 +122,6 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const deltaX = moveEvent.clientX - startX;
-      // 靠左布局: 向右拖动增大，向左拖动减小
-      // 靠右或悬浮布局: 向左拖动增大，向右拖动减小
       const calculated = position === 'left' ? startW + deltaX : startW - deltaX;
       const nextWidth = Math.min(MAX_OUTLINE_WIDTH, Math.max(MIN_OUTLINE_WIDTH, Math.round(calculated)));
       setSidebarWidth(nextWidth);
@@ -94,12 +141,24 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
     window.addEventListener('pointerup', handlePointerUp, { once: true });
   }, [position, onWidthChange]);
 
-  // 双击手柄恢复默认宽度
   const handleResetWidth = useCallback(() => {
     setSidebarWidth(DEFAULT_OUTLINE_WIDTH);
     currentWidthRef.current = DEFAULT_OUTLINE_WIDTH;
     onWidthChange?.(DEFAULT_OUTLINE_WIDTH);
   }, [onWidthChange]);
+
+  const toggleCollapsed = useCallback((headingIndex: number) => {
+    setCollapsedIndexes(prev => {
+      const next = new Set(prev);
+      if (next.has(headingIndex)) next.delete(headingIndex);
+      else next.add(headingIndex);
+      return next;
+    });
+  }, []);
+
+  const resolveOriginalIndex = useCallback((heading: MarkdownHeading) => (
+    headings.findIndex(h => h.index === heading.index)
+  ), [headings]);
 
   const resizeTooltip = t('outlineResizeTooltip', locale);
 
@@ -107,6 +166,7 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
     <aside
       className={`markdown-outline relative select-none ${isResizing ? 'is-resizing' : ''}`}
       data-position={position}
+      data-display-mode={displayMode}
       aria-label={t('outlineHeading', locale)}
       style={
         position === 'floating'
@@ -114,7 +174,6 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
           : { width: `${sidebarWidth}px`, flex: `0 0 ${sidebarWidth}px` }
       }
     >
-      {/* 调整大小手柄 (根据位置自动停靠在大纲与正文的交界边缘) */}
       <div
         onPointerDown={handleResizeStart}
         onDoubleClick={handleResetWidth}
@@ -133,14 +192,12 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
         />
       </div>
 
-      {/* 顶部标题与控制栏: 固定高度 shrink-0，禁止随内容滚动 */}
       <div className="flex items-center justify-between px-2 pb-2.5 border-b border-slate-800/80 mb-2 gap-1.5 select-none shrink-0 min-w-0">
         <span className="markdown-outline-heading !p-0 truncate text-xs font-semibold text-slate-300 min-w-0 flex-1">
           {t('outlineHeading', locale)} ({filteredHeadings.length})
         </span>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* 过滤级别 H2 / H3 / All */}
+        <div className="flex items-center gap-1 shrink-0">
           <div className="flex items-center bg-slate-900/60 p-0.5 rounded border border-slate-800">
             <button
               onClick={() => onFilterLevelChange(2)}
@@ -171,7 +228,33 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
             </button>
           </div>
 
-          {/* 布局停靠位置切换: 靠左 / 靠右 / 悬浮 */}
+          {onDisplayModeChange && (
+            <div className="flex items-center bg-slate-900/60 p-0.5 rounded border border-slate-800">
+              <button
+                type="button"
+                onClick={() => onDisplayModeChange('list')}
+                className={`p-1 rounded transition ${
+                  displayMode === 'list' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={t('outlineModeListTooltip', locale)}
+                aria-label={t('outlineModeList', locale)}
+              >
+                <List size={11} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDisplayModeChange('tree')}
+                className={`p-1 rounded transition ${
+                  displayMode === 'tree' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={t('outlineModeTreeTooltip', locale)}
+                aria-label={t('outlineModeTree', locale)}
+              >
+                <ListTree size={11} />
+              </button>
+            </div>
+          )}
+
           {onPositionChange && (
             <div className="flex items-center bg-slate-900/60 p-0.5 rounded border border-slate-800">
               <button
@@ -207,7 +290,6 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
             </div>
           )}
 
-          {/* 关闭/收起大纲 */}
           {onClose && (
             <button
               onClick={onClose}
@@ -220,18 +302,55 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
         </div>
       </div>
 
-      {/* 目录列表: 唯一纵向滚动容器 (flex-1 min-h-0, 禁止横向溢出) */}
       <nav className="markdown-outline-nav flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-0.5 space-y-0.5">
         {filteredHeadings.length === 0 ? (
           <div className="markdown-outline-empty">{t('noHeadings', locale)}</div>
+        ) : displayMode === 'tree' ? (
+          visibleTreeRows.map(({ node, depth, hasChildren }) => {
+            const { heading } = node;
+            const originalIndex = resolveOriginalIndex(heading);
+            const isActive = originalIndex === activeHeadingIndex;
+            const isCollapsed = collapsedIndexes.has(heading.index);
+            return (
+              <div
+                key={`tree-${heading.index}-${heading.text}`}
+                className={`markdown-outline-tree-row ${isActive ? 'is-active' : ''}`}
+                style={{ paddingLeft: `${8 + depth * 14}px` }}
+              >
+                {hasChildren ? (
+                  <button
+                    type="button"
+                    className="markdown-outline-tree-toggle"
+                    onClick={() => toggleCollapsed(heading.index)}
+                    title={isCollapsed ? t('outlineExpand', locale) : t('outlineCollapse', locale)}
+                    aria-label={isCollapsed ? t('outlineExpand', locale) : t('outlineCollapse', locale)}
+                    aria-expanded={!isCollapsed}
+                  >
+                    {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                ) : (
+                  <span className="markdown-outline-tree-spacer" aria-hidden />
+                )}
+                <button
+                  type="button"
+                  ref={isActive ? activeItemRef : null}
+                  className={`markdown-outline-item markdown-outline-tree-label level-${heading.level} ${isActive ? 'is-active' : ''}`}
+                  onClick={() => onJumpToHeading(originalIndex)}
+                  title={heading.text}
+                >
+                  {heading.text}
+                </button>
+              </div>
+            );
+          })
         ) : (
           filteredHeadings.map(heading => {
-            const originalIndex = headings.findIndex(h => h.index === heading.index);
+            const originalIndex = resolveOriginalIndex(heading);
             const isActive = originalIndex === activeHeadingIndex;
             const indentClass = heading.level <= 1 ? 'pl-2' : heading.level === 2 ? 'pl-3.5' : heading.level === 3 ? 'pl-5' : 'pl-6';
             return (
               <button
-                key={`${heading.index}-${heading.text}`}
+                key={`list-${heading.index}-${heading.text}`}
                 ref={isActive ? activeItemRef : null}
                 className={`markdown-outline-item level-${heading.level} ${indentClass} ${isActive ? 'is-active' : ''}`}
                 onClick={() => onJumpToHeading(originalIndex)}

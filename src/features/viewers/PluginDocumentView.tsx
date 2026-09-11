@@ -1,8 +1,8 @@
 /**
  * OmniView 文档视图插件外壳 (支持多语言 + 纯图标悬浮设计 + DOM搜索高亮变色与直接源码打开)
  */
-import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
-import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition, ContentWidthMode } from '../../shared/types';
+import React, { useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition, OutlineDisplayMode, ContentWidthMode } from '../../shared/types';
 import { ViewerRenderer } from './ViewerRenderer';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { VsCodeApi } from '../../shared/lib/vscode';
@@ -156,6 +156,9 @@ const MarkdownPluginView: React.FC<{
   const [outlineWidth, setOutlineWidth] = useState<number>(
     () => initialSettings.outlineWidth || 260
   );
+  const [outlineDisplayMode, setOutlineDisplayMode] = useState<OutlineDisplayMode>(
+    () => initialSettings.outlineDisplayMode || 'tree'
+  );
 
   const handleOutlinePositionChange = useCallback((pos: OutlinePosition) => {
     setOutlinePosition(pos);
@@ -165,6 +168,11 @@ const MarkdownPluginView: React.FC<{
   const handleOutlineWidthChange = useCallback((width: number) => {
     setOutlineWidth(width);
     saveStoredSettings({ outlineWidth: width });
+  }, []);
+
+  const handleOutlineDisplayModeChange = useCallback((mode: OutlineDisplayMode) => {
+    setOutlineDisplayMode(mode);
+    saveStoredSettings({ outlineDisplayMode: mode });
   }, []);
   const [toolbarVisible, setToolbarVisible] = useState(false);
   const [zoom, setZoom] = useState(initialSettings.zoom ?? 1);
@@ -300,7 +308,26 @@ const MarkdownPluginView: React.FC<{
     return () => clearTimeout(timer);
   }, [searchText, getSearchCanvas]);
 
-  // 渲染完成后立即重新注入搜索高亮，防止 dangerouslySetInnerHTML 刷新导致 <mark> 节点丢失（不触发视口滚动）
+  // 工具栏显隐等无关重渲染后，若 <mark> 被冲掉则立即补回（不滚动）
+  useLayoutEffect(() => {
+    if (!searchText.trim()) return;
+    const canvas = getSearchCanvas();
+    if (!canvas) return;
+    if (canvas.querySelectorAll('mark.ov-search-match').length > 0) return;
+    const count = highlightSearchMatches(canvas, searchText);
+    setMatchCount(count);
+    if (count > 0) {
+      setActiveMatchIndex(prev => {
+        const next = Math.min(prev < 0 ? 0 : prev, count - 1);
+        activateMatch(canvas, next, false);
+        return next;
+      });
+    } else {
+      setActiveMatchIndex(-1);
+    }
+  }, [searchText, toolbarVisible, getSearchCanvas]);
+
+  // 渲染完成后立即重新注入搜索高亮，防止正文 HTML 刷新导致 <mark> 节点丢失（不触发视口滚动）
   const handleRenderComplete = useCallback(() => {
     if (!searchText.trim()) return;
     // 双 rAF：等待 React commit + 浏览器布局完成后再注入
@@ -467,7 +494,10 @@ const MarkdownPluginView: React.FC<{
       data-density={density}
       data-width={contentWidth}
       data-font-size={fontSize}
-      onMouseMove={event => setToolbarVisible(event.clientY <= 56)}
+      onMouseMove={event => {
+        const nextVisible = event.clientY <= 56;
+        setToolbarVisible(prev => (prev === nextVisible ? prev : nextVisible));
+      }}
     >
       {/* Top Document Toolbar */}
       <MarkdownToolbar
@@ -534,6 +564,8 @@ const MarkdownPluginView: React.FC<{
             locale={locale}
             position={outlinePosition}
             onPositionChange={handleOutlinePositionChange}
+            displayMode={outlineDisplayMode}
+            onDisplayModeChange={handleOutlineDisplayModeChange}
             onClose={handleToggleOutline}
             width={outlineWidth}
             onWidthChange={handleOutlineWidthChange}

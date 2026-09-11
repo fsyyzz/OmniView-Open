@@ -16,6 +16,7 @@ import { SvgBlock } from './markdown/SvgBlock';
 import { GraphvizBlock } from './markdown/GraphvizBlock';
 import { MathBlock } from './markdown/MathBlock';
 import { TableBlock } from './markdown/TableBlock';
+import { StableHtmlBlock } from './markdown/StableHtmlBlock';
 import { graphvizRenderer } from '../../lib/graphvizRenderer';
 import { LightboxModal, LightboxItem } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
@@ -963,12 +964,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         if (block.type === 'html' && block.renderedHtml) {
           return (
             <RenderErrorBoundary key={block.id} blockName="Document Content" locale={locale}>
-              <div
+              <StableHtmlBlock
                 className="markdown-content"
+                html={block.renderedHtml}
                 data-source-line={block.startLine}
                 data-source-end-line={block.endLine}
                 title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
-                dangerouslySetInnerHTML={{ __html: block.renderedHtml }}
               />
             </RenderErrorBoundary>
           );

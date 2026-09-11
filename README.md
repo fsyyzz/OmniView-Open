@@ -108,28 +108,42 @@ npm run verify
 # 2. 打包离线 VSIX 插件包
 npm run package:vsix
 
-# 3. 安装插件至本地 VS Code 编辑器
-code --install-extension omniview-0.9.14.vsix --force
+# 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
+code --install-extension omniview-0.9.19.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。
 
 ---
 
+## 📚 文档与协作
+
+| 文档 | 说明 |
+|---|---|
+| [`docs/README.md`](./docs/README.md) | 文档总索引 |
+| [`docs/architecture.md`](./docs/architecture.md) | 系统分层与渲染管道 |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | 开发环境、门禁与 PR 约定 |
+| [`SECURITY.md`](./SECURITY.md) | 安全漏洞披露流程 |
+| [`CHANGELOG.md`](./CHANGELOG.md) | 版本变更记录 |
+
+---
+
 ## 📂 示例文件目录
 
-OmniView 在 [`examples/`](./examples) 与工作区内置了一套开箱即用的丰富场景用例：
+OmniView 在 [`examples/`](./examples) 提供开箱即用的多格式样例（完整目录见 [`examples/README.md`](./examples/README.md)）：
 
 | 示例文件 | 说明与核心展示特性 |
 |---|---|
-| [`cloud-infrastructure.yaml`](./examples/markdown/diagrams.md) | YAML 微服务拓扑关系、环境变量敏感脱敏、集群节点同构数组下钻表格与格式互转 |
-| [`openapi.json`](./src/shared/data/sampleFiles.ts) | 复杂多层 RESTful API 规范，展示 JSONPath 检视、结构树折叠与脑图投影 |
+| [`mermaid/omniview-render-pipeline.mmd`](./examples/mermaid/omniview-render-pipeline.mmd) | 独立 Mermaid 渲染流水线流程图 |
+| [`plantuml/cloud-topology.puml`](./examples/plantuml/cloud-topology.puml) | 独立 PlantUML 微服务时序拓扑 |
+| [`graphviz/cloud-architecture.dot`](./examples/graphviz/cloud-architecture.dot) | 独立 Graphviz 云原生有向拓扑 |
+| [`markmap/system-architecture.markmap`](./examples/markmap/system-architecture.markmap) | 独立 Markmap 平台能力思维导图 |
 | [`diagrams.md`](./examples/markdown/diagrams.md) | Mermaid、PlantUML、SVG 与 Graphviz / DOT 综合图表对比 |
-| [`math-formulas.md`](./examples/markdown/math-formulas.md) | KaTeX 微积分、线性代数、物理学四大方程组与 Transformer 注意力公式 |
-| [`graphviz-diagrams.md`](./examples/markdown/graphviz-diagrams.md) | Graphviz 分层微服务有向图、网络拓扑无向图、二叉树与错误降级自愈 |
-| [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | 分布式共识机制 (Raft, PBFT, PoW/PoS) 状态机、时序图与证明公式 |
-| [`technical-guide.md`](./examples/markdown/technical-guide.md) | 真实工程级混合技术文档（含架构图、代码块与多态表格） |
-| [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | 语法损坏图表、缺失图片、20 列超宽表格等极限压测与错误边界隔离 |
+| [`math-formulas.md`](./examples/markdown/math-formulas.md) | KaTeX 微积分、线性代数、物理学方程组与注意力公式 |
+| [`graphviz-diagrams.md`](./examples/markdown/graphviz-diagrams.md) | Graphviz 分层微服务有向图、网络拓扑与错误降级自愈 |
+| [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | 分布式共识机制 (Raft, PBFT, PoW/PoS) 状态机与时序图 |
+| [`technical-guide.md`](./examples/markdown/technical-guide.md) | 工程级混合技术文档（架构图、代码块与多态表格） |
+| [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | 语法损坏图表、缺失图片、超宽表格等极限压测与错误边界隔离 |
 
 ---
 
@@ -189,5 +203,5 @@ OmniView 配备全面的单元测试与构建验证：
 
 ## 📄 开源许可证
 
-本项目基于 [MIT License](./LICENSE) 开源。
+本项目基于 [MIT License](./LICENSE) 开源。欢迎通过 [Issues](https://github.com/fsyyzz/OmniView/issues) 反馈问题，或阅读 [CONTRIBUTING.md](./CONTRIBUTING.md) 参与贡献。
 

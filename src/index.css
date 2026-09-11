@@ -318,12 +318,14 @@ body.vscode-high-contrast-light[data-theme="system"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
   flex: 0 0 46px;
-  padding: 0 16px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--ov-border);
   background: var(--ov-surface);
   transition: background-color 0.2s ease, border-color 0.2s ease;
+  container-type: inline-size;
+  container-name: md-toolbar;
 }
 
 .markdown-toolbar-title {
@@ -339,8 +341,27 @@ body.vscode-high-contrast-light[data-theme="system"] {
 .markdown-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 1px;
   flex-shrink: 0;
+}
+
+/* 工具栏较窄时：视图模式仅保留图标，文字靠 title/aria-label 提示 */
+@container md-toolbar (max-width: 1080px) {
+  .markdown-view-mode-label {
+    display: none;
+  }
+
+  .markdown-view-mode-btn {
+    padding-inline: 6px;
+    gap: 0;
+  }
+}
+
+@container md-toolbar (min-width: 1081px) {
+  .markdown-view-mode-btn {
+    padding-inline: 10px;
+    gap: 6px;
+  }
 }
 
 .markdown-search-box { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 5px 0 8px; border: 1px solid var(--ov-border); border-radius: 5px; background: var(--ov-bg-elevated); color: var(--ov-text-muted); }
@@ -356,9 +377,11 @@ body.vscode-high-contrast-light[data-theme="system"] {
 .markdown-tool-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 8px;
+  justify-content: center;
+  gap: 3px;
+  min-height: 26px;
+  min-width: 26px;
+  padding: 0 5px;
   border: 1px solid transparent;
   border-radius: 5px;
   background: transparent;
@@ -375,10 +398,11 @@ body.vscode-high-contrast-light[data-theme="system"] {
 }
 
 .markdown-zoom-label {
-  min-width: 38px;
+  min-width: 32px;
   color: var(--ov-text-muted);
-  font-size: 11px;
+  font-size: 10px;
   text-align: center;
+  padding: 0 1px;
 }
 
 .markdown-plugin-body {
@@ -503,6 +527,54 @@ body.vscode-high-contrast-light[data-theme="system"] {
   background: var(--ov-accent);
   color: #ffffff !important;
   font-weight: 600;
+}
+
+.markdown-outline-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 4px;
+}
+
+.markdown-outline-tree-row.is-active {
+  background: color-mix(in srgb, var(--ov-accent) 18%, transparent);
+}
+
+.markdown-outline-tree-toggle {
+  display: inline-flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ov-text-muted);
+  cursor: pointer;
+}
+
+.markdown-outline-tree-toggle:hover {
+  background: var(--ov-surface-header);
+  color: var(--ov-text);
+}
+
+.markdown-outline-tree-spacer {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 20px;
+}
+
+.markdown-outline-tree-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+}
+
+.markdown-outline-tree-row.is-active .markdown-outline-tree-label.is-active {
+  background: var(--ov-accent);
 }
 
 .markdown-reading-progress-bar {

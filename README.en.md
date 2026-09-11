@@ -108,27 +108,41 @@ npm run verify
 # 2. Package offline VSIX
 npm run package:vsix
 
-# 3. Install into local VS Code
-code --install-extension omniview-0.9.14.vsix --force
+# 3. Install into local VS Code (keep version in sync with package.json)
+code --install-extension omniview-0.9.19.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.
 
 ---
 
+## Docs & Collaboration
+
+| Doc | Description |
+|---|---|
+| [`docs/README.md`](./docs/README.md) | Documentation index |
+| [`docs/architecture.md`](./docs/architecture.md) | Layering & render pipeline |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Dev setup, gates, and PR flow |
+| [`SECURITY.md`](./SECURITY.md) | Vulnerability disclosure |
+| [`CHANGELOG.md`](./CHANGELOG.md) | Release notes |
+
+---
+
 ## Example Files
 
-OmniView ships ready-to-use scenarios under [`examples/`](./examples) and in the workbench sample set:
+Ready-to-open samples live under [`examples/`](./examples) (see [`examples/README.md`](./examples/README.md)):
 
 | Example | Highlights |
 |---|---|
-| [`cloud-infrastructure.yaml`](./examples/markdown/diagrams.md) | YAML microservice topology, secret masking, homogeneous array tables, format conversion |
-| [`openapi.json`](./src/shared/data/sampleFiles.ts) | Nested REST API specs—JSONPath, tree fold, mindmap projection |
+| [`mermaid/omniview-render-pipeline.mmd`](./examples/mermaid/omniview-render-pipeline.mmd) | Standalone Mermaid render-pipeline flowchart |
+| [`plantuml/cloud-topology.puml`](./examples/plantuml/cloud-topology.puml) | Standalone PlantUML microservice sequence topology |
+| [`graphviz/cloud-architecture.dot`](./examples/graphviz/cloud-architecture.dot) | Standalone Graphviz cloud digraph |
+| [`markmap/system-architecture.markmap`](./examples/markmap/system-architecture.markmap) | Standalone Markmap capability map |
 | [`diagrams.md`](./examples/markdown/diagrams.md) | Mermaid, PlantUML, SVG, and Graphviz / DOT showcase |
-| [`math-formulas.md`](./examples/markdown/math-formulas.md) | KaTeX calculus, linear algebra, physics, Transformer attention |
-| [`graphviz-diagrams.md`](./examples/markdown/graphviz-diagrams.md) | Layered digraphs, undirected topology, binary trees, error recovery |
-| [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | Raft / PBFT / PoW-PoS state machines, sequence diagrams, proofs |
-| [`technical-guide.md`](./examples/markdown/technical-guide.md) | Engineering mixed docs—architecture diagrams, code, polymorphic tables |
+| [`math-formulas.md`](./examples/markdown/math-formulas.md) | KaTeX calculus, linear algebra, physics, attention formulas |
+| [`graphviz-diagrams.md`](./examples/markdown/graphviz-diagrams.md) | Layered digraphs, undirected topology, error recovery |
+| [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | Raft / PBFT / PoW-PoS state machines and sequence diagrams |
+| [`technical-guide.md`](./examples/markdown/technical-guide.md) | Engineering mixed docs—architecture diagrams, code, tables |
 | [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | Broken diagrams, missing images, ultra-wide tables, error isolation |
 
 ---
@@ -187,4 +201,4 @@ flowchart LR
 
 ## License
 
-Released under the [MIT License](./LICENSE).
+Released under the [MIT License](./LICENSE). Feedback via [Issues](https://github.com/fsyyzz/OmniView/issues); see [CONTRIBUTING.md](./CONTRIBUTING.md) to contribute.

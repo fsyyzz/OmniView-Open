@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "0.9.18",
+  "version": "0.9.19",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -10,6 +10,10 @@
     "type": "git",
     "url": "https://github.com/fsyyzz/OmniView-Open"
   },
+  "bugs": {
+    "url": "https://github.com/fsyyzz/OmniView/issues"
+  },
+  "homepage": "https://github.com/fsyyzz/OmniView#readme",
   "engines": {
     "vscode": "^1.85.0",
     "node": ">=24.0.0"

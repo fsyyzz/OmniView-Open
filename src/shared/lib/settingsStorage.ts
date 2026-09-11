@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: WorkbenchSettings = {
   outlineOpen: true,
   outlinePosition: 'right',
   outlineWidth: 260,
+  outlineDisplayMode: 'tree',
   scrollSync: true,
 
   // 3. 布局与侧边栏
@@ -159,6 +160,12 @@ export function loadStoredSettings(): WorkbenchSettings {
       outlinePosition: ['left', 'right', 'floating'].includes(parsed.outlinePosition)
         ? parsed.outlinePosition
         : (DEFAULT_SETTINGS.outlinePosition || 'right'),
+      outlineWidth: typeof parsed.outlineWidth === 'number'
+        ? Math.min(600, Math.max(180, Math.round(parsed.outlineWidth)))
+        : (DEFAULT_SETTINGS.outlineWidth || 260),
+      outlineDisplayMode: ['list', 'tree'].includes(parsed.outlineDisplayMode)
+        ? parsed.outlineDisplayMode
+        : (DEFAULT_SETTINGS.outlineDisplayMode || 'tree'),
       contentWidth,
       fontSize,
       sidebarOpen,

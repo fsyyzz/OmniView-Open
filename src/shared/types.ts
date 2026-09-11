@@ -178,6 +178,8 @@ export const DENSITY_PRESETS: DensityPreset[] = [
 
 export type ContentWidthMode = 'narrow' | 'standard' | 'wide' | 'full' | 'a4';
 export type OutlinePosition = 'left' | 'right' | 'floating';
+/** 文档大纲展示模式：扁平缩进列表 / 可折叠树形 */
+export type OutlineDisplayMode = 'list' | 'tree';
 
 export interface WorkbenchSettings {
   // 1. 外观与主题
@@ -194,6 +196,7 @@ export interface WorkbenchSettings {
   outlineOpen: boolean;
   outlinePosition?: OutlinePosition;
   outlineWidth?: number;
+  outlineDisplayMode?: OutlineDisplayMode;
   scrollSync?: boolean;
 
   // 3. 布局与侧边栏
