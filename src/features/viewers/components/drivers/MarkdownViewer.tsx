@@ -354,8 +354,8 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
             return _match;
           }
         });
-        // 2. 行内公式 $ ... $（避开价格如 $100 等纯数字）
-        res = res.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (_match, formula) => {
+        // 2. 行内公式 $ ... $（严格匹配两端非空白字符，避开价格与普通货币符号）
+        res = res.replace(/(?<!\\)\$([^\s\$](?:[^\$\n]*?[^\s\$])?)(?<!\\)\$/g, (_match, formula) => {
           if (/^\d+(\.\d+)?$/.test(formula.trim())) return _match;
           try {
             return `<span class="ov-katex-inline">${katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, errorColor: '#f43f5e' })}</span>`;
