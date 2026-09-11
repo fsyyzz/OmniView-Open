@@ -52,6 +52,18 @@ export const TYPST_SNIPPETS: TypstSnippet[] = [
     code: '\n- First key observation\n- Second quantitative result\n- Third concluding remark\n',
   },
   {
+    id: 'grid_layout',
+    label: '多栏 Grid',
+    description: '插入多栏网格布局 #grid(...)',
+    code: '\n#grid(\n  columns: (auto, 1fr, auto),\n  gutter: 6pt,\n  [*北京大学*], [计算机科学与技术 · 硕士], [2021 - 2024],\n  [*清华大学*], [软件工程 · 本科], [2017 - 2021],\n)\n',
+  },
+  {
+    id: 'resume_sect',
+    label: '简历区块与分隔线',
+    description: '插入精美区块标题与全宽细分割线',
+    code: '\n#let divider = line(length: 100%, stroke: 0.4pt + gray)\n#let sect-title(name) = {\n  set text(size: 13pt, weight: "bold")\n  name\n  divider\n  v(4pt)\n}\n\n#sect-title("工作经历")\n',
+  },
+  {
     id: 'page_setup',
     label: 'A4 页面与作者声明',
     description: '重置页面纸张与元数据',

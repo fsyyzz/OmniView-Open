@@ -3,8 +3,14 @@
  */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { compileTypstDocument, type TypstCompileResult } from '../../lib/typstEngine';
+import { compileTypstWithOfficialWasm } from '../../lib/typstWasmBridge';
 import { useI18n } from '../../../../shared/lib/i18n';
-import { TypstToolbar, type TypstStudioMode, type TypstViewMode } from './typst/TypstToolbar';
+import {
+  TypstToolbar,
+  type TypstStudioMode,
+  type TypstViewMode,
+  type TypstEngineType,
+} from './typst/TypstToolbar';
 import { TypstOutlineSidebar } from './typst/TypstOutlineSidebar';
 import { TypstCodeEditor } from './typst/TypstCodeEditor';
 import { TypstCanvas } from './typst/TypstCanvas';
@@ -37,6 +43,12 @@ export const TypstViewer: React.FC<TypstViewerProps> = ({
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const [showOutline, setShowOutline] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [engineType, setEngineType] = useState<TypstEngineType>('wasm');
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compileResult, setCompileResult] = useState<TypstCompileResult>(() => {
+    // 初始快速生成首帧预览，随后异步由 official typst.ts WASM 替换
+    return compileTypstDocument(content, { isDarkTheme });
+  });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const splitContainerRef = useRef<HTMLDivElement>(null);
@@ -45,6 +57,43 @@ export const TypstViewer: React.FC<TypstViewerProps> = ({
   useEffect(() => {
     setLocalCode(content);
   }, [content]);
+
+  // 异步编译 Typst 源码（默认使用官方 Myriad-Dreamin/typst.ts WASM）
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (engineType === 'native') {
+      const res = compileTypstDocument(localCode, { isDarkTheme });
+      setCompileResult(res);
+      setIsCompiling(false);
+      return;
+    }
+
+    // WASM 模式：防抖 250ms 避免高频键入卡顿
+    setIsCompiling(true);
+    const timer = setTimeout(async () => {
+      try {
+        const wasmRes = await compileTypstWithOfficialWasm(localCode);
+        if (!isCancelled) {
+          setCompileResult(wasmRes);
+          setIsCompiling(false);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          // 降级使用 native 引擎并展示错误
+          const fallback = compileTypstDocument(localCode, { isDarkTheme });
+          fallback.error = err instanceof Error ? err.message : String(err);
+          setCompileResult(fallback);
+          setIsCompiling(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [localCode, engineType, isDarkTheme]);
 
   // 编辑源码并触发回写
   const handleCodeChange = (newCode: string) => {
@@ -94,11 +143,6 @@ export const TypstViewer: React.FC<TypstViewerProps> = ({
       document.body.style.userSelect = '';
     };
   }, [isDraggingSplit]);
-
-  // 实时编译 Typst 源码
-  const compileResult: TypstCompileResult = useMemo(() => {
-    return compileTypstDocument(localCode, { isDarkTheme });
-  }, [localCode, isDarkTheme]);
 
   const totalPages = Math.max(1, compileResult.totalPageCount);
 
@@ -158,6 +202,9 @@ export const TypstViewer: React.FC<TypstViewerProps> = ({
         setStudioMode={setStudioMode}
         viewMode={viewMode}
         setViewMode={setViewMode}
+        engineType={engineType}
+        setEngineType={setEngineType}
+        isCompiling={isCompiling}
         showOutline={showOutline}
         setShowOutline={setShowOutline}
         currentPage={currentPage}

@@ -19,17 +19,24 @@ import {
   ChevronDown,
   Layers,
   Sparkles,
+  Cpu,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { TypstCompileResult } from '../../../lib/typstEngine';
 
 export type TypstStudioMode = 'split' | 'preview' | 'code';
 export type TypstViewMode = 'single' | 'dual' | 'continuous';
+export type TypstEngineType = 'wasm' | 'native';
 
 interface TypstToolbarProps {
   studioMode: TypstStudioMode;
   setStudioMode: (mode: TypstStudioMode) => void;
   viewMode: TypstViewMode;
   setViewMode: (mode: TypstViewMode) => void;
+  engineType: TypstEngineType;
+  setEngineType: (engine: TypstEngineType) => void;
+  isCompiling: boolean;
   showOutline: boolean;
   setShowOutline: React.Dispatch<React.SetStateAction<boolean>>;
   currentPage: number;
@@ -54,6 +61,9 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
   setStudioMode,
   viewMode,
   setViewMode,
+  engineType,
+  setEngineType,
+  isCompiling,
   showOutline,
   setShowOutline,
   currentPage,
@@ -97,6 +107,42 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
           <span className="px-1.5 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-mono uppercase">
             TYPST {(compileResult.metadata.paperSize || 'A4').toUpperCase()}
           </span>
+
+          {/* 引擎切换器：Myriad-Dreamin/typst.ts WASM 官方内核 vs 快速 Native 内核 */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-[11px]">
+            <button
+              onClick={() => setEngineType('wasm')}
+              title={locale === 'zh-CN' ? '使用官方 Myriad-Dreamin/typst.ts WebAssembly 编译内核' : 'Official Myriad-Dreamin/typst.ts WASM Engine'}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded transition ${
+                engineType === 'wasm'
+                  ? 'bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Cpu className="w-3 h-3 text-emerald-400" />
+              <span>typst.ts</span>
+            </button>
+            <button
+              onClick={() => setEngineType('native')}
+              title={locale === 'zh-CN' ? '使用轻量纯前端快速预览引擎' : 'Lightweight Native Fast Preview Engine'}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded transition ${
+                engineType === 'native'
+                  ? 'bg-slate-800 text-sky-400 font-medium'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>{locale === 'zh-CN' ? '极速' : 'Fast'}</span>
+            </button>
+          </div>
+
+          {/* 编译中状态指示器 */}
+          {isCompiling && (
+            <div className="flex items-center gap-1 text-[11px] text-amber-400 animate-pulse bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>{locale === 'zh-CN' ? 'WASM 编译中...' : 'Compiling...'}</span>
+            </div>
+          )}
         </div>
       </div>
 
