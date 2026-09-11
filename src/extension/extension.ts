@@ -1,16 +1,42 @@
 import * as vscode from 'vscode';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, dirname, extname, resolve as resolvePath } from 'node:path';
+import { tmpdir } from 'node:os';
+import { basename, dirname, extname, join as joinPath, resolve as resolvePath } from 'node:path';
 
 const VIEW_TYPE = 'omniview.editor';
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.svg', '.pdf', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km'];
+const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km'];
 let output: vscode.OutputChannel;
 
 function log(message: string, details?: unknown): void {
   const suffix = details === undefined ? '' : ` ${details instanceof Error ? details.stack : JSON.stringify(details)}`;
   output?.appendLine(`[${new Date().toISOString()}] ${message}${suffix}`);
   console.log(`[OmniView] ${message}${suffix}`);
+}
+
+/** Webview 无法调用 window.print；Host 侧落盘临时 HTML 并用系统浏览器打开 */
+function sanitizePrintFileName(fileName: string): string {
+  const leaf = (fileName || 'omniview-print').split(/[/\\]/).pop() || 'omniview-print';
+  const cleaned = leaf
+    .replace(/[^\w.\u4e00-\u9fff-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^\.+/, '')
+    .replace(/\.+$/, '');
+  return (cleaned || 'omniview-print').slice(0, 120);
+}
+
+async function openPrintableHtmlInBrowser(fileName: string, html: string): Promise<void> {
+  if (!html || typeof html !== 'string') {
+    throw new Error('Empty printable HTML payload');
+  }
+  const safeName = sanitizePrintFileName(fileName).replace(/\.html?$/i, '');
+  const tmpPath = joinPath(tmpdir(), `omniview-print-${safeName}-${Date.now()}.html`);
+  await writeFile(tmpPath, html, 'utf8');
+  const opened = await vscode.env.openExternal(vscode.Uri.file(tmpPath));
+  if (!opened) {
+    throw new Error(`Failed to open printable file: ${tmpPath}`);
+  }
+  log(`Printable HTML opened in system browser: ${tmpPath} (${html.length} chars)`);
 }
 
 async function loadReferencedMediaFiles(markdownPath: string, markdown: string): Promise<Array<Record<string, unknown>>> {
@@ -70,7 +96,7 @@ function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, initi
   const initialDataScript = safeJson ? `<script id="omniview-initial-data" type="application/json">${safeJson}</script>` : '';
   return html
     .replace(/(src|href)="(\.\/)?assets\//g, (_match: string, attribute: string) => `${attribute}="${webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'assets'))}/`)
-    .replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data: vscode-resource: vscode-webview-resource: blob:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; worker-src ${webview.cspSource} blob: data:; connect-src https: data: blob:;">`)
+    .replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: http://localhost:* http://127.0.0.1:* data: vscode-resource: vscode-webview-resource: blob:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; worker-src ${webview.cspSource} blob: data:; connect-src https: http://localhost:* http://127.0.0.1:* data: blob:;">`)
     .replace('</body>', `${initialDataScript}<script>window.__OMNIVIEW_VSCODE__ = true;</script></body>`);
 }
 
@@ -192,6 +218,21 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
             selection: new vscode.Range(pos, pos),
             preview: false,
           });
+        }
+        return;
+      }
+      if (message?.type === 'print-document') {
+        try {
+          await openPrintableHtmlInBrowser(
+            typeof message.fileName === 'string' ? message.fileName : document.uri.fsPath,
+            typeof message.html === 'string' ? message.html : ''
+          );
+          void vscode.window.showInformationMessage('已在系统浏览器打开打印预览，可直接打印或另存为 PDF。');
+        } catch (error) {
+          log('Failed to open printable document', error);
+          void vscode.window.showErrorMessage(
+            `打印失败: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
         return;
       }

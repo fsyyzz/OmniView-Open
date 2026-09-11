@@ -1,4 +1,4 @@
-export type DriverId = 'markdown' | 'svg' | 'pdf' | 'plantuml' | 'csv' | 'code' | 'mindmap';
+export type DriverId = 'markdown' | 'svg' | 'pdf' | 'plantuml' | 'csv' | 'code' | 'mindmap' | 'mermaid' | 'graphviz';
 
 export interface FileItem {
   id: string;

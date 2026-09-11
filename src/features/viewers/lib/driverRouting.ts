@@ -8,6 +8,8 @@ export function getDriverIdForFile(file: FileItem): DriverId {
   if (['md', 'markdown', 'okf'].includes(extension)) return 'markdown';
   if (['mm', 'markmap', 'mindmap', 'km'].includes(extension)) return 'mindmap';
   if (['puml', 'plantuml', 'iuml'].includes(extension)) return 'plantuml';
+  if (['mmd', 'mermaid'].includes(extension)) return 'mermaid';
+  if (['dot', 'gv', 'graphviz'].includes(extension)) return 'graphviz';
   if (extension === 'svg') return 'svg';
   if (extension === 'pdf') return 'pdf';
   if (['csv', 'tsv'].includes(extension)) return 'csv';

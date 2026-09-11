@@ -68,6 +68,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'plantuml':
       case 'iuml':
         return <Network className="w-3.5 h-3.5 text-purple-400" />;
+      case 'mmd':
+      case 'mermaid':
+        return <Network className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'dot':
+      case 'gv':
+      case 'graphviz':
+        return <Network className="w-3.5 h-3.5 text-amber-400" />;
       case 'svg':
         return <Compass className="w-3.5 h-3.5 text-emerald-400" />;
       case 'pdf':

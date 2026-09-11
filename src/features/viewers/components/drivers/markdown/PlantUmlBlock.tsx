@@ -13,7 +13,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
-import { getPlantUmlSvgUrl } from '../../../../../shared/lib/plantuml';
+import { getPlantUmlSvgUrl, hasRenderablePlantUmlCode, withPlantUmlCacheBust } from '../../../../../shared/lib/plantuml';
 import { analyzePlantUmlError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 
@@ -59,11 +59,14 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   locale = 'zh-CN',
 }) => {
   const [hasError, setHasError] = React.useState<boolean>(false);
+  const [renderNonce, setRenderNonce] = React.useState(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
-  const activeSvgUrl = getPlantUmlSvgUrl(activeCode);
+  const canRender = hasRenderablePlantUmlCode(activeCode);
+  const activeSvgUrl = canRender ? withPlantUmlCacheBust(getPlantUmlSvgUrl(activeCode), renderNonce) : '';
 
   React.useEffect(() => {
     setHasError(false);
+    setRenderNonce(n => n + 1);
   }, [activeCode]);
 
   return (
@@ -189,8 +192,16 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
               onApplyQuickFix={(fixed) => onChangeEditedCode(fixed)}
               onOpenSourceAtLine={onOpenSourceAtLine}
               onToggleCodeView={() => onSetViewMode('code')}
-              onReRender={onReRender}
+              onReRender={() => {
+                setHasError(false);
+                setRenderNonce(n => n + 1);
+                onReRender();
+              }}
             />
+          ) : !canRender ? (
+            <div className="text-xs text-slate-400 py-8 text-center">
+              暂无可渲染的 PlantUML 内容（空图会被显示成白点，已拦截）
+            </div>
           ) : (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
@@ -199,6 +210,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
               title={t('fullScreen', locale)}
             >
               <img
+                key={activeSvgUrl}
                 src={activeSvgUrl}
                 alt="PlantUML Diagram"
                 className="max-w-none rounded shadow-sm bg-white/95 p-3"

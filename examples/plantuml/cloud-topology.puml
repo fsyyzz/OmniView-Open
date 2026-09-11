@@ -1,0 +1,44 @@
+@startuml
+title 微服务云原生拓扑架构 (OmniView PlantUML Driver)
+autonumber
+
+actor "客户端 / Web / VSCode" as Client #LightSkyBlue
+participant "API Gateway (Kong/Nginx)" as Gateway #LightGreen
+participant "Auth Service (JWT/OAuth)" as Auth #LightPink
+participant "Document Core Service" as Core #Gold
+database "PostgreSQL / Metadata" as DB #LightCyan
+queue "Kafka Message Queue" as MQ #Plum
+participant "Async Render Worker" as Worker #Orange
+
+Client -> Gateway : 发送文件渲染请求 /api/v1/render
+activate Gateway
+
+Gateway -> Auth : 鉴权验证 Bearer Token
+activate Auth
+Auth --> Gateway : 鉴权通过 (uid: 9527)
+deactivate Auth
+
+Gateway -> Core : 转发渲染任务负载 (Payload)
+activate Core
+Core -> DB : 读取文档结构元数据
+DB --> Core : 返回文档元数据与缓存状态
+
+alt 缓存命中 (Cache Hit)
+    Core --> Gateway : 毫秒级返回已生成的矢量 SVG
+    Gateway --> Client : 200 OK (渲染完成)
+else 缓存未命中 (Cache Miss)
+    Core -> MQ : 发布渲染异步事件 (render.task.created)
+    MQ -> Worker : 消费并编译 PlantUML / Mermaid 脚本
+    activate Worker
+    Worker -> Worker : 离线生成高清矢量图形
+    Worker -> DB : 写入图形持久化缓存
+    Worker --> MQ : 任务完成回调
+    deactivate Worker
+    Core --> Gateway : 返回编译结果流
+    Gateway --> Client : 200 OK (流式完成)
+end
+
+deactivate Core
+deactivate Gateway
+
+@enduml

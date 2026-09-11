@@ -7,7 +7,8 @@ import { ViewerRenderer } from './ViewerRenderer';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { VsCodeApi } from '../../shared/lib/vscode';
 import { parseMarkdownHeadings, extractSectionContent } from './lib/markdownAst';
-import { exportToWordDocument, exportToPortableHtml } from './lib/exportEngine';
+import { exportToWordDocument, exportToPortableHtml, buildPortableHtml } from './lib/exportEngine';
+import { requestPrintHtml } from '../../shared/lib/printBridge';
 import { useScrollHeadingSpy } from './hooks/useScrollHeadingSpy';
 import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
 import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
@@ -225,6 +226,16 @@ const MarkdownPluginView: React.FC<{
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLElement>(null);
+
+  /** 预览 / 分屏均可定位到正文根节点（不再依赖仅 preview 挂载的 scrollRef） */
+  const getSearchCanvas = useCallback((): HTMLElement | null => {
+    const root = shellRef.current;
+    if (root) {
+      return root.querySelector<HTMLElement>('#markdown-viewer-canvas, .markdown-document');
+    }
+    return document.querySelector<HTMLElement>('#markdown-viewer-canvas, .markdown-document');
+  }, []);
 
   const handleLocaleChange = (newLocale: Locale) => {
     setLocale(newLocale);
@@ -266,7 +277,7 @@ const MarkdownPluginView: React.FC<{
 
   // 搜索关键字高亮与变色联动（仅做高亮标注，绝不打断用户滚动）
   useEffect(() => {
-    const canvas = scrollRef.current?.querySelector<HTMLElement>('.markdown-document') || null;
+    const canvas = getSearchCanvas();
     if (!searchText.trim()) {
       clearSearchHighlights(canvas);
       setMatchCount(0);
@@ -275,43 +286,46 @@ const MarkdownPluginView: React.FC<{
     }
 
     const timer = setTimeout(() => {
-      const count = highlightSearchMatches(canvas, searchText);
+      const target = getSearchCanvas();
+      const count = highlightSearchMatches(target, searchText);
       setMatchCount(count);
       if (count > 0) {
         setActiveMatchIndex(0);
-        activateMatch(canvas, 0, false); // 仅高亮当前匹配项，不滚动视口
+        activateMatch(target, 0, false); // 仅高亮当前匹配项，不滚动视口
       } else {
         setActiveMatchIndex(-1);
       }
     }, 180);
 
     return () => clearTimeout(timer);
-  }, [searchText]);
+  }, [searchText, getSearchCanvas]);
 
   // 渲染完成后立即重新注入搜索高亮，防止 dangerouslySetInnerHTML 刷新导致 <mark> 节点丢失（不触发视口滚动）
   const handleRenderComplete = useCallback(() => {
     if (!searchText.trim()) return;
-    const canvas = scrollRef.current?.querySelector<HTMLElement>('.markdown-document') || null;
-    // 用 requestAnimationFrame 确保 React 完成 DOM commit 后再注入
+    // 双 rAF：等待 React commit + 浏览器布局完成后再注入
     requestAnimationFrame(() => {
-      const count = highlightSearchMatches(canvas, searchText);
-      setMatchCount(count);
-      setActiveMatchIndex(prev => {
-        const next = Math.min(prev < 0 ? 0 : prev, count - 1);
-        if (count > 0) activateMatch(canvas, next, false); // 仅恢复高亮态，不触发滚动
-        return count > 0 ? next : -1;
+      requestAnimationFrame(() => {
+        const canvas = getSearchCanvas();
+        const count = highlightSearchMatches(canvas, searchText);
+        setMatchCount(count);
+        setActiveMatchIndex(prev => {
+          const next = Math.min(prev < 0 ? 0 : prev, Math.max(count - 1, 0));
+          if (count > 0) activateMatch(canvas, next, false);
+          return count > 0 ? next : -1;
+        });
       });
     });
-  }, [searchText]);
+  }, [searchText, getSearchCanvas]);
 
   // 搜索前进/后退导航（用户主动按键/点击触发，平滑滚动至目标项）
   const handleFindText = useCallback((backwards = false) => {
     if (!searchText.trim()) return;
-    const canvas = scrollRef.current?.querySelector<HTMLElement>('.markdown-document') || null;
+    const canvas = getSearchCanvas();
     if (!canvas) return;
 
     let currentCount = matchCount;
-    if (currentCount === 0) {
+    if (currentCount === 0 || canvas.querySelectorAll('mark.ov-search-match').length === 0) {
       currentCount = highlightSearchMatches(canvas, searchText);
       setMatchCount(currentCount);
     }
@@ -321,10 +335,10 @@ const MarkdownPluginView: React.FC<{
       let nextIndex = backwards ? prev - 1 : prev + 1;
       if (nextIndex < 0) nextIndex = currentCount - 1;
       if (nextIndex >= currentCount) nextIndex = 0;
-      activateMatch(canvas, nextIndex, true); // 用户主动寻找，滚动至可视区域中央
+      activateMatch(canvas, nextIndex, true);
       return nextIndex;
     });
-  }, [searchText, matchCount]);
+  }, [searchText, matchCount, getSearchCanvas]);
 
   // Copy operations
   const handleCopyRawMarkdown = async () => {
@@ -341,7 +355,7 @@ const MarkdownPluginView: React.FC<{
   };
 
   const handleCopyRichText = async () => {
-    const canvas = scrollRef.current?.querySelector('.markdown-document');
+    const canvas = getSearchCanvas();
     if (!canvas) return;
     try {
       const html = canvas.innerHTML;
@@ -363,13 +377,29 @@ const MarkdownPluginView: React.FC<{
   const [isExportingWord, setIsExportingWord] = useState(false);
 
   const handleExportHtml = () => {
-    const canvas = scrollRef.current?.querySelector('.markdown-document') as HTMLElement | null;
+    const canvas = getSearchCanvas();
     if (!canvas) return;
     exportToPortableHtml(file.name, canvas);
   };
 
+  const handlePrint = () => {
+    if (vscode) {
+      const canvas = getSearchCanvas() || (scrollRef.current as HTMLElement | null);
+      if (!canvas) {
+        void requestPrintHtml(file.name, '<!DOCTYPE html><html><body><p>无可打印内容</p></body></html>', {
+          vscode,
+        });
+        return;
+      }
+      const html = buildPortableHtml(file.name, canvas);
+      requestPrintHtml(file.name, html, { vscode });
+      return;
+    }
+    window.print();
+  };
+
   const handleExportWord = async () => {
-    const canvas = scrollRef.current?.querySelector('.markdown-document') as HTMLElement | null;
+    const canvas = getSearchCanvas();
     if (!canvas) return;
     try {
       setIsExportingWord(true);
@@ -431,6 +461,7 @@ const MarkdownPluginView: React.FC<{
 
   return (
     <main
+      ref={shellRef}
       className={`markdown-plugin-shell ${focusMode ? 'markdown-focus-mode' : ''}`}
       data-theme={theme}
       data-density={density}
@@ -468,6 +499,7 @@ const MarkdownPluginView: React.FC<{
         onCopyCurrentSection={handleCopyCurrentSection}
         onCopyRichText={handleCopyRichText}
         onExportHtml={handleExportHtml}
+        onPrint={handlePrint}
         onExportWord={handleExportWord}
         isExportingWord={isExportingWord}
         onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file.path }) : undefined}
@@ -527,7 +559,7 @@ const MarkdownPluginView: React.FC<{
             />
           </div>
         ) : viewMode === 'source' || viewMode === 'split' ? (
-          <div className="flex-1 min-h-0 flex overflow-hidden">
+          <div ref={scrollRef} className="flex-1 min-h-0 flex overflow-hidden">
             <ViewerRenderer
               file={activeFile}
               files={viewerFiles}

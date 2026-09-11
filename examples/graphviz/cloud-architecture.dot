@@ -1,0 +1,47 @@
+digraph CloudArchitecture {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fontname="sans-serif", fontsize=11];
+  edge [color="#64748b", fontname="sans-serif", fontsize=10];
+
+  subgraph cluster_frontend {
+    label="前端层 (Edge & Gateway)";
+    style="rounded,dashed";
+    color="#3b82f6";
+    bgcolor="#0f172a15";
+
+    Client [label="客户端 (Web / App)", fillcolor="#dbeafe", fontcolor="#1e40af"];
+    CDN [label="全球 CDN 节点", fillcolor="#e0e7ff", fontcolor="#3730a3"];
+    Gateway [label="API 网关 (Nginx / Envoy)", fillcolor="#bfdbfe", fontcolor="#1d4ed8"];
+  }
+
+  subgraph cluster_backend {
+    label="核心微服务集群 (Kubernetes)";
+    style="rounded,dashed";
+    color="#10b981";
+    bgcolor="#0f172a15";
+
+    AuthSvc [label="鉴权服务 (OAuth2 / JWT)", fillcolor="#d1fae5", fontcolor="#065f46"];
+    OrderSvc [label="订单引擎 (Order Svc)", fillcolor="#d1fae5", fontcolor="#065f46"];
+    PaySvc [label="支付结算 (Payment Svc)", fillcolor="#d1fae5", fontcolor="#065f46"];
+  }
+
+  subgraph cluster_data {
+    label="持久化与缓存集群";
+    style="rounded,dashed";
+    color="#f59e0b";
+    bgcolor="#0f172a15";
+
+    Redis [label="Redis 缓存 (Cluster)", shape=cylinder, fillcolor="#fef3c7", fontcolor="#92400e"];
+    MySQL [label="MySQL 主从库", shape=cylinder, fillcolor="#fed7aa", fontcolor="#9a3412"];
+    Kafka [label="Kafka 事件总线", shape=component, fillcolor="#fde68a", fontcolor="#854d0e"];
+  }
+
+  Client -> CDN -> Gateway;
+  Gateway -> AuthSvc;
+  Gateway -> OrderSvc;
+  OrderSvc -> PaySvc;
+  OrderSvc -> Redis;
+  OrderSvc -> MySQL;
+  OrderSvc -> Kafka;
+  PaySvc -> Kafka;
+}

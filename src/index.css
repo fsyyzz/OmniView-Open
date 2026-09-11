@@ -1346,6 +1346,11 @@ mark.ov-search-match {
   border-radius: 3px !important;
   box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.6) !important;
   font-weight: 600 !important;
+  /* 避免继承 Prism/主题色导致“看不见高亮” */
+  -webkit-text-fill-color: #000000 !important;
+  display: inline !important;
+  position: relative;
+  z-index: 1;
 }
 
 mark.ov-search-match.is-active-match {

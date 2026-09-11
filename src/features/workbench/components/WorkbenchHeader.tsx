@@ -34,6 +34,8 @@ import {
   FileText,
   Settings,
 } from 'lucide-react';
+import { getVsCodeApi } from '../../../shared/lib/vscode';
+import { requestPrintHtml } from '../../../shared/lib/printBridge';
 
 interface WorkbenchHeaderProps {
   currentView: WorkbenchView;
@@ -143,6 +145,25 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
   };
 
   const handlePrint = () => {
+    // 工作台主要为浏览器宿主；若意外处于 Webview，则导出当前主内容给 Host 外置打印
+    const api = getVsCodeApi();
+    if (api) {
+      const canvas =
+        (document.querySelector('.markdown-document') as HTMLElement | null) ||
+        (document.querySelector('[data-ov-print-root]') as HTMLElement | null) ||
+        (document.querySelector('main') as HTMLElement | null);
+      if (canvas) {
+        const clone = canvas.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('button, .markdown-toolbar, #workbench-header').forEach((el) => el.remove());
+        const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>${
+          activeFile?.name || 'OmniView'
+        }</title><style>body{font-family:system-ui,sans-serif;margin:24px;color:#0f172a;background:#fff}img,svg{max-width:100%}</style></head><body>${
+          clone.innerHTML
+        }</body></html>`;
+        requestPrintHtml(activeFile?.name || 'omniview-print', html, { vscode: api });
+        return;
+      }
+    }
     window.print();
   };
 
@@ -505,7 +526,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           type="file"
           className="hidden"
           onChange={handleFileInputChange}
-          accept=".md,.markdown,.puml,.plantuml,.svg,.pdf,.csv,.tsv,.json,.yaml,.yml,.xml,.ts,.tsx,.js,.jsx,.txt,.mm,.markmap,.mindmap,.km"
+          accept=".md,.markdown,.puml,.plantuml,.mmd,.mermaid,.dot,.gv,.svg,.pdf,.csv,.tsv,.json,.yaml,.yml,.xml,.ts,.tsx,.js,.jsx,.txt,.mm,.markmap,.mindmap,.km"
         />
 
         <button

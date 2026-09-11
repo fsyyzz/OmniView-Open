@@ -17,6 +17,13 @@
 | [math-and-diagrams-test.md](./math-and-diagrams-test.md) | 数学公式与图片/图表全屏灯箱综合测试 |
 | [stability-stress-test.md](./stability-stress-test.md) | 错误边界、缺失图片、超宽表格与极限稳定性压测 |
 
-建议先打开 `basic-markdown.md` 熟悉基础排版，再打开 `diagrams.md` 与 `graphviz-diagrams.md` 体验图表渲染。
+建议先打开 `basic-markdown.md` 熟悉基础排版，再打开 `diagrams.md` 与 `graphviz-diagrams.md` 体验内嵌图表渲染。
+
+独立图表源文件见上级目录：
+
+- [../mermaid/](../mermaid/) — `.mmd`
+- [../plantuml/](../plantuml/) — `.puml`
+- [../graphviz/](../graphviz/) — `.dot`
+- [../markmap/](../markmap/) — `.markmap`
 
 

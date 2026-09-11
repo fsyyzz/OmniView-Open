@@ -30,7 +30,10 @@ import {
   getPlantUmlPngUrl,
   getPlantUmlServerBase,
   setPlantUmlServerBase,
-  PLANTUML_SERVER_PRESETS
+  hasRenderablePlantUmlCode,
+  withPlantUmlCacheBust,
+  PLANTUML_SERVER_PRESETS,
+  PLANTUML_FALLBACK_SERVERS,
 } from '../../../../shared/lib/plantuml';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import {
@@ -63,6 +66,8 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const [copied, setCopied] = useState(false);
   const [copiedSvg, setCopiedSvg] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [renderNonce, setRenderNonce] = useState(0);
+  const [imgStatus, setImgStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [serverUrl, setServerUrl] = useState<string>(getPlantUmlServerBase());
   const [showServerModal, setShowServerModal] = useState(false);
   const [customInput, setCustomInput] = useState(serverUrl);
@@ -76,6 +81,23 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const fallbackTriedRef = useRef<Set<string>>(new Set());
+
+  // 与宿主文档内容同步（修复插件打开后仍停留在空图/白点的问题）
+  useEffect(() => {
+    setLocalCode(content);
+    setImgStatus(hasRenderablePlantUmlCode(content) ? 'loading' : 'idle');
+    setRenderNonce(n => n + 1);
+    fallbackTriedRef.current.clear();
+  }, [content]);
+
+  useEffect(() => {
+    if (!hasRenderablePlantUmlCode(localCode)) {
+      setImgStatus('idle');
+      return;
+    }
+    setImgStatus('loading');
+  }, [localCode, serverUrl, renderNonce]);
 
   // Draggable split ratio (percentage for code editor pane)
   const [splitRatio, setSplitRatio] = useState<number>(() => {
@@ -132,8 +154,10 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   }, [splitRatio]);
 
   // Derived URLs
-  const svgUrl = getPlantUmlSvgUrl(localCode, serverUrl);
-  const pngUrl = getPlantUmlPngUrl(localCode, serverUrl);
+  const canRender = hasRenderablePlantUmlCode(localCode);
+  const svgUrl = canRender ? getPlantUmlSvgUrl(localCode, serverUrl) : '';
+  const pngUrl = canRender ? getPlantUmlPngUrl(localCode, serverUrl) : '';
+  const displaySvgUrl = withPlantUmlCacheBust(svgUrl, renderNonce);
   const activeThemeId = detectPlantUmlTheme(localCode);
 
   const handleCodeChange = (newText: string) => {
@@ -196,13 +220,37 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
   const handleRefresh = () => {
     setIsRefreshing(true);
+    fallbackTriedRef.current.clear();
+    setImgStatus(canRender ? 'loading' : 'idle');
+    setRenderNonce(n => n + 1);
     setTimeout(() => setIsRefreshing(false), 400);
   };
 
+  const handleImageError = () => {
+    // 当前服务失败时，自动轮询备用服务器，避免预览区只剩一个白点
+    const normalizedCurrent = serverUrl.replace(/\/$/, '');
+    fallbackTriedRef.current.add(normalizedCurrent);
+
+    const candidates = [serverUrl, ...PLANTUML_FALLBACK_SERVERS]
+      .map(u => u.replace(/\/$/, ''))
+      .filter((u, idx, arr) => Boolean(u) && arr.indexOf(u) === idx);
+
+    const next = candidates.find(u => !fallbackTriedRef.current.has(u));
+    if (next) {
+      setServerUrl(next);
+      setRenderNonce(n => n + 1);
+      setImgStatus('loading');
+      return;
+    }
+    setImgStatus('error');
+  };
+
   const handleSaveServer = (newUrl: string) => {
-    setServerUrl(newUrl);
-    setPlantUmlServerBase(newUrl);
+    const normalized = newUrl.trim().replace(/\/$/, '');
+    setServerUrl(normalized);
+    setPlantUmlServerBase(normalized);
     setShowServerModal(false);
+    fallbackTriedRef.current.clear();
     handleRefresh();
   };
 
@@ -681,17 +729,73 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 transformOrigin: 'center center',
                 transition: isPanning ? 'none' : 'transform 100ms ease-out',
               }}
-              className="bg-white p-6 rounded-2xl shadow-2xl border border-slate-700 max-w-full select-none"
+              className="relative bg-white p-6 rounded-2xl shadow-2xl border border-slate-700 max-w-[min(100%,960px)] min-w-[240px] min-h-[160px] select-none flex items-center justify-center"
             >
-              <img
-                src={svgUrl}
-                alt="PlantUML Architecture Diagram"
-                draggable={false}
-                className="max-w-none block pointer-events-none"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
+              {!canRender && (
+                <div className="text-center text-slate-500 text-xs space-y-2 px-4 py-6">
+                  <p className="font-medium text-slate-600">暂无可渲染的 PlantUML 内容</p>
+                  <p>请确认文档包含 `@startuml` … `@enduml` 及实际图表语句。</p>
+                </div>
+              )}
+
+              {canRender && imgStatus === 'error' && (
+                <div className="text-center text-slate-600 text-xs space-y-3 px-4 py-6 max-w-md">
+                  <p className="font-semibold text-rose-600">PlantUML 渲染服务不可用</p>
+                  <p>
+                    无法从当前服务器加载矢量图（网络受限、离线或服务未启动）。
+                    可切换到本地 Docker（`http://localhost:8080`）或检查代理后重试。
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRefresh}
+                      className="px-3 py-1.5 rounded bg-purple-600 text-white hover:bg-purple-500"
+                    >
+                      重新加载
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowServerModal(true)}
+                      className="px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-100"
+                    >
+                      配置服务器
+                    </button>
+                  </div>
+                  {svgUrl && (
+                    <a
+                      href={svgUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-purple-600 hover:underline"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      在浏览器中打开渲染链接
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {canRender && imgStatus !== 'error' && displaySvgUrl && (
+                <>
+                  {imgStatus === 'loading' && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 text-slate-200 text-[11px]">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-300" />
+                        正在编译 PlantUML…
+                      </div>
+                    </div>
+                  )}
+                  <img
+                    key={displaySvgUrl}
+                    src={displaySvgUrl}
+                    alt="PlantUML Architecture Diagram"
+                    draggable={false}
+                    className={`max-w-full h-auto block pointer-events-none ${imgStatus === 'ready' ? 'opacity-100' : 'opacity-0'}`}
+                    onLoad={() => setImgStatus('ready')}
+                    onError={handleImageError}
+                  />
+                </>
+              )}
             </div>
 
             {/* Floating Quick Viewport Status Indicator */}

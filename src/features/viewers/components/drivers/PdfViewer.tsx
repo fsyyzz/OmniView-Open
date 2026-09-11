@@ -37,6 +37,8 @@ import {
   type PdfSearchMatch,
   type PdfOutlineItem,
 } from '../../lib/pdfEngine';
+import { requestPrintImage } from '../../../../shared/lib/printBridge';
+import { getVsCodeApi } from '../../../../shared/lib/vscode';
 import { PdfThumbnail } from './pdf/PdfThumbnail';
 import { PdfSearchBar } from './pdf/PdfSearchBar';
 import { PdfOutlineView } from './pdf/PdfOutlineView';
@@ -450,24 +452,19 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     showToast('正在下载原始 PDF 文档...');
   };
 
-  // 10. 打印
+  // 10. 打印（VS Code Webview 内 window.open/print 不可用，改走 Host 外置浏览器）
   const handlePrint = () => {
     const pageContainer = document.getElementById(`pdf-page-container-${currentPage}`);
     const canvas = pageContainer?.querySelector('canvas');
-    if (!canvas) return;
+    if (!canvas) {
+      showToast('未找到可打印页面');
+      return;
+    }
     const dataUrl = canvas.toDataURL('image/png');
-    const win = window.open('');
-    if (!win) return;
-    win.document.write(`
-      <html>
-        <head>
-          <title>${activeFileName} - OmniView 打印</title>
-          <style>body { margin: 0; display: flex; justify-content: center; background: #fff; } img { max-width: 100%; }</style>
-        </head>
-        <body><img src="${dataUrl}" onload="window.print(); window.close();" /></body>
-      </html>
-    `);
-    win.document.close();
+    const printed = requestPrintImage(`${activeFileName}-p${currentPage}`, dataUrl);
+    if (printed && getVsCodeApi()) {
+      showToast('正在打开系统打印预览…');
+    }
   };
 
   // 11. 打开本地 PDF 测试

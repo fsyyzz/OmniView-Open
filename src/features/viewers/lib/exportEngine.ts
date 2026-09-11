@@ -254,19 +254,20 @@ export async function exportToWordDocument(documentTitle: string, container: HTM
 }
 
 /**
- * 导出为单文件高保真离线 HTML
+ * 构建单文件高保真离线 HTML（供导出下载与插件外置打印复用）
  * 完整内联 KaTeX 公式、已渲染图表 SVG、代码高亮以及印刷打印样式
  */
-export function exportToPortableHtml(documentTitle: string, container: HTMLElement): void {
+export function buildPortableHtml(documentTitle: string, container: HTMLElement): string {
   const clone = container.cloneNode(true) as HTMLElement;
   cleanInteractiveElements(clone);
+  const safeTitle = documentTitle.replace(/[<>&"]/g, '');
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${documentTitle}</title>
+  <title>${safeTitle}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
   <style>
     :root {
@@ -391,7 +392,13 @@ export function exportToPortableHtml(documentTitle: string, container: HTMLEleme
   ${clone.innerHTML}
 </body>
 </html>`;
+}
 
+/**
+ * 导出为单文件高保真离线 HTML
+ */
+export function exportToPortableHtml(documentTitle: string, container: HTMLElement): void {
+  const html = buildPortableHtml(documentTitle, container);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

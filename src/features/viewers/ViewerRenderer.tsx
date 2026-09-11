@@ -17,6 +17,8 @@ const MarkmapViewer = lazy(() => import('./components/drivers/MarkmapViewer').th
 const SvgViewer = lazy(() => import('./components/drivers/SvgViewer').then(m => ({ default: m.SvgViewer })));
 const PdfViewer = lazy(() => import('./components/drivers/PdfViewer').then(m => ({ default: m.PdfViewer })));
 const PlantUmlViewer = lazy(() => import('./components/drivers/PlantUmlViewer').then(m => ({ default: m.PlantUmlViewer })));
+const MermaidViewer = lazy(() => import('./components/drivers/MermaidViewer').then(m => ({ default: m.MermaidViewer })));
+const GraphvizViewer = lazy(() => import('./components/drivers/GraphvizViewer').then(m => ({ default: m.GraphvizViewer })));
 const CsvViewer = lazy(() => import('./components/drivers/CsvViewer').then(m => ({ default: m.CsvViewer })));
 const CodeViewer = lazy(() => import('./components/drivers/CodeViewer').then(m => ({ default: m.CodeViewer })));
 const MindmapViewer = lazy(() => import('./components/drivers/MindmapViewer').then(m => ({ default: m.MindmapViewer })));
@@ -246,6 +248,8 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
         )}
         {driverId === 'pdf' && <PdfViewer fileName={file.name} fileSize={file.size} binaryUrl={file.binaryUrl} content={file.content} />}
         {driverId === 'plantuml' && <PlantUmlViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
+        {driverId === 'mermaid' && <MermaidViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
+        {driverId === 'graphviz' && <GraphvizViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
         {driverId === 'csv' && <CsvViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
         {driverId === 'code' && (
           <CodeViewer

@@ -1,0 +1,35 @@
+flowchart TB
+    subgraph ClientLayer["终端接入层"]
+        Browser["Web 浏览器"]
+        VSCodeExt["VS Code 扩展 Webview"]
+    end
+
+    subgraph Gateway["边缘网关"]
+        WAF["WAF / 限流"]
+        Auth["OAuth2 / JWT"]
+    end
+
+    subgraph Core["OmniView 渲染中枢"]
+        Parser["Marked AST 解析"]
+        MermaidEng["Mermaid 异步渲染"]
+        Sanitize["DOMPurify 清洗"]
+    end
+
+    subgraph Cache["缓存与产物"]
+        Redis[("Redis L2 缓存")]
+        SvgOut[("SVG 矢量产物")]
+    end
+
+    Browser --> WAF
+    VSCodeExt --> WAF
+    WAF --> Auth
+    Auth --> Parser
+    Parser --> MermaidEng
+    MermaidEng --> Sanitize
+    Sanitize --> SvgOut
+    MermaidEng <--> Redis
+
+    style ClientLayer fill:#1e293b,stroke:#3b82f6,color:#fff
+    style Gateway fill:#1e293b,stroke:#a855f7,color:#fff
+    style Core fill:#1e293b,stroke:#10b981,color:#fff
+    style Cache fill:#1e293b,stroke:#f59e0b,color:#fff

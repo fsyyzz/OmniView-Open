@@ -1,5 +1,7 @@
 # OmniView
 
+**中文** | [English](./README.en.md)
+
 > **OmniView** 是一款面向 VS Code 场景与 Web 现代工作流的高性能、全格式多维文件可视化工作台与插件。基于 React 19、TypeScript、Vite 6 与 Tailwind CSS v4 构建，秉承“**把数据升维为视窗，让排版化繁为简**”的哲学，提供从文档、图表、思维导图、矢量设计、数据网格、版式文档到结构化配置的全景沉浸式渲染能力。
 
 ---
@@ -107,7 +109,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器
-code --install-extension omniview-0.9.10.vsix --force
+code --install-extension omniview-0.9.14.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

@@ -62,6 +62,7 @@ interface MarkdownToolbarProps {
   onCopyCurrentSection: () => void;
   onCopyRichText: () => void;
   onExportHtml: () => void;
+  onPrint?: () => void;
   onExportWord?: () => void;
   isExportingWord?: boolean;
   onOpenInEditor?: () => void;
@@ -112,6 +113,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   onCopyCurrentSection,
   onCopyRichText,
   onExportHtml,
+  onPrint,
   onExportWord,
   isExportingWord,
   onOpenInEditor,
@@ -535,7 +537,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
         {/* Export & Print */}
         <button
           className="markdown-tool-button"
-          onClick={() => window.print()}
+          onClick={() => (onPrint ? onPrint() : window.print())}
           title={t('printPdfA4Tooltip', locale)}
           aria-label={t('exportPdf', locale)}
         >

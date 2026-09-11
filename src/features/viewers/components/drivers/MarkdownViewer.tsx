@@ -557,8 +557,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       if (!isCancelled) {
         setBlocks(parsedBlocks);
         setIsRendering(false);
-        // Notify parent that DOM is about to be updated so it can re-inject search highlights
-        onRenderComplete?.();
       }
     };
 
@@ -571,6 +569,15 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       clearTimeout(timer);
     };
   }, [content, isDarkTheme, locale, enableOkf]);
+
+  // 在 React 提交 DOM 后再通知父级重注搜索高亮，避免 setState 尚未刷盘时误标旧树
+  useEffect(() => {
+    if (isRendering) return;
+    const frame = requestAnimationFrame(() => {
+      onRenderComplete?.();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [blocks, isRendering, onRenderComplete]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
