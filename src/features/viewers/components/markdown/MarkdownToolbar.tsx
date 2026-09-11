@@ -29,6 +29,7 @@ import {
   Code,
   Sparkles,
   Settings,
+  Presentation,
 } from 'lucide-react';
 import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
@@ -55,6 +56,8 @@ interface MarkdownToolbarProps {
   onCycleWidth: () => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
+  presentationMode?: boolean;
+  onTogglePresentationMode?: () => void;
   autoScrollSpeed: number;
   onToggleAutoScroll: () => void;
   zoom: number;
@@ -107,6 +110,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   onCycleWidth,
   focusMode,
   onToggleFocusMode,
+  presentationMode = false,
+  onTogglePresentationMode,
   autoScrollSpeed,
   onToggleAutoScroll,
   zoom,
@@ -479,6 +484,18 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           <Maximize2 size={13} className={focusMode ? 'text-amber-400' : ''} />
         </button>
 
+        {/* Presentation Mode */}
+        {onTogglePresentationMode && (
+          <button
+            className={`markdown-tool-button ${presentationMode ? 'bg-violet-600/25 text-violet-300 border-violet-600/40' : ''}`}
+            onClick={onTogglePresentationMode}
+            title={t('presentationModeTooltip', locale)}
+            aria-label={t('presentationMode', locale)}
+          >
+            <Presentation size={13} className={presentationMode ? 'text-violet-300' : ''} />
+          </button>
+        )}
+
         {/* Auto Scroll */}
         <button
           className={`markdown-tool-button ${autoScrollSpeed > 0 ? 'bg-emerald-600/20 text-emerald-300 border-emerald-600/40' : ''}`}
@@ -587,6 +604,17 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                 >
                   <Settings size={14} className="text-cyan-400" />
                   <span>{t('settings', locale)}</span>
+                </button>
+              )}
+              {onTogglePresentationMode && (
+                <button
+                  onClick={() => {
+                    onTogglePresentationMode();
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <Presentation size={14} className={presentationMode ? 'text-violet-300' : 'text-slate-400'} />
+                  <span>{presentationMode ? t('exitPresentation', locale) : t('presentationMode', locale)}</span>
                 </button>
               )}
               <button onClick={onCopyCurrentSection}>

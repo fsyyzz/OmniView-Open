@@ -188,6 +188,8 @@ const MarkdownPluginView: React.FC<{
   const [contentWidth, setContentWidth] = useState<ContentWidthMode>(initialSettings.contentWidth || 'standard');
   const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize || 15);
   const [focusMode, setFocusMode] = useState(false);
+  const [presentationMode, setPresentationMode] = useState(false);
+  const [printEagerMount, setPrintEagerMount] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState<number>(0);
   const [headingFilterLevel, setHeadingFilterLevel] = useState<number>(6);
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
@@ -272,6 +274,67 @@ const MarkdownPluginView: React.FC<{
     headings,
     autoScrollSpeed,
   });
+
+  const eagerMountBlocks = Boolean(searchText.trim()) || printEagerMount || presentationMode;
+
+  useEffect(() => {
+    const onBeforePrint = () => setPrintEagerMount(true);
+    const onAfterPrint = () => setPrintEagerMount(false);
+    window.addEventListener('beforeprint', onBeforePrint);
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => {
+      window.removeEventListener('beforeprint', onBeforePrint);
+      window.removeEventListener('afterprint', onAfterPrint);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!presentationMode) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPresentationMode(false);
+        return;
+      }
+
+      const goNext =
+        event.key === 'ArrowDown' ||
+        event.key === 'PageDown' ||
+        event.key === ' ' ||
+        event.key === 'Enter';
+      const goPrev = event.key === 'ArrowUp' || event.key === 'PageUp';
+
+      if (!goNext && !goPrev) return;
+      if (headings.length === 0) return;
+
+      event.preventDefault();
+      if (goNext) {
+        jumpToHeading(Math.min(activeHeadingIndex + 1, headings.length - 1));
+      } else {
+        jumpToHeading(Math.max(activeHeadingIndex - 1, 0));
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [presentationMode, headings.length, activeHeadingIndex, jumpToHeading]);
+
+  const handleTogglePresentationMode = useCallback(() => {
+    setPresentationMode(prev => {
+      const next = !prev;
+      if (next) {
+        setFocusMode(true);
+        setAutoScrollSpeed(0);
+      }
+      return next;
+    });
+  }, []);
 
   const activeFile = useMemo(
     () => ({
@@ -406,39 +469,54 @@ const MarkdownPluginView: React.FC<{
 
   const [isExportingWord, setIsExportingWord] = useState(false);
 
+  const runWithEagerMount = useCallback((action: () => void | Promise<void>) => {
+    setPrintEagerMount(true);
+    window.setTimeout(() => {
+      void Promise.resolve()
+        .then(action)
+        .finally(() => setPrintEagerMount(false));
+    }, 120);
+  }, []);
+
   const handleExportHtml = () => {
-    const canvas = getSearchCanvas();
-    if (!canvas) return;
-    exportToPortableHtml(file.name, canvas);
+    runWithEagerMount(() => {
+      const canvas = getSearchCanvas();
+      if (!canvas) return;
+      exportToPortableHtml(file.name, canvas);
+    });
   };
 
   const handlePrint = () => {
     if (vscode) {
-      const canvas = getSearchCanvas() || (scrollRef.current as HTMLElement | null);
-      if (!canvas) {
-        void requestPrintHtml(file.name, '<!DOCTYPE html><html><body><p>无可打印内容</p></body></html>', {
-          vscode,
-        });
-        return;
-      }
-      const html = buildPortableHtml(file.name, canvas);
-      requestPrintHtml(file.name, html, { vscode });
+      runWithEagerMount(() => {
+        const canvas = getSearchCanvas() || (scrollRef.current as HTMLElement | null);
+        if (!canvas) {
+          void requestPrintHtml(file.name, '<!DOCTYPE html><html><body><p>无可打印内容</p></body></html>', {
+            vscode,
+          });
+          return;
+        }
+        const html = buildPortableHtml(file.name, canvas);
+        requestPrintHtml(file.name, html, { vscode });
+      });
       return;
     }
     window.print();
   };
 
-  const handleExportWord = async () => {
-    const canvas = getSearchCanvas();
-    if (!canvas) return;
-    try {
-      setIsExportingWord(true);
-      await exportToWordDocument(file.name, canvas);
-    } catch (err) {
-      console.error('Word export error:', err);
-    } finally {
-      setIsExportingWord(false);
-    }
+  const handleExportWord = () => {
+    runWithEagerMount(async () => {
+      const canvas = getSearchCanvas();
+      if (!canvas) return;
+      try {
+        setIsExportingWord(true);
+        await exportToWordDocument(file.name, canvas);
+      } catch (err) {
+        console.error('Word export error:', err);
+      } finally {
+        setIsExportingWord(false);
+      }
+    });
   };
 
   const handleCycleWidth = () => {
@@ -519,7 +597,7 @@ const MarkdownPluginView: React.FC<{
   return (
     <main
       ref={shellRef}
-      className={`markdown-plugin-shell ${focusMode ? 'markdown-focus-mode' : ''}`}
+      className={`markdown-plugin-shell ${focusMode ? 'markdown-focus-mode' : ''} ${presentationMode ? 'markdown-presentation-mode' : ''}`}
       data-theme={theme}
       data-density={density}
       data-width={contentWidth}
@@ -551,6 +629,8 @@ const MarkdownPluginView: React.FC<{
         onCycleWidth={handleCycleWidth}
         focusMode={focusMode}
         onToggleFocusMode={() => setFocusMode(v => !v)}
+        presentationMode={presentationMode}
+        onTogglePresentationMode={handleTogglePresentationMode}
         autoScrollSpeed={autoScrollSpeed}
         onToggleAutoScroll={() => setAutoScrollSpeed(v => (v === 0 ? 1 : v === 1 ? 2 : 0))}
         zoom={zoom}
@@ -584,7 +664,7 @@ const MarkdownPluginView: React.FC<{
 
       {/* Main Body: Outline Sidebar + Canvas */}
       <div className="markdown-plugin-body">
-        {outlineOpen && !focusMode && viewMode !== 'mindmap' && viewMode !== 'source' && (
+        {outlineOpen && !focusMode && !presentationMode && viewMode !== 'mindmap' && viewMode !== 'source' && (
           <MarkdownOutlineSidebar
             headings={headings}
             filteredHeadings={filteredHeadings}
@@ -619,6 +699,7 @@ const MarkdownPluginView: React.FC<{
               onOpenSourceAtLine={handleOpenSourceAtLine}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
+              eagerMount={eagerMountBlocks}
             />
           </div>
         ) : viewMode === 'source' || viewMode === 'split' ? (
@@ -636,6 +717,7 @@ const MarkdownPluginView: React.FC<{
               onOpenSourceAtLine={handleOpenSourceAtLine}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
+              eagerMount={eagerMountBlocks}
             />
           </div>
         ) : (
@@ -659,6 +741,7 @@ const MarkdownPluginView: React.FC<{
                 onOpenSourceAtLine={handleOpenSourceAtLine}
                 enableOkf={enableOkfRendering}
                 onToggleOkf={handleToggleOkf}
+                eagerMount={eagerMountBlocks}
               />
             </div>
           </div>
@@ -666,6 +749,7 @@ const MarkdownPluginView: React.FC<{
       </div>
 
       {/* Bottom Status Bar */}
+      {!presentationMode && (
       <DocStatusBar
         wordCount={fileWordCount}
         sectionCount={headings.length}
@@ -678,7 +762,16 @@ const MarkdownPluginView: React.FC<{
         contentWidth={contentWidth}
         locale={locale}
       />
+      )}
 
+      {presentationMode && (
+        <div className="markdown-presentation-hud" aria-live="polite">
+          <span>
+            {Math.min(activeHeadingIndex + 1, Math.max(headings.length, 1))}/{Math.max(headings.length, 1)}
+          </span>
+          <span className="markdown-presentation-hud-hint">{t('presentationHudHint', locale)}</span>
+        </div>
+      )}
       <WorkbenchSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}

@@ -591,6 +591,57 @@ body.vscode-high-contrast-light[data-theme="system"] {
   display: none !important;
 }
 
+.markdown-lazy-placeholder {
+  border-radius: 6px;
+  border: 1px dashed color-mix(in srgb, var(--ov-border) 80%, transparent);
+  background: color-mix(in srgb, var(--ov-surface) 70%, transparent);
+}
+
+.markdown-presentation-mode .markdown-outline,
+.markdown-presentation-mode .doc-status-bar {
+  display: none !important;
+}
+
+.markdown-presentation-mode .markdown-toolbar {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.markdown-presentation-mode .markdown-toolbar.is-visible,
+.markdown-presentation-mode:hover .markdown-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.markdown-presentation-mode .markdown-plugin-scroll,
+.markdown-presentation-mode .markdown-document {
+  padding-top: 12px;
+}
+
+.markdown-presentation-hud {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ov-border);
+  background: color-mix(in srgb, var(--ov-surface) 88%, transparent);
+  color: var(--ov-text-muted);
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  pointer-events: none;
+}
+
+.markdown-presentation-hud-hint {
+  color: var(--ov-text-secondary);
+  opacity: 0.85;
+}
+
 .markdown-lightbox-backdrop {
   position: fixed;
   inset: 0;

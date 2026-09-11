@@ -109,7 +109,7 @@ npm run verify
 npm run package:vsix
 
 # 3. Install into local VS Code (keep version in sync with package.json)
-code --install-extension omniview-0.9.22.vsix --force
+code --install-extension omniview-0.9.23.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.

@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "0.9.22",
+  "version": "0.9.23",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",

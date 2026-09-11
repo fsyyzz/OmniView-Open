@@ -17,6 +17,7 @@ import { GraphvizBlock } from './markdown/GraphvizBlock';
 import { MathBlock } from './markdown/MathBlock';
 import { TableBlock } from './markdown/TableBlock';
 import { StableHtmlBlock } from './markdown/StableHtmlBlock';
+import { LazyViewportBlock } from './markdown/LazyViewportBlock';
 import { graphvizRenderer } from '../../lib/graphvizRenderer';
 import { LightboxModal, LightboxItem } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
@@ -39,6 +40,8 @@ export interface MarkdownViewerProps {
   enableOkf?: boolean;
   onToggleOkf?: () => void;
   onContentChange?: (content: string) => void;
+  /** 搜索 / 打印 / 导出时强制挂载全部重块 */
+  eagerMount?: boolean;
 }
 
 interface RenderedBlock {
@@ -186,6 +189,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
   enableOkf = true,
   onToggleOkf,
   onContentChange,
+  eagerMount = false,
 }) => {
   const [blocks, setBlocks] = useState<RenderedBlock[]>([]);
   // 同步计算 Frontmatter / OKF 元数据，消除异步时序延迟与竞争
@@ -971,8 +975,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
         if (block.type === 'code') {
           const isCollapsed = Boolean(collapsedCodeBlocks[block.id]);
           return (
-            <div
+            <LazyViewportBlock
               key={block.id}
+              eager={eagerMount}
+              minHeight={120}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
@@ -989,15 +995,17 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   locale={locale}
                 />
               </RenderErrorBoundary>
-            </div>
+            </LazyViewportBlock>
           );
         }
 
         // Enhanced Interactive Markdown Table Block
         if (block.type === 'table' && block.tableData) {
           return (
-            <div
+            <LazyViewportBlock
               key={block.id}
+              eager={eagerMount}
+              minHeight={160}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
@@ -1016,7 +1024,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   onOpenSourceAtLine={onOpenSourceAtLine}
                 />
               </RenderErrorBoundary>
-            </div>
+            </LazyViewportBlock>
           );
         }
 
@@ -1027,8 +1035,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <div
+            <LazyViewportBlock
               key={block.id}
+              eager={eagerMount}
+              minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
@@ -1059,7 +1069,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   locale={locale}
                 />
               </RenderErrorBoundary>
-            </div>
+            </LazyViewportBlock>
           );
         }
 
@@ -1070,8 +1080,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <div
+            <LazyViewportBlock
               key={block.id}
+              eager={eagerMount}
+              minHeight={100}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
@@ -1103,7 +1115,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   locale={locale}
                 />
               </RenderErrorBoundary>
-            </div>
+            </LazyViewportBlock>
           );
         }
 
@@ -1115,8 +1127,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           const svgUrl = block.renderedHtml || getPlantUmlSvgUrl(currentCode);
 
           return (
-            <div
+            <LazyViewportBlock
               key={block.id}
+              eager={eagerMount}
+              minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
@@ -1143,7 +1157,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   locale={locale}
                 />
               </RenderErrorBoundary>
-            </div>
+            </LazyViewportBlock>
           );
         }
 
@@ -1155,8 +1169,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <div
+            <LazyViewportBlock
               key={block.id}
+              eager={eagerMount}
+              minHeight={180}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
@@ -1186,7 +1202,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   locale={locale}
                 />
               </RenderErrorBoundary>
-            </div>
+            </LazyViewportBlock>
           );
         }
 
@@ -1197,8 +1213,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
 
           return (
-            <div
+            <LazyViewportBlock
               key={block.id}
+              eager={eagerMount}
+              minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
@@ -1237,7 +1255,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   locale={locale}
                 />
               </RenderErrorBoundary>
-            </div>
+            </LazyViewportBlock>
           );
         }
 

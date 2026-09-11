@@ -50,6 +50,7 @@ interface ViewerRendererProps {
   onSelectFile?: (file: FileItem) => void;
   enableOkf?: boolean;
   onToggleOkf?: () => void;
+  eagerMount?: boolean;
 }
 
 export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
@@ -67,6 +68,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   onSelectFile,
   enableOkf,
   onToggleOkf,
+  eagerMount = false,
 }) => {
   const driverId = getDriverIdForFile(file);
   const isDarkTheme = ['dark', 'midnight', 'cyber', 'nord', 'dracula', 'forest'].includes(theme);
@@ -180,6 +182,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
                       onSelectFile={onSelectFile}
                       enableOkf={effectiveEnableOkf}
                       onToggleOkf={handleToggleOkf}
+                      eagerMount={eagerMount}
                     />
                   </div>
                 </div>
@@ -217,6 +220,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
               onSelectFile={onSelectFile}
               enableOkf={effectiveEnableOkf}
               onToggleOkf={handleToggleOkf}
+              eagerMount={eagerMount}
             />
           </div>
         </div>
