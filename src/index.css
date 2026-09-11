@@ -369,7 +369,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
 .markdown-search-box input::placeholder { color: var(--ov-text-muted); }
 .markdown-search-box button { border: 0; background: transparent; color: var(--ov-text-muted); cursor: pointer; }
 .markdown-search-box button:hover { color: var(--ov-text); }
-.markdown-more-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; width: 190px; padding: 5px; border: 1px solid var(--ov-border); border-radius: 6px; background: var(--ov-surface); box-shadow: 0 10px 28px rgba(0,0,0,.28); }
+.markdown-more-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; width: 210px; padding: 5px; border: 1px solid var(--ov-border); border-radius: 6px; background: var(--ov-surface); box-shadow: 0 10px 28px rgba(0,0,0,.28); }
 .markdown-more-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ov-text-secondary); font-size: 12px; text-align: left; cursor: pointer; }
 .markdown-more-menu button:hover { background: var(--ov-surface-header); color: var(--ov-text); }
 .markdown-more-stat { padding: 8px; border-top: 1px solid var(--ov-border); color: var(--ov-text-muted); font-size: 10px; line-height: 1.5; }
@@ -1145,6 +1145,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   #doc-status-bar,
   .diagram-header,
   .code-block-header,
+  .table-block-toolbar,
   .markdown-tool-button,
   .diagram-tools,
   .markdown-more-menu,
@@ -1501,42 +1502,58 @@ mark.ov-search-match.is-active-match {
 }
 
 /* =========================================================
-   Markdown Table Interactive Toolbar (Hover to Show)
+   Markdown Table Interactive Toolbar
+   与 .diagram-header 同一套「贴顶悬浮 Overlay」契约：悬停浮现、不进文档流
    ========================================================= */
 
 .ov-table-block {
   position: relative;
-}
-
-/* 表格交互操作工具栏：像图形一样，移动上去才平滑浮现，避免日常浏览时的视觉干扰 */
-.table-block-toolbar {
-  max-height: 0;
-  opacity: 0;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  border-bottom-width: 0 !important;
-  pointer-events: none;
-  transform: translateY(-4px);
-  transition: max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              padding 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              border-bottom-width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
-/* 鼠标悬停在表格块上、或处于搜索/图表/全屏/图钉锁定活跃状态时平滑展开显现 */
+.ov-table-block > .ov-table-body {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 与 .diagram-header 对齐：贴顶全宽悬浮，不占用垂直文档流 */
+.table-block-toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(51, 65, 85, 0.65);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] .table-block-toolbar,
+[data-theme="sepia"] .table-block-toolbar {
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom-color: rgba(203, 213, 225, 0.8);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  color: #334155;
+}
+
 .ov-table-block:hover .table-block-toolbar,
 .table-block-toolbar.is-active,
 .table-block-toolbar.is-pinned {
-  max-height: 72px;
   opacity: 1;
-  padding-top: 0.5rem !important;
-  padding-bottom: 0.5rem !important;
-  border-bottom-width: 1px !important;
   pointer-events: auto;
   transform: translateY(0);
-  overflow: visible;
 }
 
 /* =========================================================
@@ -1552,6 +1569,11 @@ mark.ov-search-match.is-active-match {
   border: 1px solid var(--ov-border);
   background: var(--ov-surface);
   -webkit-overflow-scrolling: touch;
+}
+
+/* 交互表格块：滚动交给内层 .ov-table-body，外层保持与图表一致的裁切容器 */
+.ov-table-block.ov-table-wrapper {
+  overflow: hidden;
 }
 
 .ov-table-wrapper table {

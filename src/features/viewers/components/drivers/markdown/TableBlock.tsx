@@ -59,7 +59,7 @@ export interface TableBlockProps {
   onOpenSourceAtLine?: (line: number) => void;
 }
 
-export const TableBlock: React.FC<TableBlockProps> = ({
+export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   id,
   header,
   rows,
@@ -357,20 +357,18 @@ export const TableBlock: React.FC<TableBlockProps> = ({
   return (
     <div
       id={id}
-      className={`ov-table-block ov-table-wrapper rounded-lg border my-4 overflow-hidden transition-all shadow-sm group relative ${
+      className={`ov-table-block ov-table-wrapper rounded-lg border my-4 transition-all shadow-sm group relative ${
         isDarkTheme
           ? 'bg-slate-950/70 border-slate-800 text-slate-200'
           : 'bg-white border-slate-200 text-slate-800'
       }`}
     >
-      {/* 顶部交互操作胶囊工具栏：移动上去才平滑浮现显示 */}
+      {/* 顶部工具栏：与图表 diagram-header 同一套贴顶悬浮 Overlay */}
       <div
-        className={`ov-table-block-toolbar table-block-toolbar flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b text-xs select-none transition-colors ${
+        className={`ov-table-block-toolbar table-block-toolbar flex flex-wrap items-center justify-between gap-2 text-xs select-none ${
           isToolbarActive ? 'is-active' : ''
         } ${isPinned ? 'is-pinned' : ''} ${
-          isDarkTheme
-            ? 'bg-slate-900/90 border-slate-800 text-slate-300'
-            : 'bg-slate-50 border-slate-200 text-slate-700'
+          isDarkTheme ? 'text-slate-300' : 'text-slate-700'
         }`}
       >
         {/* 左侧：规模徽标、检索计数与源码直达 */}
@@ -587,19 +585,21 @@ export const TableBlock: React.FC<TableBlockProps> = ({
         </div>
       </div>
 
-      {/* 主展示区：图表模式 vs 表格模式 */}
-      {viewMode === 'chart' && chartableInfo ? (
-        <TableChart
-          headers={headerTexts}
-          rows={processedRows.map(r => r.cells)}
-          defaultLabelCol={chartableInfo.labelColIndex}
-          defaultValueCols={chartableInfo.valueColIndices}
-          isDarkTheme={isDarkTheme}
-          locale={locale}
-        />
-      ) : (
-        renderTableContent()
-      )}
+      {/* 主展示区：横向滚动与工具栏分离，避免裁切贴顶悬浮栏 */}
+      <div className="ov-table-body">
+        {viewMode === 'chart' && chartableInfo ? (
+          <TableChart
+            headers={headerTexts}
+            rows={processedRows.map(r => r.cells)}
+            defaultLabelCol={chartableInfo.labelColIndex}
+            defaultValueCols={chartableInfo.valueColIndices}
+            isDarkTheme={isDarkTheme}
+            locale={locale}
+          />
+        ) : (
+          renderTableContent()
+        )}
+      </div>
 
       {/* 全屏放大 Modal */}
       {isFullscreen && (
@@ -635,4 +635,6 @@ export const TableBlock: React.FC<TableBlockProps> = ({
       )}
     </div>
   );
-};
+});
+
+TableBlock.displayName = 'TableBlock';

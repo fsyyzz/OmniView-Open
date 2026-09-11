@@ -56,7 +56,7 @@ interface RenderedBlock {
   error?: string;
   tableData?: {
     header: any[];
-    rows: any[][];
+    rows: Array<{ cells: any[] }>;
     align?: Array<'left' | 'center' | 'right' | null>;
   };
 }
@@ -173,7 +173,7 @@ const getCalloutMeta = (typeStr: string, locale: Locale) => {
   }
 };
 
-export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
+const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
   content,
   isDarkTheme = true,
   density = 'compact',
@@ -527,7 +527,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             raw: token.raw,
             tableData: {
               header: tableToken.header || [],
-              rows: tableToken.rows || [],
+              rows: (tableToken.rows || []).map((row: unknown) => ({
+                cells: Array.isArray(row) ? row : [],
+              })),
               align: tableToken.align || [],
             },
             startLine: tokenStartLine,
@@ -538,20 +540,10 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         }
       }
 
-      // Render Mermaid diagrams asynchronously
+      // PlantUML URL 可同步生成；Mermaid 交由块内按需渲染，避免串行 await 阻塞首屏
       for (const block of parsedBlocks) {
-        if (block.type === 'mermaid') {
-          try {
-            const uniqueId = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-            const { svg } = await mermaid.render(uniqueId, block.raw);
-            block.svgContent = svg;
-          } catch (err: any) {
-            console.error('Mermaid render error:', err);
-            block.error = err.message || 'Mermaid Error';
-          }
-        } else if (block.type === 'plantuml') {
-          const svgUrl = getPlantUmlSvgUrl(block.raw);
-          block.renderedHtml = svgUrl;
+        if (block.type === 'plantuml') {
+          block.renderedHtml = getPlantUmlSvgUrl(block.raw);
         }
       }
 
@@ -569,7 +561,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [content, isDarkTheme, locale, enableOkf]);
+  }, [content, isDarkTheme, locale]);
 
   // 在 React 提交 DOM 后再通知父级重注搜索高亮，避免 setState 尚未刷盘时误标旧树
   useEffect(() => {
@@ -1014,9 +1006,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                 <TableBlock
                   id={block.id}
                   header={block.tableData.header}
-                  rows={block.tableData.rows.map(row => ({
-                    cells: Array.isArray(row) ? row : [],
-                  }))}
+                  rows={block.tableData.rows}
                   align={block.tableData.align}
                   rawMarkdown={block.raw}
                   startLine={block.startLine}
@@ -1059,7 +1049,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
-                  onOpenLightbox={() => setLightboxItem({ title: t('mermaidTitle', locale), content: block.svgContent })}
+                  onOpenLightbox={svg =>
+                    setLightboxItem({ title: t('mermaidTitle', locale), content: svg || block.svgContent })
+                  }
                   onReRender={() => handleReRenderMermaid(block.id, currentCode)}
                   onDownloadSvg={() => handleDownloadSvg(block.svgContent!, 'mermaid-diagram')}
                   onCopy={() => handleCopy(block.id, currentCode)}
@@ -1261,3 +1253,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     </div>
   );
 };
+
+export const MarkdownViewer = React.memo(MarkdownViewerComponent);
+MarkdownViewer.displayName = 'MarkdownViewer';

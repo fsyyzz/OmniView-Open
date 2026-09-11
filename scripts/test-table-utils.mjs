@@ -3,6 +3,8 @@
  * 验证数值探测、智能排序、富文本渲染、CSV/Markdown 互转与图表列探测
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   parseNumericValue,
   parseDateValue,
@@ -121,6 +123,22 @@ console.log('🧪 开始 Markdown 表格工具链单元测试...');
   ];
   assert.equal(detectChartableColumns(textHeaders, textRows), null);
   console.log('  ✅ 6. 图表化潜能探测 (detectChartableColumns) 测试通过');
+}
+
+{
+  const css = fs.readFileSync(path.resolve('src/index.css'), 'utf8');
+  const toolbarBlock = css.match(/\.table-block-toolbar\s*\{[\s\S]*?\}/);
+  assert.ok(toolbarBlock, '必须定义 .table-block-toolbar');
+  assert.match(toolbarBlock[0], /position:\s*absolute/, '表格工具栏必须绝对定位悬浮');
+  assert.match(toolbarBlock[0], /top:\s*0/, '表格工具栏须贴顶，与 diagram-header 一致');
+  assert.match(toolbarBlock[0], /left:\s*0/, '表格工具栏须左右贴边，与 diagram-header 一致');
+  assert.match(toolbarBlock[0], /opacity:\s*0/, '默认隐藏透明度');
+  assert.doesNotMatch(toolbarBlock[0], /max-height:\s*0/, '禁止用 max-height 收起（会进文档流）');
+  assert.doesNotMatch(toolbarBlock[0], /top:\s*8px/, '禁止内缩胶囊定位，须与图片/图表工具栏一致');
+  const hoverBlock = css.match(/\.ov-table-block:hover \.table-block-toolbar[\s\S]*?\{[\s\S]*?\}/);
+  assert.ok(hoverBlock, '必须定义悬停展开规则');
+  assert.doesNotMatch(hoverBlock[0], /max-height:\s*72px/, '悬停时禁止用 max-height 撑开布局');
+  console.log('  ✅ 7. 表格工具栏悬浮定位契约测试通过');
 }
 
 console.log('🎉 所有 Markdown 表格单元测试全部通过！');

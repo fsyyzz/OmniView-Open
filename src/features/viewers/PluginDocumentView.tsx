@@ -2,7 +2,7 @@
  * OmniView 文档视图插件外壳 (支持多语言 + 纯图标悬浮设计 + DOM搜索高亮变色与直接源码打开)
  */
 import React, { useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect } from 'react';
-import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition, OutlineDisplayMode, ContentWidthMode } from '../../shared/types';
+import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition, OutlineDisplayMode, ContentWidthMode, WorkbenchSettings } from '../../shared/types';
 import { ViewerRenderer } from './ViewerRenderer';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { VsCodeApi } from '../../shared/lib/vscode';
@@ -13,6 +13,7 @@ import { useScrollHeadingSpy } from './hooks/useScrollHeadingSpy';
 import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
 import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
 import { DocStatusBar } from './components/DocStatusBar';
+import { WorkbenchSettingsModal } from '../workbench/components/WorkbenchSettingsModal';
 import { ExternalLink } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
@@ -148,6 +149,8 @@ const MarkdownPluginView: React.FC<{
   vscode?: VsCodeApi;
 }> = ({ file, theme, density, onThemeChange, onDensityChange, onContentChange, vscode }) => {
   const initialSettings = useMemo(() => loadStoredSettings(), []);
+  const [settings, setSettings] = useState<WorkbenchSettings>(initialSettings);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [locale, setLocale] = useState<Locale>(() => getStoredLocale());
   const [outlineOpen, setOutlineOpen] = useState(initialSettings.outlineOpen ?? true);
   const [outlinePosition, setOutlinePosition] = useState<OutlinePosition>(
@@ -467,6 +470,33 @@ const MarkdownPluginView: React.FC<{
     saveStoredSettings({ zoom: nextZoom });
   };
 
+  const handleOpenSettings = useCallback(() => {
+    setSettings(loadStoredSettings());
+    setIsSettingsModalOpen(true);
+  }, []);
+
+  const handleSettingsChange = useCallback(
+    (updated: WorkbenchSettings) => {
+      setSettings(updated);
+      if (updated.theme) onThemeChange(updated.theme);
+      if (updated.density) onDensityChange(updated.density);
+      if (updated.locale === 'zh-CN' || updated.locale === 'en-US') {
+        setLocale(updated.locale);
+        saveStoredLocale(updated.locale);
+      }
+      if (typeof updated.zoom === 'number') setZoom(updated.zoom);
+      if (updated.contentWidth) setContentWidth(updated.contentWidth);
+      if (typeof updated.fontSize === 'number') setFontSize(updated.fontSize);
+      if (updated.outlineOpen !== undefined) setOutlineOpen(updated.outlineOpen);
+      if (updated.outlinePosition) setOutlinePosition(updated.outlinePosition);
+      if (typeof updated.outlineWidth === 'number') setOutlineWidth(updated.outlineWidth);
+      if (updated.outlineDisplayMode) setOutlineDisplayMode(updated.outlineDisplayMode);
+      if (updated.enableOkfRendering !== undefined) setEnableOkfRendering(updated.enableOkfRendering);
+      if (updated.viewMode) setViewMode(updated.viewMode);
+    },
+    [onThemeChange, onDensityChange]
+  );
+
   const handleOpenSourceAtLine = useCallback(
     (line: number) => {
       if (vscode) {
@@ -549,6 +579,7 @@ const MarkdownPluginView: React.FC<{
         onToggleMindmap={() => setViewMode(m => (m === 'mindmap' ? 'preview' : 'mindmap'))}
         enableOkf={enableOkfRendering}
         onToggleOkf={handleToggleOkf}
+        onOpenSettings={handleOpenSettings}
       />
 
       {/* Main Body: Outline Sidebar + Canvas */}
@@ -646,6 +677,13 @@ const MarkdownPluginView: React.FC<{
         fontSize={fontSize}
         contentWidth={contentWidth}
         locale={locale}
+      />
+
+      <WorkbenchSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
       />
     </main>
   );

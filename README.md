@@ -109,7 +109,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-0.9.19.vsix --force
+code --install-extension omniview-0.9.22.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

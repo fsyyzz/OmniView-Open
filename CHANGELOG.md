@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+## [0.9.22] - 2026-09-11
+
+### Changed
+
+- Markdown 渲染效率：壳层 memo 隔离、Mermaid 改为块内按需编译（不再串行阻塞首屏）、CodeBlock 高亮缓存、滚动 spy rAF 节流
+
+## [0.9.21] - 2026-09-11
+
+### Added
+
+- Markdown 顶部「…」菜单新增「设置」入口，可打开与工作台一致的偏好配置弹窗
+
+### Fixed
+
+- Markdown 表格悬停工具栏与图表/图片工具栏对齐：贴顶全宽毛玻璃覆盖，不挤占正文
+
+## [0.9.20] - 2026-09-11
+
+### Fixed
+
+- Markdown 表格悬停工具栏改为绝对定位悬浮覆盖，不再进入文档流挤占正文空间
+
 ## [0.9.19] - 2026-09-11
 
 ### Added
@@ -37,6 +59,7 @@
 
 - 早期迭代未按本文件逐条归档；自 `0.9.18` 起以此 Changelog 为权威发布记录。
 
-[Unreleased]: https://github.com/fsyyzz/OmniView/compare/v0.9.19...HEAD
+[Unreleased]: https://github.com/fsyyzz/OmniView/compare/v0.9.20...HEAD
+[0.9.20]: https://github.com/fsyyzz/OmniView/compare/v0.9.19...v0.9.20
 [0.9.19]: https://github.com/fsyyzz/OmniView/compare/v0.9.18...v0.9.19
 [0.9.18]: https://github.com/fsyyzz/OmniView/releases/tag/v0.9.18

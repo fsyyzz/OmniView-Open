@@ -34,7 +34,7 @@ interface MermaidBlockProps {
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onZoomChange: (delta: number) => void;
   onResetZoom: () => void;
-  onOpenLightbox: () => void;
+  onOpenLightbox: (svgContent?: string) => void;
   onReRender: () => void;
   onDownloadSvg: () => void;
   onCopy: () => void;
@@ -42,7 +42,7 @@ interface MermaidBlockProps {
   locale?: Locale;
 }
 
-export const MermaidBlock: React.FC<MermaidBlockProps> = ({
+export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   id,
   code,
   startLine,
@@ -78,8 +78,16 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
     }
   }, [svgContent, error, code, editedCode]);
 
-  // 实时编译 Mermaid 源码 (200ms 防抖即时渲染)
+  // 实时编译：仅当用户改过源码，或尚无可用 svgContent 时跑防抖 render
   useEffect(() => {
+    const isDirty = Boolean(editedCode !== undefined && editedCode !== code);
+    const hasSeedSvg = Boolean(svgContent) && !isDirty;
+
+    if (hasSeedSvg) {
+      setIsCompiling(false);
+      return;
+    }
+
     let isCurrent = true;
     const count = ++renderCountRef.current;
     setIsCompiling(true);
@@ -105,7 +113,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [activeCode]);
+  }, [activeCode, code, editedCode, svgContent]);
 
   const handleDownload = () => {
     if (liveSvg) {
@@ -188,7 +196,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
                 1:1
               </button>
               <button
-                onClick={onOpenLightbox}
+                onClick={() => onOpenLightbox(liveSvg)}
                 className="p-1 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition"
                 title={t('fullScreen', locale)}
                 aria-label={t('fullScreen', locale)}
@@ -244,7 +252,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               className="diagram-canvas transition-transform duration-150 flex justify-center cursor-zoom-in"
-              onDoubleClick={onOpenLightbox}
+              onDoubleClick={() => onOpenLightbox(liveSvg)}
               title={t('fullScreen', locale)}
               dangerouslySetInnerHTML={{ __html: liveSvg }}
             />
@@ -272,4 +280,6 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
       )}
     </div>
   );
-};
+});
+
+MermaidBlock.displayName = 'MermaidBlock';

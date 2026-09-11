@@ -1,7 +1,7 @@
 /**
  * Markdown 代码块组件 (支持行号、Prism 高亮、折叠、多语言悬浮提示与一键复制)
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Copy, Check, ChevronRight, ChevronDown } from 'lucide-react';
 import { highlightCode } from '../../../../../shared/lib/prismLanguages';
 import { Locale, t } from '../../../../../shared/lib/i18n';
@@ -17,7 +17,7 @@ interface CodeBlockProps {
   locale?: Locale;
 }
 
-export const CodeBlock: React.FC<CodeBlockProps> = ({
+export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
   id,
   lang = 'text',
   code,
@@ -27,7 +27,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   onCopy,
   locale = 'zh-CN',
 }) => {
-  const codeLines = code.split('\n');
+  const codeLines = useMemo(() => code.split('\n'), [code]);
+  const highlightedHtml = useMemo(() => highlightCode(code, lang), [code, lang]);
 
   return (
     <div id={id} className="markdown-code-block group relative">
@@ -79,11 +80,13 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
           <pre className="p-3.5 font-mono overflow-x-auto flex-1 !m-0 !bg-transparent !p-3.5">
             <code
               className={`language-${lang}`}
-              dangerouslySetInnerHTML={{ __html: highlightCode(code, lang) }}
+              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             />
           </pre>
         </div>
       )}
     </div>
   );
-};
+});
+
+CodeBlock.displayName = 'CodeBlock';

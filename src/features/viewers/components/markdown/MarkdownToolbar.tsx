@@ -28,6 +28,7 @@ import {
   Split,
   Code,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
@@ -82,6 +83,7 @@ interface MarkdownToolbarProps {
   onViewModeChange?: (mode: ViewMode) => void;
   enableOkf?: boolean;
   onToggleOkf?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
@@ -133,6 +135,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   onViewModeChange,
   enableOkf = true,
   onToggleOkf,
+  onOpenSettings,
 }) => {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [densityMenuOpen, setDensityMenuOpen] = useState(false);
@@ -574,6 +577,18 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           </button>
           {moreMenuOpen && (
             <div className="markdown-more-menu">
+              {onOpenSettings && (
+                <button
+                  onClick={() => {
+                    onOpenSettings();
+                    setMoreMenuOpen(false);
+                  }}
+                  title={t('settingsTooltip', locale)}
+                >
+                  <Settings size={14} className="text-cyan-400" />
+                  <span>{t('settings', locale)}</span>
+                </button>
+              )}
               <button onClick={onCopyCurrentSection}>
                 {copiedSection ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                 <span>{t('copyCurrentSection', locale)}</span>

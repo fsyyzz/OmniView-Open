@@ -50,6 +50,8 @@ export const TRANSLATIONS = {
     backToTop: '回到顶部',
     language: '界面语言',
     languageTooltip: '切换多语言 (Language)',
+    settings: '设置',
+    settingsTooltip: '打开偏好与持久化配置',
 
     // Dropdown / menu items
     copyCurrentSection: '复制当前章节内容',
@@ -307,6 +309,8 @@ export const TRANSLATIONS = {
     backToTop: 'Back to top',
     language: 'Language',
     languageTooltip: 'Switch language',
+    settings: 'Settings',
+    settingsTooltip: 'Open preferences and persistence settings',
 
     // Dropdown / menu items
     copyCurrentSection: 'Copy current section',
