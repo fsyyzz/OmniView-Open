@@ -202,17 +202,15 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
                         setCurrentStep(0);
                       }
                     }}
-                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition border font-medium ${
+                    className={`p-1 rounded transition ${
                       isPlaybackActive
-                        ? 'bg-cyan-600 border-cyan-500 text-white shadow-md shadow-cyan-600/30'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                        ? 'bg-cyan-600 text-white shadow-sm'
+                        : 'hover:bg-slate-700 text-slate-400 hover:text-slate-200'
                     }`}
-                    title={t('stepPlaybackTooltip', locale)}
+                    title={`${t('stepPlayback', locale)} (${playbackInfo.stepCount})`}
                     aria-label={t('stepPlayback', locale)}
                   >
-                    <PlayCircle className={`w-3.5 h-3.5 ${isPlaybackActive ? 'text-white animate-pulse' : 'text-cyan-400'}`} />
-                    <span className="hidden sm:inline">{t('stepPlayback', locale)}</span>
-                    <span className="text-[10px] opacity-75 font-mono">({playbackInfo.stepCount})</span>
+                    <PlayCircle className={`w-3.5 h-3.5 ${isPlaybackActive ? 'text-white' : 'text-cyan-400'}`} />
                   </button>
                   <div className="h-3 w-px bg-slate-700 mx-0.5" />
                 </>

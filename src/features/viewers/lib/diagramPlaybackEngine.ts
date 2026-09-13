@@ -187,13 +187,31 @@ export function extractDiagramSteps(code: string, diagramType?: string): Diagram
     }
 
     // 4. 流程图节点连接 (Flowchart Edge)
-    // 例如: A[用户发起] --> B{参数校验}
-    // 例如: B -->|通过| C[执行渲染]
-    const flowMatch = trimmed.match(/^([a-zA-Z0-9_-]+(?:\[.*?\]|\(.*?\)|\{.*?\}|\>.*?\])?)\s*-->\|?(.*?)\|?\s*([a-zA-Z0-9_-]+(?:\[.*?\]|\(.*?\)|\{.*?\}|\>.*?\])?)$/);
-    if (flowMatch) {
-      const fromNode = flowMatch[1].trim();
-      const edgeLabel = (flowMatch[2] || '').trim();
-      const toNode = flowMatch[3].trim();
+    // 兼容所有主流 Mermaid 连接线语法：
+    // - A -->|标签| B
+    // - A -- 标签 --> B
+    // - A --> B
+    // - A -. 标签 .-> B / A -.-> B
+    // - A == 标签 ==> B / A ==> B
+    // - A -- 标签 --- B / A --- B
+    const flowLabeledMatch1 = trimmed.match(/^(.+?)\s*-->\|(.*?)\|\s*(.+)$/);
+    const flowLabeledMatch2 = trimmed.match(/^(.+?)\s*--\s*(.+?)\s*-->\s*(.+)$/);
+    const flowLabeledMatch3 = trimmed.match(/^(.+?)\s*-\.\s*(.+?)\s*\.->\s*(.+)$/);
+    const flowLabeledMatch4 = trimmed.match(/^(.+?)\s*==\s*(.+?)\s*==>\s*(.+)$/);
+    const flowLabeledMatch5 = trimmed.match(/^(.+?)\s*--\s*(.+?)\s*---\s*(.+)$/);
+
+    const flowDirectMatch1 = trimmed.match(/^(.+?)\s*-->\s*(.+)$/);
+    const flowDirectMatch2 = trimmed.match(/^(.+?)\s*-\.->\s*(.+)$/);
+    const flowDirectMatch3 = trimmed.match(/^(.+?)\s*==>\s*(.+)$/);
+    const flowDirectMatch4 = trimmed.match(/^(.+?)\s*---\s*(.+)$/);
+
+    const labeledMatch = flowLabeledMatch1 || flowLabeledMatch2 || flowLabeledMatch3 || flowLabeledMatch4 || flowLabeledMatch5;
+    const directMatch = flowDirectMatch1 || flowDirectMatch2 || flowDirectMatch3 || flowDirectMatch4;
+
+    if (labeledMatch) {
+      const fromNode = labeledMatch[1].trim();
+      const edgeLabel = labeledMatch[2].trim();
+      const toNode = labeledMatch[3].trim();
 
       const label = edgeLabel ? `${fromNode} ➔ [${edgeLabel}] ➔ ${toNode}` : `${fromNode} ➔ ${toNode}`;
       steps.push({
@@ -206,6 +224,23 @@ export function extractDiagramSteps(code: string, diagramType?: string): Diagram
         rawLine,
         lineNumber: i + 1,
         description: edgeLabel || `流转步骤: 从 ${fromNode} 到 ${toNode}`,
+      });
+      continue;
+    } else if (directMatch) {
+      const fromNode = directMatch[1].trim();
+      const toNode = directMatch[2].trim();
+
+      const label = `${fromNode} ➔ ${toNode}`;
+      steps.push({
+        index: stepIndex++,
+        id: `step-${stepIndex}`,
+        type: 'flow',
+        from: fromNode,
+        to: toNode,
+        label,
+        rawLine,
+        lineNumber: i + 1,
+        description: `流转步骤: 从 ${fromNode} 到 ${toNode}`,
       });
       continue;
     }
@@ -282,15 +317,14 @@ export function applyStepHighlightToSvg(
           } else if (i < activeIdx) {
             return `
               .messageLine${i}, text.messageText${i} {
-                opacity: 0.65 !important;
-                stroke: #94a3b8 !important;
+                opacity: 0.85 !important;
+                stroke: #38bdf8 !important;
               }
             `;
           } else {
             return `
               .messageLine${i}, text.messageText${i} {
-                opacity: 0.15 !important;
-                filter: grayscale(100%) !important;
+                opacity: 0.45 !important;
               }
             `;
           }
@@ -298,11 +332,16 @@ export function applyStepHighlightToSvg(
         .join('\n')}
 
       /* 针对通用状态图与流程图边 */
-      .edgePath:nth-of-type(${activeIdx + 1}) path {
+      .edgePaths .edgePath:nth-of-type(${activeIdx + 1}) path,
+      .edgePath:nth-of-type(${activeIdx + 1}) path,
+      #flowchart-link-${activeIdx},
+      .flowchart-link:nth-of-type(${activeIdx + 1}) {
         stroke: #06b6d4 !important;
         stroke-width: 3.5px !important;
+        filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.8)) !important;
         animation: omniviewStepPulse 1.8s infinite ease-in-out !important;
       }
+      .edgeLabels .edgeLabel:nth-of-type(${activeIdx + 1}),
       .edgeLabel:nth-of-type(${activeIdx + 1}) {
         font-weight: bold !important;
         color: #22d3ee !important;

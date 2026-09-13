@@ -68,12 +68,14 @@ flowchart TD
   A[收到 Webhook] --> B{签名校验}
   B -->|校验通过| C[放入 Redis 任务队列]
   C --> D[Worker 异步消费]
+  DOM -- 用户点击复选框 --> LineLocator[源码行精准定位器]
+  LineLocator -- 正则替换状态 --> MD
 `;
 
 const flowResult = detectDiagramPlaybackSupport(flowCode);
 assert.strictEqual(flowResult.isSupported, true, '流程图必须被识别');
 assert.strictEqual(flowResult.diagramType, 'flowchart', '图表类型必须为 flowchart');
-assert.strictEqual(flowResult.stepCount, 3, `应提取出 3 个流转步骤，实际提取到 ${flowResult.stepCount}`);
+assert.strictEqual(flowResult.stepCount, 5, `应提取出 5 个流转步骤，实际提取到 ${flowResult.stepCount}`);
 
 console.log(`✅ 流程图步骤提取通过 (共 ${flowResult.stepCount} 步)`);
 
