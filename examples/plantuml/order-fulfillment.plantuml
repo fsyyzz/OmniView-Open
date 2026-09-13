@@ -1,0 +1,65 @@
+@startuml
+title 现代分布式订单流转与履约状态机 (PlantUML State Diagram)
+skinparam backgroundColor #0b1120
+skinparam state {
+  StartColor #38bdf8
+  EndColor #ef4444
+  BackgroundColor #1e293b
+  BorderColor #3b82f6
+  FontColor #f1f5f9
+  ArrowColor #60a5fa
+  AttributeFontColor #94a3b8
+}
+
+[*] --> 待支付 : 用户提交购物车并锁单
+
+state 待支付 {
+  [*] --> 创建支付意图
+  创建支付意图 --> 等待第三方扣款回调 : 发送预支付请求
+  等待第三方扣款回调 --> 支付超时失效 : 30分钟未完成
+}
+
+待支付 --> 订单已取消 : 超时取消 / 用户主动取消
+待支付 --> 支付成功 : 收到支付网关 Webhook 成功通知
+
+state 支付成功 {
+  [*] --> 分布式库存终扣减
+  分布式库存终扣减 --> 财务对账记账
+}
+
+支付成功 --> 履约调度中 : 触发履约与出库引擎
+
+state 履约调度中 {
+  state "仓库打单与分拣" as WMS_Pick
+  state "自动化质检与打包" as WMS_Pack
+  state "包裹称重与贴标出库" as WMS_Ship
+
+  [*] --> WMS_Pick
+  WMS_Pick --> WMS_Pack : 分拣扫描完成
+  WMS_Pack --> WMS_Ship : 质检合规
+  WMS_Ship --> [*]
+}
+
+履约调度中 --> 运输干线配送中 : 物流揽收承运
+运输干线配送中 --> 派送末端网点 : 到达目的城市中转中心
+派送末端网点 --> 用户已签收 : 快递员派送成功并录入核销码
+
+user_signed:
+state 用户已签收 {
+  [*] --> 7天无理由退换窗口
+  7天无理由退换窗口 --> 订单最终完成 : 超过退换期自动收单
+}
+
+订单最终完成 --> [*] : 生命周期圆满归档
+
+state 售后退款处理 {
+  [*] --> 退货申请审核
+  退货申请审核 --> 仓库验退入库
+  仓库验退入库 --> 原路退款成功
+}
+
+运输干线配送中 --> 售后退款处理 : 拒收退回
+用户已签收 --> 售后退款处理 : 申请售后
+售后退款处理 --> 订单已取消 : 退款冲账完成
+
+@enduml

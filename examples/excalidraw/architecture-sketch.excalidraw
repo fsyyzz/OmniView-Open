@@ -1,0 +1,252 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "omniview",
+  "elements": [
+    {
+      "id": "card-client",
+      "type": "rectangle",
+      "x": 60,
+      "y": 60,
+      "width": 220,
+      "height": 120,
+      "angle": 0,
+      "strokeColor": "#2f9e44",
+      "backgroundColor": "#d3f9d8",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 101,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "arrow-1",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1
+    },
+    {
+      "id": "text-client-title",
+      "type": "text",
+      "x": 80,
+      "y": 85,
+      "text": "OmniView Webview Host\n(React 19 + Vite)",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "strokeColor": "#2b8a3e",
+      "seed": 102,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
+    },
+    {
+      "id": "card-engine",
+      "type": "rectangle",
+      "x": 360,
+      "y": 60,
+      "width": 240,
+      "height": 120,
+      "angle": 0,
+      "strokeColor": "#e8590c",
+      "backgroundColor": "#ffe8cc",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 103,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "arrow-1",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1
+    },
+    {
+      "id": "text-engine-title",
+      "type": "text",
+      "x": 380,
+      "y": 85,
+      "text": "Excalidraw Engine\n(@excalidraw/utils)",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "strokeColor": "#d9480f",
+      "seed": 104,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
+    },
+    {
+      "id": "card-output",
+      "type": "rectangle",
+      "x": 680,
+      "y": 60,
+      "width": 220,
+      "height": 120,
+      "angle": 0,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#d0ebff",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 105,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "arrow-2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1
+    },
+    {
+      "id": "text-output-title",
+      "type": "text",
+      "x": 700,
+      "y": 85,
+      "text": "Interactive SVG / PNG\n(DOMPurify Sanitized)",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "strokeColor": "#1864ab",
+      "seed": 106,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
+    },
+    {
+      "id": "arrow-1",
+      "type": "arrow",
+      "x": 280,
+      "y": 120,
+      "width": 80,
+      "height": 0,
+      "angle": 0,
+      "strokeColor": "#495057",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          80,
+          0
+        ]
+      ],
+      "startBinding": {
+        "elementId": "card-client",
+        "focus": 0,
+        "gap": 1
+      },
+      "endBinding": {
+        "elementId": "card-engine",
+        "focus": 0,
+        "gap": 1
+      },
+      "endArrowhead": "arrow",
+      "seed": 107,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
+    },
+    {
+      "id": "arrow-2",
+      "type": "arrow",
+      "x": 600,
+      "y": 120,
+      "width": 80,
+      "height": 0,
+      "angle": 0,
+      "strokeColor": "#495057",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          80,
+          0
+        ]
+      ],
+      "startBinding": {
+        "elementId": "card-engine",
+        "focus": 0,
+        "gap": 1
+      },
+      "endBinding": {
+        "elementId": "card-output",
+        "focus": 0,
+        "gap": 1
+      },
+      "endArrowhead": "arrow",
+      "seed": 108,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
+    },
+    {
+      "id": "note-phase1",
+      "type": "text",
+      "x": 60,
+      "y": 220,
+      "text": "✨ Phase 1: 高保真只读渲染 + 视口缩放平移 + SVG/PNG/JSON 导出 + 双向分屏源码联动",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#862e9c",
+      "seed": 109,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "exportWithDarkMode": false
+  },
+  "files": {}
+}

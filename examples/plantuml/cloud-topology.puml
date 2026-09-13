@@ -1,5 +1,5 @@
 @startuml
-title 微服务云原生拓扑架构 (OmniView PlantUML Driver)
+title 微服务云原生拓扑架构 (OmniViewer PlantUML Driver)
 autonumber
 
 actor "客户端 / Web / VSCode" as Client #LightSkyBlue

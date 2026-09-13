@@ -28,6 +28,8 @@ flowchart TB
 ### 2.2 渲染工作区与驱动分发 (Viewers & Workbench)
 - **分发总控**: [`src/features/viewers/ViewerRenderer.tsx`](../src/features/viewers/ViewerRenderer.tsx) 依据文件扩展名智能分发至对应的 Viewer 驱动；
 - **独立驱动组件**:
+  - `ExcalidrawViewer.tsx`: 基于 `@excalidraw/excalidraw` 的手绘白板工作室 (Excalidraw Studio)，支持白板交互、双向分屏、SVG 矢量只读演示与 JSON 源码编辑四种模式，具备图元安全自愈与模板库；
+  - `NotebookViewer.tsx`: 基于纯前端离线解析内核的 Jupyter Notebook (.ipynb v4) 交互式数据科学工作台，支持代码单元格高亮、执行计数器、富文本多格式输出、ANSI 异常栈高亮与一键导出；
   - `MindmapViewer.tsx` / `MarkmapViewer.tsx`: 基于 Markmap 的思维导图全功能工作台，支持 `.markmap`、`.mm`、`.mindmap`、`.km` 扩展名，双向编辑、大纲/文本/导图实时联动与多比例分屏；
   - `MarkdownViewer.tsx`: 深度增强型 Markdown 解析与块级分发；
   - `CodeViewer.tsx`: Prism.js 多语言语法高亮与行号；

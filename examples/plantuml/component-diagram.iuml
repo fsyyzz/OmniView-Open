@@ -1,0 +1,29 @@
+@startuml
+!theme plain
+skinparam componentStyle rectangle
+skinparam backgroundColor transparent
+
+package "OmniView Webview Core" {
+  [Driver Dispatcher] as Dispatcher
+  [Markdown Engine] as Markdown
+  [Excalidraw Engine] as Excalidraw
+  [Jupyter Engine] as Jupyter
+  [Typst Engine] as Typst
+  [PDF.js Engine] as PdfJs
+}
+
+package "Extension Host" {
+  [CustomEditorProvider] as Provider
+  [File Watcher] as Watcher
+  [IPC Channel] as IPC
+}
+
+Provider --> IPC : 双向 JSON-RPC
+IPC --> Dispatcher : 广播 FileItem 数据
+Dispatcher --> Markdown : 分发 .md / .okf
+Dispatcher --> Excalidraw : 分发 .excalidraw
+Dispatcher --> Jupyter : 分发 .ipynb
+Dispatcher --> Typst : 分发 .typ
+Dispatcher --> PdfJs : 分发 .pdf
+
+@enduml

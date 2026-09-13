@@ -1,0 +1,126 @@
+# OmniView 结构化数据全景可视化示例 (YAML / Microservices)
+# 支持：交互式结构树、全景思维导图投影、微服务网络拓扑、数组表格下钻、敏感脱敏与格式互转
+version: "3.9"
+
+metadata:
+  cluster_name: "omniview-prod-us-east"
+  environment: "production"
+  region: "us-east-1"
+  created_by: ""
+
+# 1. 微服务拓扑与网络流向声明 (自动激活服务拓扑图 Topology)
+services:
+  web-gateway:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - auth-service
+      - order-api
+    networks:
+      - frontend-net
+      - backend-net
+
+  auth-service:
+    image: omniview/auth:v2.4
+    ports:
+      - "8081:8080"
+    environment:
+      JWT_SIGNING_KEY: "secret_jwt_hs256_token_omniview_2026"
+      REFRESH_TOKEN_EXPIRE: "604800s"
+      DB_PASSWORD: "auth_service_postgres_secure_pwd_9981"
+    depends_on:
+      - postgres-db
+      - redis-cache
+    networks:
+      - backend-net
+
+  order-api:
+    image: omniview/order-service:v3.1.0
+    ports:
+      - "8082:8080"
+    environment:
+      STRIPE_SECRET_KEY: "stripe_sec_demo_omniview_mock_token_sample"
+      PAYMENT_WEBHOOK_SECRET: "stripe_webhook_demo_signature_sample"
+      DATABASE_URL: "postgresql://postgres:pg_super_secret_production_2026@postgres-db:5432/orders"
+    depends_on:
+      - postgres-db
+      - redis-cache
+    networks:
+      - backend-net
+
+  redis-cache:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: "redis_production_auth_token_safe_pass"
+    networks:
+      - backend-net
+
+  postgres-db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: "omniview_production"
+      POSTGRES_USER: "cloud_admin"
+      POSTGRES_PASSWORD: "pg_super_secret_production_2026"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend-net
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+
+# 2. 节点集群度量同构对象数组 (自动激活数据表格下钻 Table & 图表转换)
+cluster_nodes:
+  - node_id: "node-master-01"
+    role: "Control-Plane"
+    cpu_cores: 16
+    memory_gb: 64
+    disk_ssd_gb: 1024
+    network_gbps: 25.0
+    status: "Healthy"
+    zone: "us-east-1a"
+  - node_id: "node-worker-02"
+    role: "Worker-Compute"
+    cpu_cores: 32
+    memory_gb: 128
+    disk_ssd_gb: 2048
+    network_gbps: 40.0
+    status: "Healthy"
+    zone: "us-east-1b"
+  - node_id: "node-worker-03"
+    role: "Worker-Compute"
+    cpu_cores: 32
+    memory_gb: 128
+    disk_ssd_gb: 2048
+    network_gbps: 40.0
+    status: "Healthy"
+    zone: "us-east-1c"
+  - node_id: "node-gpu-ai-04"
+    role: "Inference-GPU"
+    cpu_cores: 64
+    memory_gb: 256
+    disk_ssd_gb: 4096
+    network_gbps: 100.0
+    status: "Healthy"
+    zone: "us-east-1a"
+  - node_id: "node-storage-05"
+    role: "Ceph-Storage"
+    cpu_cores: 16
+    memory_gb: 64
+    disk_ssd_gb: 8192
+    network_gbps: 25.0
+    status: "Degraded"
+    zone: "us-east-1b"

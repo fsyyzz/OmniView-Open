@@ -75,11 +75,31 @@
 - **阅读感知**: 视口滚动联动阅读进度感知 (Scroll Spy)、视口懒渲染防卡顿 (Lazy Viewport)；
 - **批注与检索**: 全文跨页检索高亮、多级大纲书签树、划词高亮批注与 Markdown 格式导出、无损快照 PNG 导出与打印。
 
-### 6. CSV / TSV 智能数据表格与分析
+### 6. Excalidraw 手绘白板工作室 (Excalidraw Whiteboard Studio)
+- 原生支持 `.excalidraw` 手绘工程文件解析与交互；
+- **四重工作模式**: 交互白板 (Canvas Studio)、双向分屏 (Split)、矢量只读演示 (Preview) 与 JSON 源码编辑 (Source Code)；
+- **数据自愈与容错**: 内置 `sanitizeExcalidrawElements` 与 `restoreElements`，自动修补异常图元字段并提供多级错误边界；
+- **预置模板与导出**: 内置系统架构、微服务调用、敏捷看板等 8 大预置模板，支持高清 SVG、PNG 及 `.excalidraw` 原生文件导出。
+
+### 7. Typst 现代学术与出版排版 (Typst Studio & A4 2.0)
+- 基于轻量纯端侧 AST 编译器与 A4 2.0 工业级出版排版引擎，原生支持 `.typ` 与 `.typst` 文件；
+- **出版级排版能力**: 标题大纲抽取、物理分页符、多页 SVG 连续流式渲染、KaTeX 矢量公式排版与中文字宽防重叠优化；
+- **A4 2.0 高精度打印**: 动态页眉页脚宏变量（`{{page}}`, `{{totalPages}}`, `{{title}}`, `{{date}}`）、双面装订线 Gutter Margin 奇偶页交替与标准 `@page` 打印规则。
+
+### 8. Jupyter Notebook (.ipynb v4) 交互式数据科学工作台
+- 纯前端离线解析渲染 Jupyter Notebook v4 文件结构；
+- 完整支持 Markdown 叙事单元格、Python 代码单元格高亮、执行计数器徽标、富文本多格式输出与 ANSI Traceback 语法高亮转换；
+- 支持一键将整本 Notebook 导出为标准 Markdown 文档 (`.md`) 或纯 Python 脚本 (`.py`)。
+
+### 9. CSV / TSV 智能数据表格与分析
 - 符合 RFC 4180 规范的超轻量健壮解析引擎，支持双引号转义、跨行单元格与参差列宽归一化；
 - 全局关键字模糊过滤、多列排序、分页浏览、统计概览与数据导出。
 
-### 7. 全局偏好与工作区持久化体系
+### 10. Google OKF (Open Knowledge Format) 智能知识卡片
+- 原生识别 `.okf` 文件及 Markdown Frontmatter OKF 元数据头；
+- 智能抽取 Knowledge ID、版本标签、分类 Tags 与知识摘要并渲染为交互式知识卡片。
+
+### 11. 全局偏好与工作区持久化体系
 - **集中式配置中枢 (`settingsStorage.ts`)**: 存储键升级为 `v2`，无缝自动向前平滑兼容迁移旧版本配置并安全回写；
 - **严苛边界防护**: 对缩放比例 (0.5~2.5x)、字号 (12~22px) 及分屏比例建立数学截断与钳位容错，避免任何异常值影响交互；
 - **多工作区生命周期持久化 (`fileStorage.ts`)**: 记住侧边栏与资源管理器开关状态、活动标签页顺序与最后打开文件；
@@ -109,7 +129,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-0.9.23.vsix --force
+code --install-extension omniview-0.10.1.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

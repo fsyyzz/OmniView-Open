@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <app-meta>
+        <name>OmniView Platform Services</name>
+        <environment>production</environment>
+        <region>ap-east-1</region>
+        <cluster>k8s-prod-cluster-01</cluster>
+    </app-meta>
+
+    <render-engines>
+        <driver name="markdown" engine="marked" enable-okf="true" max-depth="6" />
+        <driver name="mermaid" engine="mermaid.js" theme="dark" security-level="strict" />
+        <driver name="plantuml" engine="plantuml-encoder" format="svg" />
+        <driver name="graphviz" engine="hpcc-js-wasm" layout="dot" />
+        <driver name="typst" engine="typst-ast" paper="a4" />
+        <driver name="notebook" engine="nbformat-v4" render-ansi="true" />
+        <driver name="excalidraw" engine="excalidraw-utils" auto-sanitize="true" />
+    </render-engines>
+
+    <security-policy>
+        <csp-mode>sandboxed</csp-mode>
+        <dompurify-enabled>true</dompurify-enabled>
+        <allow-scripts>false</allow-scripts>
+    </security-policy>
+</configuration>

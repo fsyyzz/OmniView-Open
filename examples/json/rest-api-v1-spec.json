@@ -1,0 +1,63 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OmniView Cloud Rendering Gateway API",
+    "version": "1.0.0",
+    "description": "High-throughput AST parsing, vector compilation, and multi-format document rendering endpoints.",
+    "contact": {
+      "name": "",
+      "url": "https://github.com/fsyyzz/OmniView"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.omniview.internal/v1",
+      "description": "Production Internal Mesh Cluster"
+    }
+  ],
+  "paths": {
+    "/render/markdown": {
+      "post": {
+        "summary": "Compile Markdown with embedded diagrams",
+        "operationId": "compileMarkdown",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string" },
+                  "theme": { "type": "string", "enum": ["dark", "light", "sepia", "midnight", "cyber"] },
+                  "sanitize": { "type": "boolean", "default": true }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compiled HTML AST and Vector assets successfully generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "renderedHtml": { "type": "string" },
+                    "diagramCount": { "type": "integer" },
+                    "durationMs": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

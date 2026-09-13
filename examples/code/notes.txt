@@ -1,0 +1,28 @@
+================================================================================
+OmniView 研发工作台统一技术规范与支持格式一览
+================================================================================
+
+1. 文档与图表混合排版：
+   - Markdown: .md, .markdown
+   - Open Knowledge Format (OKF): .okf, *.okf.md
+
+2. 独立架构与拓扑图表：
+   - Mermaid: .mmd, .mermaid
+   - PlantUML: .puml, .plantuml, .iuml
+   - Graphviz: .dot, .gv, .graphviz
+   - SVG 矢量分析: .svg
+
+3. 专业排版与数据科学：
+   - Excalidraw 手绘白板: .excalidraw, .excalidraw.json
+   - Jupyter Notebook: .ipynb
+   - Typst 现代排版: .typ, .typst
+   - PDF 现代化阅读器: .pdf
+
+4. 数据表格与结构化配置：
+   - 表格: .csv, .tsv
+   - 结构化: .json, .yaml, .yml, .xml
+
+5. 源代码高亮：
+   - .ts, .tsx, .js, .jsx, .txt
+
+更多信息请访问: https://github.com/fsyyzz/OmniView

@@ -1,0 +1,9 @@
+Service Name	Tier	Cluster Region	QPS	P90 Latency (ms)	P99 Latency (ms)	Error Rate	CPU Usage %	Memory (GB)	SLO Health Status
+gateway-proxy-edge	Tier-0 (Mission-Critical)	ap-east-1 (Hong Kong)	18,500	2.4	8.6	0.001%	48%	4.2	HEALTHY (绿色)
+auth-token-dispatcher	Tier-0 (Mission-Critical)	ap-east-1 (Hong Kong)	12,400	3.1	11.2	0.002%	52%	2.8	HEALTHY (绿色)
+omniview-marked-ast	Tier-1 (Core Business)	ap-northeast-1 (Tokyo)	6,800	12.8	24.5	0.012%	68%	6.4	HEALTHY (绿色)
+mermaid-vector-worker	Tier-1 (Core Business)	ap-northeast-1 (Tokyo)	4,200	28.4	58.2	0.025%	78%	12.6	WARN (负载升高)
+plantuml-svg-proxy	Tier-2 (Extended Engine)	us-west-2 (Oregon)	1,950	45.0	110.4	0.048%	64%	8.1	HEALTHY (绿色)
+csv-table-indexer	Tier-2 (Extended Engine)	ap-east-1 (Hong Kong)	840	6.2	14.8	0.000%	28%	1.9	HEALTHY (绿色)
+pdf-vector-slicer	Tier-2 (Extended Engine)	eu-central-1 (Frankfurt)	450	88.0	190.0	0.010%	82%	14.2	HEALTHY (绿色)
+telemetry-prometheus-agg	Tier-3 (Observability)	ap-east-1 (Hong Kong)	35,000	1.8	4.5	0.000%	38%	18.5	HEALTHY (绿色)

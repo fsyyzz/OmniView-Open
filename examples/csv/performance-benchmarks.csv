@@ -1,0 +1,6 @@
+Engine,Package Size (VSIX),Cold Startup Time,Webview RAM Usage,License Model,Mermaid Support,PlantUML Support,PDF Support,Commercial Limitations
+OmniViewer (本自研方案),1.8 MB,140 ms,42 MB,100% Free MIT,原生实时渲染,原生实时映射,原生支持,无任何限制 (零收费/零弹窗)
+vscode-office (参考竞品),18.4 MB,820 ms,186 MB,Freemium (VIP收费),需第三方扩展,受限,内置 (基础),部分格式与高级导出需赞助/VIP
+Markdown All in One,2.1 MB,190 ms,38 MB,MIT,需单独安装 Mermaid 插件,不支持,仅通过外部扩展,仅局限 Markdown 格式
+PDF Viewer by tomoki,3.4 MB,310 ms,65 MB,MIT,不支持,不支持,良好,仅支持 PDF 单一格式
+PlantUML by jebbs,1.2 MB,260 ms,45 MB,MIT,不支持,需本地 Java 或配置服务器,不支持,仅支持 PlantUML 格式

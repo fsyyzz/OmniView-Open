@@ -16,7 +16,6 @@ specification_version: 0.1
 
 ## 概念目录索引 (Concepts Index)
 
-- 📊 **订单事实表**：[tables/orders.md](tables/orders.md)
-- 👤 **客户维度表**：[tables/customers.md](tables/customers.md)
-- 📈 **核心增长指标**：[metrics/weekly_active_users.md](metrics/weekly_active_users.md)
-- 🏠 **回到总目录**：[index.md](index.md)
+- 📊 **订单事实表**：[orders.okf.md](/workspace/sales/tables/orders.okf.md)
+- 👤 **客户维度表**：[customers.okf.md](/workspace/sales/tables/customers.okf.md)
+- 📈 **核心增长指标**：[weekly_active_users.okf.md](/workspace/sales/metrics/weekly_active_users.okf.md)

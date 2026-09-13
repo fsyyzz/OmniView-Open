@@ -1,0 +1,334 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 6 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+6 0 obj
+<< /Length 1370 >>
+stream
+0.06 0.1 0.18 rg
+40 765 515 36 re f
+BT
+/F2 13 Tf
+0.3 0.7 1.0 rg
+55 778 Td
+(ARCHITECTURE SPECIFICATION) Tj
+ET
+BT
+/F2 20 Tf
+0.08 0.12 0.22 rg
+40 715 Td
+(OmniView Architecture Standard Whitepaper) Tj
+ET
+BT
+/F1 12 Tf
+0.35 0.42 0.52 rg
+40 685 Td
+(Section 1.0 - Project Overview & Evolution (100% MIT License)) Tj
+ET
+0.85 0.88 0.92 RG
+1 w
+40 665 m 555 665 l S
+BT
+/F1 11 Tf
+0.15 0.2 0.28 rg
+18 TL
+40 630 Td
+(Visual Studio Code has become the primary workbench for global developers.) Tj T*
+(OmniView delivers instant, lightweight, zero-paywall previewing for Markdown, Mermaid, PlantUML, SVG, and real PDF documents.) Tj T*
+(Designed with a decoupled driver micro-kernel to keep RAM overhead under 45MB while eliminating commercial VIP restrictions.) Tj T*
+ET
+0.95 0.97 1.0 rg
+40 450 515 110 re f
+0.2 0.5 0.9 RG
+1.5 w
+40 450 515 110 re S
+BT
+/F2 12 Tf
+0.1 0.35 0.75 rg
+55 530 Td
+(OmniView Multi-Driver Highlights) Tj
+ET
+BT
+/F1 10 Tf
+0.2 0.25 0.35 rg
+16 TL
+55 505 Td
+(- 100% Free & Open-Source under MIT License) Tj T*
+(- Multi-core Canvas rasterization with Web Worker acceleration) Tj T*
+(- Zero telemetry, fully offline & zero network dependencies) Tj T*
+ET
+0.85 0.88 0.92 RG
+1 w
+40 60 m 555 60 l S
+BT
+/F1 9 Tf
+0.5 0.55 0.65 rg
+40 42 Td
+(OmniView Technical Whitepaper - Published with Pride under MIT License) Tj
+ET
+BT
+/F2 9 Tf
+0.2 0.4 0.8 rg
+510 42 Td
+([ Page 1 of 4 ]) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 8 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+8 0 obj
+<< /Length 1327 >>
+stream
+0.06 0.1 0.18 rg
+40 765 515 36 re f
+BT
+/F2 13 Tf
+0.3 0.7 1.0 rg
+55 778 Td
+(IPC SECURITY PROTOCOL) Tj
+ET
+BT
+/F2 20 Tf
+0.08 0.12 0.22 rg
+40 715 Td
+(Sandboxed IPC Protocol & Security Architecture) Tj
+ET
+BT
+/F1 12 Tf
+0.35 0.42 0.52 rg
+40 685 Td
+(Section 2.0 - Security & Protocol Specification) Tj
+ET
+0.85 0.88 0.92 RG
+1 w
+40 665 m 555 665 l S
+BT
+/F1 11 Tf
+0.15 0.2 0.28 rg
+18 TL
+40 630 Td
+(The Extension Host (Node.js) and Webview (Chromium) operate in isolated process boundaries.) Tj T*
+(All communications flow over typed JSON-RPC message contracts with bidirectional live hot reload.) Tj T*
+(Rigorous Content Security Policies (CSP) and DOMPurify sanitization strictly eliminate XSS attack vectors.) Tj T*
+ET
+0.95 0.97 1.0 rg
+40 450 515 110 re f
+0.2 0.5 0.9 RG
+1.5 w
+40 450 515 110 re S
+BT
+/F2 12 Tf
+0.1 0.35 0.75 rg
+55 530 Td
+(OmniView Multi-Driver Highlights) Tj
+ET
+BT
+/F1 10 Tf
+0.2 0.25 0.35 rg
+16 TL
+55 505 Td
+(- 100% Free & Open-Source under MIT License) Tj T*
+(- Multi-core Canvas rasterization with Web Worker acceleration) Tj T*
+(- Zero telemetry, fully offline & zero network dependencies) Tj T*
+ET
+0.85 0.88 0.92 RG
+1 w
+40 60 m 555 60 l S
+BT
+/F1 9 Tf
+0.5 0.55 0.65 rg
+40 42 Td
+(OmniView Technical Whitepaper - Published with Pride under MIT License) Tj
+ET
+BT
+/F2 9 Tf
+0.2 0.4 0.8 rg
+510 42 Td
+([ Page 2 of 4 ]) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 10 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+10 0 obj
+<< /Length 1346 >>
+stream
+0.06 0.1 0.18 rg
+40 765 515 36 re f
+BT
+/F2 13 Tf
+0.3 0.7 1.0 rg
+55 778 Td
+(DRIVER LAZY-LOADING) Tj
+ET
+BT
+/F2 20 Tf
+0.08 0.12 0.22 rg
+40 715 Td
+(Multi-Driver Lazy Loading Architecture) Tj
+ET
+BT
+/F1 12 Tf
+0.35 0.42 0.52 rg
+40 685 Td
+(Section 3.0 - Driver Architecture Matrix) Tj
+ET
+0.85 0.88 0.92 RG
+1 w
+40 665 m 555 665 l S
+BT
+/F1 11 Tf
+0.15 0.2 0.28 rg
+18 TL
+40 630 Td
+(Each format (Markdown, PlantUML, SVG, CSV, PDF, Typst, Excalidraw, Notebook) is encapsulated into an isolated lazy-loaded driver.) Tj T*
+(The PDF Driver utilizes Mozilla PDF.js v4+ with Web Worker acceleration and Canvas rasterization.) Tj T*
+(Provides full resolution Hi-DPI multi-page navigation, smooth zooming, and clockwise 90 degree rotation.) Tj T*
+ET
+0.95 0.97 1.0 rg
+40 450 515 110 re f
+0.2 0.5 0.9 RG
+1.5 w
+40 450 515 110 re S
+BT
+/F2 12 Tf
+0.1 0.35 0.75 rg
+55 530 Td
+(OmniView Multi-Driver Highlights) Tj
+ET
+BT
+/F1 10 Tf
+0.2 0.25 0.35 rg
+16 TL
+55 505 Td
+(- 100% Free & Open-Source under MIT License) Tj T*
+(- Multi-core Canvas rasterization with Web Worker acceleration) Tj T*
+(- Zero telemetry, fully offline & zero network dependencies) Tj T*
+ET
+0.85 0.88 0.92 RG
+1 w
+40 60 m 555 60 l S
+BT
+/F1 9 Tf
+0.5 0.55 0.65 rg
+40 42 Td
+(OmniView Technical Whitepaper - Published with Pride under MIT License) Tj
+ET
+BT
+/F2 9 Tf
+0.2 0.4 0.8 rg
+510 42 Td
+([ Page 3 of 4 ]) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 12 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+12 0 obj
+<< /Length 1282 >>
+stream
+0.06 0.1 0.18 rg
+40 765 515 36 re f
+BT
+/F2 13 Tf
+0.3 0.7 1.0 rg
+55 778 Td
+(PRODUCTION RUNBOOK) Tj
+ET
+BT
+/F2 20 Tf
+0.08 0.12 0.22 rg
+40 715 Td
+(Deployment & Verification Runbook) Tj
+ET
+BT
+/F1 12 Tf
+0.35 0.42 0.52 rg
+40 685 Td
+(Section 4.0 - Production Readiness Checklist) Tj
+ET
+0.85 0.88 0.92 RG
+1 w
+40 665 m 555 665 l S
+BT
+/F1 11 Tf
+0.15 0.2 0.28 rg
+18 TL
+40 630 Td
+(Packaged into standard .vsix extensions using official @vscode/vsce tooling.) Tj T*
+(Continuous integration pipeline validates zero memory leaks and 100% diagram diagnostic test passes.) Tj T*
+(100% Free & Open Source under the permissive MIT license for the entire developer community.) Tj T*
+ET
+0.95 0.97 1.0 rg
+40 450 515 110 re f
+0.2 0.5 0.9 RG
+1.5 w
+40 450 515 110 re S
+BT
+/F2 12 Tf
+0.1 0.35 0.75 rg
+55 530 Td
+(OmniView Multi-Driver Highlights) Tj
+ET
+BT
+/F1 10 Tf
+0.2 0.25 0.35 rg
+16 TL
+55 505 Td
+(- 100% Free & Open-Source under MIT License) Tj T*
+(- Multi-core Canvas rasterization with Web Worker acceleration) Tj T*
+(- Zero telemetry, fully offline & zero network dependencies) Tj T*
+ET
+0.85 0.88 0.92 RG
+1 w
+40 60 m 555 60 l S
+BT
+/F1 9 Tf
+0.5 0.55 0.65 rg
+40 42 Td
+(OmniView Technical Whitepaper - Published with Pride under MIT License) Tj
+ET
+BT
+/F2 9 Tf
+0.2 0.4 0.8 rg
+510 42 Td
+([ Page 4 of 4 ]) Tj
+ET
+endstream
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000140 00000 n 
+0000000210 00000 n 
+0000000285 00000 n 
+0000000421 00000 n 
+0000001843 00000 n 
+0000001979 00000 n 
+0000003358 00000 n 
+0000003495 00000 n 
+0000004894 00000 n 
+0000005032 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R >>
+startxref
+6367
+%%EOF

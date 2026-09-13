@@ -1,0 +1,35 @@
+# OmniView 文件格式与驱动路由判定树
+
+## 1. 文档类文件
+### 1.1 富文本 Markdown
+- .md
+- .markdown
+- .mdown
+### 1.2 知识图谱
+- .okf
+- *.okf.md
+
+## 2. 独立图表与矢量
+### 2.1 拓扑与时序
+- Mermaid (.mmd, .mermaid)
+- PlantUML (.puml, .plantuml, .iuml)
+- Graphviz (.dot, .gv)
+### 2.2 矢量分析
+- SVG (.svg)
+
+## 3. 专业白板与数据科学
+### 3.1 手绘白板
+- Excalidraw (.excalidraw, .excalidraw.json)
+### 3.2 交互计算
+- Jupyter Notebook (.ipynb)
+### 3.3 现代排版
+- Typst (.typ, .typst)
+### 3.4 电子书与白皮书
+- PDF (.pdf)
+
+## 4. 结构化数据与代码
+### 4.1 表格与配置
+- .csv, .tsv
+- .json, .yaml, .yml, .xml
+### 4.2 源代码
+- .ts, .tsx, .js, .jsx, .txt

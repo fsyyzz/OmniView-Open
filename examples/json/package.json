@@ -1,0 +1,53 @@
+{
+  "name": "omnivewer-vscode",
+  "displayName": "OmniViewer - Universal Document & Diagram Viewer",
+  "description": "Clean, fast, 100% free multi-format file viewer for VS Code (Markdown, Mermaid, PlantUML, SVG, PDF, CSV).",
+  "version": "1.0.0",
+  "publisher": "omnivewer-team",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCustomEditor:omnivewer.editor"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "omnivewer.editor",
+        "displayName": "OmniViewer: 富文本与图表预览",
+        "selector": [
+          { "filenamePattern": "*.md" },
+          { "filenamePattern": "*.markdown" },
+          { "filenamePattern": "*.svg" },
+          { "filenamePattern": "*.pdf" },
+          { "filenamePattern": "*.puml" },
+          { "filenamePattern": "*.plantuml" },
+          { "filenamePattern": "*.csv" },
+          { "filenamePattern": "*.tsv" },
+          { "filenamePattern": "*.yaml" },
+          { "filenamePattern": "*.yml" },
+          { "filenamePattern": "*.ts" }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "omnivewer.openPreview",
+        "title": "OmniViewer: 在侧边栏分屏打开渲染视图",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "omnivewer.exportSvg",
+        "title": "OmniViewer: 导出当前图形为 SVG"
+      }
+    ]
+  }
+}

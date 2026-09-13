@@ -75,11 +75,31 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **Reading awareness**: scroll-spy progress, lazy viewport rendering;
 - **Annotate & search**: cross-page search highlight, outline bookmarks, selection highlights with Markdown export, PNG snapshot, and print.
 
-### 6. CSV / TSV Smart Grid
+### 6. Excalidraw Whiteboard Studio
+- Native `.excalidraw` hand-drawn diagram file format support;
+- **Four view modes**: interactive canvas studio, dual-pane split, read-only SVG preview, and JSON source editor;
+- **Self-healing data pipe**: built-in `sanitizeExcalidrawElements` and `restoreElements` to repair invalid element schemas and prevent canvas crashes;
+- **Starter templates & export**: 8 architecture and flowchart templates with high-res SVG, PNG, and `.excalidraw` JSON export.
+
+### 7. Typst Academic & Publishing Studio (A4 2.0)
+- Pure client-side AST compiler for `.typ` and `.typst` files;
+- **Publishing-grade typography**: Outline TOC, physical page breaks, multi-page continuous SVG flow, KaTeX math, and CJK text-width overlap prevention;
+- **A4 2.0 print engine**: Dynamic header/footer macro variables (`{{page}}`, `{{totalPages}}`, `{{title}}`, `{{date}}`), alternating gutter margins for bookbinding, and `@page` rules.
+
+### 8. Jupyter Notebook (.ipynb v4) Studio
+- Client-side offline parser and renderer for Jupyter Notebook v4 format;
+- Markdown narrative cells, syntax-highlighted Python code cells, execution counters, rich multi-format outputs, and ANSI traceback coloration;
+- One-click export to standard Markdown (`.md`) or executable Python script (`.py`).
+
+### 9. CSV / TSV Smart Grid
 - Lightweight RFC 4180 parser with quoted escapes, multi-line cells, and ragged-width normalization;
 - Fuzzy filter, multi-column sort, pagination, stats overview, and export.
 
-### 7. Preferences & Workspace Persistence
+### 10. Google OKF (Open Knowledge Format) Cards
+- Native recognition of `.okf` files and Markdown Frontmatter OKF headers;
+- Extracts Knowledge ID, version, tags, and summary into structured knowledge cards.
+
+### 11. Preferences & Workspace Persistence
 - **Central settings hub (`settingsStorage.ts`)**: `v2` keys with seamless legacy migration;
 - **Hard clamps**: zoom (0.5~2.5x), font size (12~22px), and split ratios to keep UI stable;
 - **Workspace lifecycle (`fileStorage.ts`)**: remember sidebar/explorer state, tab order, and last opened file;
@@ -109,7 +129,7 @@ npm run verify
 npm run package:vsix
 
 # 3. Install into local VS Code (keep version in sync with package.json)
-code --install-extension omniview-0.9.23.vsix --force
+code --install-extension omniview-0.10.1.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.

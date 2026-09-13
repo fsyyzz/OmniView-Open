@@ -1,0 +1,20 @@
+digraph OmniViewDependencies {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fontname="sans-serif", fontsize=11, fillcolor="#f1f5f9", color="#94a3b8"];
+  edge [fontname="sans-serif", fontsize=9, color="#64748b"];
+
+  Webview [label="Webview App
+(React 19 + Vite 6)", fillcolor="#dbeafe", color="#3b82f6"];
+  ExtensionHost [label="Extension Host
+(Node.js + VS Code API)", fillcolor="#e0e7ff", color="#6366f1"];
+
+  Webview -> MarkmapLib [label="思维导图"];
+  Webview -> MermaidJs [label="流程图/时序图"];
+  Webview -> WasmGraphviz [label="DOT 拓扑 (WASM)"];
+  Webview -> PdfJs [label="PDF 真实光栅化"];
+  Webview -> ExcalidrawUtils [label="白板图元矢量流"];
+  Webview -> TypstAst [label="出版级 A4 排版"];
+  Webview -> Nbformat [label="Jupyter Notebook"];
+
+  ExtensionHost -> Webview [label="postMessage (JSON-RPC)"];
+}

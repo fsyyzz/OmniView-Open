@@ -1,0 +1,65 @@
+{
+  "root": {
+    "data": {
+      "id": "root",
+      "text": "OmniView 产品规划与架构矩阵"
+    },
+    "children": [
+      {
+        "data": {
+          "id": "c1",
+          "text": "零网络依赖与纯端侧安全"
+        },
+        "children": [
+          {
+            "data": {
+              "id": "c11",
+              "text": "WASM 本地离线编译"
+            }
+          },
+          {
+            "data": {
+              "id": "c12",
+              "text": "DOMPurify XSS 渗透防御"
+            }
+          },
+          {
+            "data": {
+              "id": "c13",
+              "text": "CSP 严格沙箱隔离"
+            }
+          }
+        ]
+      },
+      {
+        "data": {
+          "id": "c2",
+          "text": "全格式与双向编辑"
+        },
+        "children": [
+          {
+            "data": {
+              "id": "c21",
+              "text": "15+ 种研发文件格式全覆盖"
+            }
+          },
+          {
+            "data": {
+              "id": "c22",
+              "text": "所见即所得与源码分屏双向联动"
+            }
+          },
+          {
+            "data": {
+              "id": "c23",
+              "text": "A4 2.0 工业级物理分页与导出"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "template": "right",
+  "theme": "fresh-blue",
+  "version": "1.4.43"
+}

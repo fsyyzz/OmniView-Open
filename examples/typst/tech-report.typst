@@ -1,0 +1,58 @@
+#set page(
+  paper: "a4",
+  margin: (x: 2cm, y: 2.5cm),
+  header: align(right, text(8pt, fill: luma(120))[OmniView Architecture Report 2026]),
+  footer: locate(loc => {
+    let page_number = counter(page).at(loc).first()
+    let total_pages = counter(page).final(loc).first()
+    align(center, text(9pt)[- #page_number / #total_pages -])
+  })
+)
+#set text(
+  font: ("Liberation Sans", "PingFang SC", "Microsoft YaHei"),
+  size: 10.5pt,
+  lang: "zh"
+)
+
+#align(center)[
+  #v(1cm)
+  #text(18pt, weight: "bold", fill: rgb("#1e293b"))[OmniView 多内核统一渲染引擎技术白皮书]
+  
+  #v(0.3cm)
+  #text(11pt, fill: rgb("#475569"))[极速、轻量、纯端侧 0 外部网络依赖的多格式可视化体系]
+  
+  #v(0.5cm)
+  #grid(
+    columns: (1fr, 1fr),
+    align: (center, center),
+    [ *作者*: OmniView Core Team ],
+    [ *发布日期*: 2026年9月 ]
+  )
+  #v(0.8cm)
+]
+
+#outline(indent: auto)
+
+#v(1cm)
+
+= 系统概述与设计哲学
+
+OmniView 是专为现代工程研发打造的多格式一体化预览与可视化工作台。支持从 Markdown、图表（Mermaid、PlantUML、Graphviz）、矢量图形 (SVG)、PDF 到 Jupyter Notebook、Typst 与 Excalidraw 等 15+ 种工程研发格式。
+
+== 核心技术指标
+
+- *零冷启动开销*: 采用 Web Worker 与驱动动态分发，按需异步懒加载；
+- *内存极致收敛*: 空载内存占用低于 45MB，无大文件内存泄漏风险；
+- *出版级 A4 排版*: 原生提供厘米级物理边距控制与双向分页打印流。
+
+= 数学与算法基准
+
+系统的分布式一致性判定算法遵从下述评估方程：
+
+$ cal(L)(theta) = - sum_(i=1)^N log P(y_i | x_i; theta) + lambda / 2 ||theta||_2^2 $
+
+其中 $lambda$ 表示权重衰减系数，$theta$ 为模型参数张量。
+
+= 结论
+
+OmniView 成功证明了基于现代 Web 标准构建全能型工程文档渲染器的可行性，兼具极致性能与卓越的可维护性。
