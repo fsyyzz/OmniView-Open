@@ -270,6 +270,25 @@ export const TRANSLATIONS = {
     calloutExample: '示例',
     calloutQuote: '引用',
     taskToggleTooltip: '点击切换任务完成状态 (自动回写源码)',
+
+    // Diagram Step-by-Step Player
+    stepPlayback: '步进播放',
+    stepPlaybackTooltip: '进入时序/状态图分步演示模式',
+    stepPlayerTitle: '步进播放器',
+    sequencePlayback: '时序通信步进',
+    statePlayback: '状态转移步进',
+    flowPlayback: '流程执行步进',
+    stepsCount: '步',
+    toggleStepList: '展开/收起步骤清单',
+    exitPlayback: '退出步进播放 (Esc)',
+    resetToStart: '回到第一步',
+    prevStepTooltip: '上一步 (← 方向键)',
+    nextStepTooltip: '下一步 (→ 方向键)',
+    play: '播放',
+    pause: '暂停',
+    speedTooltip: '循环切换播放倍速',
+    loopOn: '循环播放: 开',
+    loopOff: '循环播放: 关',
   },
   'en-US': {
     // Toolbar buttons & tooltips
@@ -533,6 +552,25 @@ export const TRANSLATIONS = {
     calloutExample: 'Example',
     calloutQuote: 'Quote',
     taskToggleTooltip: 'Click to toggle task status (auto syncs to source)',
+
+    // Diagram Step-by-Step Player
+    stepPlayback: 'Step Playback',
+    stepPlaybackTooltip: 'Step-by-step diagram playback walkthrough',
+    stepPlayerTitle: 'Step Player',
+    sequencePlayback: 'Sequence Flow',
+    statePlayback: 'State Transition',
+    flowPlayback: 'Flowchart Steps',
+    stepsCount: 'steps',
+    toggleStepList: 'Toggle Step List',
+    exitPlayback: 'Exit Playback (Esc)',
+    resetToStart: 'Reset to First Step',
+    prevStepTooltip: 'Previous Step (Left Arrow)',
+    nextStepTooltip: 'Next Step (Right Arrow)',
+    play: 'Play',
+    pause: 'Pause',
+    speedTooltip: 'Cycle Playback Speed',
+    loopOn: 'Loop: ON',
+    loopOff: 'Loop: OFF',
   },
 };
 

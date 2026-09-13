@@ -1,7 +1,7 @@
 /**
  * Markdown Mermaid 图表渲染组件 (纯图标 + 悬浮提示 + 多语言支持 + 实时即时编译)
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import mermaid from 'mermaid';
 import {
   Copy,
@@ -14,10 +14,16 @@ import {
   Maximize2,
   Code,
   Eye,
+  PlayCircle,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { analyzeMermaidError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
+import {
+  detectDiagramPlaybackSupport,
+  applyStepHighlightToSvg,
+} from '../../../lib/diagramPlaybackEngine';
+import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
 
 interface MermaidBlockProps {
   id: string;
@@ -67,8 +73,13 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   const [liveSvg, setLiveSvg] = useState<string>(svgContent || '');
   const [liveError, setLiveError] = useState<string | undefined>(error);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
+  const [isPlaybackActive, setIsPlaybackActive] = useState<boolean>(false);
+  const [currentStep, setCurrentStep] = useState<number>(-1);
   const renderCountRef = useRef<number>(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
+
+  // 探测是否支持步进播放（时序图/状态图/流程图）
+  const playbackInfo = useMemo(() => detectDiagramPlaybackSupport(activeCode), [activeCode]);
 
   // 当外部初始 svgContent/error 变化且未被修改时同步
   useEffect(() => {
@@ -114,6 +125,13 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       clearTimeout(timer);
     };
   }, [activeCode, code, editedCode, svgContent]);
+
+  // 计算应用步进高亮后的 SVG 内容
+  const displaySvg = useMemo(() => {
+    if (!liveSvg) return '';
+    if (!isPlaybackActive || currentStep < 0) return liveSvg;
+    return applyStepHighlightToSvg(liveSvg, currentStep, playbackInfo.stepCount, playbackInfo.diagramType);
+  }, [liveSvg, isPlaybackActive, currentStep, playbackInfo]);
 
   const handleDownload = () => {
     if (liveSvg) {
@@ -172,6 +190,34 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
 
           {viewMode === 'visual' ? (
             <>
+              {playbackInfo.isSupported && (
+                <>
+                  <button
+                    onClick={() => {
+                      if (isPlaybackActive) {
+                        setIsPlaybackActive(false);
+                        setCurrentStep(-1);
+                      } else {
+                        setIsPlaybackActive(true);
+                        setCurrentStep(0);
+                      }
+                    }}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition border font-medium ${
+                      isPlaybackActive
+                        ? 'bg-cyan-600 border-cyan-500 text-white shadow-md shadow-cyan-600/30'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                    }`}
+                    title={t('stepPlaybackTooltip', locale)}
+                    aria-label={t('stepPlayback', locale)}
+                  >
+                    <PlayCircle className={`w-3.5 h-3.5 ${isPlaybackActive ? 'text-white animate-pulse' : 'text-cyan-400'}`} />
+                    <span className="hidden sm:inline">{t('stepPlayback', locale)}</span>
+                    <span className="text-[10px] opacity-75 font-mono">({playbackInfo.stepCount})</span>
+                  </button>
+                  <div className="h-3 w-px bg-slate-700 mx-0.5" />
+                </>
+              )}
+
               <button
                 onClick={() => onZoomChange(-0.2)}
                 className="p-1 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition"
@@ -196,7 +242,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
                 1:1
               </button>
               <button
-                onClick={() => onOpenLightbox(liveSvg)}
+                onClick={() => onOpenLightbox(displaySvg || liveSvg)}
                 className="p-1 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition"
                 title={t('fullScreen', locale)}
                 aria-label={t('fullScreen', locale)}
@@ -237,7 +283,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
 
       {/* Body: Visual vs Code */}
       {viewMode === 'visual' ? (
-        <div className="p-6 overflow-x-auto flex justify-center bg-slate-950/60 min-h-[140px] items-center">
+        <div className="p-6 overflow-x-auto flex justify-center bg-slate-950/60 min-h-[140px] items-center relative">
           {liveError ? (
             <DiagramDiagnosticCard
               diagnostic={analyzeMermaidError(activeCode, liveError, startLine, endLine, locale)}
@@ -248,13 +294,13 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
               onToggleCodeView={() => onSetViewMode('code')}
               onReRender={onReRender}
             />
-          ) : liveSvg ? (
+          ) : displaySvg ? (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               className="diagram-canvas transition-transform duration-150 flex justify-center cursor-zoom-in"
-              onDoubleClick={() => onOpenLightbox(liveSvg)}
+              onDoubleClick={() => onOpenLightbox(displaySvg)}
               title={t('fullScreen', locale)}
-              dangerouslySetInnerHTML={{ __html: liveSvg }}
+              dangerouslySetInnerHTML={{ __html: displaySvg }}
             />
           ) : (
             <div className="flex items-center gap-2 text-slate-400 text-xs py-8">
@@ -277,6 +323,21 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
             className="w-full p-3.5 bg-slate-900 border border-slate-800 rounded-lg text-cyan-300 font-mono text-xs leading-relaxed outline-none focus:border-cyan-500 transition resize-y"
           />
         </div>
+      )}
+
+      {/* Floating Diagram Step-by-Step Player HUD */}
+      {viewMode === 'visual' && isPlaybackActive && playbackInfo.isSupported && (
+        <DiagramStepPlayer
+          steps={playbackInfo.steps}
+          currentStep={currentStep}
+          onStepChange={setCurrentStep}
+          onClose={() => {
+            setIsPlaybackActive(false);
+            setCurrentStep(-1);
+          }}
+          diagramType={playbackInfo.diagramType}
+          locale={locale}
+        />
       )}
     </div>
   );
