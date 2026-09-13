@@ -195,43 +195,46 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 shrink-0">
             <button
               onClick={() => setViewMode('tree')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                 viewMode === 'tree'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
               }`}
               title="交互式可折叠结构树"
+              aria-label="结构树 (Tree)"
             >
               <FolderTree className="w-3 h-3" />
-              <span>结构树 (Tree)</span>
+              <span className="hidden sm:inline">结构树 (Tree)</span>
             </button>
 
             <button
               onClick={() => setViewMode('mindmap')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                 viewMode === 'mindmap'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
               }`}
               title="无损投影为交互式全景思维导图"
+              aria-label="思维导图 (Mindmap)"
             >
               <Network className="w-3 h-3 text-sky-400" />
-              <span>思维导图 (Mindmap)</span>
+              <span className="hidden sm:inline">思维导图 (Mindmap)</span>
             </button>
 
             {/* 同构数组下钻视图 (若检测到数组) */}
             {arrayDetection.detected && (
               <button
                 onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                   viewMode === 'table'
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
                 }`}
                 title={`检测到数组结构 (${arrayDetection.rows.length} 项)，一键切换数据表格与图表`}
+                aria-label={`数据表格 (${arrayDetection.rows.length})`}
               >
                 <TableIcon className="w-3 h-3 text-emerald-400" />
-                <span>数据表格 ({arrayDetection.rows.length})</span>
+                <span className="hidden sm:inline">数据表格 ({arrayDetection.rows.length})</span>
               </button>
             )}
 
@@ -239,29 +242,31 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
             {topologyMermaid && (
               <button
                 onClick={() => setViewMode('topology')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                   viewMode === 'topology'
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
                 }`}
                 title="检测到声明式微服务配置，自动生成依赖与网络架构拓扑图"
+                aria-label="服务拓扑 (Topology)"
               >
                 <GitBranch className="w-3 h-3 text-purple-400" />
-                <span>服务拓扑 (Topology)</span>
+                <span className="hidden sm:inline">服务拓扑 (Topology)</span>
               </button>
             )}
 
             <button
               onClick={() => setViewMode('code')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                 viewMode === 'code'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
               }`}
               title="原始文本高亮与编辑"
+              aria-label="代码文本 (Code)"
             >
               <Code className="w-3 h-3" />
-              <span>代码文本 (Code)</span>
+              <span className="hidden sm:inline">代码文本 (Code)</span>
             </button>
           </div>
         </div>
@@ -291,9 +296,10 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
                 : 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:text-slate-200 hover:bg-slate-800'
             }`}
             title={maskSecrets ? '敏感密钥保护中 (已遮罩密码/Token)，点击解除' : '已显示明文，点击开启敏感信息遮罩'}
+            aria-label={maskSecrets ? '脱敏防护' : '明文模式'}
           >
             {maskSecrets ? <Shield className="w-3 h-3 text-rose-400" /> : <ShieldAlert className="w-3 h-3 text-slate-400" />}
-            <span>{maskSecrets ? '脱敏防护' : '明文模式'}</span>
+            <span className="hidden sm:inline">{maskSecrets ? '脱敏防护' : '明文模式'}</span>
           </button>
 
           {/* 跨格式无损互转工作台入口 */}
@@ -302,9 +308,10 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               onClick={() => setIsConverterOpen(true)}
               className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-800/60 text-[11px] font-medium transition cursor-pointer"
               title="JSON ⇄ YAML ⇄ TOML ⇄ XML 实时本地转换"
+              aria-label="格式互转"
             >
               <ArrowRightLeft className="w-3 h-3 text-indigo-400" />
-              <span>格式互转</span>
+              <span className="hidden sm:inline">格式互转</span>
             </button>
           )}
 

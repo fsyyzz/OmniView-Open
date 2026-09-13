@@ -747,33 +747,39 @@ export const ScaffoldExporter: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs rounded-lg border border-slate-700 transition"
+            title="复制当前文件源码"
+            aria-label="复制当前文件"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>复制当前文件</span>
+            <span className="hidden sm:inline">复制当前文件</span>
           </button>
 
           <button
             onClick={handleDownloadSingleFile}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs rounded-lg border border-slate-700 transition"
+            title={`下载单个文件: ${selectedFile.name}`}
+            aria-label="下载单文件"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>下载单文件</span>
+            <span className="hidden sm:inline">下载单文件</span>
           </button>
 
           {/* 一键导出全套 Zip 压缩包 */}
           <button
             onClick={handleExportZip}
             disabled={isExportingZip}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow-sm transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow-sm transition disabled:opacity-50"
             title="一键打包下载包含全部目录结构的完整 VS Code 插件工程 Zip 压缩包"
+            aria-label="一键导出完整工程 (.zip)"
           >
             {isExportingZip ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Package className="w-3.5 h-3.5" />
             )}
-            <span>{isExportingZip ? '压缩生成中...' : '一键导出完整工程 (.zip)'}</span>
+            <span className="hidden sm:inline">{isExportingZip ? '压缩生成中...' : '一键导出完整工程 (.zip)'}</span>
+            <span className="sm:hidden">{isExportingZip ? '压缩中...' : '导出工程'}</span>
           </button>
         </div>
       </div>

@@ -467,7 +467,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
               }
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>
+              <span className="hidden sm:inline">
                 {viewMode === 'table'
                   ? t('tableViewModeChart', locale)
                   : t('tableViewModeTable', locale)}
@@ -519,12 +519,12 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
             {copiedType === 'md' ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">{t('copied', locale)}</span>
+                <span className="text-emerald-400 hidden sm:inline">{t('copied', locale)}</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>MD</span>
+                <span className="hidden sm:inline">MD</span>
               </>
             )}
           </button>
@@ -539,12 +539,12 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
             {copiedType === 'csv' ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">{t('copied', locale)}</span>
+                <span className="text-emerald-400 hidden sm:inline">{t('copied', locale)}</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>CSV</span>
+                <span className="hidden sm:inline">CSV</span>
               </>
             )}
           </button>

@@ -354,9 +354,10 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             onClick={() => setShowTemplateModal(true)}
             className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 hover:text-white rounded border border-purple-500/50 text-xs font-medium transition shrink-0"
             title="浏览完整的系统架构、C4 容器、时序图、甘特图等企业级模版"
+            aria-label="模板库"
           >
             <BookOpen className="w-3.5 h-3.5 text-purple-300" />
-            <span>模板库 ({PLANTUML_TEMPLATES.length})</span>
+            <span className="hidden sm:inline">模板库 ({PLANTUML_TEMPLATES.length})</span>
           </button>
 
           <div className="hidden md:flex items-center gap-1">
@@ -513,9 +514,10 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               onClick={() => setShowExportMenu(!showExportMenu)}
               className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 transition"
               title="导出与复制矢量资产"
+              aria-label="无损导出"
             >
               <Download className="w-3.5 h-3.5 text-cyan-400" />
-              <span>无损导出</span>
+              <span className="hidden sm:inline">无损导出</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 

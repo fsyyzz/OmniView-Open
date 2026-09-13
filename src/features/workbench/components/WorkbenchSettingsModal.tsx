@@ -185,6 +185,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
         <div className="flex items-center px-4 border-b border-slate-800 bg-slate-950/30 shrink-0 gap-1">
           <button
             onClick={() => setActiveTab('appearance')}
+            title="外观与排版"
             className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
               activeTab === 'appearance'
                 ? 'border-blue-500 text-blue-400 font-semibold'
@@ -192,11 +193,12 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
-            <span>外观与排版</span>
+            <span className="hidden sm:inline">外观与排版</span>
           </button>
 
           <button
             onClick={() => setActiveTab('editor')}
+            title="视图与分屏"
             className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
               activeTab === 'editor'
                 ? 'border-blue-500 text-blue-400 font-semibold'
@@ -204,11 +206,12 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
             }`}
           >
             <Layout className="w-3.5 h-3.5" />
-            <span>视图与分屏</span>
+            <span className="hidden sm:inline">视图与分屏</span>
           </button>
 
           <button
             onClick={() => setActiveTab('diagrams')}
+            title="图表引擎服务"
             className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
               activeTab === 'diagrams'
                 ? 'border-blue-500 text-blue-400 font-semibold'
@@ -216,11 +219,12 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>图表引擎服务</span>
+            <span className="hidden sm:inline">图表引擎服务</span>
           </button>
 
           <button
             onClick={() => setActiveTab('storage')}
+            title="存储与备份"
             className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
               activeTab === 'storage'
                 ? 'border-blue-500 text-blue-400 font-semibold'
@@ -228,7 +232,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            <span>存储与备份</span>
+            <span className="hidden sm:inline">存储与备份</span>
           </button>
         </div>
 

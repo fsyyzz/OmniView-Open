@@ -950,9 +950,10 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
             onClick={onLocateInCode}
             className="flex items-center gap-1 px-2 py-1 rounded bg-slate-700/80 hover:bg-slate-700 text-cyan-300 text-[11px] transition"
             title="在 XML 源码中定位并高亮此图元"
+            aria-label="定位代码"
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>定位代码</span>
+            <span className="hidden sm:inline">定位代码</span>
           </button>
 
           <button

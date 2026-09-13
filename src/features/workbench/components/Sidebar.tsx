@@ -133,6 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
             }`}
             title="资源管理器 (Explorer)"
+            aria-label="资源管理器"
           >
             <Files className="w-5 h-5" />
           </button>
@@ -145,6 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
             }`}
             title="工程技术文档中心 (PRD & 架构)"
+            aria-label="工程技术文档中心"
           >
             <BookOpen className="w-5 h-5" />
           </button>
@@ -157,6 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
             }`}
             title="驱动矩阵与竞品对标 (Drivers)"
+            aria-label="驱动矩阵与竞品对标"
           >
             <Cpu className="w-5 h-5" />
           </button>
@@ -169,6 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
             }`}
             title="VS Code 插件生产源码脚手架 (Scaffold)"
+            aria-label="扩展脚手架"
           >
             <Terminal className="w-5 h-5" />
           </button>
@@ -181,6 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={onToggleSidebar}
               className="p-2 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-900 transition"
               title={sidebarOpen ? '折叠文件侧边栏' : '展开文件侧边栏'}
+              aria-label={sidebarOpen ? '折叠文件侧边栏' : '展开文件侧边栏'}
             >
               {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
             </button>
@@ -191,6 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={onOpenSettings}
               className="p-2 rounded-xl text-slate-500 hover:text-slate-200 hover:bg-slate-900 transition"
               title="偏好与持久化配置中心 (Settings)"
+              aria-label="偏好设置"
             >
               <Settings className="w-4 h-4" />
             </button>

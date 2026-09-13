@@ -756,9 +756,10 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             onClick={handleDownload}
             className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded transition shadow-sm"
             title="下载原始 PDF 二进制文件"
+            aria-label="下载 PDF"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>下载</span>
+            <span className="hidden sm:inline">下载</span>
           </button>
         </div>
       </header>

@@ -414,28 +414,32 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
           <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 font-medium">
             <button
               onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs transition ${
                 viewMode === 'table'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
+              title="表格网格"
+              aria-label="表格网格"
             >
               <Table className="w-3.5 h-3.5" />
-              <span>表格网格</span>
+              <span className="hidden sm:inline">表格网格</span>
             </button>
             <button
               onClick={() => {
                 setRawText(serializeCsv(headers, rows, delimiter));
                 setViewMode('raw');
               }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs transition ${
                 viewMode === 'raw'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
+              title="源码编辑"
+              aria-label="源码编辑"
             >
               <Code className="w-3.5 h-3.5" />
-              <span>源码编辑</span>
+              <span className="hidden sm:inline">源码编辑</span>
             </button>
           </div>
 
@@ -483,17 +487,19 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                 onClick={handleAddRowAtBottom}
                 className="flex items-center gap-1 px-2 py-1 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 rounded border border-emerald-700/60 text-xs transition"
                 title="在表格底部追加新空白行"
+                aria-label="加行"
               >
                 <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                <span>加行</span>
+                <span className="hidden sm:inline">加行</span>
               </button>
               <button
                 onClick={() => setShowAddColDialog(true)}
                 className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 text-xs transition"
                 title="在右侧追加新列"
+                aria-label="加列"
               >
                 <Columns className="w-3.5 h-3.5 text-blue-400" />
-                <span>加列</span>
+                <span className="hidden sm:inline">加列</span>
               </button>
             </>
           )}
@@ -537,9 +543,11 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
               className="csv-dropdown-trigger flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 text-xs transition"
+              title="导出与复制"
+              aria-label="导出与复制"
             >
               <Download className="w-3.5 h-3.5 text-cyan-400" />
-              <span>导出/复制</span>
+              <span className="hidden sm:inline">导出/复制</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 

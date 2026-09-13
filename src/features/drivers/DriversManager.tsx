@@ -98,27 +98,33 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onOpenSampleFile
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                   activeTab === 'matrix' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="驱动矩阵"
+                aria-label="驱动矩阵"
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>驱动矩阵</span>
+                <span className="hidden sm:inline">驱动矩阵</span>
               </button>
               <button
                 onClick={() => setActiveTab('benchmark')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                   activeTab === 'benchmark' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="竞品对标"
+                aria-label="竞品对标"
               >
                 <Award className="w-3.5 h-3.5" />
-                <span>竞品对标</span>
+                <span className="hidden sm:inline">竞品对标</span>
               </button>
               <button
                 onClick={() => setActiveTab('sdk')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                   activeTab === 'sdk' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="扩展接入 SDK"
+                aria-label="扩展接入 SDK"
               >
                 <Code2 className="w-3.5 h-3.5" />
-                <span>扩展接入 SDK</span>
+                <span className="hidden sm:inline">扩展接入 SDK</span>
               </button>
             </div>
           </div>
@@ -264,19 +270,23 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onOpenSampleFile
                           setDiagnosticPassed(false);
                         }}
                         className="flex-1 py-1.5 px-2.5 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-lg text-xs font-sans transition flex items-center justify-center gap-1.5 border border-slate-700/80"
+                        title="技术规格 & 自检"
+                        aria-label="技术规格与自检"
                       >
-                        <Info className="w-3.5 h-3.5 text-blue-400" />
-                        <span>技术规格 &amp; 自检</span>
+                        <Info className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span className="hidden sm:inline">技术规格 &amp; 自检</span>
+                        <span className="sm:hidden">规格/自检</span>
                       </button>
 
                       {onOpenSampleFile && (
                         <button
                           onClick={() => onOpenSampleFile(driver.supportedExtensions[0])}
-                          className="py-1.5 px-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-sans font-medium transition flex items-center justify-center gap-1 shadow-sm"
+                          className="py-1.5 px-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-sans font-medium transition flex items-center justify-center gap-1 shadow-sm shrink-0"
                           title="在工作台直接载入此驱动支持的示例文件"
+                          aria-label="试用"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          <span>试用</span>
+                          <span className="hidden sm:inline">试用</span>
                         </button>
                       )}
                     </div>
@@ -510,9 +520,12 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onOpenSampleFile
                       onOpenSampleFile(ext);
                     }}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
+                    title="在工作台中启动示例"
+                    aria-label="在工作台中启动示例"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>在工作台中启动示例</span>
+                    <span className="hidden sm:inline">在工作台中启动示例</span>
+                    <span className="sm:hidden">启动示例</span>
                   </button>
                 )}
               </div>

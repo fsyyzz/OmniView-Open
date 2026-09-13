@@ -123,7 +123,7 @@ export const PdfAnnotationsView: React.FC<PdfAnnotationsViewProps> = ({
             title="导出批注为 Markdown 文档"
           >
             <FileDown className="w-3 h-3 text-cyan-400" />
-            <span>导出</span>
+            <span className="hidden sm:inline">导出</span>
           </button>
           <button
             onClick={onClearAll}

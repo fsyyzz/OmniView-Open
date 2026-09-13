@@ -259,19 +259,21 @@ export const NotebookViewer: React.FC<NotebookViewerProps> = ({
           <button
             onClick={handleExportMarkdown}
             title={locale === 'zh-CN' ? '导出为 Markdown 文档' : 'Export as Markdown'}
+            aria-label="导出为 Markdown 文档"
             className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded text-xs transition font-medium border border-slate-700"
           >
             <FileText className="w-3.5 h-3.5 text-emerald-400" />
-            <span>.md</span>
+            <span className="hidden sm:inline">.md</span>
           </button>
 
           <button
             onClick={handleExportScript}
             title={locale === 'zh-CN' ? '导出为纯脚本' : 'Export as Script'}
+            aria-label="导出为纯脚本"
             className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded text-xs transition font-medium border border-slate-700"
           >
             <FileCode className="w-3.5 h-3.5 text-amber-400" />
-            <span>.py</span>
+            <span className="hidden sm:inline">.py</span>
           </button>
 
           <button

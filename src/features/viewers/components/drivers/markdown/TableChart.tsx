@@ -157,7 +157,7 @@ export const TableChart: React.FC<TableChartProps> = ({
             title={t('tableChartBar', locale)}
           >
             <BarChart3 className="w-3.5 h-3.5" />
-            <span>{t('tableChartBar', locale)}</span>
+            <span className="hidden sm:inline">{t('tableChartBar', locale)}</span>
           </button>
           <button
             type="button"
@@ -168,7 +168,7 @@ export const TableChart: React.FC<TableChartProps> = ({
             title={t('tableChartLine', locale)}
           >
             <LineChartIcon className="w-3.5 h-3.5" />
-            <span>{t('tableChartLine', locale)}</span>
+            <span className="hidden sm:inline">{t('tableChartLine', locale)}</span>
           </button>
         </div>
       </div>

@@ -229,9 +229,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
               currentView === 'editor' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
             }`}
+            title="渲染工作台"
+            aria-label="渲染工作台"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>渲染工作台</span>
+            <span className="hidden sm:inline">渲染工作台</span>
           </button>
           <button
             onClick={() => onViewChange('docs')}
@@ -248,6 +250,8 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
               currentView === 'drivers' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
             }`}
+            title="驱动矩阵与生态对标"
+            aria-label="驱动矩阵"
           >
             <Cpu className="w-3.5 h-3.5" />
             <span>驱动矩阵</span>
@@ -257,6 +261,8 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
               currentView === 'scaffold' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
             }`}
+            title="VS Code 插件生产源码脚手架"
+            aria-label="扩展脚手架"
           >
             <Terminal className="w-3.5 h-3.5" />
             <span>扩展脚手架</span>

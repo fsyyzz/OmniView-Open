@@ -64,7 +64,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
             aria-label={t('copyCode', locale)}
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{isCopied ? t('copied', locale) : (locale === 'zh-CN' ? '复制' : 'Copy')}</span>
+            <span className="hidden sm:inline">{isCopied ? t('copied', locale) : (locale === 'zh-CN' ? '复制' : 'Copy')}</span>
           </button>
         </div>
       </div>

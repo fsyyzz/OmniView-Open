@@ -122,26 +122,31 @@ export const DocCenter: React.FC<DocCenterProps> = ({ onOpenInWorkbench }) => {
               onClick={() => onOpenInWorkbench(currentDoc.title, currentDoc.content)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-cyan-300 hover:text-cyan-200 text-xs rounded-lg border border-slate-700 transition"
               title="将当前文档载入工作台编辑器进行实时编辑与双模调试"
+              aria-label="在工作台编辑"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>在工作台编辑</span>
+              <span className="hidden sm:inline">在工作台编辑</span>
             </button>
           )}
 
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs rounded-lg border border-slate-700 transition"
+            title={copied ? '已复制 Markdown' : '复制全文'}
+            aria-label={copied ? '已复制 Markdown' : '复制全文'}
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? '已复制 Markdown' : '复制全文'}</span>
+            <span className="hidden sm:inline">{copied ? '已复制 Markdown' : '复制全文'}</span>
           </button>
 
           <button
             onClick={handleDownload}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg shadow-sm transition"
+            title="导出 .md 文件"
+            aria-label="导出 .md 文件"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>导出 .md 文件</span>
+            <span className="hidden sm:inline">导出 .md 文件</span>
           </button>
         </div>
       </div>

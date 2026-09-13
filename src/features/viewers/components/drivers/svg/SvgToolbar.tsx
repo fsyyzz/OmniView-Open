@@ -294,10 +294,12 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
-            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-md transition shadow-sm font-medium"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-md transition shadow-sm font-medium"
+            title="导出与代码转换"
+            aria-label="导出 / 转换"
           >
             {copiedAction ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Share2 className="w-3.5 h-3.5" />}
-            <span>{copiedAction ? `已复制: ${copiedAction}` : '导出 / 转换'}</span>
+            <span className="hidden sm:inline">{copiedAction ? `已复制: ${copiedAction}` : '导出 / 转换'}</span>
             <ChevronDown className="w-3 h-3 opacity-70" />
           </button>
 

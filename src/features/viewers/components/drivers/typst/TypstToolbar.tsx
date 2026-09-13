@@ -120,7 +120,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
               }`}
             >
               <Cpu className="w-3 h-3 text-emerald-400" />
-              <span>typst.ts</span>
+              <span className="hidden sm:inline">typst.ts</span>
             </button>
             <button
               onClick={() => setEngineType('native')}
@@ -132,7 +132,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
               }`}
             >
               <Sparkles className="w-3 h-3" />
-              <span>{locale === 'zh-CN' ? '极速' : 'Fast'}</span>
+              <span className="hidden sm:inline">{locale === 'zh-CN' ? '极速' : 'Fast'}</span>
             </button>
           </div>
 
@@ -140,7 +140,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
           {isCompiling && (
             <div className="flex items-center gap-1 text-[11px] text-amber-400 animate-pulse bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
               <Loader2 className="w-3 h-3 animate-spin" />
-              <span>{locale === 'zh-CN' ? 'WASM 编译中...' : 'Compiling...'}</span>
+              <span className="hidden sm:inline">{locale === 'zh-CN' ? 'WASM 编译中...' : 'Compiling...'}</span>
             </div>
           )}
         </div>
@@ -158,7 +158,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
             }`}
           >
             <Columns2 className="w-3.5 h-3.5" />
-            <span>{locale === 'zh-CN' ? '分屏' : 'Split'}</span>
+            <span className="hidden sm:inline">{locale === 'zh-CN' ? '分屏' : 'Split'}</span>
           </button>
           <button
             onClick={() => setStudioMode('preview')}
@@ -168,7 +168,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>{locale === 'zh-CN' ? '预览' : 'Preview'}</span>
+            <span className="hidden sm:inline">{locale === 'zh-CN' ? '预览' : 'Preview'}</span>
           </button>
           <button
             onClick={() => setStudioMode('code')}
@@ -178,7 +178,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>{locale === 'zh-CN' ? '源码' : 'Code'}</span>
+            <span className="hidden sm:inline">{locale === 'zh-CN' ? '源码' : 'Code'}</span>
           </button>
         </div>
 
@@ -291,7 +291,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
           className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-lg text-xs transition font-medium border border-slate-700"
         >
           <Download className="w-3.5 h-3.5 text-emerald-400" />
-          <span>SVG</span>
+          <span className="hidden sm:inline">SVG</span>
         </button>
 
         <button
@@ -300,7 +300,7 @@ export const TypstToolbar: React.FC<TypstToolbarProps> = ({
           className="flex items-center gap-1 px-2.5 py-1 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 rounded-lg text-xs transition font-medium border border-sky-500/30"
         >
           <Printer className="w-3.5 h-3.5" />
-          <span>{locale === 'zh-CN' ? '打印' : 'Print'}</span>
+          <span className="hidden sm:inline">{locale === 'zh-CN' ? '打印' : 'Print'}</span>
         </button>
       </div>
     </div>

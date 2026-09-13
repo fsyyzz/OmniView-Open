@@ -118,7 +118,7 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
             title="美化 XML 代码缩进"
           >
             <Sparkles className="w-3 h-3 text-cyan-400" />
-            <span>格式化</span>
+            <span className="hidden sm:inline">格式化</span>
           </button>
 
           <button
@@ -128,7 +128,7 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
             title="SVGO 净化：剔除设计器冗余元数据、注释与多余属性"
           >
             <Wand2 className="w-3 h-3 text-purple-400" />
-            <span>SVGO 净化</span>
+            <span className="hidden sm:inline">SVGO 净化</span>
           </button>
 
           {isDirty && (
@@ -138,7 +138,7 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
               title="放弃改动，恢复初始文件"
             >
               <RotateCcw className="w-3 h-3 text-slate-400" />
-              <span>还原</span>
+              <span className="hidden sm:inline">还原</span>
             </button>
           )}
         </div>
