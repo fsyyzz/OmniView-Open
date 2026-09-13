@@ -3,8 +3,9 @@
  */
 import type { FileItem, DriverId } from '../../../shared/types.ts';
 
-export function getDriverIdForFile(file: FileItem): DriverId {
-  const extension = (file.extension || '').toLowerCase();
+export function getDriverIdForFile(file?: Partial<FileItem> | null): DriverId {
+  if (!file) return 'markdown';
+  const extension = (file.extension || file.name?.split('.').pop() || '').toLowerCase();
   if (['md', 'markdown', 'okf'].includes(extension)) return 'markdown';
   if (['mm', 'markmap', 'mindmap', 'km'].includes(extension)) return 'mindmap';
   if (['puml', 'plantuml', 'iuml'].includes(extension)) return 'plantuml';
@@ -15,6 +16,6 @@ export function getDriverIdForFile(file: FileItem): DriverId {
   if (['csv', 'tsv'].includes(extension)) return 'csv';
   if (['ipynb'].includes(extension)) return 'notebook';
   if (['typ', 'typst'].includes(extension)) return 'typst';
-  if (['excalidraw'].includes(extension) || file.name.toLowerCase().endsWith('.excalidraw.json')) return 'excalidraw';
+  if (['excalidraw'].includes(extension) || (file.name && file.name.toLowerCase().endsWith('.excalidraw.json'))) return 'excalidraw';
   return 'code';
 }

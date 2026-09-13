@@ -311,11 +311,11 @@ const MarkdownPluginView: React.FC<{
       const goPrev = event.key === 'ArrowUp' || event.key === 'PageUp';
 
       if (!goNext && !goPrev) return;
-      if (headings.length === 0) return;
+      if (!headings || headings.length === 0) return;
 
       event.preventDefault();
       if (goNext) {
-        jumpToHeading(Math.min(activeHeadingIndex + 1, headings.length - 1));
+        jumpToHeading(Math.min(activeHeadingIndex + 1, (headings.length || 1) - 1));
       } else {
         jumpToHeading(Math.max(activeHeadingIndex - 1, 0));
       }
@@ -323,7 +323,7 @@ const MarkdownPluginView: React.FC<{
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [presentationMode, headings.length, activeHeadingIndex, jumpToHeading]);
+  }, [presentationMode, headings?.length, activeHeadingIndex, jumpToHeading]);
 
   const handleTogglePresentationMode = useCallback(() => {
     setPresentationMode(prev => {
@@ -339,15 +339,15 @@ const MarkdownPluginView: React.FC<{
   const activeFile = useMemo(
     () => ({
       ...file,
-      content: documentContent,
-      size: new TextEncoder().encode(documentContent).length,
+      content: documentContent || '',
+      size: new TextEncoder().encode(documentContent || '').length,
       lastModified: Date.now(),
       isModified: true,
     }),
     [file, documentContent]
   );
 
-  const viewerFiles = useMemo(() => [activeFile, ...(file.relatedFiles || [])], [activeFile, file.relatedFiles]);
+  const viewerFiles = useMemo(() => [activeFile, ...(file?.relatedFiles || [])], [activeFile, file?.relatedFiles]);
 
   // 搜索关键字高亮与变色联动（仅做高亮标注，绝不打断用户滚动）
   useEffect(() => {
@@ -591,8 +591,8 @@ const MarkdownPluginView: React.FC<{
     [vscode, file.path]
   );
 
-  const currentHeading = headings[activeHeadingIndex];
-  const fileWordCount = Math.max(1, file.content.trim().split(/\s+/).length);
+  const currentHeading = headings?.[activeHeadingIndex];
+  const fileWordCount = Math.max(1, (file?.content || '').trim().split(/\s+/).filter(Boolean).length || 1);
 
   return (
     <main
@@ -609,9 +609,9 @@ const MarkdownPluginView: React.FC<{
     >
       {/* Top Document Toolbar */}
       <MarkdownToolbar
-        fileName={file.name}
-        filePath={file.path}
-        headingsCount={headings.length}
+        fileName={file?.name || 'untitled'}
+        filePath={file?.path || ''}
+        headingsCount={headings?.length ?? 0}
         currentHeading={currentHeading}
         readingProgress={readingProgress}
         outlineOpen={outlineOpen}
@@ -642,12 +642,12 @@ const MarkdownPluginView: React.FC<{
         onPrint={handlePrint}
         onExportWord={handleExportWord}
         isExportingWord={isExportingWord}
-        onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file.path }) : undefined}
+        onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file?.path || '' }) : undefined}
         onScrollToTop={scrollToTop}
         copied={copied}
         copiedSection={copiedSection}
         copiedRich={copiedRich}
-        fileCharCount={documentContent.length}
+        fileCharCount={documentContent?.length ?? 0}
         fileWordCount={fileWordCount}
         isVisible={toolbarVisible}
         onMouseEnter={() => setToolbarVisible(true)}
@@ -752,7 +752,7 @@ const MarkdownPluginView: React.FC<{
       {!presentationMode && (
       <DocStatusBar
         wordCount={fileWordCount}
-        sectionCount={headings.length}
+        sectionCount={headings?.length ?? 0}
         readingProgress={readingProgress}
         activeMatchIndex={activeMatchIndex}
         matchCount={matchCount}
@@ -767,7 +767,7 @@ const MarkdownPluginView: React.FC<{
       {presentationMode && (
         <div className="markdown-presentation-hud" aria-live="polite">
           <span>
-            {Math.min(activeHeadingIndex + 1, Math.max(headings.length, 1))}/{Math.max(headings.length, 1)}
+            {Math.min(activeHeadingIndex + 1, Math.max(headings?.length ?? 0, 1))}/{Math.max(headings?.length ?? 0, 1)}
           </span>
           <span className="markdown-presentation-hud-hint">{t('presentationHudHint', locale)}</span>
         </div>

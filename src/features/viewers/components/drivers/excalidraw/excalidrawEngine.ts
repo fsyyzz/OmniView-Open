@@ -12,6 +12,56 @@ export interface ExcalidrawParsedData {
 }
 
 /**
+ * 健壮规范化与防御修补 Excalidraw 图元，防止缺失内部字段导致 Canvas 渲染崩溃
+ */
+export function sanitizeExcalidrawElements(rawElements: any[]): any[] {
+  if (!Array.isArray(rawElements)) return [];
+  return rawElements
+    .filter((el) => el && typeof el === 'object')
+    .map((el, index) => {
+      const type = el.type || 'rectangle';
+      const isLinear = ['arrow', 'line', 'freedraw'].includes(type);
+      const width = typeof el.width === 'number' ? el.width : 100;
+      const height = typeof el.height === 'number' ? el.height : 60;
+
+      let points = el.points;
+      if (isLinear && (!Array.isArray(points) || points.length === 0)) {
+        points = [[0, 0], [width || 80, height || 0]];
+      }
+
+      return {
+        id: String(el.id || `el-${index}-${Date.now()}`),
+        type,
+        x: typeof el.x === 'number' ? el.x : 0,
+        y: typeof el.y === 'number' ? el.y : 0,
+        width,
+        height,
+        angle: typeof el.angle === 'number' ? el.angle : 0,
+        strokeColor: el.strokeColor || '#1e1e1e',
+        backgroundColor: el.backgroundColor || 'transparent',
+        fillStyle: el.fillStyle || 'hachure',
+        strokeWidth: typeof el.strokeWidth === 'number' ? el.strokeWidth : 1,
+        strokeStyle: el.strokeStyle || 'solid',
+        roughness: typeof el.roughness === 'number' ? el.roughness : 1,
+        opacity: typeof el.opacity === 'number' ? el.opacity : 100,
+        groupIds: Array.isArray(el.groupIds) ? el.groupIds : [],
+        frameId: el.frameId ?? null,
+        roundness: el.roundness ?? null,
+        seed: typeof el.seed === 'number' ? el.seed : Math.floor(Math.random() * 100000),
+        version: typeof el.version === 'number' ? el.version : 1,
+        versionNonce: typeof el.versionNonce === 'number' ? el.versionNonce : 1,
+        isDeleted: Boolean(el.isDeleted),
+        boundElements: Array.isArray(el.boundElements) ? el.boundElements : null,
+        updated: typeof el.updated === 'number' ? el.updated : 1,
+        link: el.link ?? null,
+        locked: Boolean(el.locked),
+        ...(isLinear ? { points } : {}),
+        ...el,
+      };
+    });
+}
+
+/**
  * 健壮解析 Excalidraw JSON 格式，兼容各种结构（包含嵌套或纯 elements 数组）
  */
 export function parseExcalidrawJson(rawContent: string): ExcalidrawParsedData {
@@ -30,7 +80,7 @@ export function parseExcalidrawJson(rawContent: string): ExcalidrawParsedData {
 
     // 情况 1: 标准 Excalidraw 文档对象 { type: 'excalidraw', elements: [...], appState: {...} }
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      const elements = Array.isArray(parsed.elements) ? parsed.elements : [];
+      const elements = sanitizeExcalidrawElements(parsed.elements);
       const appState = parsed.appState && typeof parsed.appState === 'object' ? parsed.appState : {};
       const files = parsed.files && typeof parsed.files === 'object' ? parsed.files : null;
 
@@ -49,7 +99,7 @@ export function parseExcalidrawJson(rawContent: string): ExcalidrawParsedData {
     // 情况 2: 纯元素数组 [...]
     if (Array.isArray(parsed)) {
       return {
-        elements: parsed,
+        elements: sanitizeExcalidrawElements(parsed),
         appState: { viewBackgroundColor: '#ffffff', exportWithDarkMode: false },
         files: null,
         isValid: true,

@@ -870,7 +870,7 @@ export const ScaffoldExporter: React.FC = () => {
               <span className="text-slate-400 text-[11px] font-sans">{selectedFile.description}</span>
             </div>
             <div className="flex items-center gap-3 font-mono text-[11px]">
-              <span>{selectedFile.content.split('\n').length} 行</span>
+              <span>{selectedFile?.content ? selectedFile.content.split('\n').length : 0} 行</span>
               <span className="uppercase px-2 py-0.5 bg-slate-800 rounded text-slate-300">
                 {selectedFile.language}
               </span>

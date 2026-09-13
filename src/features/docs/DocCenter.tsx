@@ -266,7 +266,7 @@ export const DocCenter: React.FC<DocCenterProps> = ({ onOpenInWorkbench }) => {
         </div>
 
         {/* 右侧大纲快速导航面板 */}
-        {headings.length > 0 && (
+        {(headings?.length ?? 0) > 0 && (
           <div className="hidden 2xl:flex w-64 border-l border-slate-800 bg-slate-900/30 p-4 flex-col shrink-0 overflow-hidden">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-300 pb-3 border-b border-slate-800 shrink-0">
               <ListTree className="w-3.5 h-3.5 text-blue-400" />

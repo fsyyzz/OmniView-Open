@@ -252,7 +252,8 @@ export default function App() {
     );
   }
 
-  const activeFile = files.find(f => f.id === activeFileId) || files[0];
+  const safeFiles = files.length > 0 ? files : INITIAL_FILES;
+  const activeFile = safeFiles.find(f => f.id === activeFileId) || safeFiles[0] || INITIAL_FILES[0];
   const activeDriverId = activeFile ? getDriverIdForFile(activeFile) : 'markdown';
 
   // Tab management with persistence
@@ -413,121 +414,123 @@ flowchart LR
   };
 
   return (
-    <div
-      data-theme={theme}
-      data-density={density}
-      className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans transition-colors duration-200"
-      style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)' }}
-    >
-      {/* Top Application Bar */}
-      <WorkbenchHeader
-        currentView={currentView}
-        onViewChange={handleCurrentViewChange}
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
-        onFileUpload={handleFileUpload}
-        onNewFile={handleNewFile}
-        activeFile={activeFile}
-        currentTheme={theme}
-        onThemeChange={handleThemeChange}
-        density={density}
-        onDensityChange={handleDensityChange}
-        zoom={zoom}
-        onZoomChange={handleZoomChange}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
-      />
-
-      {/* Main Workspace */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sidebar with collapsible state & persistence */}
-        <Sidebar
-          files={files}
-          activeFileId={activeFileId}
-          onSelectFile={handleSelectFile}
-          onDeleteFile={handleDeleteFile}
+    <RenderErrorBoundary blockName="OmniView Workbench Shell">
+      <div
+        data-theme={theme}
+        data-density={density}
+        className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans transition-colors duration-200"
+        style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)' }}
+      >
+        {/* Top Application Bar */}
+        <WorkbenchHeader
           currentView={currentView}
           onViewChange={handleCurrentViewChange}
-          onDropFiles={handleDropFiles}
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={handleToggleSidebar}
-          explorerOpen={explorerOpen}
-          onToggleExplorer={handleToggleExplorer}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          onFileUpload={handleFileUpload}
+          onNewFile={handleNewFile}
+          activeFile={activeFile}
+          currentTheme={theme}
+          onThemeChange={handleThemeChange}
+          density={density}
+          onDensityChange={handleDensityChange}
+          zoom={zoom}
+          onZoomChange={handleZoomChange}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
         />
 
-        {/* Center Main Stage */}
-        <main className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--ov-bg)' }}>
-          {/* If viewing Documentation Center */}
-          {currentView === 'docs' && (
-            <DocCenter
-              onOpenInWorkbench={(title, content) => {
-                handleNewFile(`${title.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_')}.md`, content, 'md');
-                handleCurrentViewChange('editor');
-              }}
-            />
-          )}
+        {/* Main Workspace */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Left Sidebar with collapsible state & persistence */}
+          <Sidebar
+            files={files}
+            activeFileId={activeFileId}
+            onSelectFile={handleSelectFile}
+            onDeleteFile={handleDeleteFile}
+            currentView={currentView}
+            onViewChange={handleCurrentViewChange}
+            onDropFiles={handleDropFiles}
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={handleToggleSidebar}
+            explorerOpen={explorerOpen}
+            onToggleExplorer={handleToggleExplorer}
+            onOpenSettings={() => setIsSettingsModalOpen(true)}
+          />
 
-          {/* If viewing Drivers Manager */}
-          {currentView === 'drivers' && (
-            <DriversManager
-              onOpenSampleFile={(extension) => {
-                const match = files.find(f => f.extension.toLowerCase() === extension.toLowerCase());
-                if (match) {
-                  handleSelectFile(match.id);
-                }
-                handleCurrentViewChange('editor');
-              }}
-            />
-          )}
+          {/* Center Main Stage */}
+          <main className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--ov-bg)' }}>
+            {/* If viewing Documentation Center */}
+            {currentView === 'docs' && (
+              <DocCenter
+                onOpenInWorkbench={(title, content) => {
+                  handleNewFile(`${title.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_')}.md`, content, 'md');
+                  handleCurrentViewChange('editor');
+                }}
+              />
+            )}
 
-          {/* If viewing Extension Scaffolding */}
-          {currentView === 'scaffold' && <ScaffoldExporter />}
+            {/* If viewing Drivers Manager */}
+            {currentView === 'drivers' && (
+              <DriversManager
+                onOpenSampleFile={(extension) => {
+                  const match = files.find(f => f.extension.toLowerCase() === extension.toLowerCase());
+                  if (match) {
+                    handleSelectFile(match.id);
+                  }
+                  handleCurrentViewChange('editor');
+                }}
+              />
+            )}
 
-          {/* If in Editor Workbench Mode */}
-          {currentView === 'editor' && (
-            <EditorWorkspace
-              files={files}
-              activeFile={activeFile}
-              activeFileId={activeFileId}
-              openTabIds={openTabIds}
-              viewMode={viewMode}
-              theme={theme}
-              density={density}
-              zoom={zoom}
-              onSelectTab={(id) => {
-                setActiveFileId(id);
-                saveStoredSettings({ activeFileId: id });
-              }}
-              onCloseTab={handleCloseTab}
-              onNewFile={handleNewFile}
-              onContentChange={handleContentChange}
-              enableOkf={settings.enableOkfRendering}
-              onToggleOkf={() => {
-                const next = !(settings.enableOkfRendering ?? true);
-                setSettings(prev => ({ ...prev, enableOkfRendering: next }));
-                saveStoredSettings({ enableOkfRendering: next });
-              }}
-            />
-          )}
-        </main>
+            {/* If viewing Extension Scaffolding */}
+            {currentView === 'scaffold' && <ScaffoldExporter />}
+
+            {/* If in Editor Workbench Mode */}
+            {currentView === 'editor' && (
+              <EditorWorkspace
+                files={files}
+                activeFile={activeFile}
+                activeFileId={activeFileId}
+                openTabIds={openTabIds}
+                viewMode={viewMode}
+                theme={theme}
+                density={density}
+                zoom={zoom}
+                onSelectTab={(id) => {
+                  setActiveFileId(id);
+                  saveStoredSettings({ activeFileId: id });
+                }}
+                onCloseTab={handleCloseTab}
+                onNewFile={handleNewFile}
+                onContentChange={handleContentChange}
+                enableOkf={settings.enableOkfRendering}
+                onToggleOkf={() => {
+                  const next = !(settings.enableOkfRendering ?? true);
+                  setSettings(prev => ({ ...prev, enableOkfRendering: next }));
+                  saveStoredSettings({ enableOkfRendering: next });
+                }}
+              />
+            )}
+          </main>
+        </div>
+
+        {/* Bottom Status Bar */}
+        <StatusBar
+          activeDriverId={activeDriverId}
+          fileName={activeFile?.name}
+          fileSize={activeFile?.size}
+          lineCount={activeFile?.content ? activeFile.content.split('\n').length : 0}
+        />
+
+        {/* Global Preferences & Persistence Settings Modal */}
+        <WorkbenchSettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          settings={settings}
+          onSettingsChange={handleSettingsModalChange}
+          onResetWorkspace={handleResetWorkspace}
+        />
       </div>
-
-      {/* Bottom Status Bar */}
-      <StatusBar
-        activeDriverId={activeDriverId}
-        fileName={activeFile?.name}
-        fileSize={activeFile?.size}
-        lineCount={activeFile?.content?.split('\n').length || 0}
-      />
-
-      {/* Global Preferences & Persistence Settings Modal */}
-      <WorkbenchSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        settings={settings}
-        onSettingsChange={handleSettingsModalChange}
-        onResetWorkspace={handleResetWorkspace}
-      />
-    </div>
+    </RenderErrorBoundary>
   );
 }

@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "0.9.24",
+  "version": "0.10.1",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -178,6 +178,7 @@
     "vscode:prepublish": "npm run build:plugin"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
     "@excalidraw/utils": "^0.1.5",
     "@hpcc-js/wasm-graphviz": "^1.29.0",
     "@myriaddreamin/typst-ts-renderer": "^0.7.0",

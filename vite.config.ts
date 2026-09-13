@@ -33,11 +33,18 @@ export default defineConfig(() => {
             if (id.includes('node_modules/js-yaml')) {
               return 'vendor-yaml';
             }
+            if (id.includes('node_modules/@excalidraw')) {
+              return 'vendor-excalidraw';
+            }
           },
         },
       },
     },
     plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.IS_PREACT': JSON.stringify('false'),
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

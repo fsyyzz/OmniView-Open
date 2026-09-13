@@ -8,6 +8,7 @@ import { Locale } from '../../shared/lib/i18n';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { Eye, Network, Loader2 } from 'lucide-react';
 import { getDriverIdForFile } from './lib/driverRouting';
+import { RenderErrorBoundary } from './components/common/RenderErrorBoundary';
 
 export { getDriverIdForFile };
 
@@ -306,8 +307,10 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   };
 
   return (
-    <Suspense fallback={<DriverLoadingFallback fileName={file.name} />}>
-      {renderDriverContent()}
-    </Suspense>
+    <RenderErrorBoundary blockName={`OmniView Driver (${driverId})`}>
+      <Suspense fallback={<DriverLoadingFallback fileName={file.name} />}>
+        {renderDriverContent()}
+      </Suspense>
+    </RenderErrorBoundary>
   );
 };

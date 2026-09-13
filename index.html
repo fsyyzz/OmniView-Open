@@ -11,6 +11,9 @@
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
+    <script>
+      window.process = window.process || { env: { NODE_ENV: 'development', IS_PREACT: 'false' }, version: '' };
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
