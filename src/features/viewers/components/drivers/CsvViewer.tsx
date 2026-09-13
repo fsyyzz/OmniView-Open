@@ -26,7 +26,10 @@ import {
   Columns,
   Rows,
   CornerDownLeft,
-  CheckCheck
+  CheckCheck,
+  BarChart2,
+  Activity,
+  Sparkles
 } from 'lucide-react';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import {
@@ -36,6 +39,9 @@ import {
   exportToJson,
   exportToMarkdown
 } from './csv/csvUtils';
+import { profileAllColumns, ColumnProfile } from './csv/csvProfiling';
+import { ColumnSparklineMini } from './csv/ColumnSparklineMini';
+import { ColumnProfileModal } from './csv/ColumnProfileModal';
 
 interface CsvViewerProps {
   content: string;
@@ -94,6 +100,13 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [showAddColDialog, setShowAddColDialog] = useState(false);
   const [newColName, setNewColName] = useState('');
+
+  // Header Data Profiling & Sparkline States
+  const [showProfiling, setShowProfiling] = useState<boolean>(true);
+  const [inspectingProfile, setInspectingProfile] = useState<ColumnProfile | null>(null);
+
+  // Compute Data Profiling for all columns
+  const columnProfiles = useMemo(() => profileAllColumns(headers, rows), [headers, rows]);
 
   // Check if content was modified compared to initial
   const currentSerialized = useMemo(() => serializeCsv(headers, rows, delimiter), [headers, rows, delimiter]);
@@ -480,9 +493,24 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
 
         {/* Right Action Tools */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Table Mode Action Buttons: + Row & + Col */}
+          {/* Table Mode Action Buttons: + Row & + Col & Profiling Toggle */}
           {viewMode === 'table' && (
             <>
+              {/* Data Profiling / Sparkline Toggle Button */}
+              <button
+                onClick={() => setShowProfiling(!showProfiling)}
+                className={`flex items-center gap-1 px-2 py-1 rounded border text-xs transition ${
+                  showProfiling
+                    ? 'bg-emerald-600/30 border-emerald-500/60 text-emerald-300 shadow-sm'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-slate-700'
+                }`}
+                title={t('csvProfilingTooltip', locale)}
+                aria-label={t('csvProfiling', locale)}
+              >
+                <Activity className={`w-3.5 h-3.5 ${showProfiling ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <span className="hidden sm:inline">{t('csvProfiling', locale)}</span>
+              </button>
+
               <button
                 onClick={handleAddRowAtBottom}
                 className="flex items-center gap-1 px-2 py-1 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 rounded border border-emerald-700/60 text-xs transition"
@@ -711,6 +739,16 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                                 </div>
                               )}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Column Sparkline & Data Profile Card Mini */}
+                        {showProfiling && columnProfiles[colIdx] && (
+                          <div className="mt-1.5 pt-1 border-t border-slate-800/60">
+                            <ColumnSparklineMini
+                              profile={columnProfiles[colIdx]}
+                              onClickInspect={profile => setInspectingProfile(profile)}
+                            />
                           </div>
                         )}
                       </th>
@@ -948,6 +986,26 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* Column Data Profile & Statistics Deep-Dive Modal */}
+      {inspectingProfile && (
+        <ColumnProfileModal
+          profile={inspectingProfile}
+          locale={locale}
+          onClose={() => setInspectingProfile(null)}
+          onSortAsc={colIdx => {
+            setSortCol(colIdx);
+            setSortAsc(true);
+          }}
+          onSortDesc={colIdx => {
+            setSortCol(colIdx);
+            setSortAsc(false);
+          }}
+          onFilterValue={val => {
+            setSearchQuery(val);
+            setPage(1);
+          }}
+        />
       )}
     </div>
   );

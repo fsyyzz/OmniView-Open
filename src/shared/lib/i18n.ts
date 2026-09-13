@@ -157,6 +157,11 @@ export const TRANSLATIONS = {
     csvSearch: '全局搜索数据…',
     csvNoData: '无符合条件的数据',
     csvExport: '导出 CSV',
+    csvProfiling: '数据画像',
+    csvProfilingTooltip: '切换表头数据画像与 Sparkline 微图展示 (类型/极值/分布直方图)',
+    csvSparkline: 'Sparkline 趋势',
+    csvHistogram: '分布直方图',
+    csvInspectColumn: '查看列数据画像',
 
     // Markdown Table Enhancements
     tableColsRows: '{cols} 列 × {rows} 行',
@@ -439,6 +444,11 @@ export const TRANSLATIONS = {
     csvSearch: 'Search data…',
     csvNoData: 'No matching data',
     csvExport: 'Export CSV',
+    csvProfiling: 'Data Profiling',
+    csvProfilingTooltip: 'Toggle header data profiling & Sparkline micro-charts (Types/Extremes/Histograms)',
+    csvSparkline: 'Sparkline Trend',
+    csvHistogram: 'Distribution Histogram',
+    csvInspectColumn: 'Inspect Column Profile',
 
     // Markdown Table Enhancements
     tableColsRows: '{cols} cols × {rows} rows',
