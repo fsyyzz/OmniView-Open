@@ -15,5 +15,6 @@ export function getDriverIdForFile(file: FileItem): DriverId {
   if (['csv', 'tsv'].includes(extension)) return 'csv';
   if (['ipynb'].includes(extension)) return 'notebook';
   if (['typ', 'typst'].includes(extension)) return 'typst';
+  if (['excalidraw'].includes(extension) || file.name.toLowerCase().endsWith('.excalidraw.json')) return 'excalidraw';
   return 'code';
 }

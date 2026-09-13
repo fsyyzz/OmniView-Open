@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath } from 'node:path';
 
 const VIEW_TYPE = 'omniview.editor';
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km'];
+const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw'];
 let output: vscode.OutputChannel;
 
 function log(message: string, details?: unknown): void {

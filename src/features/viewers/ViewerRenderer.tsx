@@ -24,6 +24,7 @@ const CodeViewer = lazy(() => import('./components/drivers/CodeViewer').then(m =
 const MindmapViewer = lazy(() => import('./components/drivers/MindmapViewer').then(m => ({ default: m.MindmapViewer })));
 const NotebookViewer = lazy(() => import('./components/drivers/NotebookViewer').then(m => ({ default: m.NotebookViewer })));
 const TypstViewer = lazy(() => import('./components/drivers/TypstViewer').then(m => ({ default: m.TypstViewer })));
+const ExcalidrawViewer = lazy(() => import('./components/drivers/ExcalidrawViewer').then(m => ({ default: m.ExcalidrawViewer })));
 
 const DriverLoadingFallback: React.FC<{ fileName: string }> = ({ fileName }) => (
   <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center gap-3 p-8 text-slate-400 select-none">
@@ -276,6 +277,16 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
             locale={locale}
             onContentChange={onContentChange}
             onOpenSourceAtLine={onOpenSourceAtLine}
+          />
+        )}
+        {driverId === 'excalidraw' && (
+          <ExcalidrawViewer
+            content={file.content}
+            fileName={file.name}
+            isDarkTheme={isDarkTheme}
+            theme={theme}
+            locale={locale}
+            onContentChange={onContentChange}
           />
         )}
         {driverId === 'code' && (

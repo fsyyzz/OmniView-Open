@@ -67,7 +67,10 @@ assert.strictEqual(getDriverIdForFile(mockFile('LAB.IPYNB', 'IPYNB')), 'notebook
 assert.strictEqual(getDriverIdForFile(mockFile('paper.typ', 'typ')), 'typst');
 assert.strictEqual(getDriverIdForFile(mockFile('thesis.typst', 'typst')), 'typst');
 assert.strictEqual(getDriverIdForFile(mockFile('REPORT.TYP', 'TYP')), 'typst', '大写 TYP 后缀路由错误');
-console.log('✅ Jupyter Notebook 与 Typst 驱动路由测试通过');
+assert.strictEqual(getDriverIdForFile(mockFile('diagram.excalidraw', 'excalidraw')), 'excalidraw');
+assert.strictEqual(getDriverIdForFile(mockFile('FLOW.EXCALIDRAW', 'EXCALIDRAW')), 'excalidraw', '大写 EXCALIDRAW 路由错误');
+assert.strictEqual(getDriverIdForFile(mockFile('sketch.excalidraw.json', 'json')), 'excalidraw', '.excalidraw.json 应正确路由至 excalidraw');
+console.log('✅ Jupyter Notebook、Typst 与 Excalidraw 驱动路由测试通过');
 
 // 6. 源码与结构化文本路由至 code 驱动
 console.log('--- 测试 6: 代码高亮与工程配置文件路由 ---');
