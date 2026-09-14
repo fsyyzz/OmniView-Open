@@ -84,6 +84,16 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
 
   if (!['md', 'markdown', 'okf'].includes(file.extension.toLowerCase())) {
     const _locale = getStoredLocale();
+    const persistContent = (newContent: string) => {
+      onContentChange?.(newContent);
+      if (vscode) {
+        vscode.postMessage({
+          type: 'document-change',
+          path: file.path,
+          content: newContent,
+        });
+      }
+    };
     return (
       <main
         className="flex h-full w-full min-h-0 flex-col overflow-hidden text-slate-100"
@@ -119,7 +129,7 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
             mode="preview"
             theme={currentTheme}
             density={currentDensity}
-            onContentChange={onContentChange || (() => undefined)}
+            onContentChange={persistContent}
           />
         </div>
       </main>
@@ -189,6 +199,7 @@ const MarkdownPluginView: React.FC<{
   const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize || 15);
   const [focusMode, setFocusMode] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
+  const focusModeBeforePresentationRef = useRef(false);
   const [printEagerMount, setPrintEagerMount] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState<number>(0);
   const [headingFilterLevel, setHeadingFilterLevel] = useState<number>(6);
@@ -223,13 +234,9 @@ const MarkdownPluginView: React.FC<{
       setDocumentContent(newContent);
       onContentChange?.(newContent);
       if (vscode) {
+        // 分屏/源码编辑写回：由 Host 对 document-change 防抖落盘；save-content 立即落盘
         vscode.postMessage({
           type: 'document-change',
-          path: file.path,
-          content: newContent,
-        });
-        vscode.postMessage({
-          type: 'save-content',
           path: file.path,
           content: newContent,
         });
@@ -291,6 +298,12 @@ const MarkdownPluginView: React.FC<{
   useEffect(() => {
     if (!presentationMode) return;
 
+    const exitPresentation = () => {
+      setPresentationMode(false);
+      // 退出投屏必须还原进入前的专注模式，否则大纲会因 focusMode 残留而无法再显示
+      setFocusMode(focusModeBeforePresentationRef.current);
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
@@ -299,7 +312,7 @@ const MarkdownPluginView: React.FC<{
 
       if (event.key === 'Escape') {
         event.preventDefault();
-        setPresentationMode(false);
+        exitPresentation();
         return;
       }
 
@@ -329,8 +342,13 @@ const MarkdownPluginView: React.FC<{
     setPresentationMode(prev => {
       const next = !prev;
       if (next) {
-        setFocusMode(true);
+        setFocusMode(current => {
+          focusModeBeforePresentationRef.current = current;
+          return true;
+        });
         setAutoScrollSpeed(0);
+      } else {
+        setFocusMode(focusModeBeforePresentationRef.current);
       }
       return next;
     });

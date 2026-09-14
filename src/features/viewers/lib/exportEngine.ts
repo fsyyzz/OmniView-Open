@@ -72,12 +72,22 @@ export function cleanInteractiveElements(root: HTMLElement): void {
     '.doc-status-bar',
     '.table-block-toolbar',
     '.ov-table-block-toolbar',
+    '.ov-table-sort-icon',
     'button',
     '.ov-image-fallback',
   ];
 
   selectorsToRemove.forEach((sel) => {
     root.querySelectorAll(sel).forEach((el) => el.remove());
+  });
+
+  // 表头排序仅用于交互态；导出/打印去掉点击暗示
+  root.querySelectorAll('th').forEach((th) => {
+    const el = th as HTMLElement;
+    el.style.cursor = 'default';
+    if (el.title && /sort|排序/i.test(el.title)) {
+      el.removeAttribute('title');
+    }
   });
 
   // 展开所有被折叠的代码块
@@ -293,7 +303,56 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
     h2 { font-size: 1.5em; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.25em; }
     h3 { font-size: 1.25em; }
     p { margin: 0.8em 0; }
-    pre {
+    /* 代码块：保留行号 gutter 横向布局，字号/行高与正文对齐，禁止换行错位 */
+    .markdown-code-block {
+      background: #f8fafc;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin: 16px 0;
+      overflow: hidden;
+    }
+    .markdown-code-block .code-block-body {
+      display: flex;
+      align-items: stretch;
+      background: #f8fafc;
+    }
+    .markdown-code-block .code-line-gutter {
+      flex-shrink: 0;
+      min-width: 2.4em;
+      padding: 14px 10px 14px 12px;
+      text-align: right;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85em;
+      line-height: 1.55;
+      color: #94a3b8;
+      background: #f1f5f9;
+      border-right: 1px solid #e2e8f0;
+      white-space: pre;
+      user-select: none;
+    }
+    .markdown-code-block .code-line-number {
+      font-size: inherit;
+      line-height: 1.55;
+      height: 1.55em;
+    }
+    .markdown-code-block .code-line-body,
+    .markdown-code-block pre {
+      flex: 1 1 auto;
+      margin: 0;
+      padding: 14px 16px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      overflow-x: auto;
+      white-space: pre;
+      word-break: normal;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85em;
+      line-height: 1.55;
+      color: #0f172a;
+    }
+    pre:not(.code-line-body) {
       background: #f8fafc;
       color: #0f172a;
       border: 1px solid #e2e8f0;
@@ -315,6 +374,11 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
     pre code {
       background: transparent;
       padding: 0;
+      font-size: inherit;
+      line-height: inherit;
+    }
+    .ov-table-sort-icon {
+      display: none !important;
     }
     table {
       border-collapse: collapse;
@@ -329,6 +393,7 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
     th {
       background: #f1f5f9;
       font-weight: 600;
+      cursor: default;
     }
     tr:nth-child(even) td {
       background: #f8fafc;
@@ -384,6 +449,9 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
       h1, h2, h3 {
         break-after: avoid !important;
         page-break-after: avoid !important;
+      }
+      .ov-table-sort-icon {
+        display: none !important;
       }
     }
   </style>

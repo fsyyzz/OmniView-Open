@@ -1308,9 +1308,67 @@ body.vscode-high-contrast-light[data-theme="system"] {
     widows: 3 !important;
   }
 
-  /* 打印代码块：拒绝黑墨水灾难，使用优雅的出版物浅灰底色与深色代码 */
-  .markdown-code-block,
-  pre {
+  /* 打印代码块：浅灰底；有行号 gutter 时禁止仅对 code 换行，避免行号错位 */
+  .markdown-code-block {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1pt solid #e2e8f0 !important;
+    border-radius: 4pt !important;
+    padding: 0 !important;
+    margin: 12pt 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+
+  .markdown-code-block .code-block-header {
+    display: none !important;
+  }
+
+  .markdown-code-block .code-block-body {
+    display: flex !important;
+    align-items: stretch !important;
+    background: #f8fafc !important;
+  }
+
+  .markdown-code-block .code-line-gutter {
+    flex-shrink: 0 !important;
+    min-width: 2.4em !important;
+    padding: 8pt 6pt 8pt 8pt !important;
+    margin: 0 !important;
+    text-align: right !important;
+    font-family: 'Consolas', 'Courier New', ui-monospace, monospace !important;
+    font-size: 9pt !important;
+    line-height: 1.5 !important;
+    color: #94a3b8 !important;
+    background: #f1f5f9 !important;
+    border-right: 1pt solid #e2e8f0 !important;
+    white-space: pre !important;
+    word-break: normal !important;
+  }
+
+  .markdown-code-block .code-line-number {
+    font-size: 9pt !important;
+    line-height: 1.5 !important;
+    height: 1.5em !important;
+  }
+
+  .markdown-code-block .code-line-body,
+  .markdown-code-block pre {
+    flex: 1 1 auto !important;
+    margin: 0 !important;
+    padding: 8pt 10pt !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    /* 与 gutter 一对一：禁止换行导致行号漂移 */
+    white-space: pre !important;
+    word-break: normal !important;
+    overflow-x: auto !important;
+    color: #0f172a !important;
+  }
+
+  pre:not(.code-line-body) {
     background-color: #f8fafc !important;
     color: #0f172a !important;
     border: 1pt solid #e2e8f0 !important;
@@ -1323,12 +1381,18 @@ body.vscode-high-contrast-light[data-theme="system"] {
   }
 
   .markdown-code-block code,
+  .markdown-code-block .code-line-gutter,
   pre code {
     color: #0f172a !important;
     background: transparent !important;
     font-family: 'Consolas', 'Courier New', ui-monospace, monospace !important;
     font-size: 9pt !important;
     line-height: 1.5 !important;
+  }
+
+  /* 导出/打印：隐藏表格排序箭头 */
+  .ov-table-sort-icon {
+    display: none !important;
   }
 
   /* 代码高亮关键字清晰度净化 */

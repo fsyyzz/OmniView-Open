@@ -95,7 +95,12 @@ function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, initi
     assetsBase = vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'assets');
   }
   log(`Loading Webview HTML: ${htmlPath.fsPath}`);
-  if (!existsSync(htmlPath.fsPath)) throw new Error(`Webview HTML not found: ${htmlPath.fsPath}`);
+  if (!existsSync(htmlPath.fsPath)) {
+    throw new Error(
+      `Webview HTML not found: ${htmlPath.fsPath}. ` +
+        'VSIX 可能未打入 dist/index.html 与 dist/assets（检查 .vscodeignore 与 npm run build:plugin）。'
+    );
+  }
   const html = readFileSync(htmlPath.fsPath, 'utf8');
   const safeJson = initialData ? JSON.stringify(initialData).replace(/</g, '\\u003c') : '';
   const initialDataScript = safeJson ? `<script id="omniview-initial-data" type="application/json">${safeJson}</script>` : '';
@@ -120,9 +125,16 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
   }
 
   async resolveCustomEditor(document: OmniViewerDocument, webviewPanel: vscode.WebviewPanel): Promise<void> {
+    // 禁止静默 return：未设置 webview.html 时 Cursor/VS Code 会落到
+    // “Assertion Failed: Argument is undefined or null” 的宿主断言。
     if (!document?.uri) {
-      log('ResolveCustomEditor aborted: document or document.uri is undefined or null');
-      return;
+      throw new Error('OmniView: resolveCustomEditor received undefined document.uri');
+    }
+    if (!webviewPanel?.webview) {
+      throw new Error('OmniView: resolveCustomEditor received undefined webviewPanel');
+    }
+    if (!this.extensionUri) {
+      throw new Error('OmniView: extensionUri is undefined; cannot load webview assets');
     }
 
     log(`Resolving Custom Editor: ${document.uri.fsPath || document.uri.toString()}`);
@@ -162,6 +174,9 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     const disposables: vscode.Disposable[] = [];
     let isSyncingFromWebview = false;
     let syncFromWebviewTimeout: NodeJS.Timeout | undefined;
+    let isWritingFromWebview = false;
+    let writeFromWebviewTimeout: NodeJS.Timeout | undefined;
+    let writeDebounceTimer: NodeJS.Timeout | undefined;
 
     const loadDocData = async () => {
       let buffer: Buffer;
@@ -210,11 +225,95 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
       log(`Document posted to Webview (isUpdate: ${isUpdate})`);
     };
 
+    /** Webview 分屏/工作室内容写回磁盘；若文本编辑器已打开则走 WorkspaceEdit 以保持脏标记与撤销栈 */
+    const persistWebviewContent = async (content: string, reason: string): Promise<void> => {
+      if (typeof content !== 'string') {
+        throw new Error('Invalid webview content payload');
+      }
+      if (isPdf) {
+        log(`Skip text persist for PDF (${reason})`);
+        return;
+      }
+
+      isWritingFromWebview = true;
+      clearTimeout(writeFromWebviewTimeout);
+      try {
+        const bytes = Buffer.from(content, 'utf8');
+        const openDoc = vscode.workspace.textDocuments.find(
+          (doc) => doc.uri.fsPath === document.uri.fsPath && !doc.isClosed
+        );
+
+        if (openDoc) {
+          const edit = new vscode.WorkspaceEdit();
+          const fullRange = new vscode.Range(
+            openDoc.positionAt(0),
+            openDoc.positionAt(openDoc.getText().length)
+          );
+          edit.replace(openDoc.uri, fullRange, content);
+          const applied = await vscode.workspace.applyEdit(edit);
+          if (!applied) {
+            throw new Error('WorkspaceEdit was rejected');
+          }
+          await openDoc.save();
+        } else if (document.uri.scheme === 'file') {
+          await writeFile(document.uri.fsPath, bytes);
+        } else {
+          await vscode.workspace.fs.writeFile(document.uri, bytes);
+        }
+
+        const referencedFiles =
+          (extension === '.md' || extension === '.markdown') && document.uri.fsPath
+            ? await loadReferencedMediaFiles(document.uri.fsPath, content)
+            : [];
+        docData = {
+          buffer: bytes,
+          content,
+          binaryUrl: undefined,
+          referencedFiles,
+        };
+        log(`Persisted webview content (${reason}): ${document.uri.fsPath} (${bytes.byteLength} bytes)`);
+        await webview.postMessage({
+          type: 'content-saved',
+          path: document.uri.fsPath,
+          ok: true,
+        });
+      } catch (error) {
+        log(`Failed to persist webview content (${reason})`, error);
+        await webview.postMessage({
+          type: 'content-saved',
+          path: document.uri.fsPath,
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        void vscode.window.showErrorMessage(
+          `保存失败: ${error instanceof Error ? error.message : String(error)}`
+        );
+      } finally {
+        // 吸收 onDidChange / FileWatcher / onDidSave 回声，避免写回后立刻被旧内容覆盖
+        writeFromWebviewTimeout = setTimeout(() => {
+          isWritingFromWebview = false;
+        }, 600);
+      }
+    };
+
     // 监听 Webview 消息
     const messageListener = webview.onDidReceiveMessage(async (message) => {
       log(`Webview message received: ${message?.type ?? 'unknown'}`);
       if (message?.type === 'webview-error') {
         log('Webview runtime error', message);
+        return;
+      }
+      if (message?.type === 'document-change' || message?.type === 'save-content') {
+        const content = typeof message.content === 'string' ? message.content : '';
+        if (message.type === 'save-content') {
+          clearTimeout(writeDebounceTimer);
+          await persistWebviewContent(content, 'save-content');
+          return;
+        }
+        clearTimeout(writeDebounceTimer);
+        writeDebounceTimer = setTimeout(() => {
+          void persistWebviewContent(content, 'document-change');
+        }, 400);
         return;
       }
       if (message?.type === 'open-source') {
@@ -298,9 +397,11 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     // 1. 实时编辑监听 (onDidChangeTextDocument): 边打字边实时热刷新 Webview
     let editDebounceTimer: NodeJS.Timeout | undefined;
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
+      if (isWritingFromWebview) return;
       if (event.document.uri.fsPath === document.uri.fsPath && !isPdf) {
         clearTimeout(editDebounceTimer);
         editDebounceTimer = setTimeout(async () => {
+          if (isWritingFromWebview) return;
           try {
             const content = event.document.getText();
             const referencedFiles = extension === '.md' || extension === '.markdown'
@@ -324,6 +425,10 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
 
     // 2. 文件保存与物理改动重载 (onDidSaveTextDocument & FileWatcher)
     const reloadAndPost = async () => {
+      if (isWritingFromWebview) {
+        log(`Skip reload while writing from webview: ${document.uri.fsPath}`);
+        return;
+      }
       try {
         docData = await loadDocData();
         await postDocument(true);
@@ -415,6 +520,8 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     webviewPanel.onDidDispose(() => {
       clearTimeout(editDebounceTimer);
       clearTimeout(syncFromWebviewTimeout);
+      clearTimeout(writeDebounceTimer);
+      clearTimeout(writeFromWebviewTimeout);
       log(`Panel disposed, releasing ${disposables.length} watchers/listeners for: ${document.uri.fsPath}`);
       disposables.forEach(d => {
         try {
@@ -438,7 +545,12 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
       binaryUrl: docData.binaryUrl,
       relatedFiles: docData.referencedFiles,
     };
-    webview.html = getWebviewHtml(webview, this.extensionUri, initialFilePayload);
+    try {
+      webview.html = getWebviewHtml(webview, this.extensionUri, initialFilePayload);
+    } catch (error) {
+      log('Failed to initialize webview HTML', error);
+      throw error instanceof Error ? error : new Error(String(error));
+    }
 
     for (const delay of [100, 500, 1500]) {
       setTimeout(() => void postDocument(false).catch((error) => log(`Document retry failed (${delay}ms)`, error)), delay);

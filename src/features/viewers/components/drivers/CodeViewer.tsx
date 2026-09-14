@@ -4,6 +4,7 @@ import Prism from 'prismjs';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../shared/types';
 import { useTextHistory } from '../../hooks/useTextHistory';
+import { getVsCodeApi } from '../../../../shared/lib/vscode';
 
 const StructuredDataViewer = lazy(() =>
   import('./data/StructuredDataViewer').then(m => ({ default: m.StructuredDataViewer }))
@@ -69,6 +70,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineGutterRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingSaveContentRef = useRef<string | null>(null);
   const prevFileNameRef = useRef(fileName);
 
   // Undo / Redo 历史管理 Hook
@@ -127,7 +129,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Immediate save
+  // Immediate save：插件态额外发 save-content，由 Host 立即写盘；勿仅靠本地 UI 标记
   const handleSave = useCallback(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -136,9 +138,40 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     if (onContentChange) {
       onContentChange(editValue);
     }
+    const vscode = getVsCodeApi();
+    if (vscode) {
+      pendingSaveContentRef.current = editValue;
+      vscode.postMessage({
+        type: 'save-content',
+        content: editValue,
+      });
+      // 等待 Host content-saved 再标已保存；先进入 pending 避免假阳性
+      setIsSaved(false);
+      return;
+    }
     setLastSavedContent(editValue);
     setIsSaved(true);
   }, [editValue, onContentChange]);
+
+  useEffect(() => {
+    const vscode = getVsCodeApi();
+    if (!vscode) return undefined;
+    const handler = (event: MessageEvent) => {
+      const message = event.data;
+      if (message?.type !== 'content-saved') return;
+      if (message.ok) {
+        const saved = pendingSaveContentRef.current ?? editValue;
+        pendingSaveContentRef.current = null;
+        setLastSavedContent(saved);
+        setIsSaved(true);
+      } else {
+        pendingSaveContentRef.current = null;
+        setIsSaved(false);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [editValue]);
 
   // Handle text change with real-time debounced sync (so split view renders live)
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

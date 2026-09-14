@@ -257,11 +257,12 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                   >
                     <span>{h.text}</span>
                     <span
-                      className={`inline-flex transition-transform duration-200 ${
+                      className={`ov-table-sort-icon inline-flex transition-transform duration-200 ${
                         isSorted
                           ? 'text-blue-400 opacity-100'
                           : 'text-slate-400 opacity-0 group-hover:opacity-60'
                       }`}
+                      aria-hidden="true"
                     >
                       {isSorted && sortDir === 'asc' ? (
                         <ArrowUp className="w-3.5 h-3.5" />

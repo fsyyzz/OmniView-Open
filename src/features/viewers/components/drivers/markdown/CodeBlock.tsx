@@ -33,7 +33,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
   return (
     <div id={id} className="markdown-code-block group relative">
       {/* Code Card Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-800/80 border-b border-slate-800 text-xs select-none">
+      <div className="code-block-header flex items-center justify-between px-4 py-2 bg-slate-800/80 border-b border-slate-800 text-xs select-none">
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleCollapse}
@@ -69,15 +69,20 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
         </div>
       </div>
 
-      {/* Code Body */}
+      {/* Code Body：行号 gutter 与 pre 必须共享字号/行高；打印/导出禁止仅对 code 换行导致错位 */}
       {!isCollapsed && (
-        <div className="overflow-x-auto flex bg-[#1d1f21] text-xs leading-relaxed">
-          <div className="py-3.5 pl-3.5 pr-2.5 text-right text-slate-600 select-none bg-black/25 border-r border-slate-800/80 font-mono shrink-0 min-w-[44px]">
+        <div className="code-block-body overflow-x-auto flex bg-[#1d1f21] text-xs leading-relaxed">
+          <div
+            className="code-line-gutter py-3.5 pl-3.5 pr-2.5 text-right text-slate-600 select-none bg-black/25 border-r border-slate-800/80 font-mono shrink-0 min-w-[44px]"
+            aria-hidden="true"
+          >
             {codeLines.map((_, i) => (
-              <div key={i}>{i + 1}</div>
+              <div key={i} className="code-line-number">
+                {i + 1}
+              </div>
             ))}
           </div>
-          <pre className="p-3.5 font-mono overflow-x-auto flex-1 !m-0 !bg-transparent !p-3.5">
+          <pre className="code-line-body p-3.5 font-mono overflow-x-auto flex-1 !m-0 !bg-transparent !p-3.5">
             <code
               className={`language-${lang}`}
               dangerouslySetInnerHTML={{ __html: highlightedHtml }}
