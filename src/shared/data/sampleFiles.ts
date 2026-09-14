@@ -169,9 +169,125 @@ export const SUPPORTED_DRIVERS: ViewerDriver[] = [
     engine: '@excalidraw/utils Vector Pipeline + DOMPurify',
     license: 'MIT',
   },
+  {
+    id: 'domainstory',
+    name: 'Domain Storytelling Studio',
+    displayName: 'Domain Storytelling (.egn) 领域故事讲授引擎',
+    description: 'DDD 领域驱动设计与业务旅程故事可视化查看器，支持标准 .egn 互通、Markdown DSL 嵌入、交互式逐帧演播与 Polyglot SVG 导出。',
+    iconName: 'GitCommit',
+    supportedExtensions: ['egn', 'domainstory'],
+    isBuiltin: true,
+    version: '1.0.0',
+    category: 'core',
+    lazyLoaded: true,
+    engine: 'OmniView Native DST Engine + DiagramStepPlayer',
+    license: 'MIT',
+  },
 ];
 
 export const INITIAL_FILES: FileItem[] = [
+  {
+    id: 'file-order-fulfillment-egn',
+    name: 'order-fulfillment.egn',
+    path: '/workspace/order-fulfillment.egn',
+    extension: 'egn',
+    size: 2400,
+    lastModified: Date.now(),
+    content: JSON.stringify(
+      {
+        info: {
+          name: '全链路订单履约领域故事 (Order Fulfillment Story)',
+          description: '基于 egon.io 标准设计的 DDD 领域故事，演示买家、交易中台、风控引擎与仓储物流系统的协同协作全流程。',
+          version: '1.0.0',
+        },
+        actors: [
+          { id: 'actor-buyer', name: '终端买家', type: 'person', x: 120, y: 180 },
+          { id: 'actor-mall', name: '商城中台', type: 'system', x: 380, y: 180 },
+          { id: 'actor-risk', name: '实时风控', type: 'system', x: 640, y: 100 },
+          { id: 'actor-wms', name: '智能仓储', type: 'system', x: 640, y: 260 },
+          { id: 'actor-courier', name: '顺丰速运', type: 'system', x: 900, y: 260 },
+        ],
+        workObjects: [
+          { id: 'wo-cart', name: '结算购物车清单', type: 'document' },
+          { id: 'wo-risk-report', name: '反欺诈风险分', type: 'data' },
+          { id: 'wo-order', name: '正式销售订单', type: 'document' },
+          { id: 'wo-shipping-task', name: '拣货与打包指令', type: 'package' },
+          { id: 'wo-waybill', name: '电子运单与包裹', type: 'package' },
+        ],
+        activities: [
+          { id: 'act-1', number: 1, from: 'actor-buyer', to: 'actor-mall', label: '提交购物车结算', workObjectName: '结算购物车清单' },
+          { id: 'act-2', number: 2, from: 'actor-mall', to: 'actor-risk', label: '发起欺诈检测', workObjectName: '结算购物车清单' },
+          { id: 'act-3', number: 3, from: 'actor-risk', to: 'actor-mall', label: '核验通过并回传', workObjectName: '反欺诈风险分' },
+          { id: 'act-4', number: 4, from: 'actor-mall', to: 'actor-mall', label: '持久化生成订单', workObjectName: '正式销售订单' },
+          { id: 'act-5', number: 5, from: 'actor-mall', to: 'actor-wms', label: '下发分拣任务', workObjectName: '拣货与打包指令' },
+          { id: 'act-6', number: 6, from: 'actor-wms', to: 'actor-courier', label: '交接出库并寄发', workObjectName: '电子运单与包裹' },
+          { id: 'act-7', number: 7, from: 'actor-courier', to: 'actor-buyer', label: '送达签收短信通知', workObjectName: '电子运单与包裹' },
+        ],
+        groups: [
+          { id: 'g-core', name: '商城核心域 (Core Domain)', actors: ['actor-mall', 'actor-risk'] },
+          { id: 'g-fulfillment', name: '履约与履约支撑域', actors: ['actor-wms', 'actor-courier'] },
+        ],
+      },
+      null,
+      2
+    ),
+  },
+  {
+    id: 'file-domain-storytelling-showcase',
+    name: 'domain-storytelling-showcase.md',
+    path: '/workspace/domain-storytelling-showcase.md',
+    extension: 'md',
+    size: 2600,
+    lastModified: Date.now(),
+    content: `# 领域故事讲授法 (Domain Storytelling / egon.io) 原生支持
+
+OmniView 现已原生支持 **Domain Storytelling 领域故事讲授引擎**，完全本地优先、零网络依赖、无缝兼容 \`egon.io\` 的 \`.egn\` 规范与交互式逐帧演播。
+
+---
+
+## 一、Markdown 声明式 DSL 嵌入
+
+在 Markdown 中使用 \`\`\`domainstory 代码块，以声明式语法刻画业务流转：
+
+\`\`\`domainstory
+title: 敏捷团队用户故事交付流水线
+description: 业务负责人、开发工程师与测试平台的端到端协作
+
+actors:
+  - 业务负责人 [person]
+  - 敏捷看板 [system]
+  - 软件开发专员 [person]
+  - 自动化流水线 [system]
+
+groups:
+  - 产研核心协作圈: 敏捷看板, 软件开发专员, 自动化流水线
+
+activities:
+  1. 业务负责人 -> 录入需求卡片 -> 敏捷故事 [document] -> 敏捷看板
+  2. 软件开发专员 -> 领取故事并拉取分支 -> 任务详情 [data] -> 敏捷看板
+  3. 软件开发专员 -> 提交工程代码 -> Git变更集 [document] -> 自动化流水线
+  4. 自动化流水线 -> 触发自动化测试 -> 测试验证报告 [data] -> 自动化流水线
+  5. 自动化流水线 -> 广播发布状态 -> 部署通知 [email] -> 业务负责人
+\`\`\`
+
+> [!TIP]
+> 点击图表顶部的 **「演播」** 按钮，即可开启逐帧交互式步进播放器，并支持导出包含原始模型元数据的 **Polyglot SVG** 与标准 **.egn** 格式。
+
+---
+
+## 二、极简单行流语法
+
+支持更轻量的紧凑语法：
+
+\`\`\`domainstory
+title: 快速请假审批流
+1. 申请人 (person) -> 提交请假表单 [document] -> OA中台 (system)
+2. OA中台 -> 智能路由审批 -> 审批待办 [data] -> 部门主管 (person)
+3. 部门主管 -> 签署同意意见 -> 审批决议 [document] -> OA中台
+4. OA中台 -> 推送确认消息 -> 钉钉通知 [email] -> 申请人
+\`\`\`
+`,
+  },
   {
     id: 'file-callout-and-tasks',
     name: 'callouts-and-tasks.md',

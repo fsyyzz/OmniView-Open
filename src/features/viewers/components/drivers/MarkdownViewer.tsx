@@ -18,6 +18,7 @@ import { MathBlock } from './markdown/MathBlock';
 import { TableBlock } from './markdown/TableBlock';
 import { StableHtmlBlock } from './markdown/StableHtmlBlock';
 import { LazyViewportBlock } from './markdown/LazyViewportBlock';
+import { DomainStoryBlock } from './markdown/DomainStoryBlock';
 import { graphvizRenderer } from '../../lib/graphvizRenderer';
 import { LightboxModal, LightboxItem } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
@@ -46,7 +47,7 @@ export interface MarkdownViewerProps {
 
 interface RenderedBlock {
   id: string;
-  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak';
+  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak' | 'domainstory';
   mode?: 'code-block' | 'file';
   lang?: string;
   raw: string;
@@ -459,6 +460,14 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
             parsedBlocks.push({
               id: `block-math-${counter++}`,
               type: 'math',
+              raw: token.text,
+              startLine: tokenStartLine,
+              endLine: tokenEndLine,
+            });
+          } else if (['domainstory', 'story', 'egn', 'dst'].includes(primaryLang)) {
+            parsedBlocks.push({
+              id: `block-domainstory-${counter++}`,
+              type: 'domainstory',
               raw: token.text,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
@@ -1250,6 +1259,48 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                       handleDownloadSvg(svg, 'graphviz');
                     } catch {}
                   }}
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </LazyViewportBlock>
+          );
+        }
+
+        // Domain Storytelling Block (egon.io / DSL)
+        if (block.type === 'domainstory') {
+          const currentMode = diagramViewModes[block.id] || 'visual';
+          const zoom = zoomScales[block.id] || 1;
+          const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
+
+          return (
+            <LazyViewportBlock
+              key={block.id}
+              eager={eagerMount}
+              minHeight={200}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="Domain Storytelling Diagram" locale={locale}>
+                <DomainStoryBlock
+                  id={block.id}
+                  code={block.raw}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  isCopied={copiedId === block.id}
+                  viewMode={currentMode}
+                  zoom={zoom}
+                  editedCode={currentCode}
+                  isDarkTheme={isDarkTheme}
+                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
+                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onZoomChange={delta => adjustZoom(block.id, delta)}
+                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onOpenLightbox={svg =>
+                    setLightboxItem({ title: t('domainStoryTitle', locale), content: svg || '' })
+                  }
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   locale={locale}

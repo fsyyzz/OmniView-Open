@@ -26,6 +26,7 @@ const MindmapViewer = lazy(() => import('./components/drivers/MindmapViewer').th
 const NotebookViewer = lazy(() => import('./components/drivers/NotebookViewer').then(m => ({ default: m.NotebookViewer })));
 const TypstViewer = lazy(() => import('./components/drivers/TypstViewer').then(m => ({ default: m.TypstViewer })));
 const ExcalidrawViewer = lazy(() => import('./components/drivers/ExcalidrawViewer').then(m => ({ default: m.ExcalidrawViewer })));
+const DomainStoryViewer = lazy(() => import('./components/drivers/DomainStoryViewer').then(m => ({ default: m.DomainStoryViewer })));
 
 const DriverLoadingFallback: React.FC<{ fileName: string }> = ({ fileName }) => (
   <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center gap-3 p-8 text-slate-400 select-none">
@@ -286,6 +287,14 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
             fileName={file.name}
             isDarkTheme={isDarkTheme}
             theme={theme}
+            locale={locale}
+            onContentChange={onContentChange}
+          />
+        )}
+        {driverId === 'domainstory' && (
+          <DomainStoryViewer
+            content={file.content}
+            fileName={file.name}
             locale={locale}
             onContentChange={onContentChange}
           />

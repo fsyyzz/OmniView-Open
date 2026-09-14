@@ -294,6 +294,16 @@ export const TRANSLATIONS = {
     speedTooltip: '循环切换播放倍速',
     loopOn: '循环播放: 开',
     loopOff: '循环播放: 关',
+
+    // Domain Storytelling (egon.io)
+    domainStoryTitle: '领域故事 (Domain Storytelling)',
+    domainStoryPlayback: '故事业务演进流',
+    exportEgn: '导出 .egn (JSON)',
+    exportPolyglotSvg: '导出 Polyglot SVG (内嵌元数据)',
+    actorsCount: '个参与角色',
+    activitiesCount: '个业务活动',
+    workObjectsCount: '个工作对象',
+    currentStepBadge: '当前步',
   },
   'en-US': {
     // Toolbar buttons & tooltips
@@ -581,6 +591,16 @@ export const TRANSLATIONS = {
     speedTooltip: 'Cycle Playback Speed',
     loopOn: 'Loop: ON',
     loopOff: 'Loop: OFF',
+
+    // Domain Storytelling (egon.io)
+    domainStoryTitle: 'Domain Storytelling',
+    domainStoryPlayback: 'Domain Story Walkthrough',
+    exportEgn: 'Export .egn (JSON)',
+    exportPolyglotSvg: 'Export Polyglot SVG (Embedded)',
+    actorsCount: 'Actors',
+    activitiesCount: 'Activities',
+    workObjectsCount: 'Work Objects',
+    currentStepBadge: 'Current Step',
   },
 };
 

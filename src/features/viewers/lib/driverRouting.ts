@@ -17,5 +17,6 @@ export function getDriverIdForFile(file?: Partial<FileItem> | null): DriverId {
   if (['ipynb'].includes(extension)) return 'notebook';
   if (['typ', 'typst'].includes(extension)) return 'typst';
   if (['excalidraw'].includes(extension) || (file.name && file.name.toLowerCase().endsWith('.excalidraw.json'))) return 'excalidraw';
+  if (['egn', 'domainstory'].includes(extension) || (file.name && file.name.toLowerCase().endsWith('.story.json'))) return 'domainstory';
   return 'code';
 }
