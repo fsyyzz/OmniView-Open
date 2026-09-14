@@ -38,6 +38,7 @@ flowchart TB
   - `SvgViewer.tsx`: SVG 交互式矢量工作台 (SVG Studio)，支持图形/代码双栏分屏、纯图形与纯代码视口；提供图元点选微调（尺寸/坐标/填充/描边/圆角/变换）、图层置顶/置底、智能吸附对齐、反向代码定位、SVGO 压缩与 React JSX / Vue 3 组件导出；
   - `PdfViewer.tsx`: 基于 Mozilla PDF.js v4+ 的现代化版式阅读器，支持多页连续流式 (Continuous Flow)、单页翻页与双页图书并排开本；集成视口阅读进度感知 (Scroll Spy)、视口懒渲染防卡顿 (Lazy Viewport)、全文检索跨页高亮、划词批注与 Markdown 导出、多级大纲书签与无损打印导出；
   - `TypstViewer.tsx`: 基于轻量纯端侧 AST 编译器架构与 A4 2.0 工业级出版排版引擎的 Typst (`.typ`, `.typst`) 双向分屏工作台 (Typst Typesetting Studio)，支持实时增量编译、KaTeX 矢量数学公式渲染、大纲跳转、瀑布流/单页/双页视图切换、语法片段快捷插入与高精度 A4 矢量打印/SVG 导出；
+  - `DomainStoryViewer.tsx`: 基于 egon.io 官方规范的领域故事讲授工作台 (Domain Storytelling Studio)，支持标准 `.egn` (JSON) 及 `.domainstory` 文件，支持参与者 (Actor)、工作对象 (Work Object) 与带序号活动连接的可视化矢量渲染、逐帧步进演播与 Polyglot SVG 双向还原导出；
   - `StructuredDataViewer.tsx`: 结构化数据全景可视化工作台，针对 JSON、YAML、TOML、XML 提供层级折叠树 (Tree)、全景矢量思维导图投影 (Mindmap)、同构数组下钻表格 (Table & 柱状折线微图表)、微服务/Docker 依赖拓扑 (Topology)、敏感密钥脱敏防护 (Secret Masking) 与离线无损跨格式互转 (Format Converter)。
 
 ### 2.3 持久化存储与配置层 (Persistence & Storage Layer)
@@ -61,6 +62,7 @@ flowchart TD
     Lex --> PU["\`\`\`plantuml"]
     Lex --> GV["\`\`\`dot / \`\`\`graphviz"]
     Lex --> SVG["\`\`\`svg / .svg"]
+    Lex --> DS["\`\`\`domainstory / .egn"]
     Lex --> Code["\`\`\`code"]
 
     HTML --> K["KaTeX<br/>Inline & Block Math"]
@@ -73,6 +75,7 @@ flowchart TD
     GVW --> DP2["DOMPurify"]
     DP2 --> GVB["GraphvizBlock"]
     SVG --> SVGDP["DOMPurify SVG<br/>(网格/深浅色背景)"]
+    DS --> DSR["DomainStory SVG<br/>(逐帧演播/Polyglot)"]
     Code --> PC["Prism.js CodeBlock<br/>(折叠/复制)"]
 ```
 

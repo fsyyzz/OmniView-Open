@@ -99,7 +99,18 @@
 - 原生识别 `.okf` 文件及 Markdown Frontmatter OKF 元数据头；
 - 智能抽取 Knowledge ID、版本标签、分类 Tags 与知识摘要并渲染为交互式知识卡片。
 
-### 11. 全局偏好与工作区持久化体系
+### 11. 领域故事讲授法与 egon.io 原生支持 (Domain Storytelling Studio)
+- **多语法无损支持**:
+  - 原生识别与解析标准 `.egn` (egon.io JSON) 规范及独立 `.domainstory` 文件；
+  - Markdown 深度排版内嵌：支持 ````domainstory````、````story````、````egn```` 声明式 DSL 及极简流语法；
+- **领域拓扑与角色关系**:
+  - 自动渲染参与者 (Actor: 人物、系统、组织)、工作对象 (Work Object: 文档、数据、包裹、消息等) 与带序号活动连接；
+  - 支持领域协作边界圈层分组 (Groups) 绘制与自适应启发式布局；
+- **交互式逐帧演播与 Polyglot 导出**:
+  - 接入 `DiagramStepPlayer` 播放器，支持按活动序号单步播放、上一帧/下一帧与聚焦高亮；
+  - 导出标准 `.egn` 文件与将完整领域模型隐写嵌入的 **Polyglot SVG**，实现图形与源码双向无损提取。
+
+### 12. 全局偏好与工作区持久化体系
 - **集中式配置中枢 (`settingsStorage.ts`)**: 存储键升级为 `v2`，无缝自动向前平滑兼容迁移旧版本配置并安全回写；
 - **严苛边界防护**: 对缩放比例 (0.5~2.5x)、字号 (12~22px) 及分屏比例建立数学截断与钳位容错，避免任何异常值影响交互；
 - **多工作区生命周期持久化 (`fileStorage.ts`)**: 记住侧边栏与资源管理器开关状态、活动标签页顺序与最后打开文件；
@@ -164,6 +175,8 @@ OmniView 在 [`examples/`](./examples) 提供开箱即用的多格式样例（�
 | [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | 分布式共识机制 (Raft, PBFT, PoW/PoS) 状态机与时序图 |
 | [`technical-guide.md`](./examples/markdown/technical-guide.md) | 工程级混合技术文档（架构图、代码块与多态表格） |
 | [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | 语法损坏图表、缺失图片、超宽表格等极限压测与错误边界隔离 |
+| [`domainstory/ecommerce-fulfillment.egn`](./examples/domainstory/ecommerce-fulfillment.egn) | 独立 egon.io 格式跨境电商履约领域故事模型 |
+| [`markdown/domain-storytelling.md`](./examples/markdown/domain-storytelling.md) | Markdown 内嵌 Domain Storytelling DSL 敏捷与协同用例 |
 
 ---
 

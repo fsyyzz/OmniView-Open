@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Domain Storytelling 领域故事讲授工作台 (`.egn`, `.domainstory`)**:
+  - 原生识别与解析标准 egon.io JSON 规范与独立 `.domainstory` 文件；
+  - Markdown 深度支持 ````domainstory````、````story````、````egn```` 声明式 DSL 与流式语法；
+  - 自动渲染参与者 (Actor)、工作对象 (Work Object) 与业务活动带序号连接箭头；
+  - 启发式圈层协作边界 (Groups) 布局与自适应 SVG 拓扑渲染；
+  - 集成 `DiagramStepPlayer` 步进播放器，支持单步演播与聚焦高亮；
+  - 支持导出标准 `.egn` 与内嵌完整模型的 Polyglot SVG 矢量图，实现图形与源码双向无损互转；
+  - 包含丰富独立测试样本与 Markdown 敏捷协同示例。
+
 ## [0.10.1] - 2026-09-13
 
 ### Fixed

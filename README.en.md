@@ -99,7 +99,18 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - Native recognition of `.okf` files and Markdown Frontmatter OKF headers;
 - Extracts Knowledge ID, version, tags, and summary into structured knowledge cards.
 
-### 11. Preferences & Workspace Persistence
+### 11. Domain Storytelling & egon.io Native Studio
+- **Multi-syntax lossless support**:
+  - Native parsing for standard `.egn` (egon.io JSON) schema and standalone `.domainstory` files;
+  - Markdown deep typesetting integration: ````domainstory````, ````story````, and ````egn```` fenced DSL blocks plus single-line stream syntax;
+- **Domain topology & actor relationships**:
+  - Auto-renders Actors (person, system, group), Work Objects (document, data, package, email, etc.), and numbered activity arrows;
+  - Boundary group zones with adaptive heuristic layout;
+- **Interactive step-by-step playback & Polyglot export**:
+  - Integrated `DiagramStepPlayer` for step-by-step animation, forward/backward navigation, and spotlight focus;
+  - Export standard `.egn` and **Polyglot SVG** with embedded domain model for lossless bi-directional extraction.
+
+### 12. Preferences & Workspace Persistence
 - **Central settings hub (`settingsStorage.ts`)**: `v2` keys with seamless legacy migration;
 - **Hard clamps**: zoom (0.5~2.5x), font size (12~22px), and split ratios to keep UI stable;
 - **Workspace lifecycle (`fileStorage.ts`)**: remember sidebar/explorer state, tab order, and last opened file;
@@ -164,6 +175,8 @@ Ready-to-open samples live under [`examples/`](./examples) (see [`examples/READM
 | [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | Raft / PBFT / PoW-PoS state machines and sequence diagrams |
 | [`technical-guide.md`](./examples/markdown/technical-guide.md) | Engineering mixed docs—architecture diagrams, code, tables |
 | [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | Broken diagrams, missing images, ultra-wide tables, error isolation |
+| [`domainstory/ecommerce-fulfillment.egn`](./examples/domainstory/ecommerce-fulfillment.egn) | Standalone egon.io e-commerce fulfillment domain story |
+| [`markdown/domain-storytelling.md`](./examples/markdown/domain-storytelling.md) | Markdown embedded Domain Storytelling DSL pipeline case |
 
 ---
 
