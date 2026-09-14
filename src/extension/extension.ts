@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath } from 'node:path';
 
 const VIEW_TYPE = 'omniview.editor';
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw'];
+const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.egn', '.domainstory'];
 let output: vscode.OutputChannel;
 
 function log(message: string, details?: unknown): void {
@@ -108,45 +108,89 @@ function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, initi
 class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<OmniViewerDocument> {
   constructor(private readonly extensionUri: vscode.Uri) {}
 
-  async openCustomDocument(uri: vscode.Uri): Promise<OmniViewerDocument> {
+  async openCustomDocument(
+    uri: vscode.Uri,
+    _openContext?: vscode.CustomDocumentOpenContext,
+    _token?: vscode.CancellationToken
+  ): Promise<OmniViewerDocument> {
+    if (!uri) {
+      throw new Error('OmniView: Document URI is undefined or null.');
+    }
     return new OmniViewerDocument(uri);
   }
 
   async resolveCustomEditor(document: OmniViewerDocument, webviewPanel: vscode.WebviewPanel): Promise<void> {
-    log(`Resolving Custom Editor: ${document.uri.fsPath}`);
+    if (!document?.uri) {
+      log('ResolveCustomEditor aborted: document or document.uri is undefined or null');
+      return;
+    }
+
+    log(`Resolving Custom Editor: ${document.uri.fsPath || document.uri.toString()}`);
     const webview = webviewPanel.webview;
-    const documentDir = dirname(document.uri.fsPath);
-    const workspaceRoots = vscode.workspace.workspaceFolders?.map(f => f.uri) || [];
+    const documentDir = document.uri.scheme === 'file' && document.uri.fsPath ? dirname(document.uri.fsPath) : '';
+    const workspaceRoots = vscode.workspace.workspaceFolders?.map(f => f.uri).filter(Boolean) || [];
+
+    const localRoots: vscode.Uri[] = [];
+    if (this.extensionUri) {
+      try {
+        localRoots.push(
+          vscode.Uri.joinPath(this.extensionUri, 'dist'),
+          vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview')
+        );
+      } catch {
+        // ignore
+      }
+    }
+    if (documentDir && documentDir !== '.') {
+      try {
+        localRoots.push(vscode.Uri.file(documentDir));
+      } catch (e) {
+        log('Failed to add documentDir to localResourceRoots', e);
+      }
+    }
+    localRoots.push(...workspaceRoots);
 
     // 授权访问插件静态资源、文档所在目录及工作区根目录
     webview.options = {
       enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(this.extensionUri, 'dist'),
-        vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
-        vscode.Uri.file(documentDir),
-        ...workspaceRoots,
-      ],
+      localResourceRoots: localRoots,
     };
 
-    const extension = extname(document.uri.fsPath).toLowerCase();
+    const filePath = document.uri.fsPath || document.uri.path || '';
+    const extension = extname(filePath).toLowerCase();
     const isPdf = extension === '.pdf';
     const disposables: vscode.Disposable[] = [];
     let isSyncingFromWebview = false;
     let syncFromWebviewTimeout: NodeJS.Timeout | undefined;
 
     const loadDocData = async () => {
-      const buffer = await readFile(document.uri.fsPath);
+      let buffer: Buffer;
+      if (document.uri.scheme === 'file' && document.uri.fsPath) {
+        buffer = await readFile(document.uri.fsPath);
+      } else {
+        const raw = await vscode.workspace.fs.readFile(document.uri);
+        buffer = Buffer.from(raw);
+      }
       const content = isPdf ? '' : buffer.toString('utf8');
       const binaryUrl = isPdf ? `data:application/pdf;base64,${buffer.toString('base64')}` : undefined;
-      const referencedFiles = extension === '.md' || extension === '.markdown'
+      const referencedFiles = (extension === '.md' || extension === '.markdown') && document.uri.fsPath
         ? await loadReferencedMediaFiles(document.uri.fsPath, content)
         : [];
       return { buffer, content, binaryUrl, referencedFiles };
     };
 
-    let docData = await loadDocData();
-    log(`Document loaded: ${document.uri.fsPath} (${docData.buffer.byteLength} bytes, ${extension})`);
+    let docData: { buffer: Buffer; content: string; binaryUrl?: string; referencedFiles: Array<Record<string, unknown>> };
+    try {
+      docData = await loadDocData();
+      log(`Document loaded: ${filePath} (${docData.buffer.byteLength} bytes, ${extension})`);
+    } catch (loadErr) {
+      log(`Document load failed: ${filePath}`, loadErr);
+      docData = {
+        buffer: Buffer.from(''),
+        content: `Error loading document: ${loadErr instanceof Error ? loadErr.message : String(loadErr)}`,
+        referencedFiles: [],
+      };
+    }
 
     const postDocument = async (isUpdate = false): Promise<void> => {
       await webview.postMessage({
@@ -297,19 +341,25 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     });
     disposables.push(saveListener);
 
-    const fileWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(documentDir, basename(document.uri.fsPath))
-    );
-    fileWatcher.onDidChange(async () => {
-      log(`FileSystemWatcher onDidChange triggered for: ${document.uri.fsPath}`);
-      await reloadAndPost();
-    });
-    disposables.push(fileWatcher);
+    if (document.uri.scheme === 'file' && documentDir && documentDir !== '.') {
+      try {
+        const fileWatcher = vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(documentDir, basename(document.uri.fsPath))
+        );
+        fileWatcher.onDidChange(async () => {
+          log(`FileSystemWatcher onDidChange triggered for: ${document.uri.fsPath}`);
+          await reloadAndPost();
+        });
+        disposables.push(fileWatcher);
+      } catch (err) {
+        log(`Failed to initialize fileWatcher for: ${document.uri.fsPath}`, err);
+      }
+    }
 
     // 3. 监听编辑器滚动范围变更 (onDidChangeTextEditorVisibleRanges)，建立平滑双向同步
     const visibleRangesListener = vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
       if (isSyncingFromWebview) return;
-      if (event.textEditor.document.uri.fsPath === document.uri.fsPath) {
+      if (event?.textEditor?.document?.uri && event.textEditor.document.uri.fsPath === document.uri.fsPath) {
         const visibleRange = event.visibleRanges[0];
         if (!visibleRange) return;
         const topLine = visibleRange.start.line + 1;
@@ -331,7 +381,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     // 4. 监听编辑器光标选择位置变更 (onDidChangeTextEditorSelection)
     const selectionListener = vscode.window.onDidChangeTextEditorSelection((event) => {
       if (isSyncingFromWebview) return;
-      if (event.textEditor.document.uri.fsPath === document.uri.fsPath) {
+      if (event?.textEditor?.document?.uri && event.textEditor.document.uri.fsPath === document.uri.fsPath) {
         const activeLine = event.selections[0]?.active.line + 1;
         if (activeLine) {
           webview.postMessage({
@@ -379,8 +429,8 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     // 初始化 HTML（内嵌首屏初始文档，避免任何异步消息时序延迟与脏缓存）并注册防御性消息投递
     const initialFilePayload = {
       id: document.uri.toString(),
-      name: basename(document.uri.fsPath),
-      path: document.uri.fsPath,
+      name: basename(filePath),
+      path: filePath,
       extension: extension.replace(/^\./, ''),
       content: docData.content,
       size: docData.buffer.byteLength,
@@ -399,7 +449,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel('OmniView');
   context.subscriptions.push(output);
-  log(`Extension activated: ${context.extensionUri.fsPath}`);
+  log(`Extension activated: ${context.extensionUri?.fsPath ?? 'unknown path'}`);
   const provider = new OmniViewerEditorProvider(context.extensionUri);
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
     webviewOptions: { retainContextWhenHidden: true },
@@ -408,18 +458,38 @@ export function activate(context: vscode.ExtensionContext): void {
   log(`Custom Editor registered: ${VIEW_TYPE}`);
 
   // 在侧边打开预览
-  context.subscriptions.push(vscode.commands.registerCommand('omniview.openSidePreview', async (uri?: vscode.Uri) => {
-    const target = uri ?? vscode.window.activeTextEditor?.document.uri;
-    if (!target || !SUPPORTED_EXTENSIONS.includes(extname(target.fsPath).toLowerCase())) {
-      vscode.window.showWarningMessage('请选择 OmniView 支持的文件。');
+  context.subscriptions.push(vscode.commands.registerCommand('omniview.openSidePreview', async (uri?: vscode.Uri | vscode.Uri[]) => {
+    let target = Array.isArray(uri) ? uri[0] : uri;
+    if (!target) {
+      const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
+      const tabInput = activeTab?.input;
+      if (tabInput && typeof tabInput === 'object' && 'uri' in tabInput) {
+        target = (tabInput as { uri: vscode.Uri }).uri;
+      } else if (vscode.window.activeTextEditor?.document?.uri) {
+        target = vscode.window.activeTextEditor.document.uri;
+      }
+    }
+    if (!target) {
+      vscode.window.showWarningMessage('无法获取当前文档路径，请先在编辑器中打开支持的文件。');
       return;
     }
-    await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, vscode.ViewColumn.Beside);
+    const targetPath = target.fsPath || target.path || '';
+    const ext = extname(targetPath).toLowerCase();
+    if (!SUPPORTED_EXTENSIONS.includes(ext)) {
+      vscode.window.showWarningMessage(`OmniView 不支持 ${ext || '未知'} 格式的文件。`);
+      return;
+    }
+    try {
+      await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, vscode.ViewColumn.Beside);
+    } catch (error) {
+      log('openWith failed', error);
+      vscode.window.showErrorMessage(`打开预览失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }));
 
   // 打开源码编辑
-  context.subscriptions.push(vscode.commands.registerCommand('omniview.openSource', async (uri?: vscode.Uri) => {
-    let target = uri;
+  context.subscriptions.push(vscode.commands.registerCommand('omniview.openSource', async (uri?: vscode.Uri | vscode.Uri[]) => {
+    let target = Array.isArray(uri) ? uri[0] : uri;
     if (!target) {
       const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
       const tabInput = activeTab?.input;
@@ -433,7 +503,16 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showWarningMessage('无法获取当前文档路径。');
       return;
     }
-    await vscode.window.showTextDocument(target, { viewColumn: vscode.ViewColumn.Beside, preview: false });
+    try {
+      await vscode.window.showTextDocument(target, { viewColumn: vscode.ViewColumn.Beside, preview: false });
+    } catch (error) {
+      log('showTextDocument failed, trying openWith default', error);
+      try {
+        await vscode.commands.executeCommand('vscode.openWith', target, 'default', vscode.ViewColumn.Beside);
+      } catch {
+        vscode.window.showErrorMessage('无法打开该文件的源码编辑器。');
+      }
+    }
   }));
 
   context.subscriptions.push(vscode.commands.registerCommand('omniview.showLogs', () => output.show(true)));
