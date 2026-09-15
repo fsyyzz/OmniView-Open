@@ -41,6 +41,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: var(--vscode-button-background, var(--vscode-focusBorder, #007acc));
   --ov-table-th: var(--vscode-editorGroupHeader-tabsBackground, rgba(128, 128, 128, 0.1));
   --ov-table-alt: rgba(128, 128, 128, 0.04);
+  --ov-table-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.08));
+  --ov-table-col-hover: rgba(128, 128, 128, 0.04);
+  --ov-surface-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
   --ov-shadow: 0 8px 24px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
 }
 
@@ -119,6 +122,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #3b82f6;
   --ov-table-th: #1e293b;
   --ov-table-alt: rgba(30, 41, 59, 0.28);
+  --ov-table-hover: rgba(59, 130, 246, 0.08);
+  --ov-table-col-hover: rgba(59, 130, 246, 0.04);
+  --ov-surface-hover: rgba(255, 255, 255, 0.06);
   --ov-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
@@ -140,6 +146,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #2563eb;
   --ov-table-th: #f1f5f9;
   --ov-table-alt: rgba(241, 245, 249, 0.65);
+  --ov-table-hover: rgba(37, 99, 235, 0.06);
+  --ov-table-col-hover: rgba(37, 99, 235, 0.03);
+  --ov-surface-hover: rgba(0, 0, 0, 0.04);
   --ov-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
 }
 
@@ -161,6 +170,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #b45309;
   --ov-table-th: #ede3cc;
   --ov-table-alt: rgba(237, 227, 204, 0.5);
+  --ov-table-hover: rgba(180, 83, 9, 0.08);
+  --ov-table-col-hover: rgba(180, 83, 9, 0.04);
+  --ov-surface-hover: rgba(0, 0, 0, 0.04);
   --ov-shadow: 0 6px 20px rgba(78, 56, 30, 0.08);
 }
 
@@ -182,6 +194,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #10b981;
   --ov-table-th: #141414;
   --ov-table-alt: rgba(20, 20, 20, 0.6);
+  --ov-table-hover: rgba(16, 185, 129, 0.08);
+  --ov-table-col-hover: rgba(16, 185, 129, 0.04);
+  --ov-surface-hover: rgba(255, 255, 255, 0.06);
   --ov-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
 }
 
@@ -203,6 +218,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #ec4899;
   --ov-table-th: #261647;
   --ov-table-alt: rgba(38, 22, 71, 0.5);
+  --ov-table-hover: rgba(236, 72, 153, 0.08);
+  --ov-table-col-hover: rgba(236, 72, 153, 0.04);
+  --ov-surface-hover: rgba(236, 72, 153, 0.1);
   --ov-shadow: 0 8px 30px rgba(168, 85, 247, 0.18);
 }
 
@@ -224,6 +242,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #88c0d0;
   --ov-table-th: #434c5e;
   --ov-table-alt: rgba(67, 76, 94, 0.4);
+  --ov-table-hover: rgba(136, 192, 208, 0.08);
+  --ov-table-col-hover: rgba(136, 192, 208, 0.04);
+  --ov-surface-hover: rgba(255, 255, 255, 0.06);
   --ov-shadow: 0 8px 26px rgba(15, 17, 23, 0.35);
 }
 
@@ -245,6 +266,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #bd93f9;
   --ov-table-th: #343746;
   --ov-table-alt: rgba(68, 71, 90, 0.35);
+  --ov-table-hover: rgba(189, 147, 249, 0.08);
+  --ov-table-col-hover: rgba(189, 147, 249, 0.04);
+  --ov-surface-hover: rgba(255, 255, 255, 0.06);
   --ov-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
 }
 
@@ -266,6 +290,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #10b981;
   --ov-table-th: #1f322f;
   --ov-table-alt: rgba(31, 50, 47, 0.45);
+  --ov-table-hover: rgba(16, 185, 129, 0.08);
+  --ov-table-col-hover: rgba(16, 185, 129, 0.04);
+  --ov-surface-hover: rgba(255, 255, 255, 0.06);
   --ov-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
 }
 
@@ -287,6 +314,9 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-accent: #135f8d;
   --ov-table-th: #eee8d5;
   --ov-table-alt: rgba(238, 232, 213, 0.55);
+  --ov-table-hover: rgba(19, 95, 141, 0.07);
+  --ov-table-col-hover: rgba(19, 95, 141, 0.03);
+  --ov-surface-hover: rgba(0, 0, 0, 0.04);
   --ov-shadow: 0 6px 20px rgba(7, 54, 66, 0.07);
 }
 
@@ -1617,6 +1647,12 @@ mark.ov-search-match.is-active-match {
 .ov-table-block {
   position: relative;
   overflow: hidden;
+  background: var(--ov-surface);
+  border: 1px solid var(--ov-border);
+  border-radius: 8px;
+  color: var(--ov-text);
+  box-shadow: var(--ov-shadow, 0 1px 3px rgba(0, 0, 0, 0.05));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .ov-table-block > .ov-table-body {
@@ -1625,7 +1661,7 @@ mark.ov-search-match.is-active-match {
   -webkit-overflow-scrolling: touch;
 }
 
-/* 与 .diagram-header 对齐：贴顶全宽悬浮，不占用垂直文档流 */
+/* 与 .diagram-header 对齐：贴顶全宽悬浮，不占用垂直文档流，彻底依托主题语义化令牌 */
 .table-block-toolbar {
   position: absolute;
   top: 0;
@@ -1636,24 +1672,17 @@ mark.ov-search-match.is-active-match {
   align-items: center;
   justify-content: space-between;
   padding: 6px 14px;
-  background: rgba(15, 23, 42, 0.9);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(51, 65, 85, 0.65);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  background: var(--ov-surface-header, var(--ov-surface));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ov-border);
+  box-shadow: var(--ov-shadow, 0 4px 14px rgba(0, 0, 0, 0.15));
+  color: var(--ov-text);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-4px);
   transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-[data-theme="light"] .table-block-toolbar,
-[data-theme="sepia"] .table-block-toolbar {
-  background: rgba(255, 255, 255, 0.92);
-  border-bottom-color: rgba(203, 213, 225, 0.8);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  color: #334155;
 }
 
 .ov-table-block:hover .table-block-toolbar,
@@ -1662,6 +1691,17 @@ mark.ov-search-match.is-active-match {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+
+.ov-table-btn {
+  color: var(--ov-text-secondary);
+  background: transparent;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.ov-table-btn:hover {
+  color: var(--ov-text);
+  background-color: var(--ov-surface-hover);
 }
 
 /* =========================================================
@@ -1673,9 +1713,10 @@ mark.ov-search-match.is-active-match {
   max-width: 100%;
   overflow-x: auto;
   margin: 1.5em 0;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid var(--ov-border);
   background: var(--ov-surface);
+  color: var(--ov-text);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1684,11 +1725,69 @@ mark.ov-search-match.is-active-match {
   overflow: hidden;
 }
 
-.ov-table-wrapper table {
+.ov-table-wrapper table,
+.ov-table-block table {
   margin: 0 !important;
   width: 100%;
   min-width: 500px;
   border-collapse: collapse;
+  color: var(--ov-text);
+}
+
+.ov-table-wrapper thead,
+.ov-table-block thead {
+  background-color: var(--ov-table-th);
+  color: var(--ov-text);
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.ov-table-wrapper th,
+.ov-table-block th {
+  padding: 10px 14px;
+  font-weight: 600;
+  border-right: 1px solid var(--ov-border-subtle, var(--ov-border));
+  border-bottom: 1px solid var(--ov-border);
+  color: var(--ov-text);
+  transition: background-color 0.15s ease;
+}
+
+.ov-table-wrapper th:last-child,
+.ov-table-block th:last-child {
+  border-right: none;
+}
+
+.ov-table-wrapper th:hover,
+.ov-table-block th:hover {
+  background-color: var(--ov-surface-hover, rgba(128, 128, 128, 0.12));
+}
+
+.ov-table-wrapper td,
+.ov-table-block td {
+  padding: 8px 14px;
+  border-right: 1px solid var(--ov-border-subtle, var(--ov-border));
+  border-bottom: 1px solid var(--ov-border-subtle, var(--ov-border));
+  color: var(--ov-text);
+  transition: background-color 0.15s ease;
+}
+
+.ov-table-wrapper td:last-child,
+.ov-table-block td:last-child {
+  border-right: none;
+}
+
+.ov-table-wrapper tbody tr:nth-child(even) td,
+.ov-table-block tbody tr:nth-child(even) td {
+  background-color: var(--ov-table-alt);
+}
+
+.ov-table-wrapper tbody tr:hover td,
+.ov-table-block tbody tr:hover td,
+.ov-table-block tbody tr.ov-table-row:hover td {
+  background-color: var(--ov-table-hover, rgba(128, 128, 128, 0.08)) !important;
+}
+
+.ov-table-block td.col-hovered {
+  background-color: var(--ov-table-col-hover, rgba(128, 128, 128, 0.04));
 }
 
 .ov-table-wrapper::-webkit-scrollbar {
@@ -1716,18 +1815,19 @@ mark.ov-search-match.is-active-match {
   width: 14px;
   height: 14px;
   border-radius: 3px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.2);
+  border: 1px solid var(--ov-border);
+  background: var(--ov-bg);
   margin-right: 6px;
   vertical-align: middle;
   font-size: 10px;
   line-height: 1;
   user-select: none;
+  color: var(--ov-text);
 }
 
 .ov-table-checkbox-checked {
-  background: #3b82f6;
-  border-color: #2563eb;
+  background: var(--ov-accent);
+  border-color: var(--ov-accent);
   color: #ffffff;
   font-weight: bold;
 }

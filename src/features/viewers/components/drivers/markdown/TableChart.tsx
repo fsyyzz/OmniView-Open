@@ -106,23 +106,34 @@ export const TableChart: React.FC<TableChartProps> = ({
 
   return (
     <div
-      className={`p-4 rounded-lg border my-2 transition-all ${
-        isDarkTheme ? 'bg-slate-900/70 border-slate-700/80 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-800'
-      }`}
+      className="p-4 rounded-lg border my-2 transition-all"
+      style={{
+        backgroundColor: 'var(--ov-surface)',
+        borderColor: 'var(--ov-border)',
+        color: 'var(--ov-text)',
+      }}
     >
       {/* 顶部控制栏：切换维度、指标与图表类型 */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-700/40 text-xs">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b text-xs"
+        style={{ borderColor: 'var(--ov-border)' }}
+      >
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">{t('tableChartXAxis', locale)}:</span>
+            <span style={{ color: 'var(--ov-text-muted)' }}>{t('tableChartXAxis', locale)}:</span>
             <select
               value={selectedLabelCol}
               onChange={e => setSelectedLabelCol(Number(e.target.value))}
               aria-label={t('tableChartXAxis', locale)}
-              className="bg-slate-800/80 border border-slate-600/70 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500"
+              className="rounded px-2 py-1 text-xs border focus:outline-none"
+              style={{
+                backgroundColor: 'var(--ov-bg)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
             >
               {headers.map((h, i) => (
-                <option key={i} value={i}>
+                <option key={i} value={i} style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text)' }}>
                   {h || `Col ${i + 1}`}
                 </option>
               ))}
@@ -130,15 +141,20 @@ export const TableChart: React.FC<TableChartProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">{t('tableChartYAxis', locale)}:</span>
+            <span style={{ color: 'var(--ov-text-muted)' }}>{t('tableChartYAxis', locale)}:</span>
             <select
               value={selectedValueCol}
               onChange={e => setSelectedValueCol(Number(e.target.value))}
               aria-label={t('tableChartYAxis', locale)}
-              className="bg-slate-800/80 border border-slate-600/70 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500"
+              className="rounded px-2 py-1 text-xs border focus:outline-none"
+              style={{
+                backgroundColor: 'var(--ov-bg)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
             >
               {headers.map((h, i) => (
-                <option key={i} value={i}>
+                <option key={i} value={i} style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text)' }}>
                   {h || `Col ${i + 1}`}
                 </option>
               ))}
@@ -147,13 +163,23 @@ export const TableChart: React.FC<TableChartProps> = ({
         </div>
 
         {/* 图表形态切换 */}
-        <div className="flex items-center bg-slate-800/70 p-0.5 rounded border border-slate-700/80">
+        <div
+          className="flex items-center p-0.5 rounded border"
+          style={{
+            backgroundColor: 'var(--ov-bg)',
+            borderColor: 'var(--ov-border)',
+          }}
+        >
           <button
             type="button"
             onClick={() => setChartType('bar')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-all ${
-              chartType === 'bar' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              chartType === 'bar' ? 'shadow-sm text-white' : ''
             }`}
+            style={{
+              backgroundColor: chartType === 'bar' ? 'var(--ov-accent)' : 'transparent',
+              color: chartType === 'bar' ? '#ffffff' : 'var(--ov-text-muted)',
+            }}
             title={t('tableChartBar', locale)}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -163,8 +189,12 @@ export const TableChart: React.FC<TableChartProps> = ({
             type="button"
             onClick={() => setChartType('line')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-all ${
-              chartType === 'line' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              chartType === 'line' ? 'shadow-sm text-white' : ''
             }`}
+            style={{
+              backgroundColor: chartType === 'line' ? 'var(--ov-accent)' : 'transparent',
+              color: chartType === 'line' ? '#ffffff' : 'var(--ov-text-muted)',
+            }}
             title={t('tableChartLine', locale)}
           >
             <LineChartIcon className="w-3.5 h-3.5" />
@@ -193,7 +223,8 @@ export const TableChart: React.FC<TableChartProps> = ({
                   y1={y}
                   x2={width - padding.right}
                   y2={y}
-                  stroke={isDarkTheme ? 'rgba(148, 163, 184, 0.15)' : 'rgba(148, 163, 184, 0.25)'}
+                  stroke="var(--ov-border)"
+                  strokeOpacity="0.6"
                   strokeDasharray="4 4"
                 />
                 <text
@@ -201,7 +232,7 @@ export const TableChart: React.FC<TableChartProps> = ({
                   y={y + 4}
                   textAnchor="end"
                   fontSize="10"
-                  fill={isDarkTheme ? '#94a3b8' : '#64748b'}
+                  fill="var(--ov-text-muted)"
                   fontFamily="sans-serif"
                 >
                   {val}
@@ -235,7 +266,7 @@ export const TableChart: React.FC<TableChartProps> = ({
                     rx="3"
                     fill={activeColor}
                     fillOpacity={isHovered ? 1 : 0.8}
-                    stroke={isHovered ? '#ffffff' : 'transparent'}
+                    stroke={isHovered ? 'var(--ov-text)' : 'transparent'}
                     strokeWidth="1.5"
                   />
                   {/* 柱顶数值显示 */}
@@ -246,7 +277,7 @@ export const TableChart: React.FC<TableChartProps> = ({
                       textAnchor="middle"
                       fontSize="10"
                       fontWeight="bold"
-                      fill={isDarkTheme ? '#f1f5f9' : '#0f172a'}
+                      fill="var(--ov-text)"
                     >
                       {d.value}
                     </text>
@@ -257,7 +288,7 @@ export const TableChart: React.FC<TableChartProps> = ({
                     y={height - 12}
                     textAnchor="middle"
                     fontSize="10"
-                    fill={isHovered ? (isDarkTheme ? '#ffffff' : '#0f172a') : (isDarkTheme ? '#94a3b8' : '#64748b')}
+                    fill={isHovered ? 'var(--ov-text)' : 'var(--ov-text-muted)'}
                   >
                     {d.label.length > 8 ? `${d.label.slice(0, 7)}…` : d.label}
                   </text>
@@ -301,7 +332,7 @@ export const TableChart: React.FC<TableChartProps> = ({
                       cy={cy}
                       r={isHovered ? 6 : 4}
                       fill={activeColor}
-                      stroke={isDarkTheme ? '#0f172a' : '#ffffff'}
+                      stroke="var(--ov-surface)"
                       strokeWidth="2"
                     />
                     {isHovered && (
@@ -311,7 +342,7 @@ export const TableChart: React.FC<TableChartProps> = ({
                         textAnchor="middle"
                         fontSize="11"
                         fontWeight="bold"
-                        fill={isDarkTheme ? '#f8fafc' : '#0f172a'}
+                        fill="var(--ov-text)"
                       >
                         {d.value}
                       </text>
@@ -322,7 +353,7 @@ export const TableChart: React.FC<TableChartProps> = ({
                       y={height - 12}
                       textAnchor="middle"
                       fontSize="10"
-                      fill={isHovered ? (isDarkTheme ? '#ffffff' : '#0f172a') : (isDarkTheme ? '#94a3b8' : '#64748b')}
+                      fill={isHovered ? 'var(--ov-text)' : 'var(--ov-text-muted)'}
                     >
                       {d.label.length > 8 ? `${d.label.slice(0, 7)}…` : d.label}
                     </text>
@@ -336,15 +367,20 @@ export const TableChart: React.FC<TableChartProps> = ({
         {/* 悬停浮层气泡 */}
         {hoveredIndex !== null && chartData[hoveredIndex] && (
           <div
-            className="absolute pointer-events-none px-2.5 py-1.5 rounded bg-slate-950/95 border border-slate-700 text-xs text-white shadow-xl z-20 backdrop-blur-sm"
+            className="absolute pointer-events-none px-2.5 py-1.5 rounded text-xs shadow-xl z-20 backdrop-blur-sm border"
             style={{
               left: `${Math.min(Math.max((hoveredIndex / chartData.length) * 100, 10), 85)}%`,
               top: '12px',
               transform: 'translateX(-50%)',
+              backgroundColor: 'var(--ov-surface-header, var(--ov-surface))',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
             }}
           >
-            <div className="font-medium text-slate-300">{chartData[hoveredIndex].label}</div>
-            <div className="text-blue-400 font-mono font-bold mt-0.5">
+            <div className="font-medium" style={{ color: 'var(--ov-text-secondary)' }}>
+              {chartData[hoveredIndex].label}
+            </div>
+            <div className="font-mono font-bold mt-0.5" style={{ color: 'var(--ov-accent)' }}>
               {headers[selectedValueCol] || 'Value'}: {chartData[hoveredIndex].rawVal || chartData[hoveredIndex].value}
             </div>
           </div>
