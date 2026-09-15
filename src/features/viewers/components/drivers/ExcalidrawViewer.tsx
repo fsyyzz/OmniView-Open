@@ -322,7 +322,7 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
   const isZh = locale === 'zh-CN';
 
   return (
-    <div className="h-full w-full flex flex-col bg-slate-950 text-slate-200 select-none overflow-hidden">
+    <div id="excalidraw-viewer-container" className="h-full w-full flex flex-col bg-slate-950 text-slate-200 select-none overflow-hidden">
       {/* 顶部工具栏 */}
       <div className="flex-shrink-0 h-11 px-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-2 z-20">
         {/* 左侧：文件名、白板标签与模式切换 */}

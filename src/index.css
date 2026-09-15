@@ -44,49 +44,42 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-shadow: 0 8px 24px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
 }
 
-/* VS Code 原生工作台外壳层深度映射 (像素级无缝融合) */
-[data-theme="system"] #workbench-header,
-[data-theme="vscode"] #workbench-header {
+/* OmniView 工作台外壳层深度映射 (像素级无缝融合与主题自适应) */
+#workbench-header {
   background: var(--vscode-titleBar-activeBackground, var(--vscode-editorGroupHeader-tabsBackground, var(--ov-surface-header))) !important;
   border-bottom-color: var(--vscode-panel-border, var(--ov-border)) !important;
   color: var(--vscode-titleBar-activeForeground, var(--ov-text)) !important;
 }
 
-[data-theme="system"] #workbench-sidebar,
-[data-theme="vscode"] #workbench-sidebar {
+#workbench-sidebar {
   background: var(--vscode-sideBar-background, var(--ov-bg-elevated)) !important;
   border-right-color: var(--vscode-sideBar-border, var(--ov-border)) !important;
   color: var(--vscode-sideBar-foreground, var(--ov-text)) !important;
 }
 
-[data-theme="system"] #workbench-sidebar > div:first-child,
-[data-theme="vscode"] #workbench-sidebar > div:first-child {
+#workbench-sidebar > div:first-child {
   background: var(--vscode-activityBar-background, var(--vscode-sideBar-background, var(--ov-bg-elevated))) !important;
   border-right-color: var(--vscode-activityBar-border, var(--ov-border)) !important;
 }
 
-[data-theme="system"] #workbench-statusbar,
-[data-theme="vscode"] #workbench-statusbar {
+#workbench-statusbar {
   background: var(--vscode-statusBar-background, var(--ov-surface-header)) !important;
   color: var(--vscode-statusBar-foreground, var(--ov-text-muted)) !important;
   border-top-color: var(--vscode-statusBar-border, var(--ov-border)) !important;
 }
 
-[data-theme="system"] .editor-tab-bar-container,
-[data-theme="vscode"] .editor-tab-bar-container {
+.editor-tab-bar-container {
   background: var(--vscode-editorGroupHeader-tabsBackground, var(--ov-bg-elevated)) !important;
   border-bottom-color: var(--vscode-tab-border, var(--ov-border)) !important;
 }
 
-[data-theme="system"] .editor-workspace-tab-active,
-[data-theme="vscode"] .editor-workspace-tab-active {
+.editor-workspace-tab-active {
   background: var(--vscode-tab-activeBackground, var(--ov-bg)) !important;
   color: var(--vscode-tab-activeForeground, var(--ov-text)) !important;
   border-top-color: var(--vscode-tab-activeBorderTop, var(--vscode-tab-activeBorder, var(--ov-accent))) !important;
 }
 
-[data-theme="system"] .editor-workspace-tab,
-[data-theme="vscode"] .editor-workspace-tab {
+.editor-workspace-tab {
   background: var(--vscode-tab-inactiveBackground, var(--ov-bg-elevated)) !important;
   color: var(--vscode-tab-inactiveForeground, var(--ov-text-muted)) !important;
 }
@@ -138,7 +131,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-border-subtle: #cbd5e1;
   --ov-text: #0f172a;
   --ov-text-secondary: #334155;
-  --ov-text-muted: #64748b;
+  --ov-text-muted: #475569;
   --ov-code-bg: #f8fafc;
   --ov-inline-code-bg: #e2e8f0;
   --ov-inline-code-color: #0369a1;
@@ -159,7 +152,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-border-subtle: #cbbba1;
   --ov-text: #38291a;
   --ov-text-secondary: #564330;
-  --ov-text-muted: #7c6853;
+  --ov-text-muted: #64513b;
   --ov-code-bg: #f4ecda;
   --ov-inline-code-bg: #ebdcc3;
   --ov-inline-code-color: #92400e;
@@ -222,7 +215,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-border-subtle: #3b4252;
   --ov-text: #eceff4;
   --ov-text-secondary: #e5e9f0;
-  --ov-text-muted: #88c0d0;
+  --ov-text-muted: #95d5e5;
   --ov-code-bg: #2e3440;
   --ov-inline-code-bg: #3b4252;
   --ov-inline-code-color: #88c0d0;
@@ -284,14 +277,14 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-border: #d3cbb7;
   --ov-border-subtle: #e0d8c3;
   --ov-text: #073642;
-  --ov-text-secondary: #586e75;
-  --ov-text-muted: #657b83;
+  --ov-text-secondary: #465a61;
+  --ov-text-muted: #546970;
   --ov-code-bg: #f7f0dc;
   --ov-inline-code-bg: #eee8d5;
-  --ov-inline-code-color: #cb4b16;
+  --ov-inline-code-color: #a83705;
   --ov-quote-bg: rgba(181, 137, 0, 0.08);
   --ov-quote-border: #b58900;
-  --ov-accent: #268bd2;
+  --ov-accent: #135f8d;
   --ov-table-th: #eee8d5;
   --ov-table-alt: rgba(238, 232, 213, 0.55);
   --ov-shadow: 0 6px 20px rgba(7, 54, 66, 0.07);
@@ -2486,6 +2479,786 @@ details.ov-callout[open] .ov-callout-fold-icon {
 .ov-deflist > dd > :last-child {
   margin-bottom: 0;
 }
+
+/* =========================================================
+   OmniView Multi-Driver Universal Theme Tokens Integration
+   ========================================================= */
+
+/* Code Viewer Theme Harmonization */
+#code-viewer-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#code-viewer-container > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#code-editor-textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+/* CSV Smart Grid Theme Harmonization */
+#csv-smart-grid-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#csv-smart-grid-container > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+}
+
+#csv-smart-grid-container thead {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+}
+
+#csv-smart-grid-container thead th {
+  background-color: var(--ov-surface-header) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text-secondary) !important;
+}
+
+#csv-smart-grid-container tbody td {
+  border-color: var(--ov-border-subtle) !important;
+  color: var(--ov-text) !important;
+}
+
+#csv-smart-grid-container tbody tr:hover {
+  background-color: var(--ov-table-alt) !important;
+}
+
+#csv-smart-grid-container .csv-pagination-bar {
+  background-color: var(--ov-surface-header) !important;
+  border-top-color: var(--ov-border) !important;
+  color: var(--ov-text-muted) !important;
+}
+
+/* PDF Viewer Theme Harmonization */
+#pdf-viewer-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#pdf-viewer-container > header {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+}
+
+/* Notebook Viewer Theme Harmonization */
+.notebook-cell {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+.notebook-cell > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+}
+
+/* SVG Vector Studio Theme Harmonization */
+#svg-studio-root {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#svg-studio-toolbar {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#svg-code-editor-pane {
+  background-color: var(--ov-bg) !important;
+  border-right-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#svg-code-editor-pane > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+}
+
+#svg-code-editor-pane textarea {
+  color: var(--ov-text) !important;
+}
+
+/* PlantUML Architecture Studio Theme Harmonization */
+#plantuml-studio-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#plantuml-studio-container > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#plantuml-studio-container textarea {
+  color: var(--ov-text) !important;
+}
+
+/* Global Popups and Dropdowns (Markdown Toolbar, CSV Actions, Theme/Density Menus) */
+.markdown-toolbar .absolute,
+.csv-dropdown-menu,
+#workbench-header .absolute,
+#plantuml-studio-container .absolute,
+#svg-studio-toolbar .absolute,
+#diagram-studio-shell .absolute,
+#mindmap-studio-container .absolute,
+#excalidraw-viewer-container .absolute {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+  box-shadow: var(--ov-shadow) !important;
+}
+
+.markdown-toolbar .absolute button:hover,
+.csv-dropdown-menu button:hover,
+#workbench-header .absolute button:hover,
+#plantuml-studio-container .absolute button:hover,
+#svg-studio-toolbar .absolute button:hover,
+#diagram-studio-shell .absolute button:hover,
+#mindmap-studio-container .absolute button:hover,
+#excalidraw-viewer-container .absolute button:hover {
+  background-color: var(--ov-table-alt) !important;
+  color: var(--ov-text) !important;
+}
+
+/* =========================================================
+   Universal Viewer Theme Harmonization Engine
+   Ensures ALL studio drivers seamlessly adapt to the active theme
+   ========================================================= */
+
+/* Code & Raw Source Viewer Harmonization */
+#code-viewer-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#code-viewer-container > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#code-viewer-container [class*="bg-slate-900"] {
+  background-color: var(--ov-surface-header) !important;
+  border-color: var(--ov-border) !important;
+}
+
+#code-viewer-container [class*="bg-slate-950"] {
+  background-color: var(--ov-bg) !important;
+}
+
+#code-viewer-container textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#code-viewer-container .border-slate-800,
+#code-viewer-container [class*="border-slate-800"] {
+  border-color: var(--ov-border) !important;
+}
+
+#code-viewer-container .text-slate-200,
+#code-viewer-container .text-slate-100 {
+  color: var(--ov-text) !important;
+}
+
+#code-viewer-container .text-slate-400,
+#code-viewer-container .text-slate-500,
+#code-viewer-container .text-slate-600 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* Diagram Studio Shell (Mermaid / Graphviz / DomainStory) */
+#diagram-studio-shell {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#diagram-studio-shell > header {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#diagram-studio-shell [class*="bg-slate-900"] {
+  background-color: var(--ov-surface-header) !important;
+}
+
+#diagram-studio-shell [class*="bg-slate-950"] {
+  background-color: var(--ov-bg) !important;
+}
+
+#diagram-studio-shell textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#diagram-studio-shell [class*="border-slate-800"] {
+  border-color: var(--ov-border) !important;
+}
+
+#diagram-studio-shell .text-slate-200,
+#diagram-studio-shell .text-slate-100 {
+  color: var(--ov-text) !important;
+}
+
+#diagram-studio-shell .text-slate-400,
+#diagram-studio-shell .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* Mindmap Studio Viewer Harmonization */
+#mindmap-studio-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#mindmap-studio-container > header {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#mindmap-studio-container [class*="bg-slate-900"] {
+  background-color: var(--ov-surface-header) !important;
+}
+
+#mindmap-studio-container [class*="bg-slate-950"] {
+  background-color: var(--ov-bg) !important;
+}
+
+#mindmap-studio-container textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#mindmap-studio-container [class*="border-slate-800"],
+#mindmap-studio-container [class*="border-slate-700"] {
+  border-color: var(--ov-border) !important;
+}
+
+#mindmap-studio-container .text-slate-200,
+#mindmap-studio-container .text-slate-300 {
+  color: var(--ov-text) !important;
+}
+
+#mindmap-studio-container .text-slate-400,
+#mindmap-studio-container .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* Structured Data Viewer (JSON / YAML / TOML / XML) */
+#structured-data-viewer {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#structured-data-viewer > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#structured-data-viewer [class*="bg-slate-900"] {
+  background-color: var(--ov-surface-header) !important;
+}
+
+#structured-data-viewer [class*="bg-slate-950"] {
+  background-color: var(--ov-bg) !important;
+}
+
+#structured-data-viewer [class*="border-slate-800"] {
+  border-color: var(--ov-border) !important;
+}
+
+#structured-data-viewer .text-slate-200,
+#structured-data-viewer .text-slate-300 {
+  color: var(--ov-text) !important;
+}
+
+#structured-data-viewer .text-slate-400,
+#structured-data-viewer .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* Excalidraw Whiteboard Studio Harmonization */
+#excalidraw-viewer-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#excalidraw-viewer-container > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#excalidraw-viewer-container [class*="bg-slate-900"] {
+  background-color: var(--ov-surface-header) !important;
+}
+
+#excalidraw-viewer-container [class*="bg-slate-950"] {
+  background-color: var(--ov-bg) !important;
+}
+
+#excalidraw-viewer-container [class*="border-slate-800"],
+#excalidraw-viewer-container [class*="border-slate-700"] {
+  border-color: var(--ov-border) !important;
+}
+
+#excalidraw-viewer-container textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#excalidraw-viewer-container .text-slate-200,
+#excalidraw-viewer-container .text-slate-300 {
+  color: var(--ov-text) !important;
+}
+
+#excalidraw-viewer-container .text-slate-400,
+#excalidraw-viewer-container .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* Typst Studio & Document Harmonization */
+#typst-viewer-container {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#typst-viewer-container > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#typst-viewer-container [class*="bg-slate-900"] {
+  background-color: var(--ov-surface-header) !important;
+}
+
+#typst-viewer-container [class*="bg-slate-950"] {
+  background-color: var(--ov-bg) !important;
+}
+
+#typst-viewer-container [class*="border-slate-800"] {
+  border-color: var(--ov-border) !important;
+}
+
+#typst-viewer-container textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#typst-viewer-container .text-slate-100,
+#typst-viewer-container .text-slate-200 {
+  color: var(--ov-text) !important;
+}
+
+#typst-viewer-container .text-slate-400,
+#typst-viewer-container .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* CSV Raw Mode & Modal Theme Harmonization */
+#csv-smart-grid-container [class*="bg-slate-950"],
+#csv-smart-grid-container textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+/* =========================================================
+   Workbench Sidebar & Explorer Pane Theme Harmonization
+   ========================================================= */
+#workbench-sidebar {
+  background: var(--vscode-sideBar-background, var(--ov-bg-elevated)) !important;
+  border-right: 1px solid var(--vscode-sideBar-border, var(--ov-border)) !important;
+  color: var(--vscode-sideBar-foreground, var(--ov-text)) !important;
+}
+
+#workbench-activity-bar {
+  background: var(--vscode-activityBar-background, var(--vscode-sideBar-background, var(--ov-surface-header))) !important;
+  border-right: 1px solid var(--vscode-activityBar-border, var(--ov-border)) !important;
+}
+
+#workbench-activity-bar .activity-bar-btn {
+  color: var(--ov-text-muted) !important;
+  background-color: transparent !important;
+}
+
+#workbench-activity-bar .activity-bar-btn:hover {
+  color: var(--ov-text) !important;
+  background-color: var(--ov-table-alt) !important;
+}
+
+#workbench-activity-bar .activity-bar-btn.active {
+  color: var(--ov-accent) !important;
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  border: 1px solid var(--ov-accent) !important;
+}
+
+#workbench-explorer-pane {
+  background: var(--vscode-sideBar-background, var(--ov-bg-elevated)) !important;
+  color: var(--vscode-sideBar-foreground, var(--ov-text)) !important;
+}
+
+#workbench-explorer-pane .explorer-pane-header {
+  background: var(--ov-surface-header) !important;
+  border-bottom: 1px solid var(--ov-border) !important;
+  color: var(--ov-text-secondary) !important;
+}
+
+#workbench-explorer-pane .explorer-file-count {
+  color: var(--ov-text-muted) !important;
+}
+
+#workbench-explorer-pane .explorer-file-item {
+  color: var(--ov-text-secondary) !important;
+}
+
+#workbench-explorer-pane .explorer-file-item:hover {
+  background-color: var(--ov-table-alt) !important;
+  color: var(--ov-text) !important;
+}
+
+#workbench-explorer-pane .explorer-file-item.active {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  color: var(--ov-accent) !important;
+  border: 1px solid var(--ov-accent) !important;
+}
+
+#workbench-explorer-pane .explorer-file-size {
+  color: var(--ov-text-muted) !important;
+}
+
+#workbench-explorer-pane .explorer-dropzone {
+  border-color: var(--ov-border) !important;
+  background-color: var(--ov-quote-bg) !important;
+  color: var(--ov-text-muted) !important;
+}
+
+#workbench-explorer-pane .explorer-dropzone .dropzone-title {
+  color: var(--ov-text-secondary) !important;
+}
+
+#workbench-explorer-pane .explorer-dropzone .dropzone-subtitle {
+  color: var(--ov-text-muted) !important;
+}
+
+#workbench-explorer-pane .explorer-dropzone:hover,
+#workbench-explorer-pane .explorer-dropzone.dragging {
+  border-color: var(--ov-accent) !important;
+  color: var(--ov-accent) !important;
+}
+
+#workbench-explorer-pane .explorer-footer-card {
+  background: var(--ov-surface-header) !important;
+  border-top: 1px solid var(--ov-border) !important;
+  color: var(--ov-text-secondary) !important;
+}
+
+#workbench-explorer-pane .explorer-footer-card .footer-label {
+  color: var(--ov-text-muted) !important;
+}
+
+/* =========================================================
+   DocCenter (工程技术文档中心) Theme Harmonization
+   ========================================================= */
+#doc-center-root {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#doc-center-root > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom: 1px solid var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#doc-center-root > div:first-child h2 {
+  color: var(--ov-text) !important;
+}
+
+#doc-center-root > div:first-child p {
+  color: var(--ov-text-muted) !important;
+}
+
+#doc-center-root > div:first-child button {
+  background-color: var(--ov-surface) !important;
+  border: 1px solid var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#doc-center-root > div:first-child button:hover {
+  background-color: var(--ov-table-alt) !important;
+}
+
+/* DocCenter 左侧目录面板 */
+#doc-center-root > div:nth-child(2) > div:first-child {
+  background-color: var(--ov-bg-elevated) !important;
+  border-right: 1px solid var(--ov-border) !important;
+}
+
+#doc-center-root input[type="text"] {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#doc-center-root input[type="text"]::placeholder {
+  color: var(--ov-text-muted) !important;
+}
+
+#doc-center-root .p-3.border-b {
+  border-bottom: 1px solid var(--ov-border) !important;
+}
+
+/* DocCenter 分类筛选按钮 */
+#doc-center-root .overflow-x-auto button:not(.bg-blue-600) {
+  background-color: var(--ov-surface) !important;
+  color: var(--ov-text-muted) !important;
+  border: 1px solid var(--ov-border) !important;
+}
+
+#doc-center-root .overflow-x-auto button:not(.bg-blue-600):hover {
+  color: var(--ov-text) !important;
+  background-color: var(--ov-table-alt) !important;
+}
+
+/* DocCenter 文档卡片 */
+#doc-center-root button.w-full.text-left {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#doc-center-root button.w-full.text-left:hover {
+  border-color: var(--ov-accent) !important;
+  background-color: var(--ov-table-alt) !important;
+}
+
+#doc-center-root button.w-full.text-left.bg-blue-950\/60 {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  border-color: var(--ov-accent) !important;
+}
+
+#doc-center-root button.w-full.text-left span {
+  color: var(--ov-text) !important;
+}
+
+#doc-center-root button.w-full.text-left p {
+  color: var(--ov-text-muted) !important;
+}
+
+#doc-center-root button.w-full.text-left .flex-wrap span {
+  background-color: var(--ov-code-bg) !important;
+  border: 1px solid var(--ov-border-subtle) !important;
+  color: var(--ov-text-secondary) !important;
+}
+
+/* DocCenter 底部状态 */
+#doc-center-root .p-3.border-t {
+  border-top: 1px solid var(--ov-border) !important;
+  background-color: var(--ov-surface-header) !important;
+  color: var(--ov-text-muted) !important;
+}
+
+/* DocCenter 中间内容阅读区与纸张 */
+#doc-center-root > div:nth-child(2) > div.flex-1 {
+  background-color: var(--ov-bg) !important;
+}
+
+#doc-center-root > div:nth-child(2) > div.flex-1 > div.max-w-4xl {
+  background-color: var(--ov-surface) !important;
+  border: 1px solid var(--ov-border) !important;
+  box-shadow: var(--ov-shadow) !important;
+}
+
+/* DocCenter 右侧大纲 */
+#doc-center-root > div:nth-child(2) > div:last-child {
+  background-color: var(--ov-bg-elevated) !important;
+  border-left: 1px solid var(--ov-border) !important;
+}
+
+#doc-center-root > div:nth-child(2) > div:last-child div {
+  color: var(--ov-text-secondary) !important;
+}
+
+#doc-center-root > div:nth-child(2) > div:last-child div:hover {
+  color: var(--ov-accent) !important;
+}
+
+/* =========================================================
+   DriversManager (驱动管理与引擎矩阵) Theme Harmonization
+   ========================================================= */
+#drivers-manager-root {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#drivers-manager-root .border-b {
+  border-color: var(--ov-border) !important;
+}
+
+#drivers-manager-root h1 {
+  color: var(--ov-text) !important;
+}
+
+#drivers-manager-root p {
+  color: var(--ov-text-muted) !important;
+}
+
+#drivers-manager-root .bg-slate-900 {
+  background-color: var(--ov-surface-header) !important;
+  border-color: var(--ov-border) !important;
+}
+
+#drivers-manager-root [class*="bg-slate-900/"] {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+}
+
+#drivers-manager-root [class*="bg-slate-950/"] {
+  background-color: var(--ov-bg-elevated) !important;
+  border-color: var(--ov-border) !important;
+}
+
+#drivers-manager-root input[type="text"] {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#drivers-manager-root input[type="text"]::placeholder {
+  color: var(--ov-text-muted) !important;
+}
+
+#drivers-manager-root .text-slate-100,
+#drivers-manager-root .text-slate-200 {
+  color: var(--ov-text) !important;
+}
+
+#drivers-manager-root .text-slate-300,
+#drivers-manager-root .text-slate-400 {
+  color: var(--ov-text-secondary) !important;
+}
+
+#drivers-manager-root .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* =========================================================
+   ScaffoldExporter (插件脚手架) Theme Harmonization
+   ========================================================= */
+#scaffold-exporter-root {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#scaffold-exporter-root > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom: 1px solid var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#scaffold-exporter-root h2 {
+  color: var(--ov-text) !important;
+}
+
+#scaffold-exporter-root p {
+  color: var(--ov-text-muted) !important;
+}
+
+#scaffold-exporter-root [class*="bg-slate-900"] {
+  background-color: var(--ov-surface-header) !important;
+  border-color: var(--ov-border) !important;
+}
+
+#scaffold-exporter-root [class*="bg-slate-950"] {
+  background-color: var(--ov-bg) !important;
+}
+
+#scaffold-exporter-root textarea {
+  background-color: var(--ov-bg) !important;
+  color: var(--ov-text) !important;
+}
+
+#scaffold-exporter-root input[type="text"] {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#scaffold-exporter-root input[type="text"]::placeholder {
+  color: var(--ov-text-muted) !important;
+}
+
+#scaffold-exporter-root .text-slate-100,
+#scaffold-exporter-root .text-slate-200 {
+  color: var(--ov-text) !important;
+}
+
+#scaffold-exporter-root .text-slate-400,
+#scaffold-exporter-root .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+/* =========================================================
+   Workbench Settings Modal Theme Harmonization
+   ========================================================= */
+#workbench-settings-modal {
+  background-color: var(--ov-surface) !important;
+  border: 1px solid var(--ov-border) !important;
+  color: var(--ov-text) !important;
+  box-shadow: var(--ov-shadow) !important;
+}
+
+#workbench-settings-modal > div:first-child {
+  background-color: var(--ov-surface-header) !important;
+  border-bottom: 1px solid var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#workbench-settings-modal h2 {
+  color: var(--ov-text) !important;
+}
+
+#workbench-settings-modal p {
+  color: var(--ov-text-muted) !important;
+}
+
+#workbench-settings-modal [class*="bg-slate-950/"],
+#workbench-settings-modal [class*="bg-slate-900"] {
+  background-color: var(--ov-bg-elevated) !important;
+  border-color: var(--ov-border) !important;
+}
+
+#workbench-settings-modal .text-slate-200,
+#workbench-settings-modal .text-slate-100 {
+  color: var(--ov-text) !important;
+}
+
+#workbench-settings-modal .text-slate-400,
+#workbench-settings-modal .text-slate-500 {
+  color: var(--ov-text-muted) !important;
+}
+
+#workbench-settings-modal .border-slate-800,
+#workbench-settings-modal .border-slate-700 {
+  border-color: var(--ov-border) !important;
+}
+
+
 
 
 

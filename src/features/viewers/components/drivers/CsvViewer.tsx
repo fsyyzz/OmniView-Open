@@ -880,7 +880,7 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
           </div>
 
           {/* Bottom Pagination & Stats Footer Bar */}
-          <div className="flex flex-wrap items-center justify-between px-4 py-2 bg-slate-900 border-t border-slate-800 text-xs text-slate-400 gap-3 shrink-0">
+          <div className="csv-pagination-bar flex flex-wrap items-center justify-between px-4 py-2 bg-slate-900 border-t border-slate-800 text-xs text-slate-400 gap-3 shrink-0">
             <div className="flex items-center gap-3">
               <span>
                 {locale === 'en-US' ? 'Total' : '数据总量'}: <strong className="text-slate-200">{rows.length}</strong> {locale === 'en-US' ? 'rows' : '行'} × <strong className="text-slate-200">{headers.length}</strong> {locale === 'en-US' ? 'columns' : '列'}

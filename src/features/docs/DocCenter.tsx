@@ -23,15 +23,28 @@ import {
 } from 'lucide-react';
 
 interface DocCenterProps {
+  theme?: string;
   onClose?: () => void;
   onOpenInWorkbench?: (title: string, content: string) => void;
 }
 
-export const DocCenter: React.FC<DocCenterProps> = ({ onOpenInWorkbench }) => {
+export const DocCenter: React.FC<DocCenterProps> = ({ theme, onOpenInWorkbench }) => {
   const [selectedDocId, setSelectedDocId] = useState<string>(PROJECT_DOCS[0].id);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [copied, setCopied] = useState(false);
+
+  // 动态识别当前主题是否为暗黑主题
+  const isDarkTheme = useMemo(() => {
+    if (theme === 'system') {
+      const attr = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : null;
+      if (attr && attr !== 'system') {
+        return attr !== 'light' && attr !== 'sepia' && attr !== 'solarized';
+      }
+      return typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : true;
+    }
+    return theme ? (theme !== 'light' && theme !== 'sepia' && theme !== 'solarized') : true;
+  }, [theme]);
 
   // 依据搜索关键词与分类过滤文档列表
   const filteredDocs = useMemo(() => {
@@ -258,7 +271,7 @@ export const DocCenter: React.FC<DocCenterProps> = ({ onOpenInWorkbench }) => {
           <div className="max-w-4xl mx-auto bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 lg:p-10 shadow-2xl">
             <MarkdownViewer
               content={currentDoc.content}
-              isDarkTheme={true}
+              isDarkTheme={isDarkTheme}
               density="comfortable"
               contentWidth="full"
             />

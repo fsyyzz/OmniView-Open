@@ -115,9 +115,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div id="workbench-sidebar" className="flex h-full bg-slate-900 border-r border-slate-800 select-none shrink-0 z-10">
+    <div id="workbench-sidebar" className="flex h-full select-none shrink-0 z-10">
       {/* Activity Bar (VS Code left column) */}
-      <div className="w-12 bg-slate-950 border-r border-slate-850 flex flex-col items-center justify-between py-3">
+      <div id="workbench-activity-bar" className="w-12 border-r flex flex-col items-center justify-between py-3 shrink-0">
         {/* Top items */}
         <div className="flex flex-col items-center gap-2.5">
           <button
@@ -127,10 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }
               onViewChange('editor');
             }}
-            className={`p-2 rounded-xl transition ${
-              currentView === 'editor' && sidebarOpen
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
+            className={`p-2 rounded-xl transition activity-bar-btn ${
+              currentView === 'editor' && sidebarOpen ? 'active' : ''
             }`}
             title="资源管理器 (Explorer)"
             aria-label="资源管理器"
@@ -140,10 +138,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <button
             onClick={() => onViewChange('docs')}
-            className={`p-2 rounded-xl transition ${
-              currentView === 'docs'
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
+            className={`p-2 rounded-xl transition activity-bar-btn ${
+              currentView === 'docs' ? 'active' : ''
             }`}
             title="工程技术文档中心 (PRD & 架构)"
             aria-label="工程技术文档中心"
@@ -153,10 +149,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <button
             onClick={() => onViewChange('drivers')}
-            className={`p-2 rounded-xl transition ${
-              currentView === 'drivers'
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
+            className={`p-2 rounded-xl transition activity-bar-btn ${
+              currentView === 'drivers' ? 'active' : ''
             }`}
             title="驱动矩阵与竞品对标 (Drivers)"
             aria-label="驱动矩阵与竞品对标"
@@ -166,10 +160,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <button
             onClick={() => onViewChange('scaffold')}
-            className={`p-2 rounded-xl transition ${
-              currentView === 'scaffold'
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
+            className={`p-2 rounded-xl transition activity-bar-btn ${
+              currentView === 'scaffold' ? 'active' : ''
             }`}
             title="VS Code 插件生产源码脚手架 (Scaffold)"
             aria-label="扩展脚手架"
@@ -183,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {onToggleSidebar && (
             <button
               onClick={onToggleSidebar}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-900 transition"
+              className="p-2 rounded-xl transition activity-bar-btn"
               title={sidebarOpen ? '折叠文件侧边栏' : '展开文件侧边栏'}
               aria-label={sidebarOpen ? '折叠文件侧边栏' : '展开文件侧边栏'}
             >
@@ -194,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-200 hover:bg-slate-900 transition"
+              className="p-2 rounded-xl transition activity-bar-btn"
               title="偏好与持久化配置中心 (Settings)"
               aria-label="偏好设置"
             >
@@ -207,21 +199,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Explorer Side Pane */}
       {sidebarOpen && (
         <div
-          className="w-60 flex flex-col bg-slate-900/60 overflow-hidden"
+          id="workbench-explorer-pane"
+          className="w-60 flex flex-col overflow-hidden"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
           {/* Pane Header */}
-          <div className="px-4 py-2.5 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+          <div className="explorer-pane-header px-4 py-2.5 border-b text-[11px] font-bold uppercase tracking-wider flex items-center justify-between">
             <div
-              className="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 transition"
+              className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition"
               onClick={onToggleExplorer}
             >
               {explorerOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               <span>工作区文件 (EXPLORER)</span>
             </div>
-            <span className="text-[10px] text-slate-500 font-mono">{files.length} 个文件</span>
+            <span className="explorer-file-count text-[10px] font-mono">{files.length} 个文件</span>
           </div>
 
           {/* File List */}
@@ -236,10 +229,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onSelectFile(file.id);
                       if (currentView !== 'editor') onViewChange('editor');
                     }}
-                    className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition ${
-                      isActive
-                        ? 'bg-blue-600/20 text-blue-200 font-medium border border-blue-500/30'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition explorer-file-item ${
+                      isActive ? 'active' : ''
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
@@ -249,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition">
-                      <span className="text-[10px] text-slate-500 font-mono">
+                      <span className="explorer-file-size text-[10px] font-mono">
                         {Math.round(file.size / 1024 * 10) / 10}K
                       </span>
                       {file.isCustomUploaded && (
@@ -273,26 +264,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Drag & Drop Upload Zone */}
           <div
-            className={`p-3 m-2 rounded-xl border border-dashed transition-all text-center text-xs ${
-              isDraggingOver
-                ? 'border-blue-400 bg-blue-950/40 text-blue-300'
-                : 'border-slate-800 text-slate-500 hover:border-slate-700'
+            className={`explorer-dropzone p-3 m-2 rounded-xl border border-dashed transition-all text-center text-xs ${
+              isDraggingOver ? 'dragging' : ''
             }`}
           >
-            <UploadCloud className="w-5 h-5 mx-auto mb-1 text-slate-400" />
-            <div className="font-semibold text-slate-400">拖拽文件到此处</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">支持 .md, .mm, .svg, .pdf, .puml, .csv</div>
+            <UploadCloud className="w-5 h-5 mx-auto mb-1" />
+            <div className="font-semibold dropzone-title">拖拽文件到此处</div>
+            <div className="dropzone-subtitle text-[10px] mt-0.5">支持 .md, .mm, .svg, .pdf, .puml, .csv</div>
           </div>
 
           {/* Bottom Engine Specs Card */}
-          <div className="p-3 border-t border-slate-800/80 bg-slate-950/40 text-[11px] text-slate-400 space-y-1">
+          <div className="explorer-footer-card p-3 border-t text-[11px] space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-slate-500">渲染驱动:</span>
-              <span className="text-cyan-400 font-mono">Driver-Ready</span>
+              <span className="footer-label">渲染驱动:</span>
+              <span className="footer-val-cyan font-mono font-medium">Driver-Ready</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-500">商业授权:</span>
-              <span className="text-emerald-400 font-semibold">100% Free MIT</span>
+              <span className="footer-label">商业授权:</span>
+              <span className="footer-val-emerald font-semibold">100% Free MIT</span>
             </div>
           </div>
         </div>

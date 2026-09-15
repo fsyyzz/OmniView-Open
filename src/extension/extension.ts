@@ -14,6 +14,22 @@ function log(message: string, details?: unknown): void {
   console.log(`[OmniView] ${message}${suffix}`);
 }
 
+/** 读取并归一化 VS Code 宿主工作区中的 omniview 配置 */
+function getHostConfiguration(): Record<string, unknown> {
+  const config = vscode.workspace.getConfiguration('omniview');
+  return {
+    theme: config.get<string>('preview.theme', 'system'),
+    density: config.get<string>('preview.density', 'compact'),
+    fontSize: config.get<number>('preview.fontSize', 15),
+    contentWidth: config.get<string>('preview.contentWidth', 'standard'),
+    scrollSync: config.get<boolean>('editor.scrollSync', true),
+    wordWrap: config.get<boolean>('editor.wordWrap', true),
+    showLineNumbers: config.get<boolean>('editor.showLineNumbers', true),
+    plantUmlServerUrl: config.get<string>('plantuml.serverUrl', 'https://www.plantuml.com/plantuml'),
+    enableOkfRendering: config.get<boolean>('knowledge.enableOkfRendering', true),
+  };
+}
+
 /** Webview 无法调用 window.print；Host 侧落盘临时 HTML 并用系统浏览器打开 */
 function sanitizePrintFileName(fileName: string): string {
   const leaf = (fileName || 'omniview-print').split(/[/\\]/).pop() || 'omniview-print';
@@ -385,9 +401,34 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
         }
         return;
       }
+      if (message?.type === 'save-configuration' && message?.settings && typeof message.settings === 'object') {
+        // Webview 设置弹窗修改后，向 VS Code 工作区持久化写回配置
+        try {
+          const config = vscode.workspace.getConfiguration('omniview');
+          const s = message.settings as Record<string, unknown>;
+          if (s.theme !== undefined) await config.update('preview.theme', s.theme, vscode.ConfigurationTarget.Global);
+          if (s.density !== undefined) await config.update('preview.density', s.density, vscode.ConfigurationTarget.Global);
+          if (typeof s.fontSize === 'number') await config.update('preview.fontSize', s.fontSize, vscode.ConfigurationTarget.Global);
+          if (s.contentWidth !== undefined) await config.update('preview.contentWidth', s.contentWidth, vscode.ConfigurationTarget.Global);
+          if (s.scrollSync !== undefined) await config.update('editor.scrollSync', s.scrollSync, vscode.ConfigurationTarget.Global);
+          if (s.wordWrap !== undefined) await config.update('editor.wordWrap', s.wordWrap, vscode.ConfigurationTarget.Global);
+          if (s.showLineNumbers !== undefined) await config.update('editor.showLineNumbers', s.showLineNumbers, vscode.ConfigurationTarget.Global);
+          if (typeof s.plantUmlServerUrl === 'string') await config.update('plantuml.serverUrl', s.plantUmlServerUrl, vscode.ConfigurationTarget.Global);
+          if (s.enableOkfRendering !== undefined) await config.update('knowledge.enableOkfRendering', s.enableOkfRendering, vscode.ConfigurationTarget.Global);
+          log('Saved configuration back to VS Code global settings');
+        } catch (err) {
+          log('Failed to save configuration to VS Code workspace', err);
+        }
+        return;
+      }
       if (message?.type !== 'ready') return;
       try {
         await postDocument(false);
+        // 初始握手时将当前 VS Code 宿主配置一并推给 Webview
+        await webview.postMessage({
+          type: 'host-configuration',
+          settings: getHostConfiguration(),
+        });
       } catch (error) {
         log('Failed to post document to Webview', error);
       }
@@ -516,6 +557,19 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     });
     disposables.push(themeListener);
 
+    // 5. 监听 VS Code 工作区与用户配置变更 (omniview.*)，实现设置双向热更新
+    const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('omniview')) {
+        const currentCfg = getHostConfiguration();
+        webview.postMessage({
+          type: 'host-configuration',
+          settings: currentCfg,
+        });
+        log('Workspace configuration changed (omniview.*), pushed update to Webview');
+      }
+    });
+    disposables.push(configListener);
+
     // Webview 销毁时统一释放所有监听器与 Watcher，杜绝内存泄漏
     webviewPanel.onDidDispose(() => {
       clearTimeout(editDebounceTimer);
@@ -624,6 +678,15 @@ export function activate(context: vscode.ExtensionContext): void {
       } catch {
         vscode.window.showErrorMessage('无法打开该文件的源码编辑器。');
       }
+    }
+  }));
+
+  // 打开插件配置面板
+  context.subscriptions.push(vscode.commands.registerCommand('omniview.openSettings', async () => {
+    try {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'omniview');
+    } catch (error) {
+      log('openSettings failed', error);
     }
   }));
 

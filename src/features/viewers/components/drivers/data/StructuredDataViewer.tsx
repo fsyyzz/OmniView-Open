@@ -176,7 +176,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   }, [content, extension]);
 
   return (
-    <div className="h-full w-full flex flex-col bg-slate-950 font-sans text-xs text-slate-300 select-text overflow-hidden">
+    <div id="structured-data-viewer" className="h-full w-full flex flex-col bg-slate-950 font-sans text-xs text-slate-300 select-text overflow-hidden">
       {/* 顶部主工作台控制工具栏 */}
       <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none gap-2">
         {/* 左侧：文件基本元信息与视图模式切换器 */}

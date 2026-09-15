@@ -225,7 +225,7 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   const charCount = localCode.length;
 
   return (
-    <div className="h-full min-h-0 flex flex-col bg-slate-950 text-slate-200" data-file={fileName}>
+    <div id="diagram-studio-shell" className="h-full min-h-0 flex flex-col bg-slate-950 text-slate-200" data-file={fileName}>
       <header className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900 border-b border-slate-800 text-xs shrink-0 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`font-semibold ${accentText} truncate`}>{title}</span>

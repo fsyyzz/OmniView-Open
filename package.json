@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "0.11.2",
+  "version": "0.11.3",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -148,6 +148,11 @@
         "icon": "$(code)"
       },
       {
+        "command": "omniview.openSettings",
+        "title": "OmniView: 打开插件设置 (Configure Settings)",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "omniview.showLogs",
         "title": "OmniView: 打开日志"
       }
@@ -165,6 +170,82 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration": {
+      "title": "OmniView",
+      "properties": {
+        "omniview.preview.theme": {
+          "type": "string",
+          "default": "system",
+          "enum": [
+            "system",
+            "dark",
+            "light",
+            "sepia",
+            "nord",
+            "dracula",
+            "forest",
+            "solarized",
+            "midnight",
+            "cyber"
+          ],
+          "markdownDescription": "渲染工作台默认色彩主题。设置为 `system` 将自动继承当前 VS Code 编辑器活动主题并实时跟随宿主外观。"
+        },
+        "omniview.preview.density": {
+          "type": "string",
+          "default": "compact",
+          "enum": [
+            "compact",
+            "standard",
+            "comfortable"
+          ],
+          "description": "默认排版紧凑密度与行距模式。"
+        },
+        "omniview.preview.fontSize": {
+          "type": "number",
+          "default": 15,
+          "minimum": 12,
+          "maximum": 24,
+          "description": "预览排版基准正文字号 (px)。"
+        },
+        "omniview.preview.contentWidth": {
+          "type": "string",
+          "default": "standard",
+          "enum": [
+            "narrow",
+            "standard",
+            "wide",
+            "full"
+          ],
+          "description": "文档与图表内容区域默认最大宽度约束。"
+        },
+        "omniview.editor.scrollSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否开启源码编辑器与预览视口之间的高精度双向滚动与光标行同步。"
+        },
+        "omniview.editor.wordWrap": {
+          "type": "boolean",
+          "default": true,
+          "description": "源码与文本编辑模式下是否默认开启自动换行。"
+        },
+        "omniview.editor.showLineNumbers": {
+          "type": "boolean",
+          "default": true,
+          "description": "代码与源码查看器是否显示行号槽。"
+        },
+        "omniview.plantuml.serverUrl": {
+          "type": "string",
+          "default": "https://www.plantuml.com/plantuml",
+          "format": "uri",
+          "description": "PlantUML 图表渲染服务器地址（支持指向企业内部或团队私有部署的 PlantUML 服务实例）。"
+        },
+        "omniview.knowledge.enableOkfRendering": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否开启 OKF (Open Knowledge Format) 多维知识图谱扩展渲染引擎。"
+        }
+      }
     }
   },
   "type": "module",

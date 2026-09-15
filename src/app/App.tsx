@@ -138,6 +138,12 @@ export default function App() {
     if (updatedSettings.currentView) setCurrentView(updatedSettings.currentView);
     if (updatedSettings.sidebarOpen !== undefined) setSidebarOpen(updatedSettings.sidebarOpen);
     if (updatedSettings.explorerOpen !== undefined) setExplorerOpen(updatedSettings.explorerOpen);
+    if (vscode) {
+      vscode.postMessage({
+        type: 'save-configuration',
+        settings: updatedSettings,
+      });
+    }
   };
 
   const handleResetWorkspace = () => {
@@ -155,8 +161,20 @@ export default function App() {
     const reportError = (event: ErrorEvent) => {
       vscode?.postMessage({ type: 'webview-error', message: event.message, source: event.filename, line: event.lineno });
     };
-    const handleMessage = (event: MessageEvent<{ type?: string; file?: FileItem; themeKind?: string }>) => {
+    const handleMessage = (event: MessageEvent<{ type?: string; file?: FileItem; themeKind?: string; settings?: Partial<WorkbenchSettings> }>) => {
       const msgType = event.data?.type;
+      if (msgType === 'host-configuration' && event.data.settings) {
+        // 接收来自 VS Code 宿主工作区/用户 settings.json 广播的 omniview 配置
+        const hostSettings = event.data.settings;
+        setSettings((prev) => {
+          const merged = { ...prev, ...hostSettings };
+          saveStoredSettings(hostSettings);
+          return merged;
+        });
+        if (hostSettings.theme) setTheme(hostSettings.theme);
+        if (hostSettings.density) setDensity(hostSettings.density);
+        return;
+      }
       if (msgType === 'theme-changed') {
         // VS Code 宿主主动广播色彩主题切换 (例如切换为 One Dark Pro / Dracula)
         setTheme((curr) => (curr === 'system' ? 'system' : curr));
@@ -462,6 +480,7 @@ flowchart LR
             {/* If viewing Documentation Center */}
             {currentView === 'docs' && (
               <DocCenter
+                theme={theme}
                 onOpenInWorkbench={(title, content) => {
                   handleNewFile(`${title.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_')}.md`, content, 'md');
                   handleCurrentViewChange('editor');
