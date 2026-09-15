@@ -432,6 +432,61 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
       margin: 16px 0;
       overflow-x: auto;
     }
+    .ov-footnote-ref {
+      font-size: 0.75em;
+      vertical-align: super;
+    }
+    .ov-footnotes {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+    }
+    .ov-footnotes-title {
+      font-size: 1rem;
+      margin: 0 0 0.75rem;
+    }
+    .ov-footnote-backref {
+      text-decoration: none;
+      margin-left: 0.25rem;
+    }
+    .ov-wiki-link {
+      color: #0284c7;
+      text-decoration: none;
+      border-bottom: 1px dashed #7dd3fc;
+    }
+    .ov-wiki-embed {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin: 16px 0;
+      overflow: hidden;
+    }
+    .ov-wiki-embed-header {
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-weight: 600;
+    }
+    .ov-wiki-embed-body {
+      padding: 12px;
+      font-size: 0.9em;
+    }
+    .ov-wiki-embed-preview {
+      white-space: pre-wrap;
+      margin: 0;
+      font-family: inherit;
+    }
+    .ov-deflist {
+      margin: 1rem 0;
+    }
+    .ov-deflist > dt {
+      font-weight: 650;
+      margin-top: 0.75rem;
+    }
+    .ov-deflist > dd {
+      margin-left: 1.1rem;
+      padding-left: 0.5rem;
+      border-left: 2px solid #7dd3fc;
+    }
     @media print {
       @page {
         size: A4;

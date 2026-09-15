@@ -2243,5 +2243,252 @@ details.ov-callout[open] .ov-callout-fold-icon {
   opacity: 0.55;
 }
 
+/* =========================================================
+   GFM / Pandoc Footnotes
+   ========================================================= */
+
+.ov-footnote-ref {
+  font-size: 0.75em;
+  line-height: 0;
+  vertical-align: super;
+  margin-left: 0.1em;
+}
+
+.ov-footnote-ref a {
+  color: var(--vscode-textLink-foreground, #3b82f6);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0 0.15em;
+}
+
+.ov-footnote-ref a:hover {
+  text-decoration: underline;
+}
+
+.ov-footnotes {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--vscode-editor-foreground, #94a3b8) 18%, transparent);
+}
+
+.ov-footnotes-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--vscode-editor-foreground, #e2e8f0);
+  opacity: 0.9;
+}
+
+.ov-footnotes-list {
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
+.ov-footnote-item {
+  margin: 0.55rem 0;
+  padding-left: 0.15rem;
+  color: color-mix(in srgb, var(--vscode-editor-foreground, #cbd5e1) 92%, transparent);
+  font-size: 0.92em;
+  line-height: 1.55;
+}
+
+.ov-footnote-body {
+  display: inline;
+}
+
+.ov-footnote-body > :first-child {
+  display: inline;
+  margin-top: 0;
+}
+
+.ov-footnote-body > :last-child {
+  margin-bottom: 0;
+}
+
+.ov-footnote-backrefs {
+  margin-left: 0.35rem;
+  white-space: nowrap;
+}
+
+.ov-footnote-backref {
+  color: var(--vscode-textLink-foreground, #3b82f6);
+  text-decoration: none;
+  font-size: 0.85em;
+  margin-right: 0.2em;
+}
+
+.ov-footnote-backref:hover {
+  text-decoration: underline;
+}
+
+@media print {
+  .ov-footnotes {
+    break-inside: avoid;
+  }
+
+  .ov-footnote-ref a,
+  .ov-footnote-backref {
+    color: inherit;
+  }
+}
+
+/* =========================================================
+   Obsidian Wiki Links & Embeds
+   ========================================================= */
+
+.ov-wiki-link {
+  color: var(--vscode-textLink-foreground, #38bdf8);
+  text-decoration: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--vscode-textLink-foreground, #38bdf8) 55%, transparent);
+  padding: 0 1px;
+  font-weight: 500;
+}
+
+.ov-wiki-link:hover {
+  border-bottom-style: solid;
+}
+
+.ov-wiki-link--missing {
+  color: var(--vscode-errorForeground, #f87171);
+  border-bottom-color: color-mix(in srgb, var(--vscode-errorForeground, #f87171) 50%, transparent);
+}
+
+.ov-wiki-embed {
+  display: block;
+  margin: 1rem 0;
+  border: 1px solid color-mix(in srgb, var(--vscode-editor-foreground, #94a3b8) 16%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--vscode-editor-background, #0f172a) 92%, #64748b 8%);
+  overflow: hidden;
+}
+
+.ov-wiki-embed--image {
+  display: inline-block;
+  margin: 0.35rem 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.ov-wiki-embed--image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.ov-wiki-embed-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-editor-foreground, #94a3b8) 12%, transparent);
+  background: color-mix(in srgb, var(--vscode-editor-foreground, #94a3b8) 4%, transparent);
+}
+
+.ov-wiki-embed-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground, #94a3b8);
+  background: color-mix(in srgb, var(--vscode-editor-foreground, #94a3b8) 10%, transparent);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+}
+
+.ov-wiki-embed-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground, #e2e8f0);
+  border-bottom: none !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-wiki-embed-open {
+  font-size: 0.75rem;
+  color: var(--vscode-textLink-foreground, #38bdf8);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ov-wiki-embed-open:hover {
+  text-decoration: underline;
+}
+
+.ov-wiki-embed-body {
+  padding: 0.75rem;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.ov-wiki-embed-preview {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--vscode-editor-foreground, #cbd5e1) 92%, transparent);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.ov-wiki-embed-missing {
+  color: var(--vscode-errorForeground, #f87171);
+}
+
+.ov-wiki-embed-meta {
+  color: var(--vscode-descriptionForeground, #94a3b8);
+  font-size: 0.8rem;
+}
+
+.ov-wiki-embed--unresolved {
+  border-color: color-mix(in srgb, var(--vscode-errorForeground, #f87171) 35%, transparent);
+}
+
+/* =========================================================
+   Pandoc Definition Lists
+   ========================================================= */
+
+.ov-deflist {
+  margin: 1rem 0 1.25rem;
+  padding: 0;
+}
+
+.ov-deflist > dt {
+  margin: 0.85rem 0 0.25rem;
+  font-weight: 650;
+  color: var(--vscode-editor-foreground, #e2e8f0);
+}
+
+.ov-deflist > dt:first-child {
+  margin-top: 0;
+}
+
+.ov-deflist > dd {
+  margin: 0 0 0.45rem 1.1rem;
+  padding-left: 0.65rem;
+  border-left: 2px solid color-mix(in srgb, var(--vscode-textLink-foreground, #38bdf8) 45%, transparent);
+  color: color-mix(in srgb, var(--vscode-editor-foreground, #cbd5e1) 92%, transparent);
+  line-height: 1.55;
+}
+
+.ov-deflist > dd > :first-child {
+  margin-top: 0;
+}
+
+.ov-deflist > dd > :last-child {
+  margin-bottom: 0;
+}
+
+
+
+
 
 

@@ -595,7 +595,21 @@ const MarkdownPluginView: React.FC<{
 
   const handleOpenSourceAtLine = useCallback(
     (line: number) => {
+      const emitCursorSync = () => {
+        window.dispatchEvent(
+          new CustomEvent('omniview-editor-sync', {
+            detail: {
+              type: 'editor-cursor-sync',
+              origin: 'preview',
+              activeLine: line,
+              topLine: line,
+            },
+          })
+        );
+      };
+
       if (vscode) {
+        emitCursorSync();
         vscode.postMessage({
           type: 'reveal-source-line',
           path: file.path,
@@ -604,6 +618,10 @@ const MarkdownPluginView: React.FC<{
         });
       } else {
         setViewMode('split');
+        // 等待分屏源码编辑器挂载后再定位行
+        requestAnimationFrame(() => {
+          requestAnimationFrame(emitCursorSync);
+        });
       }
     },
     [vscode, file.path]

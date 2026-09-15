@@ -172,7 +172,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
               </div>
 
               {splitRightMode === 'preview' ? (
-                <div className="flex-1 overflow-y-auto" style={{ background: 'var(--ov-bg)' }}>
+                <div className="markdown-plugin-scroll ov-split-preview-scroll flex-1 overflow-y-auto" style={{ background: 'var(--ov-bg)' }}>
                   <div style={zoomStyle}>
                     <MarkdownViewer
                       content={file.content}

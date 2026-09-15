@@ -5,6 +5,14 @@ import { Locale, t } from '../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../shared/types';
 import { useTextHistory } from '../../hooks/useTextHistory';
 import { getVsCodeApi } from '../../../../shared/lib/vscode';
+import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
+import {
+  PANE_SYNC_EVENT,
+  decideExternalContentApply,
+  lineFromTextareaScroll,
+  scrollTopForTextareaLine,
+  type PaneSyncDetail,
+} from '../../lib/scrollSync';
 
 const StructuredDataViewer = lazy(() =>
   import('./data/StructuredDataViewer').then(m => ({ default: m.StructuredDataViewer }))
@@ -72,6 +80,9 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingSaveContentRef = useRef<string | null>(null);
   const prevFileNameRef = useRef(fileName);
+  const lastEmittedRef = useRef(content);
+  const applyingRemoteScrollRef = useRef(false);
+  const lineCountRef = useRef(1);
 
   // Undo / Redo 历史管理 Hook
   const {
@@ -88,6 +99,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     // 切换文件时，重置编辑内容与撤回历史栈
     if (fileName !== prevFileNameRef.current) {
       prevFileNameRef.current = fileName;
+      lastEmittedRef.current = content;
       setEditValue(content);
       setLastSavedContent(content);
       setIsSaved(true);
@@ -95,14 +107,21 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       return;
     }
 
-    // 同一文件下，若外部传入了与当前不同的内容且非本地输入状态，则安全同步
-    if (content !== editValue && content !== lastSavedContent) {
+    const editorFocused = Boolean(textareaRef.current && document.activeElement === textareaRef.current);
+    const decision = decideExternalContentApply({
+      incoming: content,
+      localValue: editValue,
+      lastEmitted: lastEmittedRef.current,
+      editorFocused,
+    });
+    if (decision === 'apply-external') {
+      lastEmittedRef.current = content;
       setEditValue(content);
       setLastSavedContent(content);
       setIsSaved(true);
       recordChange(content, content.length, content.length, true);
     }
-  }, [content, fileName, editValue, lastSavedContent, resetHistory, recordChange]);
+  }, [content, fileName, editValue, resetHistory, recordChange]);
 
   // Clean up debounce timer on unmount
   useEffect(() => {
@@ -115,13 +134,79 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
 
   const activeContent = isEditing ? editValue : content;
   const lines = activeContent.split('\n');
+  lineCountRef.current = Math.max(1, lines.length);
 
-  // Sync scrolling between line gutter and textarea
-  const handleScroll = () => {
-    if (textareaRef.current && lineGutterRef.current) {
-      lineGutterRef.current.scrollTop = textareaRef.current.scrollTop;
-    }
+  const readTextareaMetrics = () => {
+    const ta = textareaRef.current;
+    if (!ta) return { lineHeight: 20, paddingTop: 12 };
+    const styles = window.getComputedStyle(ta);
+    const parsedLineHeight = parseFloat(styles.lineHeight);
+    const lineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 0
+      ? parsedLineHeight
+      : parseFloat(styles.fontSize) * 1.625 || 20;
+    const paddingTop = parseFloat(styles.paddingTop) || 0;
+    return { lineHeight, paddingTop };
   };
+
+  const emitSourceSync = (type: PaneSyncDetail['type'], line: number) => {
+    if (applyingRemoteScrollRef.current) return;
+    if (loadStoredSettings().scrollSync === false) return;
+    const totalLines = lineCountRef.current;
+    const detail: PaneSyncDetail = {
+      type,
+      origin: 'source',
+      topLine: line,
+      activeLine: line,
+      totalLines,
+    };
+    window.dispatchEvent(new CustomEvent(PANE_SYNC_EVENT, { detail }));
+  };
+
+  // Sync scrolling between line gutter / preview and textarea
+  const handleScroll = () => {
+    const ta = textareaRef.current;
+    if (ta && lineGutterRef.current) {
+      lineGutterRef.current.scrollTop = ta.scrollTop;
+    }
+    if (!ta || applyingRemoteScrollRef.current) return;
+    const { lineHeight, paddingTop } = readTextareaMetrics();
+    const topLine = lineFromTextareaScroll(ta.scrollTop, lineHeight, paddingTop, lineCountRef.current);
+    emitSourceSync('editor-scroll-sync', topLine);
+  };
+
+  const handleSelect = () => {
+    const ta = textareaRef.current;
+    if (!ta || applyingRemoteScrollRef.current) return;
+    const before = ta.value.slice(0, ta.selectionStart);
+    const activeLine = before.split('\n').length;
+    emitSourceSync('editor-cursor-sync', activeLine);
+  };
+
+  useEffect(() => {
+    const onPaneSync = (event: Event) => {
+      const detail = (event as CustomEvent<PaneSyncDetail>).detail;
+      if (!detail || detail.origin === 'source') return;
+      if (loadStoredSettings().scrollSync === false) return;
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const targetLine = detail.type === 'editor-cursor-sync'
+        ? (detail.activeLine ?? 1)
+        : (detail.topLine ?? detail.activeLine ?? 1);
+      if (!targetLine || targetLine < 1) return;
+
+      const { lineHeight, paddingTop } = readTextareaMetrics();
+      applyingRemoteScrollRef.current = true;
+      ta.scrollTop = scrollTopForTextareaLine(targetLine, lineHeight, paddingTop);
+      if (lineGutterRef.current) {
+        lineGutterRef.current.scrollTop = ta.scrollTop;
+      }
+      window.setTimeout(() => {
+        applyingRemoteScrollRef.current = false;
+      }, 80);
+    };
+    window.addEventListener(PANE_SYNC_EVENT, onPaneSync);
+    return () => window.removeEventListener(PANE_SYNC_EVENT, onPaneSync);
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(activeContent);
@@ -136,6 +221,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       debounceTimerRef.current = null;
     }
     if (onContentChange) {
+      lastEmittedRef.current = editValue;
       onContentChange(editValue);
     }
     const vscode = getVsCodeApi();
@@ -190,6 +276,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       clearTimeout(debounceTimerRef.current);
     }
     debounceTimerRef.current = setTimeout(() => {
+      lastEmittedRef.current = val;
       if (onContentChange) {
         onContentChange(val);
       }
@@ -209,6 +296,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
+    lastEmittedRef.current = snapshot.value;
     if (onContentChange) {
       onContentChange(snapshot.value);
     }
@@ -234,6 +322,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
+    lastEmittedRef.current = snapshot.value;
     if (onContentChange) {
       onContentChange(snapshot.value);
     }
@@ -294,6 +383,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
         clearTimeout(debounceTimerRef.current);
       }
       debounceTimerRef.current = setTimeout(() => {
+        lastEmittedRef.current = newValue;
         if (onContentChange) {
           onContentChange(newValue);
         }
@@ -466,6 +556,9 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             value={editValue}
             onChange={handleChange}
             onScroll={handleScroll}
+            onSelect={handleSelect}
+            onKeyUp={handleSelect}
+            onClick={handleSelect}
             onKeyDown={handleKeyDown}
             spellCheck={false}
             autoFocus

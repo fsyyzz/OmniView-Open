@@ -24,9 +24,21 @@ import { LightboxModal, LightboxItem } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { parseOkfFrontmatter, OkfParseResult } from '../../lib/okfParser';
+import { processMarkdownFootnotes } from '../../lib/markdownFootnotes';
+import { processMarkdownWikiLinks, slugifyHeading } from '../../lib/markdownWikiLinks';
+import { processMarkdownDefinitionLists } from '../../lib/markdownDefinitionLists';
+import { processEmojiShortcodes } from '../../lib/markdownEmojiShortcodes';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
 import { ContentWidthMode } from '../../../../shared/types';
+import {
+  PANE_SYNC_EVENT,
+  calculateLineFromScrollTop,
+  calculateTargetScrollTop,
+  findMarkdownScrollViewport,
+  measureSourceBlocks,
+  type PaneSyncDetail,
+} from '../../lib/scrollSync';
 
 export interface MarkdownViewerProps {
   content: string;
@@ -75,7 +87,7 @@ const DOMPURIFY_SVG_CONFIG: Record<string, any> = {
     'feDiffuseLighting', 'feDisplacementMap', 'feDistantLight', 'feFlood', 'feFuncA',
     'feFuncB', 'feFuncG', 'feFuncR', 'feImage', 'feMorphology', 'fePointLight',
     'feSpecularLighting', 'feSpotLight', 'feTile', 'feTurbulence', 'image', 'pattern', 'mask',
-    'details', 'summary', 'input', 'label'
+    'details', 'summary', 'input', 'label', 'aside'
   ],
   ADD_ATTR: [
     'viewBox', 'xmlns', 'xmlns:xlink', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2',
@@ -87,7 +99,9 @@ const DOMPURIFY_SVG_CONFIG: Record<string, any> = {
     'target', 'rel', 'crossorigin', 'points', 'dx', 'dy', 'stdDeviation', 'flood-color', 'flood-opacity',
     'marker-end', 'marker-start', 'marker-mid',
     'data-source-line', 'data-source-end-line', 'data-task-line', 'data-checked', 'data-callout',
-    'open', 'type', 'checked', 'aria-label'
+    'data-footnotes', 'data-footnote-ref', 'data-footnote-backref', 'data-footnote-id',
+    'data-wiki-link', 'data-wiki-embed', 'data-wiki-target', 'data-wiki-heading', 'data-wiki-block',
+    'open', 'type', 'checked', 'aria-label', 'aria-describedby', 'role'
   ],
 };
 
@@ -207,6 +221,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const filesRef = useRef(files);
   filesRef.current = files;
+  const applyingRemoteScrollRef = useRef(false);
 
   // Initialize mermaid once
   useEffect(() => {
@@ -233,7 +248,19 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
       const frontmatterLines = okfData.hasFrontmatter
         ? (content.slice(0, content.length - cleanBody.length).match(/\n/g) || []).length
         : 0;
-      const tokens = marked.lexer(cleanBody);
+      // emoji shortcode → Wiki → 定义列表 → 脚注
+      const { markdown: bodyWithEmoji } = processEmojiShortcodes(cleanBody);
+      const { markdown: bodyWithWiki } = processMarkdownWikiLinks(bodyWithEmoji, {
+        files: filesRef.current || [],
+        unresolvedLabel: t('wikiLinkUnresolved', locale),
+        openLabel: t('wikiEmbedOpen', locale),
+        embedLabel: t('wikiEmbedBadge', locale),
+      });
+      const { markdown: bodyWithDefLists } = processMarkdownDefinitionLists(bodyWithWiki);
+      const { markdown: bodyWithFootnotes } = processMarkdownFootnotes(bodyWithDefLists, {
+        sectionTitle: t('footnotes', locale),
+      });
+      const tokens = marked.lexer(bodyWithFootnotes);
       const parsedBlocks: RenderedBlock[] = [];
       let counter = 0;
       let runningLine = frontmatterLines + 1;
@@ -574,7 +601,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [content, isDarkTheme, locale]);
+  }, [content, isDarkTheme, locale, files]);
 
   // 在 React 提交 DOM 后再通知父级重注搜索高亮，避免 setState 尚未刷盘时误标旧树
   useEffect(() => {
@@ -716,17 +743,50 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
         return;
       }
 
-      // 3. 智能拦截相对 Markdown/OKF 概念链接，支持知识图谱跨文件跳转
+      // 3. 智能拦截相对 Markdown/OKF/Wiki 链接，支持知识图谱跨文件跳转与页内标题定位
       const anchor = target.closest('a');
       if (anchor) {
-        const href = anchor.getAttribute('href');
+        const href = anchor.getAttribute('href') || '';
+        const isWiki = anchor.getAttribute('data-wiki-link') === 'true';
+        const wikiTarget = (anchor.getAttribute('data-wiki-target') || '').trim();
+        const wikiHeading = (anchor.getAttribute('data-wiki-heading') || '').trim();
+
+        const scrollToHeading = (headingText: string) => {
+          const slug = slugifyHeading(headingText);
+          if (!slug || !container) return false;
+          const el =
+            container.querySelector<HTMLElement>(`#${CSS.escape(slug)}`) ||
+            container.querySelector<HTMLElement>(`[id="${slug}"]`);
+          if (!el) return false;
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return true;
+        };
+
+        // [[#Heading]] 当前文档标题跳转
+        if (isWiki && wikiHeading && !wikiTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+          scrollToHeading(wikiHeading);
+          return;
+        }
+
         if (
           href &&
           !href.startsWith('http://') &&
           !href.startsWith('https://') &&
-          !href.startsWith('#') &&
           !href.startsWith('mailto:')
         ) {
+          if (href.startsWith('#')) {
+            if (isWiki) {
+              e.preventDefault();
+              e.stopPropagation();
+              const id = decodeURIComponent(href.slice(1));
+              const el = container?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            return;
+          }
+
           const cleanHref = decodeURIComponent(href.trim().split(/[?#]/, 1)[0])
             .replace(/\\/g, '/')
             .replace(/^\/+/, '');
@@ -734,12 +794,19 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           const targetFile = filesRef.current.find(
             f =>
               f.name.toLowerCase() === baseName.toLowerCase() ||
+              f.name.replace(/\.[^.]+$/, '').toLowerCase() === baseName.replace(/\.[^.]+$/, '').toLowerCase() ||
               (f.path && f.path.replace(/^\//, '').toLowerCase().endsWith(cleanHref.toLowerCase()))
           );
           if (targetFile && onSelectFile) {
             e.preventDefault();
             e.stopPropagation();
             onSelectFile(targetFile);
+            return;
+          }
+          if (isWiki) {
+            // 避免 Webview 对未解析 Wiki 链接执行无效导航
+            e.preventDefault();
+            e.stopPropagation();
           }
         }
       }
@@ -768,127 +835,123 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
     };
   }, [onSelectFile, onOpenSourceAtLine, onContentChange, content]);
 
-  // Markdown 与 VS Code 编辑器双向光标/滚动同步监听器
+  // Markdown 与源码/VS Code 编辑器双向光标/滚动同步
   useEffect(() => {
-    let activeHighlightTimer: any = null;
+    let activeHighlightTimer: ReturnType<typeof setTimeout> | null = null;
+    let boundViewport: HTMLElement | null = null;
+
+    const collect = (container: HTMLElement, scrollViewport: HTMLElement) =>
+      measureSourceBlocks(container, scrollViewport);
 
     const handleEditorSync = (e: Event) => {
-      const customEvent = e as CustomEvent<{
-        type: 'editor-scroll-sync' | 'editor-cursor-sync';
-        path?: string;
-        topLine?: number;
-        bottomLine?: number;
-        totalLines?: number;
-        activeLine?: number;
-      }>;
-      const detail = customEvent.detail;
-      if (!detail) return;
+      const detail = (e as CustomEvent<PaneSyncDetail>).detail;
+      if (!detail || detail.origin === 'preview') return;
 
-      // 验证是否已开启 scrollSync（默认开启）
       const settings = loadStoredSettings();
       if (settings.scrollSync === false) return;
 
       const container = containerRef.current;
       if (!container) return;
 
-      // 获取当前实际产生滚动的视口容器
-      const scrollViewport = container.closest<HTMLElement>('.markdown-plugin-scroll') ||
-                             container.parentElement ||
-                             document.documentElement;
-
+      const scrollViewport = findMarkdownScrollViewport(container);
       const isScrollSync = detail.type === 'editor-scroll-sync';
       const targetLine = isScrollSync
         ? (detail.topLine ?? 1)
         : (detail.activeLine ?? 1);
 
-      if (typeof targetLine !== 'number' || isNaN(targetLine) || targetLine < 1) return;
+      if (typeof targetLine !== 'number' || Number.isNaN(targetLine) || targetLine < 1) return;
 
-      // 查询全部带有源码行属性的 AST 渲染节点
-      const elements = Array.from(
-        container.querySelectorAll<HTMLElement>('[data-source-line]')
-      ).map(el => {
-        const start = parseInt(el.getAttribute('data-source-line') || '1', 10);
-        const end = parseInt(el.getAttribute('data-source-end-line') || String(start), 10);
-        return {
-          element: el,
-          startLine: start,
-          endLine: Math.max(start, end),
-          offsetTop: el.offsetTop,
-          offsetHeight: el.offsetHeight,
-        };
-      }).sort((a, b) => a.offsetTop - b.offsetTop);
-
+      const elements = collect(container, scrollViewport);
       if (elements.length === 0) return;
 
-      let targetScrollTop = 0;
-      let matchedElement: HTMLElement | null = null;
+      const mapped = elements.map(({ startLine, endLine, offsetTop, offsetHeight }) => ({
+        startLine,
+        endLine,
+        offsetTop,
+        offsetHeight,
+      }));
+      const matched = elements.find(
+        (item) => targetLine >= item.startLine && targetLine <= item.endLine
+      ) || elements.reduce((best, item) => (
+        Math.abs(item.startLine - targetLine) < Math.abs(best.startLine - targetLine) ? item : best
+      ), elements[0]);
 
-      if (targetLine <= 1) {
-        targetScrollTop = 0;
-        matchedElement = elements[0]?.element || null;
-      } else if (detail.totalLines && targetLine >= detail.totalLines) {
-        targetScrollTop = scrollViewport.scrollHeight - scrollViewport.clientHeight;
-        matchedElement = elements[elements.length - 1]?.element || null;
-      } else {
-        // 查找与 targetLine 匹配或相邻的 AST 节点
-        let foundExact = false;
-        for (let i = 0; i < elements.length; i++) {
-          const item = elements[i];
-          if (targetLine >= item.startLine && targetLine <= item.endLine) {
-            // 命中节点内部：根据行号在该节点所占比例微调滚动偏移量
-            const lineProgress = (targetLine - item.startLine) / Math.max(1, item.endLine - item.startLine);
-            targetScrollTop = item.offsetTop + lineProgress * item.offsetHeight;
-            matchedElement = item.element;
-            foundExact = true;
-            break;
-          }
-          if (targetLine < item.startLine) {
-            // 位于前一个节点与当前节点之间的空行/留白处
-            const prevItem = elements[i - 1];
-            if (prevItem) {
-              const prevBottom = prevItem.offsetTop + prevItem.offsetHeight;
-              const ratio = (targetLine - prevItem.endLine) / Math.max(1, item.startLine - prevItem.endLine);
-              targetScrollTop = prevBottom + ratio * Math.max(0, item.offsetTop - prevBottom);
-              matchedElement = prevItem.element;
-            } else {
-              targetScrollTop = Math.max(0, item.offsetTop * (targetLine / item.startLine));
-              matchedElement = item.element;
-            }
-            foundExact = true;
-            break;
-          }
-        }
-
-        if (!foundExact) {
-          const lastItem = elements[elements.length - 1];
-          targetScrollTop = lastItem.offsetTop;
-          matchedElement = lastItem.element;
-        }
-      }
-
-      // 执行平滑视口滚动，并保留上边缘安全间距
-      const safeScrollTop = Math.max(0, targetScrollTop - 24);
+      applyingRemoteScrollRef.current = true;
       scrollViewport.scrollTo({
-        top: safeScrollTop,
+        top: calculateTargetScrollTop({
+          targetLine,
+          elements: mapped,
+          viewportHeight: scrollViewport.clientHeight,
+          scrollHeight: scrollViewport.scrollHeight,
+          totalLines: detail.totalLines,
+        }),
         behavior: isScrollSync ? 'auto' : 'smooth',
       });
+      window.setTimeout(() => {
+        applyingRemoteScrollRef.current = false;
+      }, 80);
 
-      // 若是光标导航（editor-cursor-sync），为匹配的 AST 段落注入高亮辉光
-      if (detail.type === 'editor-cursor-sync' && matchedElement) {
-        container.querySelectorAll('.ov-cursor-synced-line').forEach(el => {
+      if (detail.type === 'editor-cursor-sync' && matched?.element) {
+        container.querySelectorAll('.ov-cursor-synced-line').forEach((el) => {
           el.classList.remove('ov-cursor-synced-line');
         });
-        matchedElement.classList.add('ov-cursor-synced-line');
+        matched.element.classList.add('ov-cursor-synced-line');
         if (activeHighlightTimer) clearTimeout(activeHighlightTimer);
         activeHighlightTimer = setTimeout(() => {
-          matchedElement?.classList.remove('ov-cursor-synced-line');
+          matched.element.classList.remove('ov-cursor-synced-line');
         }, 1800);
       }
     };
 
-    window.addEventListener('omniview-editor-sync', handleEditorSync);
+    const handlePreviewScroll = () => {
+      if (applyingRemoteScrollRef.current) return;
+      if (loadStoredSettings().scrollSync === false) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const scrollViewport = findMarkdownScrollViewport(container);
+      const elements = collect(container, scrollViewport);
+      if (elements.length === 0) return;
+      const mapped = elements.map(({ startLine, endLine, offsetTop, offsetHeight }) => ({
+        startLine,
+        endLine,
+        offsetTop,
+        offsetHeight,
+      }));
+      const lastEnd = mapped[mapped.length - 1].endLine;
+      const topLine = calculateLineFromScrollTop({
+        scrollTop: scrollViewport.scrollTop,
+        elements: mapped,
+        viewportHeight: scrollViewport.clientHeight,
+        scrollHeight: scrollViewport.scrollHeight,
+        totalLines: lastEnd,
+      });
+      const detail: PaneSyncDetail = {
+        type: 'editor-scroll-sync',
+        origin: 'preview',
+        topLine,
+        activeLine: topLine,
+        totalLines: lastEnd,
+      };
+      window.dispatchEvent(new CustomEvent(PANE_SYNC_EVENT, { detail }));
+    };
+
+    const bindViewport = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const next = findMarkdownScrollViewport(container);
+      if (boundViewport === next) return;
+      boundViewport?.removeEventListener('scroll', handlePreviewScroll);
+      boundViewport = next;
+      boundViewport.addEventListener('scroll', handlePreviewScroll, { passive: true });
+    };
+
+    bindViewport();
+    const bindTimer = window.setTimeout(bindViewport, 200);
+    window.addEventListener(PANE_SYNC_EVENT, handleEditorSync);
     return () => {
-      window.removeEventListener('omniview-editor-sync', handleEditorSync);
+      window.clearTimeout(bindTimer);
+      window.removeEventListener(PANE_SYNC_EVENT, handleEditorSync);
+      boundViewport?.removeEventListener('scroll', handlePreviewScroll);
       if (activeHighlightTimer) clearTimeout(activeHighlightTimer);
     };
   }, []);

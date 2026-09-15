@@ -7,7 +7,9 @@
 | 文件 | 覆盖内容 |
 | --- | --- |
 | [basic-markdown.md](./basic-markdown.md) | 标题、段落、链接、引用、列表和图片占位 |
-| [gfm-features.md](./gfm-features.md) | GitHub Flavored Markdown、任务清单、表格和删除线 |
+| [gfm-features.md](./gfm-features.md) | GitHub Flavored Markdown、任务清单、表格、删除线与脚注 |
+| [obsidian-wiki-links.md](./obsidian-wiki-links.md) | Obsidian Wiki 链接 `[[Page]]` 与嵌入 `![[...]]` |
+| [pandoc-extras.md](./pandoc-extras.md) | Pandoc 定义列表与 emoji shortcode（`:rocket:`） |
 | [code-blocks.md](./code-blocks.md) | TypeScript、Python、JSON、Shell 代码块 |
 | [diagrams.md](./diagrams.md) | Mermaid 与 PlantUML 图表 |
 | [graphviz-diagrams.md](./graphviz-diagrams.md) | Graphviz / DOT 拓扑图、有向图、网络状态机与多布局引擎 |

@@ -275,6 +275,10 @@ export const TRANSLATIONS = {
     calloutExample: '示例',
     calloutQuote: '引用',
     taskToggleTooltip: '点击切换任务完成状态 (自动回写源码)',
+    footnotes: '脚注',
+    wikiLinkUnresolved: '未找到链接目标',
+    wikiEmbedOpen: '打开',
+    wikiEmbedBadge: '嵌入',
 
     // Diagram Step-by-Step Player
     stepPlayback: '步进播放',
@@ -572,6 +576,10 @@ export const TRANSLATIONS = {
     calloutExample: 'Example',
     calloutQuote: 'Quote',
     taskToggleTooltip: 'Click to toggle task status (auto syncs to source)',
+    footnotes: 'Footnotes',
+    wikiLinkUnresolved: 'Unresolved link',
+    wikiEmbedOpen: 'Open',
+    wikiEmbedBadge: 'Embed',
 
     // Diagram Step-by-Step Player
     stepPlayback: 'Step Playback',

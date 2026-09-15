@@ -4,8 +4,22 @@
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-15
+
+### Fixed
+
+- Markdown 分屏模式下预览与源码双向滚动不同步
+- 分屏编辑时父级 content 回写覆盖本地输入，导致光标丢失与内容“飘走”
+
+## [0.11.0] - 2026-09-15
+
 ### Added
 
+- **Markdown 扩展语法增强**:
+  - GFM / Pandoc 风格真脚注：`[^id]` 引用与 `[^id]:` 定义段（含续行、回跳链接）
+  - Obsidian Wiki 链接与嵌入：`[[Page]]` / `[[Page|alias]]` / `[[#Heading]]` / `![[...]]`（图片宽度与笔记预览卡片）
+  - Pandoc 定义列表：`Term` + `: Definition`（多 term / 多定义 / 缩进续行）
+  - Emoji shortcode：`:rocket:` / `:100:` / `:+1:` 等常用短码映射（代码块内不误替换）
 - **Domain Storytelling 领域故事讲授工作台 (`.egn`, `.domainstory`)**:
   - 原生识别与解析标准 egon.io JSON 规范与独立 `.domainstory` 文件；
   - Markdown 深度支持 ````domainstory````、````story````、````egn```` 声明式 DSL 与流式语法；
@@ -14,6 +28,13 @@
   - 集成 `DiagramStepPlayer` 步进播放器，支持单步演播与聚焦高亮；
   - 支持导出标准 `.egn` 与内嵌完整模型的 Polyglot SVG 矢量图，实现图形与源码双向无损互转；
   - 包含丰富独立测试样本与 Markdown 敏捷协同示例。
+
+### Fixed
+
+- VSIX 打包遗漏 webview 静态资源导致 md/pdf 无法打开
+- 分屏编辑后保存无法写回磁盘
+- Markdown 打印代码行号错位，以及导出 HTML 表格排序箭头残留
+- 退出投屏模式后大纲无法再切换显示
 
 ## [0.10.1] - 2026-09-13
 
