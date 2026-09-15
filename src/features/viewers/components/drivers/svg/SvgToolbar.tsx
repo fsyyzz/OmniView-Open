@@ -112,18 +112,32 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
   };
 
   return (
-    <div id="svg-studio-toolbar" className="flex flex-wrap items-center justify-between px-3.5 py-2 bg-slate-900 border-b border-slate-800 text-xs gap-2 select-none z-30">
+    <div
+      id="svg-studio-toolbar"
+      style={{
+        backgroundColor: 'var(--ov-surface)',
+        borderBottomColor: 'var(--ov-border)',
+        color: 'var(--ov-text)',
+      }}
+      className="flex flex-wrap items-center justify-between px-3.5 py-2 border-b text-xs gap-2 select-none z-30"
+    >
       {/* 视图模式与分屏比例调节 */}
       <div className="flex items-center gap-2.5">
         {/* 视口布局切换三态 */}
-        <div className="flex items-center bg-slate-800/90 rounded-lg p-0.5 border border-slate-700/80 shadow-inner">
+        <div
+          style={{
+            backgroundColor: 'var(--ov-surface-header)',
+            borderColor: 'var(--ov-border)',
+          }}
+          className="flex items-center rounded-lg p-0.5 border shadow-inner"
+        >
           <button
             onClick={() => setViewMode('split')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition ${
-              viewMode === 'split'
-                ? 'bg-blue-600 text-white font-medium shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: viewMode === 'split' ? 'var(--ov-accent, #3b82f6)' : 'transparent',
+              color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition font-medium"
             title="双向分屏编辑 (Split Mode)"
           >
             <Columns2 className="w-3.5 h-3.5" />
@@ -131,11 +145,11 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
           </button>
           <button
             onClick={() => setViewMode('visual')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition ${
-              viewMode === 'visual'
-                ? 'bg-blue-600 text-white font-medium shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: viewMode === 'visual' ? 'var(--ov-accent, #3b82f6)' : 'transparent',
+              color: viewMode === 'visual' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition font-medium"
             title="仅矢量画布 (Canvas Only)"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -143,11 +157,11 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
           </button>
           <button
             onClick={() => setViewMode('code')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition ${
-              viewMode === 'code'
-                ? 'bg-blue-600 text-white font-medium shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: viewMode === 'code' ? 'var(--ov-accent, #3b82f6)' : 'transparent',
+              color: viewMode === 'code' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition font-medium"
             title="仅代码编辑 (Code Only)"
           >
             <Code className="w-3.5 h-3.5" />
@@ -157,30 +171,43 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
 
         {/* 分屏比例快捷预设 */}
         {viewMode === 'split' && (
-          <div className="hidden md:flex items-center gap-1 bg-slate-800/60 rounded-md p-0.5 border border-slate-700/50 text-[11px] text-slate-400">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="hidden md:flex items-center gap-1 rounded-md p-0.5 border text-[11px]"
+          >
             <button
               onClick={() => setSplitRatio(30)}
-              className={`px-1.5 py-0.5 rounded transition ${
-                Math.round(splitRatio) === 30 ? 'bg-slate-700 text-cyan-300 font-semibold' : 'hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: Math.round(splitRatio) === 30 ? 'var(--ov-surface)' : 'transparent',
+                color: Math.round(splitRatio) === 30 ? 'var(--ov-accent, #06b6d4)' : 'var(--ov-text-secondary)',
+              }}
+              className="px-1.5 py-0.5 rounded transition font-medium"
               title="代码 30% : 画布 70%"
             >
               3:7
             </button>
             <button
               onClick={() => setSplitRatio(50)}
-              className={`px-1.5 py-0.5 rounded transition ${
-                Math.round(splitRatio) === 50 ? 'bg-slate-700 text-cyan-300 font-semibold' : 'hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: Math.round(splitRatio) === 50 ? 'var(--ov-surface)' : 'transparent',
+                color: Math.round(splitRatio) === 50 ? 'var(--ov-accent, #06b6d4)' : 'var(--ov-text-secondary)',
+              }}
+              className="px-1.5 py-0.5 rounded transition font-medium"
               title="代码 50% : 画布 50%"
             >
               5:5
             </button>
             <button
               onClick={() => setSplitRatio(70)}
-              className={`px-1.5 py-0.5 rounded transition ${
-                Math.round(splitRatio) === 70 ? 'bg-slate-700 text-cyan-300 font-semibold' : 'hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: Math.round(splitRatio) === 70 ? 'var(--ov-surface)' : 'transparent',
+                color: Math.round(splitRatio) === 70 ? 'var(--ov-accent, #06b6d4)' : 'var(--ov-text-secondary)',
+              }}
+              className="px-1.5 py-0.5 rounded transition font-medium"
               title="代码 70% : 画布 30%"
             >
               7:3
@@ -189,14 +216,20 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
         )}
 
         {/* 矢量元数据徽章 */}
-        <div className="hidden xl:flex items-center gap-2 text-slate-400 font-mono text-[11px] border-l border-slate-800 pl-3">
+        <div
+          style={{
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text-secondary)',
+          }}
+          className="hidden xl:flex items-center gap-2 font-mono text-[11px] border-l pl-3"
+        >
           <span>viewBox: <strong className="text-cyan-400 font-normal">{stats.viewBox}</strong></span>
           <span>·</span>
           <span>节点: <strong className="text-purple-400 font-normal">{stats.elementCount}</strong></span>
           <span>·</span>
           <span>路径: <strong className="text-emerald-400 font-normal">{stats.pathCount}</strong></span>
           <span>·</span>
-          <span className="text-slate-500">{(stats.byteSize / 1024).toFixed(1)} KB</span>
+          <span style={{ color: 'var(--ov-text-muted)' }}>{(stats.byteSize / 1024).toFixed(1)} KB</span>
         </div>
       </div>
 
@@ -207,7 +240,12 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
           <div className="flex items-center gap-1">
             <button
               onClick={onZoomOut}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="p-1.5 rounded border transition hover:opacity-80"
               title="缩小 (Zoom Out)"
             >
               <ZoomOut className="w-3.5 h-3.5" />
@@ -221,33 +259,53 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
             </span>
             <button
               onClick={onZoomIn}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="p-1.5 rounded border transition hover:opacity-80"
               title="放大 (Zoom In)"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onResetZoom}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="p-1.5 rounded border transition hover:opacity-80"
               title="还原 1:1"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onFitZoom}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="p-1.5 rounded border transition hover:opacity-80"
               title="自适应画布"
             >
               <Maximize className="w-3.5 h-3.5" />
             </button>
 
-            <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
+            <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-4 w-px mx-1 hidden sm:block" />
 
             {/* 画布底板背景模式 */}
             <select
               value={bgMode}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setBgMode(e.target.value as SvgBgMode)}
-              className="bg-slate-800 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 outline-none cursor-pointer hidden sm:block"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="text-xs px-2 py-1 rounded border outline-none cursor-pointer hidden sm:block"
             >
               <option value="dark-grid">深色网格</option>
               <option value="light-grid">浅色网格</option>
@@ -258,9 +316,12 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
 
             <button
               onClick={() => setShowGrid(!showGrid)}
-              className={`p-1.5 rounded border border-slate-700/60 transition ${
-                showGrid ? 'bg-blue-600/30 text-blue-400 border-blue-500/50' : 'bg-slate-800 text-slate-400'
-              }`}
+              style={{
+                backgroundColor: showGrid ? 'rgba(59, 130, 246, 0.2)' : 'var(--ov-surface-header)',
+                borderColor: showGrid ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-border)',
+                color: showGrid ? 'var(--ov-accent, #38bdf8)' : 'var(--ov-text-secondary)',
+              }}
+              className="p-1.5 rounded border transition"
               title="开启/关闭辅助坐标网格"
             >
               <Grid className="w-3.5 h-3.5" />
@@ -271,11 +332,12 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
               <button
                 id="svg-toggle-inspector-btn"
                 onClick={onToggleInspector}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs border transition ${
-                  inspectorActive
-                    ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/60 shadow-sm shadow-cyan-950/50 font-medium'
-                    : 'bg-slate-800 text-slate-300 border-slate-700/60 hover:text-white hover:bg-slate-700'
-                }`}
+                style={{
+                  backgroundColor: inspectorActive ? 'rgba(6, 182, 212, 0.2)' : 'var(--ov-surface-header)',
+                  borderColor: inspectorActive ? 'rgba(6, 182, 212, 0.6)' : 'var(--ov-border)',
+                  color: inspectorActive ? '#67e8f9' : 'var(--ov-text)',
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded text-xs border transition font-medium"
                 title="图元检视器 (点选图元微调颜色、描边、图层或在代码中高亮定位)"
               >
                 <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
@@ -288,13 +350,17 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
           </div>
         )}
 
-        <div className="h-4 w-px bg-slate-800 mx-1" />
+        <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-4 w-px mx-1" />
 
         {/* 开发者导出与转换下拉菜单 */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
-            className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-md transition shadow-sm font-medium"
+            style={{
+              backgroundColor: 'var(--ov-accent, #3b82f6)',
+              color: '#ffffff',
+            }}
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1 hover:opacity-90 rounded-md transition shadow-sm font-medium"
             title="导出与代码转换"
             aria-label="导出 / 转换"
           >
@@ -304,53 +370,74 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
           </button>
 
           {showExportMenu && (
-            <div className="absolute right-0 mt-1.5 w-60 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
-              <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+                boxShadow: 'var(--ov-shadow, 0 8px 24px rgba(0,0,0,0.36))',
+              }}
+              className="absolute right-0 mt-1.5 w-60 border rounded-lg py-1.5 z-50 text-xs animate-in fade-in zoom-in-95"
+            >
+              <div
+                style={{
+                  color: 'var(--ov-text-secondary)',
+                  borderBottomColor: 'var(--ov-border)',
+                }}
+                className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider border-b"
+              >
                 代码生成与转换 (Code Generation)
               </div>
               <button
                 onClick={() => triggerCopyFeedback('React JSX', onCopyReact)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                style={{ color: 'var(--ov-text)' }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/10 dark:hover:bg-white/10 transition text-left"
               >
                 <FileType className="w-4 h-4 text-cyan-400" />
                 <div className="flex-1">
                   <div className="font-medium">复制为 React JSX 组件</div>
-                  <div className="text-[10px] text-slate-400">TypeScript CamelCase Props</div>
+                  <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">TypeScript CamelCase Props</div>
                 </div>
               </button>
               <button
                 onClick={() => triggerCopyFeedback('Vue 3', onCopyVue)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                style={{ color: 'var(--ov-text)' }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/10 dark:hover:bg-white/10 transition text-left"
               >
                 <Layers className="w-4 h-4 text-emerald-400" />
                 <div className="flex-1">
                   <div className="font-medium">复制为 Vue 3 组件</div>
-                  <div className="text-[10px] text-slate-400">SFC &lt;template&gt; 格式</div>
+                  <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">SFC &lt;template&gt; 格式</div>
                 </div>
               </button>
               <button
                 onClick={() => triggerCopyFeedback('Data URI', onCopyDataUri)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                style={{ color: 'var(--ov-text)' }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/10 dark:hover:bg-white/10 transition text-left"
               >
                 <Sparkles className="w-4 h-4 text-purple-400" />
                 <div className="flex-1">
                   <div className="font-medium">复制为 Data URI</div>
-                  <div className="text-[10px] text-slate-400">Base64 嵌入式图片格式</div>
+                  <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">Base64 嵌入式图片格式</div>
                 </div>
               </button>
               <button
                 onClick={() => triggerCopyFeedback('SVG XML', onCopySvg)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                style={{ color: 'var(--ov-text)' }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/10 dark:hover:bg-white/10 transition text-left"
               >
                 <Copy className="w-4 h-4 text-blue-400" />
                 <div className="flex-1">
                   <div className="font-medium">复制纯净 SVG XML</div>
-                  <div className="text-[10px] text-slate-400">标准矢量图源代码</div>
+                  <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">标准矢量图源代码</div>
                 </div>
               </button>
 
-              <div className="my-1 border-t border-slate-800" />
-              <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              <div style={{ borderColor: 'var(--ov-border)' }} className="my-1 border-t" />
+              <div
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider"
+              >
                 文件下载 (Asset Download)
               </div>
               <button
@@ -358,22 +445,24 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
                   setShowExportMenu(false);
                   onDownloadSvg();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                style={{ color: 'var(--ov-text)' }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/10 dark:hover:bg-white/10 transition text-left"
               >
                 <Download className="w-4 h-4 text-indigo-400" />
                 <div className="flex-1">
                   <div className="font-medium">下载 .svg 矢量图</div>
-                  <div className="text-[10px] text-slate-400">保存至本地文件</div>
+                  <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">保存至本地文件</div>
                 </div>
               </button>
               <button
                 onClick={handleDownloadPng}
-                className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                style={{ color: 'var(--ov-text)' }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/10 dark:hover:bg-white/10 transition text-left"
               >
                 <ImageIcon className="w-4 h-4 text-amber-400" />
                 <div className="flex-1">
                   <div className="font-medium">导出 2x 高清 PNG 位图</div>
-                  <div className="text-[10px] text-slate-400">Retina 超采样栅格化</div>
+                  <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">Retina 超采样栅格化</div>
                 </div>
               </button>
             </div>

@@ -831,6 +831,10 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         setHoveredTag(null);
         setActiveGuides([]);
       }}
+      style={{
+        backgroundColor: bgMode === 'white' ? '#ffffff' : bgMode === 'light-grid' ? '#e2e8f0' : 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
       className={`relative w-full h-full select-none overflow-hidden flex items-center justify-center ${
         isPanningActive || dragMode === 'pan'
           ? 'cursor-grab active:cursor-grabbing'
@@ -843,14 +847,14 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
           : 'cursor-default'
       } ${
         bgMode === 'dark-grid'
-          ? 'bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] bg-slate-950'
+          ? 'bg-[radial-gradient(var(--ov-border)_1px,transparent_1px)] [background-size:16px_16px]'
           : bgMode === 'light-grid'
-          ? 'bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:16px_16px] bg-slate-200'
+          ? 'bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:16px_16px]'
           : bgMode === 'white'
           ? 'bg-white'
           : bgMode === 'transparent'
-          ? 'bg-[linear-gradient(45deg,#1e293b_25%,transparent_25%),linear-gradient(-45deg,#1e293b_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1e293b_75%),linear-gradient(-45deg,transparent_75%,#1e293b_75%)] [background-size:20px_20px] [background-position:0_0,0_10px,10px_-10px,-10px_0px] bg-slate-900'
-          : 'bg-slate-950'
+          ? 'bg-[linear-gradient(45deg,var(--ov-border)_25%,transparent_25%),linear-gradient(-45deg,var(--ov-border)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--ov-border)_75%),linear-gradient(-45deg,transparent_75%,var(--ov-border)_75%)] [background-size:20px_20px] [background-position:0_0,0_10px,10px_-10px,-10px_0px]'
+          : ''
       }`}
     >
       {/* 检视模式与选中图元高亮样式注入 */}
@@ -972,7 +976,14 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
             ))}
 
           {/* 尺寸提示与等比缩放浮标 */}
-          <div className="absolute -bottom-6.5 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900/95 text-slate-200 border border-slate-700 font-mono text-[10px] whitespace-nowrap shadow-lg backdrop-blur-xs pointer-events-none">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              color: 'var(--ov-text)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="absolute -bottom-6.5 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded border font-mono text-[10px] whitespace-nowrap shadow-lg backdrop-blur-xs pointer-events-none"
+          >
             <span>
               {Math.round(resizePreviewBBox?.width || measuredBBox?.width || displayScreenBBox.width / scale)} ×{' '}
               {Math.round(resizePreviewBBox?.height || measuredBBox?.height || displayScreenBBox.height / scale)}
@@ -1022,7 +1033,14 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
               top: (screenLineCoords.y1 + screenLineCoords.y2) / 2 + (dragMode === 'element' ? screenDragOffset.y : 0) - 16,
             }}
           >
-            <div className="px-1.5 py-0.5 rounded bg-slate-950/90 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono whitespace-nowrap shadow-lg flex items-center gap-1.5 backdrop-blur-xs">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                color: 'var(--ov-accent, #06b6d4)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap shadow-lg flex items-center gap-1.5 backdrop-blur-xs border"
+            >
               <span>
                 📏{' '}
                 {Math.round(
@@ -1119,7 +1137,13 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         onMouseDown={e => e.stopPropagation()}
         onMouseUp={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
-        className="absolute bottom-3 left-4 flex items-center gap-2 text-[11px] text-slate-400 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 shadow-md z-30 select-none pointer-events-auto"
+        style={{
+          backgroundColor: 'var(--ov-surface)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text-secondary)',
+          boxShadow: 'var(--ov-shadow, 0 8px 24px rgba(0,0,0,0.2))',
+        }}
+        className="absolute bottom-3 left-4 flex items-center gap-2 text-[11px] backdrop-blur-md px-3 py-1.5 rounded-lg border shadow-md z-30 select-none pointer-events-auto"
       >
         <div className="flex items-center gap-1.5">
           <Move className="w-3.5 h-3.5 text-cyan-400" />
@@ -1128,32 +1152,48 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
 
         {inspectorActive && (
           <>
-            <span className="text-slate-700">|</span>
-            <div className="flex items-center gap-1.5 text-cyan-300 font-medium">
+            <span style={{ color: 'var(--ov-border)' }}>|</span>
+            <div className="flex items-center gap-1.5 text-cyan-400 font-medium">
               <Crosshair className="w-3.5 h-3.5" />
               <span>拖调/缩放</span>
               {hoveredTag && (
-                <span className="ml-1 px-1.5 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono text-[10px]">
+                <span
+                  style={{
+                    backgroundColor: 'var(--ov-surface-header)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="ml-1 px-1.5 py-0.2 rounded border font-mono text-[10px]"
+                >
                   {hoveredTag}
                 </span>
               )}
             </div>
 
-            <span className="text-slate-700">|</span>
+            <span style={{ color: 'var(--ov-border)' }}>|</span>
             {/* 智能吸附一键切换按钮 */}
             <button
               type="button"
               onClick={() => setSnapEnabled(prev => !prev)}
               title="按 S 键快速切换智能吸附"
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors text-[10px] font-medium cursor-pointer ${
-                snapEnabled
-                  ? 'bg-pink-950/70 text-pink-300 border border-pink-500/50'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-300'
-              }`}
+              style={{
+                backgroundColor: snapEnabled ? 'rgba(236, 72, 153, 0.15)' : 'var(--ov-surface-header)',
+                borderColor: snapEnabled ? 'rgba(236, 72, 153, 0.4)' : 'var(--ov-border)',
+                color: snapEnabled ? '#f472b6' : 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors text-[10px] font-medium cursor-pointer"
             >
               <Magnet className={`w-3 h-3 ${snapEnabled ? 'text-pink-400' : 'text-slate-500'}`} />
               <span>智能吸附: {snapEnabled ? '开' : '关'}</span>
-              <kbd className="ml-0.5 px-1 py-0.2 rounded bg-slate-800/80 text-[9px] text-slate-400 font-mono">S</kbd>
+              <kbd
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  color: 'var(--ov-text-muted)',
+                }}
+                className="ml-0.5 px-1 py-0.2 rounded text-[9px] font-mono"
+              >
+                S
+              </kbd>
             </button>
 
             {/* 网格吸附切换与网格步长选择 */}
@@ -1162,30 +1202,45 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
                 type="button"
                 onClick={() => setGridSnapEnabled(prev => !prev)}
                 title="按 G 键快速切换网格吸附"
-                className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors text-[10px] font-medium cursor-pointer ${
-                  gridSnapEnabled
-                    ? 'bg-cyan-950/70 text-cyan-300 border border-cyan-500/50'
-                    : 'bg-slate-800 text-slate-400 hover:text-slate-300'
-                }`}
+                style={{
+                  backgroundColor: gridSnapEnabled ? 'rgba(6, 182, 212, 0.15)' : 'var(--ov-surface-header)',
+                  borderColor: gridSnapEnabled ? 'rgba(6, 182, 212, 0.4)' : 'var(--ov-border)',
+                  color: gridSnapEnabled ? '#22d3ee' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors text-[10px] font-medium cursor-pointer"
               >
                 <Hash className={`w-3 h-3 ${gridSnapEnabled ? 'text-cyan-400' : 'text-slate-500'}`} />
                 <span>网格吸附: {gridSnapEnabled ? '开' : '关'}</span>
-                <kbd className="ml-0.5 px-1 py-0.2 rounded bg-slate-800/80 text-[9px] text-slate-400 font-mono">G</kbd>
+                <kbd
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    color: 'var(--ov-text-muted)',
+                  }}
+                  className="ml-0.5 px-1 py-0.2 rounded text-[9px] font-mono"
+                >
+                  G
+                </kbd>
               </button>
 
               {/* 网格大小快捷药丸 */}
               {gridSnapEnabled && (
-                <div className="flex items-center bg-slate-800/90 rounded border border-slate-700/60 p-0.5 ml-0.5">
+                <div
+                  style={{
+                    backgroundColor: 'var(--ov-surface-header)',
+                    borderColor: 'var(--ov-border)',
+                  }}
+                  className="flex items-center rounded border p-0.5 ml-0.5"
+                >
                   {[10, 20, 50].map(sz => (
                     <button
                       key={sz}
                       type="button"
                       onClick={() => setGridSize(sz)}
-                      className={`px-1.5 py-0.2 text-[9px] font-mono rounded transition-colors ${
-                        gridSize === sz
-                          ? 'bg-cyan-600 text-white font-semibold'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
+                      style={{
+                        backgroundColor: gridSize === sz ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                        color: gridSize === sz ? '#ffffff' : 'var(--ov-text-secondary)',
+                      }}
+                      className="px-1.5 py-0.2 text-[9px] font-mono rounded transition-colors font-medium"
                     >
                       {sz}px
                     </button>

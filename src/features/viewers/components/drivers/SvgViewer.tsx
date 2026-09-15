@@ -379,7 +379,11 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
     <div
       id="svg-studio-root"
       ref={studioRef}
-      className="h-full w-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full w-full flex flex-col overflow-hidden select-none"
     >
       {/* 顶部工具栏 */}
       <SvgToolbar
@@ -410,7 +414,14 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
 
       {/* 优化操作浮动提示卡 */}
       {optimizeToast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-4 py-2 bg-purple-950/90 text-purple-200 border border-purple-500/50 rounded-lg shadow-2xl text-xs backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+        <div
+          style={{
+            backgroundColor: 'var(--ov-surface-header)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text)',
+          }}
+          className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-4 py-2 border rounded-lg shadow-2xl text-xs backdrop-blur-md animate-in fade-in slide-in-from-top-2"
+        >
           {optimizeToast}
         </div>
       )}
@@ -443,12 +454,16 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
         {viewMode === 'split' && (
           <div
             onMouseDown={handleSplitterMouseDown}
-            className={`w-1.5 hover:w-2 -ml-0.5 z-20 cursor-col-resize transition-colors flex items-center justify-center group ${
-              isDraggingSplitter ? 'bg-blue-500 w-2' : 'bg-slate-800 hover:bg-blue-500/80'
-            }`}
+            style={{
+              backgroundColor: isDraggingSplitter ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-border)',
+            }}
+            className="w-1.5 hover:w-2 -ml-0.5 z-20 cursor-col-resize transition-colors flex items-center justify-center group"
             title="拖动调整代码与画布分屏宽度"
           >
-            <div className="w-0.5 h-6 bg-slate-600 group-hover:bg-white rounded-full transition-colors" />
+            <div
+              style={{ backgroundColor: 'var(--ov-text-muted)' }}
+              className="w-0.5 h-6 group-hover:bg-white rounded-full transition-colors"
+            />
           </div>
         )}
 

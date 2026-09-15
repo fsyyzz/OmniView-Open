@@ -336,27 +336,46 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   });
 
   return (
-    <div id="plantuml-studio-container" className="h-full flex flex-col bg-slate-950 text-slate-200 relative select-none">
+    <div
+      id="plantuml-studio-container"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full flex flex-col relative select-none"
+    >
       {/* Top Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs gap-3 flex-wrap sm:flex-nowrap">
+      <div
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between px-4 py-2 border-b text-xs gap-3 flex-wrap sm:flex-nowrap shrink-0"
+      >
         <div className="flex items-center gap-2 shrink-0">
-          <span className="font-semibold text-purple-400 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+          <span className="font-semibold text-[var(--ov-accent)] flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-[var(--ov-accent)]" />
             PlantUML 架构建模引擎
           </span>
-          <span className="text-slate-600">|</span>
-          <span className="text-slate-400 font-mono text-[11px] truncate max-w-[140px]">{fileName}</span>
+          <span style={{ color: 'var(--ov-border)' }}>|</span>
+          <span style={{ color: 'var(--ov-text-muted)' }} className="font-mono text-[11px] truncate max-w-[140px]">{fileName}</span>
         </div>
 
         {/* Center: Template Library Modal Launcher & Quick Presets */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
           <button
             onClick={() => setShowTemplateModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 hover:text-white rounded border border-purple-500/50 text-xs font-medium transition shrink-0"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded border text-xs font-medium transition shrink-0 hover:border-[var(--ov-accent)]"
             title="浏览完整的系统架构、C4 容器、时序图、甘特图等企业级模版"
             aria-label="模板库"
           >
-            <BookOpen className="w-3.5 h-3.5 text-purple-300" />
+            <BookOpen className="w-3.5 h-3.5 text-[var(--ov-accent)]" />
             <span className="hidden sm:inline">模板库 ({PLANTUML_TEMPLATES.length})</span>
           </button>
 
@@ -365,7 +384,12 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               <button
                 key={tmpl.id}
                 onClick={() => handleApplyTemplate(tmpl.code)}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[11px] border border-slate-700 transition shrink-0"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text-secondary)',
+                }}
+                className="px-2 py-0.5 rounded text-[11px] border transition shrink-0 hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
               >
                 {tmpl.name}
               </button>
@@ -379,21 +403,40 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowThemeMenu(!showThemeMenu)}
-              className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 transition"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded border transition hover:border-[var(--ov-accent)]"
               title="切换 PlantUML 官方皮肤主题 (!theme)"
             >
-              <Palette className="w-3.5 h-3.5 text-pink-400" />
+              <Palette className="w-3.5 h-3.5 text-pink-500" />
               <span className="hidden lg:inline">
                 {activeThemeId ? `主题: ${activeThemeId}` : '官方主题'}
               </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-[var(--ov-text-muted)]" />
             </button>
 
             {showThemeMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2 z-50 text-xs space-y-1">
-                <div className="text-[10px] text-slate-400 font-mono px-2 py-1 border-b border-slate-800 flex justify-between items-center">
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                  boxShadow: 'var(--ov-shadow)',
+                }}
+                className="absolute right-0 mt-2 w-56 border rounded-xl p-2 z-50 text-xs space-y-1"
+              >
+                <div
+                  style={{
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text-muted)',
+                  }}
+                  className="text-[10px] font-mono px-2 py-1 border-b flex justify-between items-center"
+                >
                   <span>PLANTUML 官方皮肤主题</span>
-                  <span className="text-pink-400">!theme</span>
+                  <span className="text-pink-500 font-semibold">!theme</span>
                 </div>
                 {PLANTUML_THEMES.map(th => {
                   const isActive = activeThemeId === th.themeValue;
@@ -401,20 +444,28 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                     <button
                       key={th.id}
                       onClick={() => handleSelectTheme(th.themeValue)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition ${
+                      style={
                         isActive
-                          ? 'bg-purple-600/30 text-purple-200 border border-purple-500/40'
-                          : 'text-slate-300 hover:bg-slate-800'
-                      }`}
+                          ? { backgroundColor: 'var(--ov-accent-bg, rgba(99,102,241,0.15))', borderColor: 'var(--ov-accent)', color: 'var(--ov-accent)' }
+                          : { color: 'var(--ov-text-secondary)' }
+                      }
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition border border-transparent hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                     >
                       <div>
                         <div className="font-medium text-xs flex items-center gap-1.5">
                           {th.name}
-                          {th.isDark && <span className="text-[9px] px-1 bg-slate-800 rounded text-slate-400">暗色</span>}
+                          {th.isDark && (
+                            <span
+                              style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text-muted)' }}
+                              className="text-[9px] px-1 rounded border border-[var(--ov-border)]"
+                            >
+                              暗色
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[10px] text-slate-500">{th.description}</div>
+                        <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">{th.description}</div>
                       </div>
-                      {isActive && <Check className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
+                      {isActive && <Check className="w-3.5 h-3.5 text-[var(--ov-accent)] shrink-0" />}
                     </button>
                   );
                 })}
@@ -426,37 +477,50 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowServerModal(!showServerModal)}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition border ${
+              style={
                 isLocalServer
-                  ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-              }`}
+                  ? { backgroundColor: 'rgba(16,185,129,0.15)', borderColor: 'rgb(16,185,129)', color: 'rgb(16,185,129)' }
+                  : { backgroundColor: 'var(--ov-surface)', borderColor: 'var(--ov-border)', color: 'var(--ov-text)' }
+              }
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition border hover:border-[var(--ov-accent)]"
               title="配置 PlantUML 渲染服务器 (支持本地 Docker 容器直连)"
             >
               <Server className="w-3.5 h-3.5" />
               <span className="hidden xl:inline">
                 {isLocalServer ? '本地 Docker 服务' : '官方云端'}
               </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-[var(--ov-text-muted)]" />
             </button>
 
             {/* Server Settings Popover */}
             {showServerModal && (
-              <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 z-50 text-xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                    <Server className="w-4 h-4 text-purple-400" />
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                  boxShadow: 'var(--ov-shadow)',
+                }}
+                className="absolute right-0 mt-2 w-80 border rounded-xl p-4 z-50 text-xs space-y-3"
+              >
+                <div
+                  style={{ borderBottomColor: 'var(--ov-border)' }}
+                  className="flex items-center justify-between border-b pb-2"
+                >
+                  <span className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--ov-text)' }}>
+                    <Server className="w-4 h-4 text-[var(--ov-accent)]" />
                     PlantUML 服务器配置
                   </span>
                   <button
                     onClick={() => setShowServerModal(false)}
-                    className="text-slate-400 hover:text-slate-200"
+                    style={{ color: 'var(--ov-text-muted)' }}
+                    className="hover:text-[var(--ov-text)]"
                   >
                     ✕
                   </button>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-slate-400 text-[11px]">选择渲染服务器或连接内网本地容器：</div>
+                  <div style={{ color: 'var(--ov-text-muted)' }} className="text-[11px]">选择渲染服务器或连接内网本地容器：</div>
                   {PLANTUML_SERVER_PRESETS.map(preset => (
                     <button
                       key={preset.id}
@@ -467,29 +531,36 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                           setCustomInput(serverUrl);
                         }
                       }}
-                      className={`w-full text-left p-2 rounded-lg border transition ${
+                      style={
                         serverUrl === preset.url
-                          ? 'border-purple-500/80 bg-purple-950/40 text-purple-200'
-                          : 'border-slate-800 hover:bg-slate-800/60 text-slate-300'
-                      }`}
+                          ? { backgroundColor: 'var(--ov-accent-bg, rgba(99,102,241,0.15))', borderColor: 'var(--ov-accent)', color: 'var(--ov-accent)' }
+                          : { borderColor: 'var(--ov-border)', color: 'var(--ov-text-secondary)', backgroundColor: 'var(--ov-bg)' }
+                      }
+                      className="w-full text-left p-2 rounded-lg border transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                     >
                       <div className="font-medium text-xs">{preset.name}</div>
-                      {preset.url && <div className="text-[10px] text-slate-500 truncate">{preset.url}</div>}
+                      {preset.url && <div style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] truncate">{preset.url}</div>}
                     </button>
                   ))}
                   <div className="pt-2">
-                    <label className="text-slate-400 text-[11px] block mb-1">自定义私有服务器 URL：</label>
+                    <label style={{ color: 'var(--ov-text-muted)' }} className="text-[11px] block mb-1">自定义私有服务器 URL：</label>
                     <div className="flex gap-1.5">
                       <input
                         type="text"
                         value={customInput}
                         onChange={e => setCustomInput(e.target.value)}
                         placeholder="http://localhost:8080"
-                        className="flex-1 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded text-slate-200 font-mono text-[11px] outline-none focus:border-purple-500"
+                        style={{
+                          backgroundColor: 'var(--ov-bg)',
+                          borderColor: 'var(--ov-border)',
+                          color: 'var(--ov-text)',
+                        }}
+                        className="flex-1 px-2.5 py-1 border rounded font-mono text-[11px] outline-none focus:border-[var(--ov-accent)]"
                       />
                       <button
                         onClick={() => handleSaveServer(customInput)}
-                        className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-medium"
+                        style={{ backgroundColor: 'var(--ov-accent)', color: '#ffffff' }}
+                        className="px-3 py-1 rounded text-xs font-medium transition hover:opacity-90"
                       >
                         确定
                       </button>
@@ -502,7 +573,12 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
           <button
             onClick={handleRefresh}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
             title="重新编译渲染"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -512,46 +588,63 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 transition"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded border transition hover:border-[var(--ov-accent)]"
               title="导出与复制矢量资产"
               aria-label="无损导出"
             >
-              <Download className="w-3.5 h-3.5 text-cyan-400" />
+              <Download className="w-3.5 h-3.5 text-cyan-500" />
               <span className="hidden sm:inline">无损导出</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-[var(--ov-text-muted)]" />
             </button>
 
             {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-1">
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                  boxShadow: 'var(--ov-shadow)',
+                }}
+                className="absolute right-0 mt-2 w-52 border rounded-xl p-1.5 z-50 text-xs space-y-1"
+              >
                 <button
                   onClick={handleDownloadSvg}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                 >
-                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <Download className="w-3.5 h-3.5 text-emerald-500" />
                   <span>导出矢量文件 (.svg)</span>
                 </button>
                 <button
                   onClick={handleDownloadPng}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                 >
-                  <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                  <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
                   <span>导出高清位图 (.png)</span>
                 </button>
                 <button
                   onClick={handleCopySvgCode}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                 >
-                  {copiedSvg ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-amber-400" />}
+                  {copiedSvg ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-amber-500" />}
                   <span>{copiedSvg ? 'SVG 源码已复制' : '复制 SVG 代码 (直贴设计稿)'}</span>
                 </button>
-                <div className="border-t border-slate-800 my-1"></div>
+                <div style={{ borderColor: 'var(--ov-border)' }} className="border-t my-1"></div>
                 <a
                   href={svgUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text-secondary)' }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg transition hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                  <ExternalLink className="w-3.5 h-3.5" />
                   <span>新窗口全屏查看</span>
                 </a>
               </div>
@@ -560,9 +653,13 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 rounded border border-purple-500/40 transition shrink-0"
+            style={{
+              backgroundColor: 'var(--ov-accent)',
+              color: '#ffffff',
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded transition shrink-0 hover:opacity-90 shadow-xs"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-200" /> : <Copy className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{copied ? '已复制' : '复制代码'}</span>
           </button>
         </div>
@@ -575,26 +672,48 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
         {/* Left: Code Editor */}
         <div
-          style={{ width: `${splitRatio}%` }}
-          className="flex flex-col bg-slate-900/40 min-w-0"
+          style={{
+            width: `${splitRatio}%`,
+            backgroundColor: 'var(--ov-code-bg, var(--ov-bg))',
+            borderRight: '1px solid var(--ov-border)',
+          }}
+          className="flex flex-col min-w-0"
         >
           {/* Editor Header */}
-          <div className="px-3 py-1.5 bg-slate-900/80 border-b border-slate-800 text-[11px] text-slate-400 font-mono flex items-center justify-between shrink-0">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderBottomColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="px-3 py-1.5 border-b text-[11px] font-mono flex items-center justify-between shrink-0"
+          >
             <span className="truncate flex items-center gap-1.5">
-              <Code className="w-3.5 h-3.5 text-purple-400" />
+              <Code className="w-3.5 h-3.5 text-[var(--ov-accent)]" />
               PLANTUML DSL 源码 ({Math.round(splitRatio)}%)
             </span>
-            <span>{localCode.split('\n').length} {t('linesUtf8', locale)}</span>
+            <span style={{ color: 'var(--ov-text-muted)' }}>{localCode.split('\n').length} {t('linesUtf8', locale)}</span>
           </div>
 
           {/* Quick Snippets Insertion Bar */}
-          <div className="flex items-center gap-1 px-2 py-1 bg-slate-950/80 border-b border-slate-800/80 overflow-x-auto no-scrollbar shrink-0">
-            <span className="text-[10px] text-slate-500 font-mono px-1 shrink-0">快捷片段:</span>
+          <div
+            style={{
+              backgroundColor: 'var(--ov-bg)',
+              borderBottomColor: 'var(--ov-border)',
+            }}
+            className="flex items-center gap-1 px-2 py-1 border-b overflow-x-auto no-scrollbar shrink-0"
+          >
+            <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] font-mono px-1 shrink-0">快捷片段:</span>
             {PLANTUML_SNIPPETS.map((snippet, idx) => (
               <button
                 key={idx}
                 onClick={() => handleInsertSnippet(snippet.code)}
-                className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-purple-300 rounded text-[10px] font-mono border border-slate-800 shrink-0 transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text-secondary)',
+                }}
+                className="px-1.5 py-0.5 rounded text-[10px] font-mono border shrink-0 transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                 title={snippet.tooltip}
               >
                 {snippet.label}
@@ -608,7 +727,11 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             value={localCode}
             onChange={e => handleCodeChange(e.target.value)}
             spellCheck={false}
-            className="flex-1 p-4 bg-transparent font-mono text-xs text-purple-100 resize-none outline-none leading-relaxed selection:bg-purple-600 selection:text-white"
+            style={{
+              color: 'var(--ov-text)',
+              backgroundColor: 'transparent',
+            }}
+            className="flex-1 p-4 font-mono text-xs resize-none outline-none leading-relaxed"
             placeholder="@startuml ... @enduml"
           />
         </div>
@@ -618,51 +741,72 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           onMouseDown={handleSplitterMouseDown}
           onDoubleClick={() => setSplitRatio(50)}
           title="左右按住拖拽调节代码与图片分割比例 | 双击快速复位为 50%"
-          className={`relative z-20 w-2 shrink-0 flex items-center justify-center cursor-col-resize select-none transition-colors border-x border-slate-800/80 group ${
-            isDragging
-              ? 'bg-purple-600 shadow-md shadow-purple-500/50'
-              : 'bg-slate-900 hover:bg-purple-600/80'
+          style={{
+            backgroundColor: 'var(--ov-surface-header)',
+            borderColor: 'var(--ov-border)',
+          }}
+          className={`relative z-20 w-2 shrink-0 flex items-center justify-center cursor-col-resize select-none transition-colors border-x group ${
+            isDragging ? 'bg-[var(--ov-accent)]!' : 'hover:bg-[var(--ov-accent)]/40'
           }`}
         >
           {/* Visual Grip Handle */}
-          <div className="h-10 w-1 rounded-full bg-slate-600 group-hover:bg-purple-200 transition-colors flex flex-col items-center justify-center gap-0.5">
-            <span className="w-0.5 h-0.5 rounded-full bg-slate-400 group-hover:bg-white" />
-            <span className="w-0.5 h-0.5 rounded-full bg-slate-400 group-hover:bg-white" />
-            <span className="w-0.5 h-0.5 rounded-full bg-slate-400 group-hover:bg-white" />
+          <div className="h-10 w-1 rounded-full bg-[var(--ov-border)] group-hover:bg-[var(--ov-accent)] transition-colors flex flex-col items-center justify-center gap-0.5">
+            <span className="w-0.5 h-0.5 rounded-full bg-[var(--ov-text-muted)]" />
+            <span className="w-0.5 h-0.5 rounded-full bg-[var(--ov-text-muted)]" />
+            <span className="w-0.5 h-0.5 rounded-full bg-[var(--ov-text-muted)]" />
           </div>
         </div>
 
         {/* Right: Live Vector Preview & Interactive Viewport */}
         <div
-          style={{ width: `${100 - splitRatio}%` }}
-          className="flex flex-col bg-slate-950 min-w-0"
+          style={{
+            width: `${100 - splitRatio}%`,
+            backgroundColor: 'var(--ov-bg)',
+          }}
+          className="flex flex-col min-w-0"
         >
           {/* Viewport Toolbar */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/80 border-b border-slate-800 text-xs shrink-0 flex-wrap gap-2">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderBottomColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="flex items-center justify-between px-3 py-1.5 border-b text-xs shrink-0 flex-wrap gap-2"
+          >
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-400 font-mono truncate">
+              <span style={{ color: 'var(--ov-text-muted)' }} className="text-[11px] font-mono truncate">
                 矢量视口 ({Math.round(100 - splitRatio)}%)
               </span>
 
               {/* Quick Split Ratio Presets */}
-              <div className="hidden sm:flex items-center gap-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[10px] font-mono">
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-bg)',
+                  borderColor: 'var(--ov-border)',
+                }}
+                className="hidden sm:flex items-center gap-1 px-1 py-0.5 rounded border text-[10px] font-mono"
+              >
                 <button
                   onClick={() => setSplitRatio(30)}
-                  className={`px-1.5 py-0.5 rounded transition ${splitRatio === 30 ? 'bg-purple-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'}`}
+                  style={splitRatio === 30 ? { backgroundColor: 'var(--ov-accent)', color: '#ffffff' } : { color: 'var(--ov-text-muted)' }}
+                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
                   title="30% 代码 : 70% 预览"
                 >
                   30:70
                 </button>
                 <button
                   onClick={() => setSplitRatio(50)}
-                  className={`px-1.5 py-0.5 rounded transition ${splitRatio === 50 ? 'bg-purple-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'}`}
+                  style={splitRatio === 50 ? { backgroundColor: 'var(--ov-accent)', color: '#ffffff' } : { color: 'var(--ov-text-muted)' }}
+                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
                   title="50% 代码 : 50% 预览 (平衡)"
                 >
                   50:50
                 </button>
                 <button
                   onClick={() => setSplitRatio(70)}
-                  className={`px-1.5 py-0.5 rounded transition ${splitRatio === 70 ? 'bg-purple-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'}`}
+                  style={splitRatio === 70 ? { backgroundColor: 'var(--ov-accent)', color: '#ffffff' } : { color: 'var(--ov-text-muted)' }}
+                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
                   title="70% 代码 : 30% 预览"
                 >
                   70:30
@@ -675,37 +819,41 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               {/* Hand Tool (Pan Mode) */}
               <button
                 onClick={() => setPanMode(!panMode)}
-                className={`p-1 rounded transition border ${
+                style={
                   panMode
-                    ? 'bg-purple-600 border-purple-500 text-white'
-                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200'
-                }`}
+                    ? { backgroundColor: 'var(--ov-accent)', borderColor: 'var(--ov-accent)', color: '#ffffff' }
+                    : { backgroundColor: 'var(--ov-surface)', borderColor: 'var(--ov-border)', color: 'var(--ov-text-secondary)' }
+                }
+                className="p-1 rounded transition border hover:text-[var(--ov-text)]"
                 title={panMode ? '抓手平移模式已激活 (拖拽画布平移)' : '开启抓手平移模式 (或按住 Shift 拖动)'}
               >
                 <Hand className="w-3.5 h-3.5" />
               </button>
 
-              <div className="h-3 w-[1px] bg-slate-800 mx-0.5" />
+              <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-3 w-[1px] mx-0.5" />
 
               {/* Zoom Controls */}
               <button
                 onClick={() => setZoom(z => Math.max(0.2, z - 0.15))}
-                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
                 title="缩小 (Ctrl + 滚轮向下)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
-              <span className="font-mono text-cyan-400 text-xs min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
+              <span className="font-mono text-[var(--ov-accent)] text-xs min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
               <button
                 onClick={() => setZoom(z => Math.min(3.5, z + 0.15))}
-                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
                 title="放大 (Ctrl + 滚轮向上)"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={handleResetViewport}
-                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
                 title="复位视口 (100% 居中)"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -720,7 +868,10 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             onMouseUp={handleCanvasMouseUp}
             onMouseLeave={handleCanvasMouseUp}
             onWheel={handleCanvasWheel}
-            className={`flex-1 overflow-hidden relative flex items-center justify-center bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] ${
+            style={{
+              backgroundColor: 'var(--ov-bg)',
+            }}
+            className={`flex-1 overflow-hidden relative flex items-center justify-center ${
               panMode || isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
             }`}
           >
@@ -730,20 +881,23 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: 'center center',
                 transition: isPanning ? 'none' : 'transform 100ms ease-out',
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                boxShadow: 'var(--ov-shadow)',
               }}
-              className="relative bg-white p-6 rounded-2xl shadow-2xl border border-slate-700 max-w-[min(100%,960px)] min-w-[240px] min-h-[160px] select-none flex items-center justify-center"
+              className="relative p-6 rounded-2xl border max-w-[min(100%,960px)] min-w-[240px] min-h-[160px] select-none flex items-center justify-center"
             >
               {!canRender && (
-                <div className="text-center text-slate-500 text-xs space-y-2 px-4 py-6">
-                  <p className="font-medium text-slate-600">暂无可渲染的 PlantUML 内容</p>
+                <div style={{ color: 'var(--ov-text-muted)' }} className="text-center text-xs space-y-2 px-4 py-6">
+                  <p style={{ color: 'var(--ov-text)' }} className="font-medium">暂无可渲染的 PlantUML 内容</p>
                   <p>请确认文档包含 `@startuml` … `@enduml` 及实际图表语句。</p>
                 </div>
               )}
 
               {canRender && imgStatus === 'error' && (
-                <div className="text-center text-slate-600 text-xs space-y-3 px-4 py-6 max-w-md">
-                  <p className="font-semibold text-rose-600">PlantUML 渲染服务不可用</p>
-                  <p>
+                <div style={{ color: 'var(--ov-text-secondary)' }} className="text-center text-xs space-y-3 px-4 py-6 max-w-md">
+                  <p className="font-semibold text-rose-500">PlantUML 渲染服务不可用</p>
+                  <p style={{ color: 'var(--ov-text-muted)' }}>
                     无法从当前服务器加载矢量图（网络受限、离线或服务未启动）。
                     可切换到本地 Docker（`http://localhost:8080`）或检查代理后重试。
                   </p>
@@ -751,14 +905,20 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                     <button
                       type="button"
                       onClick={handleRefresh}
-                      className="px-3 py-1.5 rounded bg-purple-600 text-white hover:bg-purple-500"
+                      style={{ backgroundColor: 'var(--ov-accent)', color: '#ffffff' }}
+                      className="px-3 py-1.5 rounded font-medium hover:opacity-90"
                     >
                       重新加载
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowServerModal(true)}
-                      className="px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-100"
+                      style={{
+                        backgroundColor: 'var(--ov-surface)',
+                        borderColor: 'var(--ov-border)',
+                        color: 'var(--ov-text)',
+                      }}
+                      className="px-3 py-1.5 rounded border hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                     >
                       配置服务器
                     </button>
@@ -768,7 +928,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                       href={svgUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-purple-600 hover:underline"
+                      className="inline-flex items-center gap-1 text-[var(--ov-accent)] hover:underline"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       在浏览器中打开渲染链接
@@ -781,8 +941,16 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 <>
                   {imgStatus === 'loading' && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 text-slate-200 text-[11px]">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-300" />
+                      <div
+                        style={{
+                          backgroundColor: 'var(--ov-surface)',
+                          borderColor: 'var(--ov-border)',
+                          color: 'var(--ov-text)',
+                          boxShadow: 'var(--ov-shadow)',
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px]"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[var(--ov-accent)]" />
                         正在编译 PlantUML…
                       </div>
                     </div>
@@ -801,12 +969,20 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             </div>
 
             {/* Floating Quick Viewport Status Indicator */}
-            <div className="absolute bottom-3 right-3 flex items-center gap-2 px-2.5 py-1 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-lg text-[10px] text-slate-400 font-mono pointer-events-none">
-              <span>{Math.round(zoom * 100)}%</span>
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-muted)',
+                boxShadow: 'var(--ov-shadow)',
+              }}
+              className="absolute bottom-3 right-3 flex items-center gap-2 px-2.5 py-1 backdrop-blur-md border rounded-lg text-[10px] font-mono pointer-events-none"
+            >
+              <span style={{ color: 'var(--ov-text)' }}>{Math.round(zoom * 100)}%</span>
               {(pan.x !== 0 || pan.y !== 0) && (
-                <span className="text-purple-400">({Math.round(pan.x)}, {Math.round(pan.y)})</span>
+                <span className="text-[var(--ov-accent)]">({Math.round(pan.x)}, {Math.round(pan.y)})</span>
               )}
-              {panMode && <span className="text-emerald-400 font-medium">[平移抓手已激活]</span>}
+              {panMode && <span className="text-emerald-500 font-medium">[平移抓手已激活]</span>}
             </div>
           </div>
         </div>
@@ -814,27 +990,45 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
       {/* Enterprise Template Library Modal */}
       {showTemplateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+              boxShadow: 'var(--ov-shadow)',
+            }}
+            className="border rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+          >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+            <div
+              style={{ borderBottomColor: 'var(--ov-border)', backgroundColor: 'var(--ov-surface-header)' }}
+              className="flex items-center justify-between px-6 py-4 border-b"
+            >
               <div className="flex items-center gap-2.5">
-                <BookOpen className="w-5 h-5 text-purple-400" />
+                <BookOpen className="w-5 h-5 text-[var(--ov-accent)]" />
                 <div>
-                  <h3 className="text-sm font-semibold text-white">PlantUML 企业级架构模板库</h3>
-                  <p className="text-xs text-slate-400">选择经典架构与图表样板，一键加载至工作台开始设计</p>
+                  <h3 style={{ color: 'var(--ov-text)' }} className="text-sm font-semibold">PlantUML 企业级架构模板库</h3>
+                  <p style={{ color: 'var(--ov-text-muted)' }} className="text-xs">选择经典架构与图表样板，一键加载至工作台开始设计</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowTemplateModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition text-sm"
+                style={{ color: 'var(--ov-text-muted)' }}
+                className="hover:text-[var(--ov-text)] p-1 rounded-lg transition text-sm"
               >
                 ✕
               </button>
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="px-6 py-3 border-b border-slate-800/80 bg-slate-950/40 flex items-center justify-between gap-3 flex-wrap">
+            <div
+              style={{
+                borderBottomColor: 'var(--ov-border)',
+                backgroundColor: 'var(--ov-bg)',
+              }}
+              className="px-6 py-3 border-b flex items-center justify-between gap-3 flex-wrap"
+            >
               <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                 {[
                   { id: 'all', label: '全部' },
@@ -848,11 +1042,12 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                   <button
                     key={cat.id}
                     onClick={() => setTemplateCategory(cat.id)}
-                    className={`px-3 py-1 rounded-full text-xs transition ${
+                    style={
                       templateCategory === cat.id
-                        ? 'bg-purple-600 text-white font-medium'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    }`}
+                        ? { backgroundColor: 'var(--ov-accent)', color: '#ffffff' }
+                        : { backgroundColor: 'var(--ov-surface)', borderColor: 'var(--ov-border)', color: 'var(--ov-text-secondary)' }
+                    }
+                    className="px-3 py-1 rounded-full text-xs transition border"
                   >
                     {cat.label}
                   </button>
@@ -860,13 +1055,18 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               </div>
 
               <div className="relative w-48">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search style={{ color: 'var(--ov-text-muted)' }} className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={templateSearch}
                   onChange={e => setTemplateSearch(e.target.value)}
                   placeholder="搜索模板..."
-                  className="w-full pl-8 pr-2.5 py-1 bg-slate-900 border border-slate-750 rounded-lg text-xs text-slate-200 outline-none focus:border-purple-500"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full pl-8 pr-2.5 py-1 border rounded-lg text-xs outline-none focus:border-[var(--ov-accent)]"
                 />
               </div>
             </div>
@@ -874,46 +1074,63 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             {/* Modal Body: Left Template List, Right Preview */}
             <div className="flex-1 flex overflow-hidden">
               {/* Left Template List */}
-              <div className="w-2/5 border-r border-slate-800 overflow-y-auto p-4 space-y-2">
+              <div
+                style={{ borderRightColor: 'var(--ov-border)' }}
+                className="w-2/5 border-r overflow-y-auto p-4 space-y-2"
+              >
                 {filteredTemplates.map(tmpl => {
                   const isSelected = selectedTemplate.id === tmpl.id;
                   return (
                     <button
                       key={tmpl.id}
                       onClick={() => setSelectedTemplate(tmpl)}
-                      className={`w-full text-left p-3 rounded-xl border transition ${
+                      style={
                         isSelected
-                          ? 'border-purple-500/80 bg-purple-950/40 text-purple-100 shadow-sm'
-                          : 'border-slate-800 hover:border-slate-700 bg-slate-900/60 text-slate-300'
-                      }`}
+                          ? { backgroundColor: 'var(--ov-accent-bg, rgba(99,102,241,0.15))', borderColor: 'var(--ov-accent)' }
+                          : { backgroundColor: 'var(--ov-bg)', borderColor: 'var(--ov-border)' }
+                      }
+                      className="w-full text-left p-3 rounded-xl border transition"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-xs text-white">{tmpl.name}</span>
-                        <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full font-mono">
+                        <span style={{ color: isSelected ? 'var(--ov-accent)' : 'var(--ov-text)' }} className="font-medium text-xs">{tmpl.name}</span>
+                        <span
+                          style={{ backgroundColor: 'var(--ov-surface)', borderColor: 'var(--ov-border)', color: 'var(--ov-text-muted)' }}
+                          className="text-[10px] px-2 py-0.5 rounded-full font-mono border"
+                        >
                           {tmpl.categoryLabel}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">{tmpl.description}</p>
+                      <p style={{ color: 'var(--ov-text-muted)' }} className="text-[11px] line-clamp-2 leading-relaxed">{tmpl.description}</p>
                     </button>
                   );
                 })}
               </div>
 
               {/* Right Preview */}
-              <div className="w-3/5 flex flex-col bg-slate-950/60">
-                <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+              <div
+                style={{ backgroundColor: 'var(--ov-code-bg, var(--ov-bg))' }}
+                className="w-3/5 flex flex-col"
+              >
+                <div
+                  style={{ borderBottomColor: 'var(--ov-border)', backgroundColor: 'var(--ov-surface-header)' }}
+                  className="p-4 border-b flex items-center justify-between"
+                >
                   <div>
-                    <h4 className="text-xs font-semibold text-white">{selectedTemplate.name}</h4>
-                    <span className="text-[11px] text-slate-400">{selectedTemplate.description}</span>
+                    <h4 style={{ color: 'var(--ov-text)' }} className="text-xs font-semibold">{selectedTemplate.name}</h4>
+                    <span style={{ color: 'var(--ov-text-muted)' }} className="text-[11px]">{selectedTemplate.description}</span>
                   </div>
                   <button
                     onClick={() => handleApplyTemplate(selectedTemplate.code)}
-                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium transition shadow-lg shadow-purple-600/30"
+                    style={{ backgroundColor: 'var(--ov-accent)', color: '#ffffff' }}
+                    className="px-4 py-1.5 rounded-lg text-xs font-medium transition hover:opacity-90 shadow-xs"
                   >
                     载入此模板
                   </button>
                 </div>
-                <div className="flex-1 overflow-auto p-4 bg-slate-950 font-mono text-xs text-purple-200">
+                <div
+                  style={{ color: 'var(--ov-text-secondary)' }}
+                  className="flex-1 overflow-auto p-4 font-mono text-xs"
+                >
                   <pre className="whitespace-pre-wrap leading-relaxed">{selectedTemplate.code}</pre>
                 </div>
               </div>

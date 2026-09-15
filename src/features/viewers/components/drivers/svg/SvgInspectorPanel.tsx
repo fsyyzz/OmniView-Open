@@ -217,20 +217,40 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
       onClick={e => e.stopPropagation()}
       onPointerDown={e => e.stopPropagation()}
       onPointerUp={e => e.stopPropagation()}
-      className="absolute top-3 right-3 z-30 w-80 max-h-[calc(100%-1.5rem)] flex flex-col bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-xl shadow-2xl text-xs text-slate-200 select-none overflow-hidden animate-in fade-in slide-in-from-right-4 duration-200"
+      style={{
+        backgroundColor: 'var(--ov-surface)',
+        borderColor: 'var(--ov-border)',
+        color: 'var(--ov-text)',
+        boxShadow: 'var(--ov-shadow, 0 8px 24px rgba(0,0,0,0.36))',
+      }}
+      className="absolute top-3 right-3 z-30 w-80 max-h-[calc(100%-1.5rem)] flex flex-col backdrop-blur-md border rounded-xl text-xs select-none overflow-hidden animate-in fade-in slide-in-from-right-4 duration-200"
     >
       {/* 顶部标题栏 */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-800/80 border-b border-slate-700/80">
+      <div
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between px-3.5 py-2.5 border-b"
+      >
         <div className="flex items-center gap-2 truncate">
-          <span className="px-1.5 py-0.5 rounded bg-blue-600/30 text-cyan-300 font-mono text-[11px] font-semibold border border-blue-500/40">
+          <span
+            style={{
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              borderColor: 'var(--ov-accent, #3b82f6)',
+              color: 'var(--ov-accent, #60a5fa)',
+            }}
+            className="px-1.5 py-0.5 rounded font-mono text-[11px] font-semibold border"
+          >
             &lt;{element.tagName}&gt;
           </span>
           {element.id ? (
-            <span className="text-[11px] font-mono text-amber-300 truncate" title={`#${element.id}`}>
+            <span className="text-[11px] font-mono text-amber-400 truncate" title={`#${element.id}`}>
               #{element.id}
             </span>
           ) : (
-            <span className="text-[11px] text-slate-400 font-mono">图元 #{element.index}</span>
+            <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[11px] font-mono">图元 #{element.index}</span>
           )}
         </div>
 
@@ -239,9 +259,11 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
           {onToggleSnap && (
             <button
               onClick={onToggleSnap}
-              className={`p-1 rounded transition ${
-                snapEnabled ? 'text-pink-400 bg-pink-950/60' : 'text-slate-400 hover:text-white'
-              }`}
+              style={{
+                color: snapEnabled ? '#f472b6' : 'var(--ov-text-secondary)',
+                backgroundColor: snapEnabled ? 'rgba(236, 72, 153, 0.2)' : 'transparent',
+              }}
+              className="p-1 rounded transition hover:opacity-80"
               title={`智能吸附: ${snapEnabled ? '已开启' : '已关闭'} (快捷键 S)`}
             >
               <Magnet className="w-3.5 h-3.5" />
@@ -249,7 +271,8 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
           )}
           <button
             onClick={onClose}
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700/60 transition"
+            style={{ color: 'var(--ov-text-secondary)' }}
+            className="p-1 rounded hover:opacity-80 transition"
             title="关闭检视面板"
           >
             <X className="w-3.5 h-3.5" />
@@ -261,53 +284,89 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
         {/* 画布快速对齐工具 (Quick Canvas Alignment) */}
         {onAlign && (
-          <div className="space-y-1.5 bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/60">
-            <div className="flex items-center justify-between text-slate-300 text-[11px]">
-              <div className="flex items-center gap-1 font-medium">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="space-y-1.5 p-2.5 rounded-lg border"
+          >
+            <div className="flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-1 font-medium" style={{ color: 'var(--ov-text)' }}>
                 <Compass className="w-3.5 h-3.5 text-cyan-400" />
                 <span>快速对齐到画布</span>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">画布视口参考</span>
+              <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] font-mono">画布视口参考</span>
             </div>
             <div className="grid grid-cols-6 gap-1 pt-1">
               <button
                 onClick={() => onAlign('left')}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="p-1 rounded border flex items-center justify-center transition hover:opacity-80"
                 title="靠左对齐"
               >
                 <AlignLeft className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => onAlign('center')}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="p-1 rounded border flex items-center justify-center transition hover:opacity-80"
                 title="水平居中"
               >
                 <AlignCenter className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => onAlign('right')}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="p-1 rounded border flex items-center justify-center transition hover:opacity-80"
                 title="靠右对齐"
               >
                 <AlignRight className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => onAlign('top')}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition text-[10px] font-bold"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="p-1 rounded border flex items-center justify-center transition text-[10px] font-bold hover:opacity-80"
                 title="靠顶对齐"
               >
                 TOP
               </button>
               <button
                 onClick={() => onAlign('middle')}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition text-[10px] font-bold"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="p-1 rounded border flex items-center justify-center transition text-[10px] font-bold hover:opacity-80"
                 title="垂直居中"
               >
                 MID
               </button>
               <button
                 onClick={() => onAlign('bottom')}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition text-[10px] font-bold"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="p-1 rounded border flex items-center justify-center transition text-[10px] font-bold hover:opacity-80"
                 title="靠底对齐"
               >
                 BOT
@@ -318,14 +377,26 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
         {/* 线条专属几何特征、极坐标、正交化与折线转换 (Enhanced Line Controls) */}
         {isLineTag && lineMetrics && (
-          <div className="space-y-2.5 bg-slate-800/70 p-2.5 rounded-lg border border-cyan-500/50 shadow-sm">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="space-y-2.5 p-2.5 rounded-lg border shadow-sm"
+          >
             {/* 顶部指示与状态胶囊 */}
-            <div className="flex items-center justify-between text-cyan-300 font-medium text-[11px]">
+            <div className="flex items-center justify-between text-cyan-400 font-medium text-[11px]">
               <div className="flex items-center gap-1.5">
                 <Move className="w-3.5 h-3.5 text-cyan-400" />
                 <span>线条几何与方向工程</span>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono">
+              <span
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                }}
+                className="text-[10px] px-1.5 py-0.5 rounded border text-cyan-400 font-mono"
+              >
                 {lineMetrics.slopeType === 'horizontal' && '水平 (0°)'}
                 {lineMetrics.slopeType === 'vertical' && '垂直 (90°)'}
                 {lineMetrics.slopeType === 'diagonal-45' && '45° 斜角'}
@@ -335,10 +406,16 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
             </div>
 
             {/* 实时几何指标卡片 (长度与极角) */}
-            <div className="grid grid-cols-2 gap-2 bg-slate-950/70 p-2 rounded border border-slate-700/60 text-[11px] font-mono">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="grid grid-cols-2 gap-2 p-2 rounded border text-[11px] font-mono"
+            >
               <div className="space-y-1">
-                <div className="flex items-center justify-between text-slate-400 text-[10px]">
-                  <span>长度 (px)</span>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span style={{ color: 'var(--ov-text-secondary)' }}>长度 (px)</span>
                   <span className="text-cyan-400 font-bold">{lineMetrics.length}</span>
                 </div>
                 <input
@@ -350,13 +427,18 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     const newLen = parseFloat(e.target.value) || 1;
                     handleUpdateLineAngleOrLength(newLen, lineMetrics.angleDeg);
                   }}
-                  className="w-full p-1 bg-slate-900 border border-slate-700 rounded text-center text-slate-200 text-xs outline-none focus:border-cyan-400"
+                  style={{
+                    backgroundColor: 'var(--ov-surface-header)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full p-1 border rounded text-center text-xs outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div className="space-y-1">
-                <div className="flex items-center justify-between text-slate-400 text-[10px]">
-                  <span>极角 (°)</span>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span style={{ color: 'var(--ov-text-secondary)' }}>极角 (°)</span>
                   <span className="text-cyan-400 font-bold">{lineMetrics.angleDeg}°</span>
                 </div>
                 <input
@@ -369,14 +451,19 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     const newAngle = parseFloat(e.target.value) || 0;
                     handleUpdateLineAngleOrLength(lineMetrics.length, newAngle);
                   }}
-                  className="w-full p-1 bg-slate-900 border border-slate-700 rounded text-center text-slate-200 text-xs outline-none focus:border-cyan-400"
+                  style={{
+                    backgroundColor: 'var(--ov-surface-header)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full p-1 border rounded text-center text-xs outline-none focus:border-cyan-400"
                 />
               </div>
             </div>
 
             {/* 常用角度快捷点选 (0°, 45°, 90°, 135°, 180°, 270°) */}
             <div className="space-y-1">
-              <span className="text-[10px] text-slate-400 font-medium">快速校准方向与角度</span>
+              <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px] font-medium">快速校准方向与角度</span>
               <div className="grid grid-cols-6 gap-1">
                 {[
                   { label: '0°', val: 0, title: '水平向右 (0°)' },
@@ -389,11 +476,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                   <button
                     key={item.val}
                     onClick={() => handleUpdateLineAngleOrLength(lineMetrics.length, item.val)}
-                    className={`py-1 rounded text-[10px] font-mono transition border ${
-                      Math.abs(lineMetrics.angleDeg - item.val) < 0.5
-                        ? 'bg-cyan-600/40 text-cyan-200 border-cyan-400'
-                        : 'bg-slate-900/90 text-slate-300 border-slate-700/80 hover:bg-slate-800'
-                    }`}
+                    style={{
+                      backgroundColor: Math.abs(lineMetrics.angleDeg - item.val) < 0.5 ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: Math.abs(lineMetrics.angleDeg - item.val) < 0.5 ? '#ffffff' : 'var(--ov-text)',
+                    }}
+                    className="py-1 rounded text-[10px] font-mono transition border hover:opacity-80"
                     title={item.title}
                   >
                     {item.label}
@@ -409,14 +497,24 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                   <>
                     <button
                       onClick={() => onAlignLine('horizontal')}
-                      className="flex-1 py-1 px-1.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                      style={{
+                        backgroundColor: 'var(--ov-surface)',
+                        borderColor: 'var(--ov-border)',
+                        color: 'var(--ov-text)',
+                      }}
+                      className="flex-1 py-1 px-1.5 rounded border text-[10px] font-medium transition flex items-center justify-center gap-1 hover:opacity-80"
                       title="快速正交化为绝对水平直线 (0°)"
                     >
                       <span>📐 水平正交</span>
                     </button>
                     <button
                       onClick={() => onAlignLine('vertical')}
-                      className="flex-1 py-1 px-1.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                      style={{
+                        backgroundColor: 'var(--ov-surface)',
+                        borderColor: 'var(--ov-border)',
+                        color: 'var(--ov-text)',
+                      }}
+                      className="flex-1 py-1 px-1.5 rounded border text-[10px] font-medium transition flex items-center justify-center gap-1 hover:opacity-80"
                       title="快速正交化为绝对垂直直线 (90°)"
                     >
                       <span>📐 垂直正交</span>
@@ -427,7 +525,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                 {onReverseLine && (
                   <button
                     onClick={onReverseLine}
-                    className="py-1 px-2 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[10px] font-medium transition flex items-center gap-1"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="py-1 px-2 rounded border text-[10px] font-medium transition flex items-center gap-1 hover:opacity-80"
                     title="互换起止点 (P1 ⇄ P2) 并反转箭头标记"
                   >
                     <ArrowLeftRight className="w-3 h-3 text-cyan-400" />
@@ -441,7 +544,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => onConvertToStepLine('hv')}
-                    className="flex-1 py-1 px-1.5 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="flex-1 py-1 px-1.5 rounded border text-[10px] font-medium transition flex items-center justify-center gap-1 hover:opacity-80"
                     title="转为水平-垂直正交阶梯折线 (HV Path)"
                   >
                     <CornerDownRight className="w-3 h-3 text-blue-400" />
@@ -449,7 +557,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                   </button>
                   <button
                     onClick={() => onConvertToStepLine('vh')}
-                    className="flex-1 py-1 px-1.5 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[10px] font-medium transition flex items-center justify-center gap-1"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="flex-1 py-1 px-1.5 rounded border text-[10px] font-medium transition flex items-center justify-center gap-1 hover:opacity-80"
                     title="转为垂直-水平正交阶梯折线 (VH Path)"
                   >
                     <CornerDownRight className="w-3 h-3 text-cyan-400 rotate-90" />
@@ -460,9 +573,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
             </div>
 
             {/* 端点坐标精确定位 */}
-            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px] border-t border-slate-700/60">
+            <div
+              style={{ borderTopColor: 'var(--ov-border)' }}
+              className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px] border-t"
+            >
               <div className="space-y-1">
-                <span className="text-blue-300 text-[10px] flex items-center gap-1">
+                <span className="text-blue-400 text-[10px] flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
                   <span>起点 P1 (x1, y1)</span>
                 </span>
@@ -472,7 +588,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     value={lineX1}
                     onChange={e => setLineX1(e.target.value)}
                     onBlur={e => handleCoordCommit('x1', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="w-1/2 p-1 border rounded text-center outline-none focus:border-cyan-500 text-xs"
                     placeholder="x1"
                   />
                   <input
@@ -480,14 +601,19 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     value={lineY1}
                     onChange={e => setLineY1(e.target.value)}
                     onBlur={e => handleCoordCommit('y1', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="w-1/2 p-1 border rounded text-center outline-none focus:border-cyan-500 text-xs"
                     placeholder="y1"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <span className="text-cyan-300 text-[10px] flex items-center gap-1">
+                <span className="text-cyan-400 text-[10px] flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" />
                   <span>终点 P2 (x2, y2)</span>
                 </span>
@@ -497,7 +623,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     value={lineX2}
                     onChange={e => setLineX2(e.target.value)}
                     onBlur={e => handleCoordCommit('x2', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="w-1/2 p-1 border rounded text-center outline-none focus:border-cyan-500 text-xs"
                     placeholder="x2"
                   />
                   <input
@@ -505,7 +636,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                     value={lineY2}
                     onChange={e => setLineY2(e.target.value)}
                     onBlur={e => handleCoordCommit('y2', e.target.value)}
-                    className="w-1/2 p-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 outline-none focus:border-cyan-500 text-xs"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="w-1/2 p-1 border rounded text-center outline-none focus:border-cyan-500 text-xs"
                     placeholder="y2"
                   />
                 </div>
@@ -514,64 +650,107 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
             {/* 工业线条工程预设快捷应用 */}
             {onApplyLinePreset && (
-              <div className="space-y-1 pt-1 border-t border-slate-700/60">
-                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+              <div
+                style={{ borderTopColor: 'var(--ov-border)' }}
+                className="space-y-1 pt-1 border-t"
+              >
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px] font-medium flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" />
                   <span>一键工程风格预设</span>
                 </span>
                 <div className="grid grid-cols-4 gap-1 text-[10px]">
                   <button
                     onClick={() => onApplyLinePreset('solid')}
-                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80"
                     title="标准实线"
                   >
                     实线
                   </button>
                   <button
                     onClick={() => onApplyLinePreset('dashed')}
-                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80"
                     title="工程虚线 (6,4)"
                   >
                     虚线
                   </button>
                   <button
                     onClick={() => onApplyLinePreset('dotted')}
-                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80"
                     title="紧凑点线 (2,3)"
                   >
                     点线
                   </button>
                   <button
                     onClick={() => onApplyLinePreset('dash-dot')}
-                    className="py-1 px-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text)',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80"
                     title="长短点划线 (10,4,2,4)"
                   >
                     点划线
                   </button>
                   <button
                     onClick={() => onApplyLinePreset('flow-arrow')}
-                    className="py-1 px-1 rounded bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/50 text-cyan-200 transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-accent, #38bdf8)',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80 font-medium"
                     title="流程箭头线"
                   >
                     流程箭头
                   </button>
                   <button
                     onClick={() => onApplyLinePreset('bidirectional')}
-                    className="py-1 px-1 rounded bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/50 text-cyan-200 transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-accent, #38bdf8)',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80 font-medium"
                     title="双向指示线"
                   >
                     双向指示
                   </button>
                   <button
                     onClick={() => onApplyLinePreset('dimension')}
-                    className="py-1 px-1 rounded bg-amber-950/70 hover:bg-amber-900/80 border border-amber-500/50 text-amber-200 transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: '#fbbf24',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80 font-medium"
                     title="尺寸标注线"
                   >
                     尺寸标注
                   </button>
                   <button
                     onClick={() => onApplyLinePreset('flowing-glow')}
-                    className="py-1 px-1 rounded bg-purple-950/70 hover:bg-purple-900/80 border border-purple-500/50 text-purple-200 transition text-center"
+                    style={{
+                      backgroundColor: 'var(--ov-surface)',
+                      borderColor: 'var(--ov-border)',
+                      color: '#c084fc',
+                    }}
+                    className="py-1 px-1 rounded border transition text-center hover:opacity-80 font-medium"
                     title="动态流光虚线"
                   >
                     流光动效
@@ -584,8 +763,14 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
         {/* 文本节点内容直编 */}
         {isTextTag && (
-          <div className="space-y-1.5 bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50">
-            <div className="flex items-center gap-1.5 text-slate-300 font-medium text-[11px]">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="space-y-1.5 p-2.5 rounded-lg border"
+          >
+            <div className="flex items-center gap-1.5 font-medium text-[11px]" style={{ color: 'var(--ov-text)' }}>
               <Type className="w-3.5 h-3.5 text-cyan-400" />
               <span>文本文字内容</span>
             </div>
@@ -593,7 +778,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               value={textContent}
               onChange={e => handleTextContentChange(e.target.value)}
               rows={2}
-              className="w-full p-2 bg-slate-950 border border-slate-700 rounded text-slate-100 text-xs font-sans outline-none focus:border-blue-500 resize-none"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="w-full p-2 border rounded text-xs font-sans outline-none focus:border-blue-500 resize-none"
               placeholder="输入文本内容..."
             />
           </div>
@@ -601,9 +791,9 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
         {/* 填充色 (Fill) */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-slate-300 text-[11px]">
-            <span className="font-medium">填充颜色 (Fill)</span>
-            <span className="font-mono text-slate-400 text-[10px]">{fill}</span>
+          <div className="flex items-center justify-between text-[11px]">
+            <span style={{ color: 'var(--ov-text)' }} className="font-medium">填充颜色 (Fill)</span>
+            <span style={{ color: 'var(--ov-text-secondary)' }} className="font-mono text-[10px]">{fill}</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -611,7 +801,8 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               type="color"
               value={fill.startsWith('#') ? fill : '#3b82f6'}
               onChange={e => handleFillChange(e.target.value)}
-              className="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer overflow-hidden p-0"
+              style={{ borderColor: 'var(--ov-border)' }}
+              className="w-7 h-7 rounded border bg-transparent cursor-pointer overflow-hidden p-0"
               title="选择填充颜色"
             />
             <input
@@ -619,15 +810,21 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               value={fill}
               onChange={e => handleFillChange(e.target.value)}
               placeholder="none / #hex"
-              className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-xs font-mono outline-none focus:border-blue-500"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="flex-1 px-2 py-1 border rounded text-xs font-mono outline-none focus:border-blue-500"
             />
             <button
               onClick={() => handleFillChange('none')}
-              className={`px-2 py-1 rounded text-[10px] border transition ${
-                fill === 'none'
-                  ? 'bg-blue-600/30 text-cyan-300 border-cyan-500/50'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: fill === 'none' ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: fill === 'none' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="px-2 py-1 rounded text-[10px] border transition"
             >
               无填充
             </button>
@@ -652,10 +849,10 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
         </div>
 
         {/* 描边色 (Stroke) */}
-        <div className="space-y-1.5 pt-1 border-t border-slate-800">
-          <div className="flex items-center justify-between text-slate-300 text-[11px]">
-            <span className="font-medium">描边颜色 (Stroke)</span>
-            <span className="font-mono text-slate-400 text-[10px]">{stroke}</span>
+        <div style={{ borderTopColor: 'var(--ov-border)' }} className="space-y-1.5 pt-1 border-t">
+          <div className="flex items-center justify-between text-[11px]">
+            <span style={{ color: 'var(--ov-text)' }} className="font-medium">描边颜色 (Stroke)</span>
+            <span style={{ color: 'var(--ov-text-secondary)' }} className="font-mono text-[10px]">{stroke}</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -663,7 +860,8 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               type="color"
               value={stroke.startsWith('#') ? stroke : '#ffffff'}
               onChange={e => handleStrokeChange(e.target.value)}
-              className="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer overflow-hidden p-0"
+              style={{ borderColor: 'var(--ov-border)' }}
+              className="w-7 h-7 rounded border bg-transparent cursor-pointer overflow-hidden p-0"
               title="选择描边颜色"
             />
             <input
@@ -671,15 +869,21 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               value={stroke}
               onChange={e => handleStrokeChange(e.target.value)}
               placeholder="none / #hex"
-              className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-xs font-mono outline-none focus:border-blue-500"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="flex-1 px-2 py-1 border rounded text-xs font-mono outline-none focus:border-blue-500"
             />
             <button
               onClick={() => handleStrokeChange('none')}
-              className={`px-2 py-1 rounded text-[10px] border transition ${
-                stroke === 'none'
-                  ? 'bg-blue-600/30 text-cyan-300 border-cyan-500/50'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: stroke === 'none' ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: stroke === 'none' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="px-2 py-1 rounded text-[10px] border transition"
             >
               无描边
             </button>
@@ -687,9 +891,9 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
         </div>
 
         {/* 描边粗细 (Stroke Width) */}
-        <div className="space-y-1 pt-1 border-t border-slate-800">
-          <div className="flex items-center justify-between text-slate-300 text-[11px]">
-            <span className="font-medium">描边粗细 (Stroke Width)</span>
+        <div style={{ borderTopColor: 'var(--ov-border)' }} className="space-y-1 pt-1 border-t">
+          <div className="flex items-center justify-between text-[11px]">
+            <span style={{ color: 'var(--ov-text)' }} className="font-medium">描边粗细 (Stroke Width)</span>
             <span className="font-mono text-cyan-400 text-[11px]">{strokeWidth}px</span>
           </div>
           <div className="flex items-center gap-2">
@@ -700,7 +904,7 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               step="0.5"
               value={parseFloat(strokeWidth) || 0}
               onChange={e => handleStrokeWidthChange(e.target.value)}
-              className="flex-1 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+              className="flex-1 accent-cyan-400 cursor-pointer h-1.5 rounded-lg"
             />
             <input
               type="number"
@@ -709,56 +913,65 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               step="0.5"
               value={strokeWidth}
               onChange={e => handleStrokeWidthChange(e.target.value)}
-              className="w-14 px-1.5 py-0.5 bg-slate-950 border border-slate-700 rounded text-slate-200 text-xs font-mono text-center outline-none focus:border-blue-500"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="w-14 px-1.5 py-0.5 border rounded text-xs font-mono text-center outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
         {/* 虚线与线型样式 (Stroke Dasharray) */}
-        <div className="space-y-1.5 pt-1.5 border-t border-slate-800">
-          <div className="flex items-center justify-between text-slate-300 text-[11px]">
-            <span className="font-medium">线型样式 (Dasharray)</span>
-            <span className="font-mono text-slate-400 text-[10px]">{strokeDasharray || '实线'}</span>
+        <div style={{ borderTopColor: 'var(--ov-border)' }} className="space-y-1.5 pt-1.5 border-t">
+          <div className="flex items-center justify-between text-[11px]">
+            <span style={{ color: 'var(--ov-text)' }} className="font-medium">线型样式 (Dasharray)</span>
+            <span style={{ color: 'var(--ov-text-secondary)' }} className="font-mono text-[10px]">{strokeDasharray || '实线'}</span>
           </div>
 
           <div className="grid grid-cols-4 gap-1 text-[10px]">
             <button
               onClick={() => handleStrokeDasharrayChange('')}
-              className={`py-1 px-1.5 rounded border transition text-center ${
-                !strokeDasharray
-                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
-                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: !strokeDasharray ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: !strokeDasharray ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="py-1 px-1.5 rounded border transition text-center font-medium"
             >
               实线
             </button>
             <button
               onClick={() => handleStrokeDasharrayChange('6,4')}
-              className={`py-1 px-1.5 rounded border transition text-center ${
-                strokeDasharray === '6,4'
-                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
-                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: strokeDasharray === '6,4' ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: strokeDasharray === '6,4' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="py-1 px-1.5 rounded border transition text-center font-medium"
             >
               虚线 6,4
             </button>
             <button
               onClick={() => handleStrokeDasharrayChange('2,3')}
-              className={`py-1 px-1.5 rounded border transition text-center ${
-                strokeDasharray === '2,3'
-                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
-                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: strokeDasharray === '2,3' ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: strokeDasharray === '2,3' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="py-1 px-1.5 rounded border transition text-center font-medium"
             >
               点线 2,3
             </button>
             <button
               onClick={() => handleStrokeDasharrayChange('10,4,2,4')}
-              className={`py-1 px-1.5 rounded border transition text-center ${
-                strokeDasharray === '10,4,2,4'
-                  ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-bold'
-                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: strokeDasharray === '10,4,2,4' ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: strokeDasharray === '10,4,2,4' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="py-1 px-1.5 rounded border transition text-center font-medium"
             >
               点划线
             </button>
@@ -769,15 +982,20 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
             value={strokeDasharray}
             onChange={e => handleStrokeDasharrayChange(e.target.value)}
             placeholder="自定义虚线序列 (如 8,4 或 12,3,3,3)"
-            className="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-xs font-mono outline-none focus:border-cyan-500"
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="w-full px-2 py-1 border rounded text-xs font-mono outline-none focus:border-cyan-500"
           />
         </div>
 
         {/* 线端帽与拐角连接 (Line Cap & Line Join) */}
-        <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-800">
+        <div style={{ borderTopColor: 'var(--ov-border)' }} className="grid grid-cols-2 gap-2 pt-1.5 border-t">
           <div className="space-y-1">
-            <span className="text-[10px] text-slate-400 font-medium">线端帽 (Cap)</span>
-            <div className="flex rounded border border-slate-700 overflow-hidden text-[10px]">
+            <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px] font-medium">线端帽 (Cap)</span>
+            <div style={{ borderColor: 'var(--ov-border)' }} className="flex rounded border overflow-hidden text-[10px]">
               {[
                 { id: 'butt', label: '平齐' },
                 { id: 'round', label: '圆头' },
@@ -786,11 +1004,11 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                 <button
                   key={item.id}
                   onClick={() => handleStrokeLinecapChange(item.id)}
-                  className={`flex-1 py-1 text-center transition ${
-                    strokeLinecap === item.id
-                      ? 'bg-cyan-600/40 text-cyan-200 font-bold'
-                      : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                  }`}
+                  style={{
+                    backgroundColor: strokeLinecap === item.id ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                    color: strokeLinecap === item.id ? '#ffffff' : 'var(--ov-text-secondary)',
+                  }}
+                  className="flex-1 py-1 text-center transition font-medium"
                 >
                   {item.label}
                 </button>
@@ -799,8 +1017,8 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] text-slate-400 font-medium">拐角连接 (Join)</span>
-            <div className="flex rounded border border-slate-700 overflow-hidden text-[10px]">
+            <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px] font-medium">拐角连接 (Join)</span>
+            <div style={{ borderColor: 'var(--ov-border)' }} className="flex rounded border overflow-hidden text-[10px]">
               {[
                 { id: 'miter', label: '尖角' },
                 { id: 'round', label: '圆角' },
@@ -809,11 +1027,11 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
                 <button
                   key={item.id}
                   onClick={() => handleStrokeLinejoinChange(item.id)}
-                  className={`flex-1 py-1 text-center transition ${
-                    strokeLinejoin === item.id
-                      ? 'bg-cyan-600/40 text-cyan-200 font-bold'
-                      : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                  }`}
+                  style={{
+                    backgroundColor: strokeLinejoin === item.id ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                    color: strokeLinejoin === item.id ? '#ffffff' : 'var(--ov-text-secondary)',
+                  }}
+                  className="flex-1 py-1 text-center transition font-medium"
                 >
                   {item.label}
                 </button>
@@ -823,9 +1041,9 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
         </div>
 
         {/* 端点箭头与标记 (Markers) */}
-        <div className="space-y-1.5 pt-1.5 border-t border-slate-800">
-          <div className="flex items-center justify-between text-slate-300 text-[11px]">
-            <span className="font-medium flex items-center gap-1">
+        <div style={{ borderTopColor: 'var(--ov-border)' }} className="space-y-1.5 pt-1.5 border-t">
+          <div className="flex items-center justify-between text-[11px]">
+            <span style={{ color: 'var(--ov-text)' }} className="font-medium flex items-center gap-1">
               <ArrowRight className="w-3.5 h-3.5 text-cyan-400" />
               <span>端点箭头与标记 (Markers)</span>
             </span>
@@ -833,11 +1051,16 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
           <div className="grid grid-cols-2 gap-2 text-[10px]">
             <div className="space-y-1">
-              <span className="text-slate-400">起点端点 (Start)</span>
+              <span style={{ color: 'var(--ov-text-secondary)' }}>起点端点 (Start)</span>
               <select
                 value={markerStart}
                 onChange={e => handleMarkerStartChange(e.target.value)}
-                className="w-full p-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-[11px] outline-none focus:border-cyan-500"
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="w-full p-1 border rounded text-[11px] outline-none focus:border-cyan-500"
               >
                 <option value="">无 (none)</option>
                 <option value="url(#omni-arrow-start)">反向箭头 (←)</option>
@@ -847,11 +1070,16 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
             </div>
 
             <div className="space-y-1">
-              <span className="text-slate-400">终点端点 (End)</span>
+              <span style={{ color: 'var(--ov-text-secondary)' }}>终点端点 (End)</span>
               <select
                 value={markerEnd}
                 onChange={e => handleMarkerEndChange(e.target.value)}
-                className="w-full p-1 bg-slate-950 border border-slate-700 rounded text-slate-200 text-[11px] outline-none focus:border-cyan-500"
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="w-full p-1 border rounded text-[11px] outline-none focus:border-cyan-500"
               >
                 <option value="">无 (none)</option>
                 <option value="url(#omni-arrow-end)">标准箭头 (→)</option>
@@ -864,9 +1092,9 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
         </div>
 
         {/* 不透明度 (Opacity) */}
-        <div className="space-y-1 pt-1 border-t border-slate-800">
-          <div className="flex items-center justify-between text-slate-300 text-[11px]">
-            <span className="font-medium">不透明度 (Opacity)</span>
+        <div style={{ borderTopColor: 'var(--ov-border)' }} className="space-y-1 pt-1 border-t">
+          <div className="flex items-center justify-between text-[11px]">
+            <span style={{ color: 'var(--ov-text)' }} className="font-medium">不透明度 (Opacity)</span>
             <span className="font-mono text-cyan-400 text-[11px]">
               {Math.round((parseFloat(opacity) || 1) * 100)}%
             </span>
@@ -879,20 +1107,20 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               step="0.05"
               value={parseFloat(opacity) || 1}
               onChange={e => handleOpacityChange(e.target.value)}
-              className="flex-1 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+              className="flex-1 accent-cyan-400 cursor-pointer h-1.5 rounded-lg"
             />
           </div>
         </div>
 
         {/* 几何坐标直接微调与尺寸展示 */}
-        <div className="pt-2 border-t border-slate-800 space-y-1.5 text-[11px] text-slate-400 font-mono">
-          <div className="flex items-center justify-between text-slate-300 text-[11px] font-sans">
-            <div className="flex items-center gap-1">
+        <div style={{ borderTopColor: 'var(--ov-border)' }} className="pt-2 border-t space-y-1.5 text-[11px] font-mono">
+          <div className="flex items-center justify-between text-[11px] font-sans">
+            <div className="flex items-center gap-1" style={{ color: 'var(--ov-text)' }}>
               <Maximize2 className="w-3 h-3 text-indigo-400" />
               <span>几何特征与实测位置</span>
             </div>
             {bbox && (
-              <span className="text-[10px] text-slate-500 font-mono">
+              <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] font-mono">
                 {Math.round(bbox.width)}×{Math.round(bbox.height)}
               </span>
             )}
@@ -900,34 +1128,57 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
           {/* 矩形与圆形的中心/起点微调 */}
           {(element.x !== undefined || element.cx !== undefined) && (
-            <div className="grid grid-cols-2 gap-2 bg-slate-950/80 p-2 rounded border border-slate-800">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="grid grid-cols-2 gap-2 p-2 rounded border"
+            >
               <div>
-                <span className="text-[10px] text-slate-400">坐标 X / CX</span>
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px]">坐标 X / CX</span>
                 <input
                   type="number"
                   value={xVal}
                   onChange={e => setXVal(e.target.value)}
                   onBlur={e => handleCoordCommit(element.cx !== undefined ? 'cx' : 'x', e.target.value)}
-                  className="w-full mt-0.5 p-1 bg-slate-900 border border-slate-700 rounded text-slate-200 text-xs text-center font-mono outline-none focus:border-cyan-500"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full mt-0.5 p-1 border rounded text-xs text-center font-mono outline-none focus:border-cyan-500"
                 />
               </div>
               <div>
-                <span className="text-[10px] text-slate-400">坐标 Y / CY</span>
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px]">坐标 Y / CY</span>
                 <input
                   type="number"
                   value={yVal}
                   onChange={e => setYVal(e.target.value)}
                   onBlur={e => handleCoordCommit(element.cy !== undefined ? 'cy' : 'y', e.target.value)}
-                  className="w-full mt-0.5 p-1 bg-slate-900 border border-slate-700 rounded text-slate-200 text-xs text-center font-mono outline-none focus:border-cyan-500"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full mt-0.5 p-1 border rounded text-xs text-center font-mono outline-none focus:border-cyan-500"
                 />
               </div>
             </div>
           )}
 
           {/* 尺寸详情展示 */}
-          <div className="bg-slate-950/80 p-2 rounded border border-slate-800 space-y-0.5 text-[10px]">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-2 rounded border space-y-0.5 text-[10px]"
+          >
             {bbox && (
-              <div className="text-cyan-400/90">
+              <div className="text-cyan-400">
                 BBox: ({Math.round(bbox.x)}, {Math.round(bbox.y)}) · {Math.round(bbox.width)}×{Math.round(bbox.height)}
               </div>
             )}
@@ -935,7 +1186,7 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
             {element.height && <div>高度 attr: {element.height}</div>}
             {element.r && <div>半径 R: {element.r}</div>}
             {element.d && (
-              <div className="truncate text-slate-500" title={element.d}>
+              <div style={{ color: 'var(--ov-text-muted)' }} className="truncate" title={element.d}>
                 Path: {element.d.slice(0, 28)}...
               </div>
             )}
@@ -944,11 +1195,22 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
       </div>
 
       {/* 底部操作工具栏 */}
-      <div className="px-3 py-2.5 bg-slate-800/80 border-t border-slate-700/80 flex items-center justify-between gap-1.5">
+      <div
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderTopColor: 'var(--ov-border)',
+        }}
+        className="px-3 py-2.5 border-t flex items-center justify-between gap-1.5"
+      >
         <div className="flex items-center gap-1">
           <button
             onClick={onLocateInCode}
-            className="flex items-center gap-1 px-2 py-1 rounded bg-slate-700/80 hover:bg-slate-700 text-cyan-300 text-[11px] transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-accent, #38bdf8)',
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition hover:opacity-80 font-medium"
             title="在 XML 源码中定位并高亮此图元"
             aria-label="定位代码"
           >
@@ -958,7 +1220,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
           <button
             onClick={() => onMoveLayer('front')}
-            className="p-1.5 rounded bg-slate-700/80 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="p-1.5 rounded border text-[11px] transition hover:opacity-80"
             title="置顶图层 (移到最上方)"
           >
             <ArrowUpToLine className="w-3.5 h-3.5" />
@@ -966,7 +1233,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
           <button
             onClick={() => onMoveLayer('back')}
-            className="p-1.5 rounded bg-slate-700/80 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="p-1.5 rounded border text-[11px] transition hover:opacity-80"
             title="置底图层 (移到最下方)"
           >
             <ArrowDownToLine className="w-3.5 h-3.5" />
@@ -976,7 +1248,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={handleCopyXml}
-            className="p-1.5 rounded bg-slate-700/80 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="p-1.5 rounded border text-[11px] transition hover:opacity-80"
             title="复制图元 XML 代码"
           >
             {copiedXml ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -984,7 +1261,12 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
 
           <button
             onClick={onDelete}
-            className="p-1.5 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 text-[11px] transition"
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+              color: '#f87171',
+            }}
+            className="p-1.5 rounded border text-[11px] transition hover:opacity-80"
             title="删除此图元 (快捷键 Delete)"
           >
             <Trash2 className="w-3.5 h-3.5" />

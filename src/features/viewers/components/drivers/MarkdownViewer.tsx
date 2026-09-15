@@ -147,11 +147,13 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
       {!enableOkf && okfData?.hasFrontmatter && (
         <div
-          className={`mb-4 flex items-center justify-between px-3 py-2 rounded-lg border border-dashed text-xs ${
-            isDarkTheme
-              ? 'border-slate-800 bg-slate-950/40 text-slate-400'
-              : 'border-slate-200 bg-slate-50 text-slate-600'
-          }`}
+          id="okf-collapsed-banner"
+          style={{
+            backgroundColor: 'var(--ov-surface-header)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text-secondary)',
+          }}
+          className="mb-4 flex items-center justify-between px-3 py-2 rounded-lg border border-dashed text-xs"
         >
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400/80 inline-block shrink-0" />
@@ -160,7 +162,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           {onToggleOkf && (
             <button
               onClick={onToggleOkf}
-              className="text-blue-400 hover:text-blue-300 font-medium hover:underline cursor-pointer"
+              className="text-[var(--ov-accent)] hover:underline font-medium cursor-pointer"
             >
               {t('enableOkf', locale)}
             </button>

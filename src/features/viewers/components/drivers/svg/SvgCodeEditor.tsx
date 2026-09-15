@@ -98,12 +98,27 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
   }, [code]);
 
   return (
-    <div id="svg-code-editor-pane" className="flex flex-col h-full bg-slate-950 border-r border-slate-800/80 select-text">
+    <div
+      id="svg-code-editor-pane"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        borderRightColor: 'var(--ov-border)',
+        color: 'var(--ov-text)',
+      }}
+      className="flex flex-col h-full border-r select-text"
+    >
       {/* 编辑器内嵌工具栏 */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs">
+      <div
+        style={{
+          backgroundColor: 'var(--ov-surface)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between px-3 py-1.5 border-b text-xs"
+      >
         <div className="flex items-center gap-2">
           <FileCode2 className="w-3.5 h-3.5 text-blue-400" />
-          <span className="font-medium text-slate-300">SVG XML 源码</span>
+          <span style={{ color: 'var(--ov-text)' }} className="font-medium">SVG XML 源码</span>
           {isDirty && (
             <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded font-mono">
               已修改
@@ -114,7 +129,12 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={onFormat}
-            className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] transition"
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition hover:opacity-80"
             title="美化 XML 代码缩进"
           >
             <Sparkles className="w-3 h-3 text-cyan-400" />
@@ -124,7 +144,12 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
           <button
             onClick={onOptimize}
             disabled={isOptimizing}
-            className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] transition disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition disabled:opacity-50 hover:opacity-80"
             title="SVGO 净化：剔除设计器冗余元数据、注释与多余属性"
           >
             <Wand2 className="w-3 h-3 text-purple-400" />
@@ -134,10 +159,15 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
           {isDirty && (
             <button
               onClick={onReset}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition hover:opacity-80"
               title="放弃改动，恢复初始文件"
             >
-              <RotateCcw className="w-3 h-3 text-slate-400" />
+              <RotateCcw className="w-3 h-3" />
               <span className="hidden sm:inline">还原</span>
             </button>
           )}
@@ -149,7 +179,12 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
         {/* 行号槽 */}
         <div
           ref={lineNumbersRef}
-          className="w-11 py-3 bg-slate-900/60 border-r border-slate-800/60 text-right pr-2 select-none text-slate-600 overflow-hidden font-mono text-[11px]"
+          style={{
+            backgroundColor: 'var(--ov-surface-header)',
+            borderRightColor: 'var(--ov-border)',
+            color: 'var(--ov-text-muted)',
+          }}
+          className="w-11 py-3 border-r text-right pr-2 select-none overflow-hidden font-mono text-[11px]"
         >
           {lineNumbers.map(num => {
             const isError = validation.line === num;
@@ -181,13 +216,24 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
           spellCheck={false}
           autoCapitalize="none"
           autoCorrect="off"
-          className="flex-1 w-full h-full p-3 bg-transparent text-slate-200 font-mono text-xs leading-5 resize-none outline-none overflow-auto whitespace-pre selection:bg-blue-600/40 selection:text-white"
+          style={{
+            color: 'var(--ov-text)',
+            backgroundColor: 'transparent',
+          }}
+          className="flex-1 w-full h-full p-3 font-mono text-xs leading-5 resize-none outline-none overflow-auto whitespace-pre selection:bg-blue-600/40 selection:text-white"
           placeholder="在此粘贴或输入 SVG XML 源码..."
         />
       </div>
 
       {/* 底部语法与字符状态行 */}
-      <div className="flex items-center justify-between px-3 py-1 bg-slate-900/90 border-t border-slate-800 text-[11px] text-slate-400">
+      <div
+        style={{
+          backgroundColor: 'var(--ov-surface)',
+          borderTopColor: 'var(--ov-border)',
+          color: 'var(--ov-text-secondary)',
+        }}
+        className="flex items-center justify-between px-3 py-1 border-t text-[11px]"
+      >
         <div className="flex items-center gap-1.5 truncate">
           {validation.valid ? (
             <span className="flex items-center gap-1 text-emerald-400">
@@ -202,7 +248,7 @@ export const SvgCodeEditor: React.FC<SvgCodeEditorProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 font-mono text-slate-500 text-[10px] flex-shrink-0">
+        <div style={{ color: 'var(--ov-text-muted)' }} className="flex items-center gap-2.5 font-mono text-[10px] flex-shrink-0">
           <span>{linesCount} 行</span>
           <span>·</span>
           <span>{code.length} 字符</span>
