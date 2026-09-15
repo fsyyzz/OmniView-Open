@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- CI 上 `check-vsix-contents` 改用 JSZip 读取 VSIX（ZIP），避免 Linux GNU `tar -tf` 误判失败
+
 ## [0.11.1] - 2026-09-15
 
 ### Fixed

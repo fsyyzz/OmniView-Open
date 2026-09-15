@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * 打包后冒烟：确认 VSIX 内含 extension 入口与 webview 静态资源。
+ * VSIX 是 ZIP，不能用 GNU tar -tf（Linux CI 会失败）。
  * 用法: node scripts/check-vsix-contents.mjs [path/to/omniview-x.y.z.vsix]
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import JSZip from 'jszip';
 
 function findLatestVsix(root) {
   const files = readdirSync(root)
@@ -15,15 +16,14 @@ function findLatestVsix(root) {
   return files[0] ? join(root, files[0].name) : null;
 }
 
-function listVsixEntries(vsixPath) {
-  const out = execFileSync('tar', ['-tf', vsixPath], { encoding: 'utf8' });
-  return out
-    .split(/\r?\n/)
-    .map((line) => line.trim().replace(/\\/g, '/'))
+async function listVsixEntries(vsixPath) {
+  const zip = await JSZip.loadAsync(readFileSync(vsixPath));
+  return Object.keys(zip.files)
+    .map((name) => name.replace(/\\/g, '/').replace(/\/$/, ''))
     .filter(Boolean);
 }
 
-function main() {
+async function main() {
   const root = process.cwd();
   const vsixPath = process.argv[2] || findLatestVsix(root);
   if (!vsixPath || !existsSync(vsixPath)) {
@@ -33,7 +33,7 @@ function main() {
 
   let entries;
   try {
-    entries = listVsixEntries(vsixPath);
+    entries = await listVsixEntries(vsixPath);
   } catch (error) {
     console.error('[check-vsix] 无法读取 VSIX 目录:', error instanceof Error ? error.message : error);
     process.exit(1);
