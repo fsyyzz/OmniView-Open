@@ -75,6 +75,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [isPlaybackActive, setIsPlaybackActive] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(-1);
+  const [hoveredNodeInfo, setHoveredNodeInfo] = useState<{ label: string; line: number } | null>(null);
   const renderCountRef = useRef<number>(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -147,6 +148,66 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
     }
   };
 
+  // 图文联动：鼠标移动探测悬浮节点与对应的源码行
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as Element;
+    const nodeEl = target.closest(
+      'g.node, g.actor, g.messageText, g.statediagram-state, g.task, g.classGroup, .cluster'
+    );
+    if (!nodeEl) {
+      if (hoveredNodeInfo) setHoveredNodeInfo(null);
+      return;
+    }
+    const text = (nodeEl.textContent || '').trim();
+    if (!text) {
+      if (hoveredNodeInfo) setHoveredNodeInfo(null);
+      return;
+    }
+    const lines = activeCode.split('\n');
+    let matchIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(text)) {
+        matchIdx = i;
+        break;
+      }
+    }
+    if (matchIdx === -1 && nodeEl.id) {
+      const rawId = nodeEl.id.replace(/^flowchart-/, '').split('-')[0];
+      if (rawId) {
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(rawId)) {
+            matchIdx = i;
+            break;
+          }
+        }
+      }
+    }
+    if (matchIdx !== -1 && startLine) {
+      const calculatedLine = startLine + matchIdx + 1;
+      if (!hoveredNodeInfo || hoveredNodeInfo.line !== calculatedLine) {
+        setHoveredNodeInfo({ label: text, line: calculatedLine });
+      }
+    } else if (hoveredNodeInfo) {
+      setHoveredNodeInfo(null);
+    }
+  };
+
+  const handleCanvasMouseLeave = () => {
+    setHoveredNodeInfo(null);
+  };
+
+  // 图文联动：点击节点即刻跳转并聚焦高亮 Markdown 源码行
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as Element;
+    const nodeEl = target.closest(
+      'g.node, g.actor, g.messageText, g.statediagram-state, g.task, g.classGroup, .cluster'
+    );
+    if (nodeEl && hoveredNodeInfo && onOpenSourceAtLine) {
+      e.stopPropagation();
+      onOpenSourceAtLine(hoveredNodeInfo.line);
+    }
+  };
+
   return (
     <div id={id} className="markdown-diagram markdown-diagram-mermaid group relative">
       {/* Card Header Toolbar: 悬浮 Overlay 纯图标设计 */}
@@ -154,6 +215,15 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
         <div className="flex items-center gap-2 font-mono text-cyan-400">
           <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
           <span className="font-semibold">{t('mermaidTitle', locale)}</span>
+          {startLine && onOpenSourceAtLine && (
+            <button
+              onClick={() => onOpenSourceAtLine(startLine)}
+              className="text-[10px] text-slate-400 hover:text-cyan-400 transition-colors font-mono"
+              title={t('openSourceAtLine', locale).replace('{line}', String(startLine))}
+            >
+              L{startLine}
+            </button>
+          )}
           {viewMode === 'visual' && (
             <span className="text-slate-400 text-[11px]">({Math.round(zoom * 100)}%)</span>
           )}
@@ -281,7 +351,31 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
 
       {/* Body: Visual vs Code */}
       {viewMode === 'visual' ? (
-        <div className="p-6 overflow-x-auto flex justify-center bg-slate-950/60 min-h-[140px] items-center relative">
+        <div
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
+          onClick={handleCanvasClick}
+          className="p-6 overflow-x-auto flex justify-center bg-slate-950/60 min-h-[140px] items-center relative group/canvas"
+        >
+          {/* 图文联动提示徽章：显示当前悬浮节点与其在 Markdown 源码中的精准行号 */}
+          {hoveredNodeInfo && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenSourceAtLine?.(hoveredNodeInfo.line);
+              }}
+              className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 bg-cyan-950/90 border border-cyan-500/50 rounded-full text-cyan-300 text-xs shadow-lg backdrop-blur-sm cursor-pointer hover:bg-cyan-900 transition-all select-none"
+              title={t('diagramClickToLocate', locale)}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+              <span className="font-semibold max-w-[140px] truncate">{hoveredNodeInfo.label}</span>
+              <span className="text-cyan-400/80 font-mono">→ L{hoveredNodeInfo.line}</span>
+              <span className="text-[10px] text-cyan-400/60 hidden sm:inline">
+                ({t('diagramClickToLocate', locale)})
+              </span>
+            </div>
+          )}
+
           {liveError ? (
             <DiagramDiagnosticCard
               diagnostic={analyzeMermaidError(activeCode, liveError, startLine, endLine, locale)}
@@ -295,7 +389,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           ) : displaySvg ? (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-              className="diagram-canvas transition-transform duration-150 flex justify-center cursor-zoom-in"
+              className="diagram-canvas transition-transform duration-150 flex justify-center cursor-pointer"
               onDoubleClick={() => onOpenLightbox(displaySvg)}
               title={t('fullScreen', locale)}
               dangerouslySetInnerHTML={{ __html: displaySvg }}

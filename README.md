@@ -180,51 +180,6 @@ OmniView 在 [`examples/`](./examples) 提供开箱即用的多格式样例（�
 
 ---
 
-## 🛡️ 架构设计与安全防御
-
-OmniView 严格采用模块化分层解耦架构，保障在浏览器与 VS Code 沙箱内均具备极高可靠性：
-
-```mermaid
-flowchart LR
-    subgraph Host ["VS Code Extension Host"]
-        HE["Custom Editor Provider<br/>FileSystemWatcher<br/>VSIX Entry"]
-    end
-
-    HE <-->|"双向安全消息桥接<br/>(RPC PostMessage)"| Core
-
-    subgraph Core ["OmniView Webview Core Runtime"]
-        direction TB
-        WS["Workbench Shell<br/>(Tabs, Layout, Themes)"]
-        DM["Driver Manager<br/>(Routing & Dispatcher)"]
-        WS <--> DM
-
-        subgraph Drivers ["Multi-Format Drivers"]
-            direction LR
-            D1["Markdown/SVG<br/>(KaTeX/Graph)"]
-            D2["Mindmap/Mark<br/>(Interactive)"]
-            D3["Structured Data<br/>(JSON/YAML/TOML)"]
-            D4["PDF (PDF.js)"]
-            D5["CSV/TSV Grid"]
-            D6["Code Highlighting"]
-        end
-        DM --> Drivers
-
-        Drivers --- S["Security Sanitizer<br/>(DOMPurify / XSS / DoS)"]
-        Drivers --- P["Persistent Storage v2<br/>(Settings / Workspaces)"]
-    end
-```
-
-1. **零外网依赖与纯离线安全**:
-   - 所有的解析、转换与渲染（包括 Graphviz WASM、KaTeX 公式排版、Markmap 矢量导图与数据跨格式转换）均为纯本地内存执行，不产生任何外部网络传输，杜绝敏感配置泄露。
-2. **多层级 XSS 与 DoS 防御**:
-   - 经过 DOMPurify 严格白名单过滤与 HTML 实体编码，彻底抵御 SVG、Markdown 和图表中的恶意脚本与 XSS 注入向量；
-   - 包含超大字符长度与复杂节点图元数量阈值防护，防止畸形文件诱发 UI 线程死锁或内存溢出。
-3. **高健壮容错机制**:
-   - 单个图表解析失败自动降级至错误诊断卡片，不影响正文阅读与大纲导航；
-   - WASM Web Worker 异常时自动无缝降级至主线程进程内执行，提供极致稳定的阅读体验。
-
----
-
 ## 🧪 自动化测试与质量保障
 
 OmniView 配备全面的单元测试与构建验证：

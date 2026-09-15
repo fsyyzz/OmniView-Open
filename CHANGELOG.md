@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-09-15
+
+### Added
+
+- **Markdown 交互式表格工具链 (`TableBlock`)**:
+  - 智能悬浮工具栏：表格贴顶吸附、全屏只读检视与多维自适应排版；
+  - 表格数据轻量图表化 (`TableChart`)：自动嗅探数值与类别维度列，即时渲染柱状图与折线图；
+  - 增强型多态智能排序与内联关键词搜索高亮；
+  - 表格数据双向导出：支持一键导出为标准 CSV 与格式化 Markdown。
+
+### Fixed
+
+- **表格全主题无缝融合 (`--ov-table-*`)**:
+  - 彻底消除 `TableBlock` 与 `TableChart` 中的硬编码色值与深浅布尔值判断；
+  - 补齐并统一 9 大预设主题与 VS Code 原生模式的设计令牌，在深色、浅色、复古 (Sepia) 及第三方主题下达成像素级视觉融合。
+
+### Changed
+
+- **开源协作与文档结构精简**:
+  - 精简用户端 `README.md` 与 `README.en.md`，将架构深度分层与安全防护细节解耦归位至 `docs/architecture.md` 与 `SECURITY.md`；
+  - 确立开源主干聚合提交规范（Composite Sync Commit Policy），杜绝无上下文的「同步主干分支」模糊日志。
+
 ## [0.11.2] - 2026-09-15
 
 ### Refactored

@@ -76,6 +76,15 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
         <div className="flex items-center gap-2 font-mono text-purple-400">
           <span className="inline-block w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
           <span className="font-semibold">{t('plantUmlTitle', locale)}</span>
+          {startLine && onOpenSourceAtLine && (
+            <button
+              onClick={() => onOpenSourceAtLine(startLine)}
+              className="text-[10px] text-slate-400 hover:text-purple-400 transition-colors font-mono"
+              title={t('openSourceAtLine', locale).replace('{line}', String(startLine))}
+            >
+              L{startLine}
+            </button>
+          )}
           {viewMode === 'visual' && (
             <span className="text-slate-400 text-[11px]">({Math.round(zoom * 100)}%)</span>
           )}

@@ -186,6 +186,8 @@ export const TRANSLATIONS = {
     tableFullscreen: '全屏放大表格',
     tablePin: '固定常驻工具栏',
     tableUnpin: '自动隐藏模式 (鼠标移入显示)',
+    tableResetColWidths: '重置列宽',
+    tableResizeColTooltip: '拖拽调整列宽，双击重置',
 
     // PlantUML viewer status
     linesUtf8: '行 · UTF-8',
@@ -224,8 +226,16 @@ export const TRANSLATIONS = {
     mathFormula: 'KaTeX 数学公式',
     editMathSource: '编辑 LaTeX 公式源码 (实时编译)',
     copyMathCode: '复制 LaTeX 源码',
+    copyMathML: '复制 MathML (适合 Office/Word)',
+    exportMathSvg: '导出公式高清 SVG',
+    mathCopiedLatex: '已复制 LaTeX',
+    mathCopiedMathML: '已复制 MathML',
+    mathHorizontalScroll: '横向滚动查看完整公式',
     mathRenderFailed: '数学公式解析失败',
     checkMathSyntax: '请检查 LaTeX / KaTeX 公式语法',
+    diagramNodeLinked: '已定位关联图表节点',
+    diagramLinkSource: '反查正文关联引用',
+    diagramClickToLocate: '点击定位到源码行',
 
     // Graphviz
     graphvizTitle: 'Graphviz 结构图',
@@ -487,6 +497,8 @@ export const TRANSLATIONS = {
     tableFullscreen: 'Fullscreen Table',
     tablePin: 'Pin toolbar',
     tableUnpin: 'Auto-hide toolbar on hover',
+    tableResetColWidths: 'Reset Column Widths',
+    tableResizeColTooltip: 'Drag to resize column, double-click to reset',
 
     // PlantUML viewer status
     linesUtf8: 'lines · UTF-8',
@@ -525,8 +537,16 @@ export const TRANSLATIONS = {
     mathFormula: 'KaTeX Math Formula',
     editMathSource: 'Edit LaTeX source (live compile)',
     copyMathCode: 'Copy LaTeX Source',
+    copyMathML: 'Copy MathML (For Office/Word)',
+    exportMathSvg: 'Export Formula SVG',
+    mathCopiedLatex: 'LaTeX Copied',
+    mathCopiedMathML: 'MathML Copied',
+    mathHorizontalScroll: 'Scroll horizontally for full equation',
     mathRenderFailed: 'Math Formula Render Failed',
     checkMathSyntax: 'Please check LaTeX / KaTeX formula syntax',
+    diagramNodeLinked: 'Diagram node located',
+    diagramLinkSource: 'Trace text references',
+    diagramClickToLocate: 'Click to locate source line',
 
     // Graphviz
     graphvizTitle: 'Graphviz Diagram',

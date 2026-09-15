@@ -3,7 +3,7 @@
  * 支持智能多态排序、全文检索过滤、吸顶表头、行列十字交叉高亮、
  * 格式化多态复制 (Markdown/CSV)、全屏沉浸视口与原生微图表可视化 (Table to Chart)
  */
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   ArrowUpDown,
   ArrowUp,
@@ -21,6 +21,7 @@ import {
   Code,
   Pin,
   PinOff,
+  RotateCcw,
 } from 'lucide-react';
 import {
   compareCellValues,
@@ -82,6 +83,8 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedType, setCopiedType] = useState<'md' | 'csv' | null>(null);
   const [isPinned, setIsPinned] = useState(false);
+  const [colWidths, setColWidths] = useState<Record<number, number>>({});
+  const resizingRef = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null);
 
   // 提取纯文本表头与矩阵数据
   const headerTexts = useMemo(() => header.map(h => h.text || ''), [header]);
@@ -191,7 +194,48 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     URL.revokeObjectURL(url);
   };
 
-  // 5. 对齐样式计算
+  // 5. 列宽自由拖拽与双击重置
+  const handleResizeStart = (colIdx: number, e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = e.currentTarget.parentElement;
+    const startWidth = th ? th.getBoundingClientRect().width : 120;
+    resizingRef.current = { colIdx, startX: e.clientX, startWidth };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = ev.clientX - resizingRef.current.startX;
+      const newWidth = Math.max(60, Math.min(800, Math.round(resizingRef.current.startWidth + delta)));
+      setColWidths(prev => ({ ...prev, [resizingRef.current!.colIdx]: newWidth }));
+    };
+
+    const handleMouseUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleResetColWidth = (colIdx: number) => {
+    setColWidths(prev => {
+      const next = { ...prev };
+      delete next[colIdx];
+      return next;
+    });
+  };
+
+  const handleResetAllColWidths = () => {
+    setColWidths({});
+  };
+
+  // 6. 对齐样式计算
   const getColAlignmentClass = useCallback(
     (colIdx: number) => {
       const colAlign = align?.[colIdx] || header[colIdx]?.align;
@@ -203,10 +247,27 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     [align, header, isNumericColumn]
   );
 
-  // 6. 表格内容主体渲染
+  const hasCustomWidths = Object.keys(colWidths).length > 0;
+
+  // 7. 表格内容主体渲染
   const renderTableContent = () => (
     <div className="w-full overflow-x-auto relative">
-      <table className="w-full border-collapse text-xs select-text">
+      <table
+        className={`w-full border-collapse text-xs select-text ${
+          hasCustomWidths ? 'table-fixed' : ''
+        }`}
+      >
+        {/* 列宽定义 */}
+        <colgroup>
+          {showRowNumbers && <col style={{ width: '44px' }} />}
+          {header.map((_, colIdx) => (
+            <col
+              key={colIdx}
+              style={colWidths[colIdx] ? { width: `${colWidths[colIdx]}px` } : undefined}
+            />
+          ))}
+        </colgroup>
+
         {/* 吸顶固定表头 */}
         <thead
           className="sticky top-0 z-10 transition-colors shadow-sm backdrop-blur-md border-b"
@@ -220,10 +281,11 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
             {/* 可选行号列 */}
             {showRowNumbers && (
               <th
-                className="w-10 px-2 py-2 text-center font-mono text-[11px] border-r select-none"
+                className="w-11 px-2 py-2 text-center font-mono text-[11px] border-r select-none"
                 style={{
                   color: 'var(--ov-text-muted)',
                   borderColor: 'var(--ov-border)',
+                  width: '44px',
                 }}
               >
                 #
@@ -233,6 +295,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
               const isSorted = sortCol === colIdx;
               const alignClass = getColAlignmentClass(colIdx);
               const isColHovered = hoveredColIndex === colIdx;
+              const colWidth = colWidths[colIdx];
               const sortTitle = !isSorted
                 ? t('tableSortNone', locale)
                 : sortDir === 'asc'
@@ -246,10 +309,12 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                   onMouseEnter={() => setHoveredColIndex(colIdx)}
                   onMouseLeave={() => setHoveredColIndex(null)}
                   title={sortTitle}
-                  className={`group px-3 py-2.5 font-semibold cursor-pointer select-none transition-colors border-r last:border-r-0 ${alignClass}`}
+                  className={`group/th relative px-3 py-2.5 font-semibold cursor-pointer select-none transition-colors border-r last:border-r-0 ${alignClass}`}
                   style={{
                     borderColor: 'var(--ov-border)',
                     backgroundColor: isColHovered ? 'var(--ov-surface-hover)' : undefined,
+                    width: colWidth ? `${colWidth}px` : undefined,
+                    minWidth: 60,
                   }}
                 >
                   <div
@@ -261,12 +326,12 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                         : 'justify-start'
                     }`}
                   >
-                    <span>{h.text}</span>
+                    <span className={colWidth ? 'truncate' : ''}>{h.text}</span>
                     <span
                       className={`ov-table-sort-icon inline-flex transition-transform duration-200 ${
                         isSorted
                           ? 'opacity-100'
-                          : 'opacity-0 group-hover:opacity-60'
+                          : 'opacity-0 group-hover/th:opacity-60'
                       }`}
                       style={{
                         color: isSorted ? 'var(--ov-accent)' : 'var(--ov-text-muted)',
@@ -281,6 +346,25 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                         <ArrowUpDown className="w-3 h-3" />
                       )}
                     </span>
+                  </div>
+
+                  {/* 列宽自由拖拽 handle */}
+                  <div
+                    className="ov-col-resizer absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center transition-opacity opacity-0 group-hover/th:opacity-100 hover:opacity-100"
+                    onMouseDown={e => handleResizeStart(colIdx, e)}
+                    onDoubleClick={e => {
+                      e.stopPropagation();
+                      handleResetColWidth(colIdx);
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    title={t('tableResizeColTooltip', locale)}
+                  >
+                    <div
+                      className="w-[1.5px] h-3.5 rounded-full"
+                      style={{
+                        backgroundColor: 'var(--ov-border-strong, rgba(148, 163, 184, 0.6))',
+                      }}
+                    />
                   </div>
                 </th>
               );
@@ -334,6 +418,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                       searchQuery
                     );
                     const isColHovered = hoveredColIndex === colIdx;
+                    const colWidth = colWidths[colIdx];
 
                     return (
                       <td
@@ -342,10 +427,11 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                         onMouseLeave={() => setHoveredColIndex(null)}
                         className={`transition-colors border-r last:border-r-0 ${alignClass} ${
                           density === 'compact' ? 'px-3 py-1.5' : 'px-3.5 py-2.5'
-                        } ${isColHovered ? 'col-hovered' : ''}`}
+                        } ${isColHovered ? 'col-hovered' : ''} ${colWidth ? 'overflow-hidden text-ellipsis' : ''}`}
                         style={{
                           borderColor: 'var(--ov-border)',
                           backgroundColor: isColHovered ? 'var(--ov-table-col-hover)' : undefined,
+                          maxWidth: colWidth ? `${colWidth}px` : undefined,
                         }}
                         dangerouslySetInnerHTML={{ __html: formattedHtml }}
                       />
@@ -563,6 +649,19 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
           >
             {density === 'compact' ? '紧凑' : '舒适'}
           </button>
+
+          {/* 重置自定义列宽 */}
+          {hasCustomWidths && (
+            <button
+              type="button"
+              onClick={handleResetAllColWidths}
+              className="ov-table-btn flex items-center gap-1 px-2 py-1 rounded transition-colors text-[11px] text-cyan-400 hover:text-cyan-300"
+              title={t('tableResetColWidths', locale)}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('tableResetColWidths', locale)}</span>
+            </button>
+          )}
 
           {/* 复制 Markdown */}
           <button

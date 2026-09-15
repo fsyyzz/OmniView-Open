@@ -2147,6 +2147,28 @@ mark.ov-search-match.is-active-match {
 }
 
 /* =========================================================
+   Markdown Diagram Node Linking & Hover Styles
+   ========================================================= */
+.markdown-diagram .diagram-canvas g.node,
+.markdown-diagram .diagram-canvas g.actor,
+.markdown-diagram .diagram-canvas g.statediagram-state,
+.markdown-diagram .diagram-canvas g.task,
+.markdown-diagram .diagram-canvas g.classGroup,
+.markdown-diagram .diagram-canvas .cluster {
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.markdown-diagram .diagram-canvas g.node:hover,
+.markdown-diagram .diagram-canvas g.actor:hover,
+.markdown-diagram .diagram-canvas g.statediagram-state:hover,
+.markdown-diagram .diagram-canvas g.task:hover,
+.markdown-diagram .diagram-canvas g.classGroup:hover,
+.markdown-diagram .diagram-canvas .cluster:hover {
+  filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.75)) !important;
+}
+
+/* =========================================================
    Callout / Alert Blocks (GitHub & Obsidian Specification)
    ========================================================= */
 
