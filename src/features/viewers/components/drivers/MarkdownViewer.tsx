@@ -1,14 +1,11 @@
 /**
  * OmniView Markdown 驱动渲染器 (重构解耦版，支持多语言与纯图标提示)
- * 支持 CommonMark/GFM、Mermaid、PlantUML、Inline/File SVG、代码高亮与折叠、全屏灯箱
+ * 基于 useMarkdownAstPipeline / useMarkdownScrollSync / useDiagramBlockStates 三大 Hook 组合编排
  */
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import React, { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
 import katex from 'katex';
 import { RefreshCw } from 'lucide-react';
-import { getPlantUmlSvgUrl } from '../../../../shared/lib/plantuml';
 import { CodeBlock } from './markdown/CodeBlock';
 import { MermaidBlock } from './markdown/MermaidBlock';
 import { PlantUmlBlock } from './markdown/PlantUmlBlock';
@@ -19,26 +16,16 @@ import { TableBlock } from './markdown/TableBlock';
 import { StableHtmlBlock } from './markdown/StableHtmlBlock';
 import { LazyViewportBlock } from './markdown/LazyViewportBlock';
 import { DomainStoryBlock } from './markdown/DomainStoryBlock';
-import { graphvizRenderer } from '../../lib/graphvizRenderer';
-import { LightboxModal, LightboxItem } from '../common/LightboxModal';
+import { LightboxModal } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { Locale, t } from '../../../../shared/lib/i18n';
-import { parseOkfFrontmatter, OkfParseResult } from '../../lib/okfParser';
-import { processMarkdownFootnotes } from '../../lib/markdownFootnotes';
-import { processMarkdownWikiLinks, slugifyHeading } from '../../lib/markdownWikiLinks';
-import { processMarkdownDefinitionLists } from '../../lib/markdownDefinitionLists';
-import { processEmojiShortcodes } from '../../lib/markdownEmojiShortcodes';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
-import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
 import { ContentWidthMode } from '../../../../shared/types';
-import {
-  PANE_SYNC_EVENT,
-  calculateLineFromScrollTop,
-  calculateTargetScrollTop,
-  findMarkdownScrollViewport,
-  measureSourceBlocks,
-  type PaneSyncDetail,
-} from '../../lib/scrollSync';
+import { useMarkdownAstPipeline, type RenderedBlock } from '../../hooks/useMarkdownAstPipeline';
+import { useMarkdownScrollSync } from '../../hooks/useMarkdownScrollSync';
+import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
+
+export type { RenderedBlock };
 
 export interface MarkdownViewerProps {
   content: string;
@@ -57,141 +44,7 @@ export interface MarkdownViewerProps {
   eagerMount?: boolean;
 }
 
-interface RenderedBlock {
-  id: string;
-  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak' | 'domainstory';
-  mode?: 'code-block' | 'file';
-  lang?: string;
-  raw: string;
-  startLine?: number;
-  endLine?: number;
-  renderedHtml?: string;
-  svgContent?: string;
-  fileName?: string;
-  title?: string;
-  error?: string;
-  tableData?: {
-    header: any[];
-    rows: Array<{ cells: any[] }>;
-    align?: Array<'left' | 'center' | 'right' | null>;
-  };
-}
-
-const DOMPURIFY_SVG_CONFIG: Record<string, any> = {
-  USE_PROFILES: { html: true, svg: true, svgFilters: true },
-  ADD_TAGS: [
-    'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
-    'text', 'tspan', 'defs', 'clipPath', 'linearGradient', 'radialGradient', 'stop',
-    'use', 'symbol', 'filter', 'feDropShadow', 'feGaussianBlur', 'feOffset', 'feMerge', 'feMergeNode',
-    'feBlend', 'feColorMatrix', 'feComponentTransfer', 'feComposite', 'feConvolveMatrix',
-    'feDiffuseLighting', 'feDisplacementMap', 'feDistantLight', 'feFlood', 'feFuncA',
-    'feFuncB', 'feFuncG', 'feFuncR', 'feImage', 'feMorphology', 'fePointLight',
-    'feSpecularLighting', 'feSpotLight', 'feTile', 'feTurbulence', 'image', 'pattern', 'mask',
-    'details', 'summary', 'input', 'label', 'aside'
-  ],
-  ADD_ATTR: [
-    'viewBox', 'xmlns', 'xmlns:xlink', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2',
-    'cx', 'cy', 'r', 'rx', 'ry', 'd', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray',
-    'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'opacity', 'fill-opacity',
-    'stroke-opacity', 'transform', 'style', 'id', 'class', 'gradientUnits', 'gradientTransform',
-    'offset', 'stop-color', 'stop-opacity', 'preserveAspectRatio', 'text-anchor', 'font-family',
-    'font-size', 'font-weight', 'letter-spacing', 'dominant-baseline', 'href', 'xlink:href',
-    'target', 'rel', 'crossorigin', 'points', 'dx', 'dy', 'stdDeviation', 'flood-color', 'flood-opacity',
-    'marker-end', 'marker-start', 'marker-mid',
-    'data-source-line', 'data-source-end-line', 'data-task-line', 'data-checked', 'data-callout',
-    'data-footnotes', 'data-footnote-ref', 'data-footnote-backref', 'data-footnote-id',
-    'data-wiki-link', 'data-wiki-embed', 'data-wiki-target', 'data-wiki-heading', 'data-wiki-block',
-    'open', 'type', 'checked', 'aria-label', 'aria-describedby', 'role'
-  ],
-};
-
-/**
- * 辅助函数：根据 GitHub / Obsidian Callout 类型生成语义元数据、图标与默认标题
- */
-const getCalloutMeta = (typeStr: string, locale: Locale) => {
-  const tStr = typeStr.toLowerCase();
-  switch (tStr) {
-    case 'note':
-    case 'info':
-      return {
-        type: 'note',
-        title: locale === 'zh-CN' ? '备注' : 'Note',
-        colorClass: 'ov-callout-note',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
-      };
-    case 'tip':
-    case 'hint':
-      return {
-        type: 'tip',
-        title: locale === 'zh-CN' ? '技巧提示' : 'Tip',
-        colorClass: 'ov-callout-tip',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path><path d="M9 18h6"></path><path d="M10 22h4"></path></svg>`,
-      };
-    case 'important':
-      return {
-        type: 'important',
-        title: locale === 'zh-CN' ? '重要' : 'Important',
-        colorClass: 'ov-callout-important',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
-      };
-    case 'warning':
-    case 'attention':
-      return {
-        type: 'warning',
-        title: locale === 'zh-CN' ? '警告' : 'Warning',
-        colorClass: 'ov-callout-warning',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
-      };
-    case 'caution':
-    case 'danger':
-    case 'error':
-    case 'failure':
-    case 'bug':
-      return {
-        type: 'caution',
-        title: locale === 'zh-CN' ? '注意' : 'Caution',
-        colorClass: 'ov-callout-caution',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
-      };
-    case 'success':
-    case 'done':
-    case 'check':
-      return {
-        type: 'success',
-        title: locale === 'zh-CN' ? '成功' : 'Success',
-        colorClass: 'ov-callout-success',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`,
-      };
-    case 'question':
-    case 'help':
-    case 'faq':
-      return {
-        type: 'question',
-        title: locale === 'zh-CN' ? '帮助' : 'Question',
-        colorClass: 'ov-callout-question',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
-      };
-    case 'example':
-      return {
-        type: 'example',
-        title: locale === 'zh-CN' ? '示例' : 'Example',
-        colorClass: 'ov-callout-example',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`,
-      };
-    case 'quote':
-    case 'cite':
-      return {
-        type: 'quote',
-        title: locale === 'zh-CN' ? '引用' : 'Quote',
-        colorClass: 'ov-callout-quote',
-        icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>`,
-      };
-    default:
-      return null;
-  }
-};
-
-const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
+export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   content,
   isDarkTheme = true,
   density = 'compact',
@@ -206,24 +59,49 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
   onContentChange,
   eagerMount = false,
 }) => {
-  const [blocks, setBlocks] = useState<RenderedBlock[]>([]);
-  // 同步计算 Frontmatter / OKF 元数据，消除异步时序延迟与竞争
-  const okfData = useMemo(() => parseOkfFrontmatter(content), [content]);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [zoomScales, setZoomScales] = useState<Record<string, number>>({});
-  const [diagramViewModes, setDiagramViewModes] = useState<Record<string, 'visual' | 'code'>>({});
-  const [editedCodes, setEditedCodes] = useState<Record<string, string>>({});
-  const [svgViewModes, setSvgViewModes] = useState<Record<string, 'visual' | 'code'>>({});
-  const [svgBgModes, setSvgBgModes] = useState<Record<string, 'dark' | 'grid' | 'light'>>({});
-  const [collapsedCodeBlocks, setCollapsedCodeBlocks] = useState<Record<string, boolean>>({});
-  const [lightboxItem, setLightboxItem] = useState<LightboxItem | null>(null);
-  const [isRendering, setIsRendering] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const filesRef = useRef(files);
-  filesRef.current = files;
-  const applyingRemoteScrollRef = useRef(false);
 
-  // Initialize mermaid once
+  // 1. AST 解析与格式预处理流水线 Hook
+  const { blocks, okfData, isRendering } = useMarkdownAstPipeline({
+    content,
+    files,
+    locale,
+  });
+
+  // 2. 块状态管理（缩放、视图模式、折叠、暂存代码、灯箱）Hook
+  const {
+    copiedId,
+    zoomScales,
+    diagramViewModes,
+    editedCodes,
+    collapsedCodeBlocks,
+    svgBgModes,
+    lightboxItem,
+    setLightboxItem,
+    handleCopy,
+    adjustZoom,
+    resetZoom,
+    toggleCollapse,
+    setDiagramViewMode,
+    setSvgBgMode,
+    setEditedCode,
+    handleDownloadSvg,
+    handleReRenderMermaid,
+  } = useDiagramBlockStates();
+
+
+  // 3. 双向滚动同步与点击交互 Hook
+  useMarkdownScrollSync({
+    containerRef,
+    content,
+    files,
+    onOpenSourceAtLine,
+    onSelectFile,
+    onContentChange,
+    onOpenLightbox: setLightboxItem,
+  });
+
+  // 初始化 Mermaid 渲染主题
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
@@ -233,728 +111,12 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
     });
   }, [isDarkTheme]);
 
-  const isFirstRender = useRef(true);
-
-  // Parse markdown into AST segments (带平滑稳帧防抖：首屏 0 延迟即时呈现，编辑态 150ms 窗口防抖)
+  // 渲染完成回调
   useEffect(() => {
-    let isCancelled = false;
-    const delay = isFirstRender.current ? 0 : 150;
-    isFirstRender.current = false;
-
-    const parseAndRender = async () => {
-      setIsRendering(true);
-      // 若存在 Frontmatter，正文剥离头部原始 YAML，并准确计算 YAML 所占行数以严丝合缝对齐源文件行号
-      const cleanBody = okfData.hasFrontmatter ? okfData.markdownBody : content;
-      const frontmatterLines = okfData.hasFrontmatter
-        ? (content.slice(0, content.length - cleanBody.length).match(/\n/g) || []).length
-        : 0;
-      // emoji shortcode → Wiki → 定义列表 → 脚注
-      const { markdown: bodyWithEmoji } = processEmojiShortcodes(cleanBody);
-      const { markdown: bodyWithWiki } = processMarkdownWikiLinks(bodyWithEmoji, {
-        files: filesRef.current || [],
-        unresolvedLabel: t('wikiLinkUnresolved', locale),
-        openLabel: t('wikiEmbedOpen', locale),
-        embedLabel: t('wikiEmbedBadge', locale),
-      });
-      const { markdown: bodyWithDefLists } = processMarkdownDefinitionLists(bodyWithWiki);
-      const { markdown: bodyWithFootnotes } = processMarkdownFootnotes(bodyWithDefLists, {
-        sectionTitle: t('footnotes', locale),
-      });
-      const tokens = marked.lexer(bodyWithFootnotes);
-      const parsedBlocks: RenderedBlock[] = [];
-      let counter = 0;
-      let runningLine = frontmatterLines + 1;
-      let currentTokenStartLine = runningLine;
-
-      const customRenderer = new marked.Renderer();
-      const origTable = customRenderer.table.bind(customRenderer);
-      customRenderer.table = function (headerOrToken: any, body?: any) {
-        const rendered = origTable(headerOrToken, body);
-        return `<div class="ov-table-wrapper" data-source-line="${currentTokenStartLine}">${rendered}</div>`;
-      };
-      customRenderer.image = function (hrefOrToken: any, title?: any, text?: any) {
-        const href = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.href : hrefOrToken;
-        const alt = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.text : text;
-        const imgTitle = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.title : title;
-        const safeAlt = (alt || '').replace(/"/g, '&quot;');
-        const safeTitle = (imgTitle || '').replace(/"/g, '&quot;');
-        return `<span class="ov-image-container"><img src="${href}" alt="${safeAlt}" title="${safeTitle}" loading="lazy" onerror="this.classList.add('ov-img-broken');this.insertAdjacentHTML('afterend','<span class=\\'ov-image-fallback\\'>⚠️ ${t('imageNotFound', locale)}: <code>${href}</code></span>');this.style.display='none';" /></span>`;
-      };
-
-      customRenderer.heading = function (headerOrToken: any, depth?: any) {
-        let text = '';
-        let level = depth || 1;
-        if (typeof headerOrToken === 'object' && headerOrToken !== null) {
-          level = headerOrToken.depth || 1;
-          text = this.parser.parseInline(headerOrToken.tokens || []);
-        } else {
-          text = headerOrToken;
-        }
-        const slug = text.toLowerCase().replace(/[^\w\u4e00-\u9fa5]+/g, '-').replace(/^-+|-+$/g, '') || `h-${Math.random().toString(36).slice(2, 7)}`;
-        return `<h${level} id="${slug}" data-source-line="${currentTokenStartLine}">${text}</h${level}>\n`;
-      };
-
-      customRenderer.paragraph = function (tokenOrText: any) {
-        let text = '';
-        if (typeof tokenOrText === 'object' && tokenOrText !== null) {
-          text = this.parser.parseInline(tokenOrText.tokens || []);
-        } else {
-          text = tokenOrText;
-        }
-        return `<p data-source-line="${currentTokenStartLine}">${text}</p>\n`;
-      };
-
-      customRenderer.blockquote = function (tokenOrQuote: any) {
-        if (typeof tokenOrQuote === 'object' && tokenOrQuote !== null && tokenOrQuote.tokens) {
-          const firstToken = tokenOrQuote.tokens[0];
-          if (firstToken && (firstToken.type === 'paragraph' || firstToken.type === 'text')) {
-            const firstRaw = (firstToken.raw || firstToken.text || '').trimStart();
-            const calloutMatch = firstRaw.match(/^\[!([a-zA-Z]+)\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/);
-            if (calloutMatch) {
-              const typeRaw = calloutMatch[1];
-              const fold = calloutMatch[2];
-              const customTitle = (calloutMatch[3] || '').trim();
-              const remainingText = (calloutMatch[4] || '');
-              const meta = getCalloutMeta(typeRaw, locale) || {
-                type: typeRaw.toLowerCase(),
-                title: customTitle || typeRaw.toUpperCase(),
-                colorClass: `ov-callout-${typeRaw.toLowerCase()}`,
-                icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
-              };
-
-              const displayTitle = customTitle || meta.title;
-              const restTokens = [...tokenOrQuote.tokens];
-              if (remainingText.trim()) {
-                const innerTokens = marked.lexer(remainingText);
-                restTokens[0] = {
-                  type: 'paragraph',
-                  raw: remainingText,
-                  text: remainingText,
-                  tokens: (innerTokens[0] as any)?.tokens || [],
-                };
-              } else {
-                restTokens.shift();
-              }
-
-              const bodyHtml = restTokens.length > 0 ? this.parser.parse(restTokens) : '';
-              const isCollapsible = fold === '+' || fold === '-';
-              const isOpen = fold !== '-';
-              const chevronSvg = `<svg class="ov-callout-fold-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
-
-              if (isCollapsible) {
-                return `<details class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span>${chevronSvg}</summary><div class="ov-callout-body">${bodyHtml}</div></details>\n`;
-              }
-
-              return `<div class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" data-source-line="${currentTokenStartLine}"><div class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span></div><div class="ov-callout-body">${bodyHtml}</div></div>\n`;
-            }
-          }
-          const body = this.parser.parse(tokenOrQuote.tokens);
-          return `<blockquote data-source-line="${currentTokenStartLine}">${body}</blockquote>\n`;
-        }
-        return `<blockquote data-source-line="${currentTokenStartLine}">${tokenOrQuote}</blockquote>\n`;
-      };
-
-      const origListitem = customRenderer.listitem.bind(customRenderer);
-      customRenderer.listitem = function (itemOrText: any, task?: boolean, checked?: boolean) {
-        if (typeof itemOrText === 'object' && itemOrText !== null) {
-          const isTask = itemOrText.task;
-          const isChecked = itemOrText.checked;
-          const itemLine = itemOrText._startLine || currentTokenStartLine;
-          let body = this.parser.parse(itemOrText.tokens || []);
-          if (isTask) {
-            // 清除 marked 默认插入的不可控 checkbox html
-            body = body.replace(/<input[^>]*type=["']checkbox["'][^>]*>/gi, '').trim();
-            const checkboxHtml = `<input type="checkbox" class="ov-task-checkbox" data-task-line="${itemLine}" ${isChecked ? 'checked' : ''} aria-label="${isChecked ? 'Mark incomplete' : 'Mark complete'}" title="${t('taskToggleTooltip', locale)}" />`;
-            return `<li class="ov-task-list-item ${isChecked ? 'ov-task-done' : ''}" data-task-line="${itemLine}" data-checked="${isChecked ? 'true' : 'false'}"><label class="ov-task-label">${checkboxHtml}<span class="ov-task-text">${body}</span></label></li>\n`;
-          }
-          return `<li data-source-line="${itemLine}">${body}</li>\n`;
-        }
-        return origListitem(itemOrText, task, checked);
-      };
-
-      // 编译 HTML 中的 KaTeX 行内与块级数学公式
-      const renderKatexInHtml = (rawHtml: string): string => {
-        // 1. 块级公式 $$ ... $$
-        let res = rawHtml.replace(/\$\$([\s\S]+?)\$\$/g, (_match, formula) => {
-          try {
-            return `<div class="ov-katex-block">${katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, errorColor: '#f43f5e' })}</div>`;
-          } catch {
-            return _match;
-          }
-        });
-        // 2. 行内公式 $ ... $（严格匹配两端非空白字符，避开价格与普通货币符号）
-        res = res.replace(/(?<!\\)\$([^\s\$](?:[^\$\n]*?[^\s\$])?)(?<!\\)\$/g, (_match, formula) => {
-          if (/^\d+(\.\d+)?$/.test(formula.trim())) return _match;
-          try {
-            return `<span class="ov-katex-inline">${katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, errorColor: '#f43f5e' })}</span>`;
-          } catch {
-            return _match;
-          }
-        });
-        return res;
-      };
-
-      const renderHtmlToken = (token: any, startLine: number, endLine: number) => {
-        currentTokenStartLine = startLine;
-        const html = marked.parser([token], { renderer: customRenderer });
-        const htmlWithMath = renderKatexInHtml(html);
-        parsedBlocks.push({
-          id: `block-html-${counter++}`,
-          type: 'html',
-          raw: token.raw,
-          startLine,
-          endLine,
-          renderedHtml: DOMPurify.sanitize(htmlWithMath, DOMPURIFY_SVG_CONFIG) as string,
-        });
-      };
-
-      for (const token of tokens) {
-        const tokenNewlines = (token.raw.match(/\n/g) || []).length;
-        const tokenStartLine = runningLine;
-        const tokenEndLine = token.raw.endsWith('\n')
-          ? tokenStartLine + Math.max(0, tokenNewlines - 1)
-          : tokenStartLine + tokenNewlines;
-        runningLine += tokenNewlines;
-
-        if (token.type === 'list' && (token as any).items) {
-          let itemRunningLine = tokenStartLine;
-          for (const item of (token as any).items) {
-            item._startLine = itemRunningLine;
-            const itemNewlines = (item.raw.match(/\n/g) || []).length;
-            itemRunningLine += itemNewlines;
-          }
-        }
-
-        // 识别 A4 物理分页符指令 (<!-- pagebreak -->, ---page---, \pagebreak, 等)
-        const isPageBreakToken = (t: any): boolean => {
-          const rawText = (t.raw || t.text || '').trim();
-          if (/^(<!--\s*page-?break\s*-->|---page---|\\pagebreak|\[page-?break\]|<div[^>]*class=["'][^"']*page-?break[^"']*["'][^>]*>\s*(<\/div>)?)$/i.test(rawText)) {
-            return true;
-          }
-          if (t.type === 'hr' && /page/i.test(t.raw || '')) {
-            return true;
-          }
-          return false;
-        };
-
-        if (isPageBreakToken(token)) {
-          parsedBlocks.push({
-            id: `block-pagebreak-${counter++}`,
-            type: 'pagebreak',
-            raw: token.raw,
-            startLine: tokenStartLine,
-            endLine: tokenEndLine,
-          });
-        } else if (token.type === 'code') {
-          const primaryLang = (token.lang || '').split(/\s+/)[0].toLowerCase();
-          if (['mermaid'].includes(primaryLang)) {
-            parsedBlocks.push({
-              id: `block-mermaid-${counter++}`,
-              type: 'mermaid',
-              raw: token.text,
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          } else if (['plantuml', 'puml'].includes(primaryLang)) {
-            parsedBlocks.push({
-              id: `block-plantuml-${counter++}`,
-              type: 'plantuml',
-              raw: token.text,
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          } else if (['dot', 'graphviz'].includes(primaryLang)) {
-            parsedBlocks.push({
-              id: `block-graphviz-${counter++}`,
-              type: 'graphviz',
-              raw: token.text,
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          } else if (primaryLang === 'svg' || (primaryLang === 'xml' && token.text.includes('<svg'))) {
-            const sanitized = DOMPurify.sanitize(token.text, DOMPURIFY_SVG_CONFIG) as string;
-            parsedBlocks.push({
-              id: `block-svg-${counter++}`,
-              type: 'svg',
-              mode: 'code-block',
-              raw: token.text,
-              svgContent: sanitized,
-              title: t('svgCodeBlock', locale),
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          } else if (['math', 'katex', 'latex'].includes(primaryLang)) {
-            parsedBlocks.push({
-              id: `block-math-${counter++}`,
-              type: 'math',
-              raw: token.text,
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          } else if (['domainstory', 'story', 'egn', 'dst'].includes(primaryLang)) {
-            parsedBlocks.push({
-              id: `block-domainstory-${counter++}`,
-              type: 'domainstory',
-              raw: token.text,
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          } else {
-            parsedBlocks.push({
-              id: `block-code-${counter++}`,
-              type: 'code',
-              lang: primaryLang || 'text',
-              raw: token.text,
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          }
-        } else if (
-          token.type === 'paragraph' &&
-          token.text &&
-          token.text.trim().startsWith('$$') &&
-          token.text.trim().endsWith('$$') &&
-          token.text.trim().length >= 4 &&
-          !token.text.trim().slice(2, -2).includes('$$')
-        ) {
-          const mathFormula = token.text.trim().slice(2, -2).trim();
-          parsedBlocks.push({
-            id: `block-math-${counter++}`,
-            type: 'math',
-            raw: mathFormula,
-            startLine: tokenStartLine,
-            endLine: tokenEndLine,
-          });
-        } else if (
-          token.type === 'paragraph' &&
-          token.tokens &&
-          token.tokens.some((t: any) => t.type === 'image' && t.href && t.href.toLowerCase().includes('.svg'))
-        ) {
-          const imgToken = token.tokens.find((t: any) => t.type === 'image' && t.href && t.href.toLowerCase().includes('.svg')) as any;
-          const cleanSrc = imgToken
-            ? decodeURIComponent(imgToken.href.trim().split(/[?#]/, 1)[0]).replace(/\\/g, '/').replace(/^\/+/, '')
-            : '';
-          const relativeSrc = cleanSrc.replace(/^(\.\.\/|\.\/)+/g, '');
-          const matchedFile = filesRef.current.find(
-            f => f.name === cleanSrc ||
-                 f.name.toLowerCase() === cleanSrc.toLowerCase() ||
-                 (f.path && f.path.replace(/^\//, '') === cleanSrc) ||
-                 (f.path && f.path.replace(/\\/g, '/').endsWith(`/${relativeSrc}`)) ||
-                 (relativeSrc === 'system-architecture.svg' && f.name === 'cloud-infrastructure.svg')
-          );
-
-          if (matchedFile && matchedFile.extension.toLowerCase() === 'svg') {
-            const sanitized = DOMPurify.sanitize(matchedFile.content, DOMPURIFY_SVG_CONFIG) as string;
-            parsedBlocks.push({
-              id: `block-svg-${counter++}`,
-              type: 'svg',
-              mode: 'file',
-              raw: matchedFile.content,
-              fileName: matchedFile.name,
-              title: imgToken?.text || matchedFile.name,
-              svgContent: sanitized,
-              startLine: tokenStartLine,
-              endLine: tokenEndLine,
-            });
-          } else {
-            renderHtmlToken(token, tokenStartLine, tokenEndLine);
-          }
-        } else if (token.type === 'table') {
-          const tableToken = token as any;
-          parsedBlocks.push({
-            id: `block-table-${counter++}`,
-            type: 'table',
-            raw: token.raw,
-            tableData: {
-              header: tableToken.header || [],
-              rows: (tableToken.rows || []).map((row: unknown) => ({
-                cells: Array.isArray(row) ? row : [],
-              })),
-              align: tableToken.align || [],
-            },
-            startLine: tokenStartLine,
-            endLine: tokenEndLine,
-          });
-        } else {
-          renderHtmlToken(token, tokenStartLine, tokenEndLine);
-        }
-      }
-
-      // PlantUML URL 可同步生成；Mermaid 交由块内按需渲染，避免串行 await 阻塞首屏
-      for (const block of parsedBlocks) {
-        if (block.type === 'plantuml') {
-          block.renderedHtml = getPlantUmlSvgUrl(block.raw);
-        }
-      }
-
-      if (!isCancelled) {
-        setBlocks(parsedBlocks);
-        setIsRendering(false);
-      }
-    };
-
-    const timer = setTimeout(() => {
-      parseAndRender();
-    }, delay);
-
-    return () => {
-      isCancelled = true;
-      clearTimeout(timer);
-    };
-  }, [content, isDarkTheme, locale, files]);
-
-  // 在 React 提交 DOM 后再通知父级重注搜索高亮，避免 setState 尚未刷盘时误标旧树
-  useEffect(() => {
-    if (isRendering) return;
-    const frame = requestAnimationFrame(() => {
+    if (!isRendering && blocks.length > 0) {
       onRenderComplete?.();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [blocks, isRendering, onRenderComplete]);
-
-  const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleDownloadSvg = (svgStr: string, name: string) => {
-    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${name}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const adjustZoom = (id: string, delta: number) => {
-    setZoomScales(prev => {
-      const current = prev[id] || 1;
-      const next = Math.max(0.5, Math.min(2.5, current + delta));
-      return { ...prev, [id]: next };
-    });
-  };
-
-  const handleReRenderMermaid = async (blockId: string, newCode: string) => {
-    try {
-      const uniqueId = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-      const { svg } = await mermaid.render(uniqueId, newCode);
-      setBlocks(prev =>
-        prev.map(b => (b.id === blockId ? { ...b, svgContent: svg, raw: newCode, error: undefined } : b))
-      );
-      setDiagramViewModes(prev => ({ ...prev, [blockId]: 'visual' }));
-    } catch (err: any) {
-      setBlocks(prev =>
-        prev.map(b => (b.id === blockId ? { ...b, error: err.message || 'Mermaid Error' } : b))
-      );
     }
-  };
-
-  const handleReRenderPlantUml = (blockId: string, newCode: string) => {
-    const svgUrl = getPlantUmlSvgUrl(newCode);
-    setBlocks(prev =>
-      prev.map(b => (b.id === blockId ? { ...b, raw: newCode, renderedHtml: svgUrl } : b))
-    );
-    setDiagramViewModes(prev => ({ ...prev, [blockId]: 'visual' }));
-  };
-
-  const handleReRenderSvg = (blockId: string, newCode: string) => {
-    const sanitized = DOMPurify.sanitize(newCode, DOMPURIFY_SVG_CONFIG) as string;
-    setBlocks(prev =>
-      prev.map(b => (b.id === blockId ? { ...b, raw: newCode, svgContent: sanitized } : b))
-    );
-    setSvgViewModes(prev => ({ ...prev, [blockId]: 'visual' }));
-  };
-
-  // 双向回写：任务复选框状态改变时，精确定位源码行并回写
-  const handleToggleTask = (targetLineNum: number, newChecked: boolean) => {
-    if (!onContentChange) return;
-    const lines = content.split('\n');
-    const zeroIndex = targetLineNum - 1;
-    const taskRegex = /^(\s*(?:[-*+]|\d+\.)\s*\[)([ xX])(\]\s*.*)$/;
-
-    let matchedIndex = -1;
-    if (zeroIndex >= 0 && zeroIndex < lines.length && taskRegex.test(lines[zeroIndex])) {
-      matchedIndex = zeroIndex;
-    } else {
-      // 容错搜索周围行
-      for (let offset = -3; offset <= 3; offset++) {
-        const idx = zeroIndex + offset;
-        if (idx >= 0 && idx < lines.length && taskRegex.test(lines[idx])) {
-          matchedIndex = idx;
-          break;
-        }
-      }
-    }
-
-    if (matchedIndex !== -1) {
-      const line = lines[matchedIndex];
-      const replacement = newChecked ? '$1x$3' : '$1 $3';
-      lines[matchedIndex] = line.replace(taskRegex, replacement);
-      const newContent = lines.join('\n');
-      onContentChange(newContent);
-    }
-  };
-
-  // 点击正文中的任何图片自动呼出高清全屏灯箱 / 任务复选框微交互 / 概念链接跳转
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleContainerClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-
-      // 1. 交互式 Task List（复选清单）双向回写
-      const taskCheckbox = (target.closest('input.ov-task-checkbox') || (target.matches('input.ov-task-checkbox') ? target : null)) as HTMLInputElement | null;
-      if (taskCheckbox) {
-        const lineAttr = taskCheckbox.getAttribute('data-task-line');
-        if (lineAttr) {
-          const lineNum = parseInt(lineAttr, 10);
-          if (!isNaN(lineNum) && lineNum > 0) {
-            const isChecked = taskCheckbox.checked;
-            const listItem = taskCheckbox.closest('.ov-task-list-item');
-            if (listItem) {
-              if (isChecked) {
-                listItem.classList.add('ov-task-done');
-                listItem.setAttribute('data-checked', 'true');
-              } else {
-                listItem.classList.remove('ov-task-done');
-                listItem.setAttribute('data-checked', 'false');
-              }
-            }
-            handleToggleTask(lineNum, isChecked);
-          }
-        }
-        return;
-      }
-
-      // 2. 图片灯箱放大
-      if (target.tagName.toLowerCase() === 'img') {
-        const img = target as HTMLImageElement;
-        // 避开 404 缺失占位图
-        if (img.classList.contains('ov-img-broken')) return;
-        e.preventDefault();
-        e.stopPropagation();
-        setLightboxItem({
-          title: img.alt || img.title || 'Image Preview',
-          url: img.src,
-        });
-        return;
-      }
-
-      // 3. 智能拦截相对 Markdown/OKF/Wiki 链接，支持知识图谱跨文件跳转与页内标题定位
-      const anchor = target.closest('a');
-      if (anchor) {
-        const href = anchor.getAttribute('href') || '';
-        const isWiki = anchor.getAttribute('data-wiki-link') === 'true';
-        const wikiTarget = (anchor.getAttribute('data-wiki-target') || '').trim();
-        const wikiHeading = (anchor.getAttribute('data-wiki-heading') || '').trim();
-
-        const scrollToHeading = (headingText: string) => {
-          const slug = slugifyHeading(headingText);
-          if (!slug || !container) return false;
-          const el =
-            container.querySelector<HTMLElement>(`#${CSS.escape(slug)}`) ||
-            container.querySelector<HTMLElement>(`[id="${slug}"]`);
-          if (!el) return false;
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          return true;
-        };
-
-        // [[#Heading]] 当前文档标题跳转
-        if (isWiki && wikiHeading && !wikiTarget) {
-          e.preventDefault();
-          e.stopPropagation();
-          scrollToHeading(wikiHeading);
-          return;
-        }
-
-        if (
-          href &&
-          !href.startsWith('http://') &&
-          !href.startsWith('https://') &&
-          !href.startsWith('mailto:')
-        ) {
-          if (href.startsWith('#')) {
-            if (isWiki) {
-              e.preventDefault();
-              e.stopPropagation();
-              const id = decodeURIComponent(href.slice(1));
-              const el = container?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
-              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            return;
-          }
-
-          const cleanHref = decodeURIComponent(href.trim().split(/[?#]/, 1)[0])
-            .replace(/\\/g, '/')
-            .replace(/^\/+/, '');
-          const baseName = cleanHref.split('/').pop() || '';
-          const targetFile = filesRef.current.find(
-            f =>
-              f.name.toLowerCase() === baseName.toLowerCase() ||
-              f.name.replace(/\.[^.]+$/, '').toLowerCase() === baseName.replace(/\.[^.]+$/, '').toLowerCase() ||
-              (f.path && f.path.replace(/^\//, '').toLowerCase().endsWith(cleanHref.toLowerCase()))
-          );
-          if (targetFile && onSelectFile) {
-            e.preventDefault();
-            e.stopPropagation();
-            onSelectFile(targetFile);
-            return;
-          }
-          if (isWiki) {
-            // 避免 Webview 对未解析 Wiki 链接执行无效导航
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }
-      }
-    };
-
-    const handleContainerDblClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('button, input, textarea, select, details, summary')) return;
-      const sourceElement = target.closest('[data-source-line]');
-      if (sourceElement) {
-        const lineAttr = sourceElement.getAttribute('data-source-line');
-        if (lineAttr) {
-          const lineNum = parseInt(lineAttr, 10);
-          if (!isNaN(lineNum) && lineNum > 0) {
-            onOpenSourceAtLine?.(lineNum);
-          }
-        }
-      }
-    };
-
-    container.addEventListener('click', handleContainerClick);
-    container.addEventListener('dblclick', handleContainerDblClick);
-    return () => {
-      container.removeEventListener('click', handleContainerClick);
-      container.removeEventListener('dblclick', handleContainerDblClick);
-    };
-  }, [onSelectFile, onOpenSourceAtLine, onContentChange, content]);
-
-  // Markdown 与源码/VS Code 编辑器双向光标/滚动同步
-  useEffect(() => {
-    let activeHighlightTimer: ReturnType<typeof setTimeout> | null = null;
-    let boundViewport: HTMLElement | null = null;
-
-    const collect = (container: HTMLElement, scrollViewport: HTMLElement) =>
-      measureSourceBlocks(container, scrollViewport);
-
-    const handleEditorSync = (e: Event) => {
-      const detail = (e as CustomEvent<PaneSyncDetail>).detail;
-      if (!detail || detail.origin === 'preview') return;
-
-      const settings = loadStoredSettings();
-      if (settings.scrollSync === false) return;
-
-      const container = containerRef.current;
-      if (!container) return;
-
-      const scrollViewport = findMarkdownScrollViewport(container);
-      const isScrollSync = detail.type === 'editor-scroll-sync';
-      const targetLine = isScrollSync
-        ? (detail.topLine ?? 1)
-        : (detail.activeLine ?? 1);
-
-      if (typeof targetLine !== 'number' || Number.isNaN(targetLine) || targetLine < 1) return;
-
-      const elements = collect(container, scrollViewport);
-      if (elements.length === 0) return;
-
-      const mapped = elements.map(({ startLine, endLine, offsetTop, offsetHeight }) => ({
-        startLine,
-        endLine,
-        offsetTop,
-        offsetHeight,
-      }));
-      const matched = elements.find(
-        (item) => targetLine >= item.startLine && targetLine <= item.endLine
-      ) || elements.reduce((best, item) => (
-        Math.abs(item.startLine - targetLine) < Math.abs(best.startLine - targetLine) ? item : best
-      ), elements[0]);
-
-      applyingRemoteScrollRef.current = true;
-      scrollViewport.scrollTo({
-        top: calculateTargetScrollTop({
-          targetLine,
-          elements: mapped,
-          viewportHeight: scrollViewport.clientHeight,
-          scrollHeight: scrollViewport.scrollHeight,
-          totalLines: detail.totalLines,
-        }),
-        behavior: isScrollSync ? 'auto' : 'smooth',
-      });
-      window.setTimeout(() => {
-        applyingRemoteScrollRef.current = false;
-      }, 80);
-
-      if (detail.type === 'editor-cursor-sync' && matched?.element) {
-        container.querySelectorAll('.ov-cursor-synced-line').forEach((el) => {
-          el.classList.remove('ov-cursor-synced-line');
-        });
-        matched.element.classList.add('ov-cursor-synced-line');
-        if (activeHighlightTimer) clearTimeout(activeHighlightTimer);
-        activeHighlightTimer = setTimeout(() => {
-          matched.element.classList.remove('ov-cursor-synced-line');
-        }, 1800);
-      }
-    };
-
-    const handlePreviewScroll = () => {
-      if (applyingRemoteScrollRef.current) return;
-      if (loadStoredSettings().scrollSync === false) return;
-      const container = containerRef.current;
-      if (!container) return;
-      const scrollViewport = findMarkdownScrollViewport(container);
-      const elements = collect(container, scrollViewport);
-      if (elements.length === 0) return;
-      const mapped = elements.map(({ startLine, endLine, offsetTop, offsetHeight }) => ({
-        startLine,
-        endLine,
-        offsetTop,
-        offsetHeight,
-      }));
-      const lastEnd = mapped[mapped.length - 1].endLine;
-      const topLine = calculateLineFromScrollTop({
-        scrollTop: scrollViewport.scrollTop,
-        elements: mapped,
-        viewportHeight: scrollViewport.clientHeight,
-        scrollHeight: scrollViewport.scrollHeight,
-        totalLines: lastEnd,
-      });
-      const detail: PaneSyncDetail = {
-        type: 'editor-scroll-sync',
-        origin: 'preview',
-        topLine,
-        activeLine: topLine,
-        totalLines: lastEnd,
-      };
-      window.dispatchEvent(new CustomEvent(PANE_SYNC_EVENT, { detail }));
-    };
-
-    const bindViewport = () => {
-      const container = containerRef.current;
-      if (!container) return;
-      const next = findMarkdownScrollViewport(container);
-      if (boundViewport === next) return;
-      boundViewport?.removeEventListener('scroll', handlePreviewScroll);
-      boundViewport = next;
-      boundViewport.addEventListener('scroll', handlePreviewScroll, { passive: true });
-    };
-
-    bindViewport();
-    const bindTimer = window.setTimeout(bindViewport, 200);
-    window.addEventListener(PANE_SYNC_EVENT, handleEditorSync);
-    return () => {
-      window.clearTimeout(bindTimer);
-      window.removeEventListener(PANE_SYNC_EVENT, handleEditorSync);
-      boundViewport?.removeEventListener('scroll', handlePreviewScroll);
-      if (activeHighlightTimer) clearTimeout(activeHighlightTimer);
-    };
-  }, []);
+  }, [isRendering, blocks.length, onRenderComplete]);
 
   return (
     <div
@@ -1043,7 +205,6 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // Standard Code Block
         if (block.type === 'code') {
           const isCollapsed = Boolean(collapsedCodeBlocks[block.id]);
           return (
@@ -1062,7 +223,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   code={block.raw}
                   isCollapsed={isCollapsed}
                   isCopied={copiedId === block.id}
-                  onToggleCollapse={() => setCollapsedCodeBlocks(prev => ({ ...prev, [block.id]: !isCollapsed }))}
+                  onToggleCollapse={() => toggleCollapse(block.id)}
                   onCopy={() => handleCopy(block.id, block.raw)}
                   locale={locale}
                 />
@@ -1071,7 +232,6 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // Enhanced Interactive Markdown Table Block
         if (block.type === 'table' && block.tableData) {
           return (
             <LazyViewportBlock
@@ -1100,7 +260,6 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // Mermaid Block
         if (block.type === 'mermaid') {
           const currentMode = diagramViewModes[block.id] || 'visual';
           const zoom = zoomScales[block.id] || 1;
@@ -1127,14 +286,22 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   viewMode={currentMode}
                   zoom={zoom}
                   editedCode={currentCode}
-                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
-                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={svg =>
                     setLightboxItem({ title: t('mermaidTitle', locale), content: svg || block.svgContent })
                   }
-                  onReRender={() => handleReRenderMermaid(block.id, currentCode)}
+                  onReRender={async () => {
+                    const res = await handleReRenderMermaid(block.id, currentCode);
+                    if (res.success && res.svg) {
+                      block.svgContent = res.svg;
+                      block.error = undefined;
+                    } else if (!res.success && res.error) {
+                      block.error = res.error;
+                    }
+                  }}
                   onDownloadSvg={() => handleDownloadSvg(block.svgContent!, 'mermaid-diagram')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
@@ -1145,7 +312,6 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // Math Block (KaTeX)
         if (block.type === 'math') {
           const currentMode = diagramViewModes[block.id] || 'visual';
           const zoom = zoomScales[block.id] || 1;
@@ -1170,10 +336,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   viewMode={currentMode}
                   zoom={zoom}
                   editedCode={currentCode}
-                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
-                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={() => {
                     let html = '';
                     try {
@@ -1181,7 +347,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                     } catch {}
                     setLightboxItem({ title: t('mathFormula', locale), content: html || `<pre>${currentCode}</pre>` });
                   }}
-                  onReRender={() => setEditedCodes(prev => ({ ...prev, [block.id]: currentCode }))}
+                  onReRender={() => setEditedCode(block.id, currentCode)}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   locale={locale}
@@ -1191,12 +357,11 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // PlantUML Block
         if (block.type === 'plantuml') {
           const currentMode = diagramViewModes[block.id] || 'visual';
           const zoom = zoomScales[block.id] || 1;
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
-          const svgUrl = block.renderedHtml || getPlantUmlSvgUrl(currentCode);
+          const svgUrl = block.renderedHtml || '';
 
           return (
             <LazyViewportBlock
@@ -1218,12 +383,12 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   viewMode={currentMode}
                   zoom={zoom}
                   editedCode={currentCode}
-                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
-                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={() => setLightboxItem({ title: t('plantUmlTitle', locale), url: svgUrl })}
-                  onReRender={() => handleReRenderPlantUml(block.id, currentCode)}
+                  onReRender={() => {}}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   locale={locale}
@@ -1233,12 +398,11 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // SVG Block
         if (block.type === 'svg') {
+          const currentMode = diagramViewModes[block.id] || 'visual';
           const zoom = zoomScales[block.id] || 1;
-          const viewMode = svgViewModes[block.id] || 'visual';
-          const bgMode = svgBgModes[block.id] || 'dark';
           const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
+          const bgMode = svgBgModes[block.id] || 'dark';
 
           return (
             <LazyViewportBlock
@@ -1249,27 +413,27 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
             >
-              <RenderErrorBoundary blockName="SVG Vector" locale={locale}>
+              <RenderErrorBoundary blockName={`SVG (${block.title || 'Vector'})`} locale={locale}>
                 <SvgBlock
                   id={block.id}
-                  mode={block.mode}
+                  mode={block.mode || 'code-block'}
+                  svgContent={block.svgContent || block.raw}
+                  rawCode={currentCode}
                   title={block.title}
                   fileName={block.fileName}
-                  rawCode={block.raw}
-                  svgContent={block.svgContent}
                   isCopied={copiedId === block.id}
-                  viewMode={viewMode}
+                  viewMode={currentMode}
                   bgMode={bgMode}
                   zoom={zoom}
                   editedCode={currentCode}
-                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                  onSetViewMode={mode => setSvgViewModes(prev => ({ ...prev, [block.id]: mode }))}
-                  onSetBgMode={mode => setSvgBgModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetBgMode={mode => setSvgBgMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
-                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={() => setLightboxItem({ title: block.title || 'SVG', content: block.svgContent || block.raw })}
-                  onReRender={() => handleReRenderSvg(block.id, currentCode)}
-                  onDownloadSvg={() => handleDownloadSvg(currentCode, 'diagram')}
+                  onReRender={() => {}}
+                  onDownloadSvg={() => handleDownloadSvg(block.svgContent || block.raw, block.fileName ? block.fileName.replace(/\.svg$/i, '') : 'vector-graphic')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   locale={locale}
                 />
@@ -1278,7 +442,6 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // Graphviz / DOT Block
         if (block.type === 'graphviz') {
           const currentMode = diagramViewModes[block.id] || 'visual';
           const zoom = zoomScales[block.id] || 1;
@@ -1293,35 +456,23 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
               data-source-end-line={block.endLine}
               title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
             >
-              <RenderErrorBoundary blockName="Graphviz Diagram" locale={locale}>
+              <RenderErrorBoundary blockName="Graphviz DOT Diagram" locale={locale}>
                 <GraphvizBlock
                   id={block.id}
-                  code={currentCode}
+                  code={block.raw}
                   startLine={block.startLine}
                   endLine={block.endLine}
                   isCopied={copiedId === block.id}
                   viewMode={currentMode}
                   zoom={zoom}
                   editedCode={currentCode}
-                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
-                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
-                  onOpenLightbox={async () => {
-                    try {
-                      const svg = await graphvizRenderer.render(currentCode, 'dot');
-                      setLightboxItem({ title: t('graphvizTitle', locale), content: svg });
-                    } catch {
-                      setLightboxItem({ title: t('graphvizTitle', locale), content: `<pre>${currentCode}</pre>` });
-                    }
-                  }}
-                  onReRender={() => setEditedCodes(prev => ({ ...prev, [block.id]: currentCode }))}
-                  onDownloadSvg={async () => {
-                    try {
-                      const svg = await graphvizRenderer.render(currentCode, 'dot');
-                      handleDownloadSvg(svg, 'graphviz');
-                    } catch {}
-                  }}
+                  onResetZoom={() => resetZoom(block.id)}
+                  onOpenLightbox={() => setLightboxItem({ title: t('graphvizTitle', locale), content: block.svgContent || block.raw })}
+                  onReRender={() => {}}
+                  onDownloadSvg={() => handleDownloadSvg(block.svgContent || block.raw, 'graphviz-topology')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   locale={locale}
@@ -1331,7 +482,7 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        // Domain Storytelling Block (egon.io / DSL)
+
         if (block.type === 'domainstory') {
           const currentMode = diagramViewModes[block.id] || 'visual';
           const zoom = zoomScales[block.id] || 1;
@@ -1357,10 +508,10 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
-                  onChangeEditedCode={val => setEditedCodes(prev => ({ ...prev, [block.id]: val }))}
-                  onSetViewMode={mode => setDiagramViewModes(prev => ({ ...prev, [block.id]: mode }))}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
-                  onResetZoom={() => setZoomScales(prev => ({ ...prev, [block.id]: 1 }))}
+                  onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={svg =>
                     setLightboxItem({ title: t('domainStoryTitle', locale), content: svg || '' })
                   }
@@ -1376,15 +527,11 @@ const MarkdownViewerComponent: React.FC<MarkdownViewerProps> = ({
         return null;
       })}
 
-      {/* Fullscreen / Lightbox Modal */}
-      <LightboxModal
-        item={lightboxItem}
-        onClose={() => setLightboxItem(null)}
-        locale={locale}
-      />
+      {/* 全屏灯箱模态框 */}
+      {lightboxItem && (
+        <LightboxModal item={lightboxItem} onClose={() => setLightboxItem(null)} locale={locale} />
+      )}
     </div>
   );
 };
 
-export const MarkdownViewer = React.memo(MarkdownViewerComponent);
-MarkdownViewer.displayName = 'MarkdownViewer';

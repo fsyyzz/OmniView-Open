@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-09-15
+
+### Refactored
+
+- **驱动注册中心架构 (Driver Registry & SPI)**:
+  - 新增 `driverRegistry.ts` 插件注册表契约，统一管理 14 种格式驱动的路由与惰性组件工厂；
+  - 重构 `ViewerRenderer.tsx` 消除全部硬编码分支，全面践行 OCP 开闭原则与策略模式。
+- **Markdown 渲染器架构拆解 (SRP & Pipeline)**:
+  - 沉淀 `useMarkdownAstPipeline`（AST 预处理与 Token 分流流水线）；
+  - 沉淀 `useMarkdownScrollSync`（双向滚动、光标联动与任务列表回写）；
+  - 沉淀 `useDiagramBlockStates`（多图表缩放、视图模式、代码暂存与灯箱状态）；
+  - `MarkdownViewer.tsx` 代码规模缩减约 65%，大幅提升可维护性与渲染稳健度。
+
 ### Fixed
 
 - CI 上 `check-vsix-contents` 改用 JSZip 读取 VSIX（ZIP），避免 Linux GNU `tar -tf` 误判失败

@@ -173,7 +173,7 @@ OmniViewer 在 Markdown 中提供专业 SVG 矢量驱动支持：包含 **代码
 ### 2. 模式二：引用工作区中的本地 SVG 文件
 支持使用标准 Markdown 图片语法 `![图表说明](./文件名.svg)` 直接加载并渲染当前工作区中的矢量图纸：
 
-![云原生微服务架构全景图](./cloud-infrastructure.svg)
+![云原生微服务架构全景图](../svg/cloud-infrastructure.svg)
 
 ---
 

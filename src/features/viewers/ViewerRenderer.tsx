@@ -1,32 +1,21 @@
 /**
  * OmniView 多格式统一渲染分发驱动
- * 支持 Markdown, SVG, PDF, PlantUML, CSV, Code
+ * 基于 Driver Registry 插件注册表动态调度分发
  */
 import React, { useState, Suspense, lazy } from 'react';
 import { FileItem, DriverId, ViewMode, ThemeId, ContentWidthMode } from '../../shared/types';
 import { Locale } from '../../shared/lib/i18n';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { Eye, Network, Loader2 } from 'lucide-react';
-import { getDriverIdForFile } from './lib/driverRouting';
+import { getDriverIdForFile, resolveDriverPluginForFile } from './lib/driverRegistry';
 import { RenderErrorBoundary } from './components/common/RenderErrorBoundary';
 
 export { getDriverIdForFile };
 
-// 动态代码分割：按需异步加载驱动，首屏体积骤降 60%+
+// Markdown 模式专用异步驱动
 const MarkdownViewer = lazy(() => import('./components/drivers/MarkdownViewer').then(m => ({ default: m.MarkdownViewer })));
 const MarkmapViewer = lazy(() => import('./components/drivers/MarkmapViewer').then(m => ({ default: m.MarkmapViewer })));
-const SvgViewer = lazy(() => import('./components/drivers/SvgViewer').then(m => ({ default: m.SvgViewer })));
-const PdfViewer = lazy(() => import('./components/drivers/PdfViewer').then(m => ({ default: m.PdfViewer })));
-const PlantUmlViewer = lazy(() => import('./components/drivers/PlantUmlViewer').then(m => ({ default: m.PlantUmlViewer })));
-const MermaidViewer = lazy(() => import('./components/drivers/MermaidViewer').then(m => ({ default: m.MermaidViewer })));
-const GraphvizViewer = lazy(() => import('./components/drivers/GraphvizViewer').then(m => ({ default: m.GraphvizViewer })));
-const CsvViewer = lazy(() => import('./components/drivers/CsvViewer').then(m => ({ default: m.CsvViewer })));
 const CodeViewer = lazy(() => import('./components/drivers/CodeViewer').then(m => ({ default: m.CodeViewer })));
-const MindmapViewer = lazy(() => import('./components/drivers/MindmapViewer').then(m => ({ default: m.MindmapViewer })));
-const NotebookViewer = lazy(() => import('./components/drivers/NotebookViewer').then(m => ({ default: m.NotebookViewer })));
-const TypstViewer = lazy(() => import('./components/drivers/TypstViewer').then(m => ({ default: m.TypstViewer })));
-const ExcalidrawViewer = lazy(() => import('./components/drivers/ExcalidrawViewer').then(m => ({ default: m.ExcalidrawViewer })));
-const DomainStoryViewer = lazy(() => import('./components/drivers/DomainStoryViewer').then(m => ({ default: m.DomainStoryViewer })));
 
 const DriverLoadingFallback: React.FC<{ fileName: string }> = ({ fileName }) => (
   <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center gap-3 p-8 text-slate-400 select-none">
@@ -40,7 +29,7 @@ const DriverLoadingFallback: React.FC<{ fileName: string }> = ({ fileName }) => 
   </div>
 );
 
-interface ViewerRendererProps {
+export interface ViewerRendererProps {
   file: FileItem;
   files: FileItem[];
   mode: ViewMode;
@@ -75,7 +64,8 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   onToggleOkf,
   eagerMount = false,
 }) => {
-  const driverId = getDriverIdForFile(file);
+  const plugin = resolveDriverPluginForFile(file);
+  const driverId = plugin.id;
   const isDarkTheme = ['dark', 'midnight', 'cyber', 'nord', 'dracula', 'forest'].includes(theme);
 
   const [internalEnableOkf, setInternalEnableOkf] = useState<boolean>(() => {
@@ -232,85 +222,26 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
       );
     }
 
+    // 动态分发非 Markdown 驱动插件组件
+    const TargetDriverComponent = plugin.getComponent();
+    const universalDriverProps = {
+      content: file.content,
+      fileName: file.name,
+      extension: file.extension,
+      fileSize: file.size,
+      binaryUrl: file.binaryUrl,
+      isDarkTheme,
+      theme,
+      density,
+      locale,
+      onContentChange,
+      onOpenSourceAtLine,
+      files,
+    };
+
     return (
       <div className="h-full w-full flex-1 min-h-0 flex flex-col overflow-hidden" data-theme={theme} style={zoomStyle}>
-        {driverId === 'mindmap' && (
-          <MindmapViewer
-            content={file.content}
-            fileName={file.name}
-            extension={file.extension}
-            isDarkTheme={isDarkTheme}
-            theme={theme}
-            density={density}
-            locale={locale}
-            onContentChange={onContentChange}
-          />
-        )}
-        {driverId === 'svg' && (
-          <SvgViewer
-            content={file.content}
-            fileName={file.name}
-            fileSize={file.size}
-            locale={locale}
-            onContentChange={onContentChange}
-          />
-        )}
-        {driverId === 'pdf' && <PdfViewer fileName={file.name} fileSize={file.size} binaryUrl={file.binaryUrl} content={file.content} />}
-        {driverId === 'plantuml' && <PlantUmlViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
-        {driverId === 'mermaid' && <MermaidViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
-        {driverId === 'graphviz' && <GraphvizViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
-        {driverId === 'csv' && <CsvViewer content={file.content} fileName={file.name} locale={locale} onContentChange={onContentChange} />}
-        {driverId === 'notebook' && (
-          <NotebookViewer
-            content={file.content}
-            fileName={file.name}
-            isDarkTheme={isDarkTheme}
-            theme={theme}
-            locale={locale}
-            onContentChange={onContentChange}
-          />
-        )}
-        {driverId === 'typst' && (
-          <TypstViewer
-            content={file.content}
-            fileName={file.name}
-            isDarkTheme={isDarkTheme}
-            theme={theme}
-            locale={locale}
-            onContentChange={onContentChange}
-            onOpenSourceAtLine={onOpenSourceAtLine}
-          />
-        )}
-        {driverId === 'excalidraw' && (
-          <ExcalidrawViewer
-            content={file.content}
-            fileName={file.name}
-            isDarkTheme={isDarkTheme}
-            theme={theme}
-            locale={locale}
-            onContentChange={onContentChange}
-          />
-        )}
-        {driverId === 'domainstory' && (
-          <DomainStoryViewer
-            content={file.content}
-            fileName={file.name}
-            locale={locale}
-            onContentChange={onContentChange}
-          />
-        )}
-        {driverId === 'code' && (
-          <CodeViewer
-            content={file.content}
-            fileName={file.name}
-            extension={file.extension}
-            locale={locale}
-            theme={theme}
-            isDarkTheme={isDarkTheme}
-            density={density}
-            onContentChange={onContentChange}
-          />
-        )}
+        <TargetDriverComponent {...universalDriverProps} />
       </div>
     );
   };
@@ -323,3 +254,4 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
     </RenderErrorBoundary>
   );
 };
+
