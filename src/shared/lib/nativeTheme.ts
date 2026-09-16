@@ -303,10 +303,18 @@ export function applySimulatedTheme(themeId: string | null): void {
     root.style.removeProperty(k);
   });
 
-  if (!themeId) return;
+  if (!themeId) {
+    try {
+      localStorage.removeItem('omniview_simulated_theme');
+    } catch {}
+    return;
+  }
 
   const found = THIRD_PARTY_THEMES.find((t) => t.id === themeId);
   if (found) {
+    try {
+      localStorage.setItem('omniview_simulated_theme', themeId);
+    } catch {}
     Object.entries(found.variables).forEach(([k, v]) => {
       root.style.setProperty(k, v);
     });
@@ -316,4 +324,14 @@ export function applySimulatedTheme(themeId: string | null): void {
       document.body.classList.add(found.kind === 'light' ? 'vscode-light' : 'vscode-dark');
     }
   }
+}
+
+// 模块初始化时，若存在已保存的第三方模拟主题，自动恢复注入
+if (typeof window !== 'undefined') {
+  try {
+    const savedSim = localStorage.getItem('omniview_simulated_theme');
+    if (savedSim && !isVsCodeEnvironment()) {
+      applySimulatedTheme(savedSim);
+    }
+  } catch {}
 }

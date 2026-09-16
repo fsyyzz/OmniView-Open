@@ -50,6 +50,7 @@ import {
   THIRD_PARTY_THEMES,
   applySimulatedTheme,
 } from '../../../shared/lib/nativeTheme';
+import { getVsCodeApi } from '../../../shared/lib/vscode';
 
 interface WorkbenchSettingsModalProps {
   isOpen: boolean;
@@ -95,6 +96,28 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
     setLocalSettings(updated);
     saveStoredSettings({ [key]: value });
     onSettingsChange(updated);
+
+    if (key === 'theme') {
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-theme', String(value));
+        document.body?.setAttribute('data-theme', String(value));
+      }
+    }
+
+    if (key === 'density') {
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-density', String(value));
+        document.body?.setAttribute('data-density', String(value));
+      }
+    }
+
+    const vsApi = getVsCodeApi();
+    if (vsApi) {
+      vsApi.postMessage({
+        type: 'save-configuration',
+        settings: { [key]: value },
+      });
+    }
 
     if (key === 'plantUmlServerUrl' && typeof value === 'string') {
       setPlantUmlServerBase(value);

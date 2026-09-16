@@ -1,9 +1,9 @@
 /**
  * OmniView 独立 Mermaid 图表工作室 (.mmd / .mermaid)
- * 对齐 MindmapViewer：默认分屏源码编辑 + 实时预览
+ * 对齐 MindmapViewer：默认分屏源码编辑 + 实时全高交互矢量预览
  */
-import React, { useState } from 'react';
-import { MermaidBlock } from './markdown/MermaidBlock';
+import React from 'react';
+import { MermaidStudioCanvas } from './mermaid/MermaidStudioCanvas';
 import { DiagramStudioShell, DiagramSnippet } from './DiagramStudioShell';
 import { Locale } from '../../../../shared/lib/i18n';
 
@@ -49,20 +49,6 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   locale = 'zh-CN',
   onContentChange,
 }) => {
-  const [zoom, setZoom] = useState(1);
-  const [isCopied, setIsCopied] = useState(false);
-  const [previewTick, setPreviewTick] = useState(0);
-
-  const handleCopyFromBlock = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 1600);
-    } catch {
-      /* ignore */
-    }
-  };
-
   return (
     <DiagramStudioShell
       title="Mermaid 图表工作室"
@@ -76,29 +62,14 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       snippets={MERMAID_SNIPPETS}
       defaultTemplate={DEFAULT_MERMAID_TEMPLATE}
       renderPreview={code => (
-        <div className="flex-1 min-h-0 overflow-auto p-3">
-          <MermaidBlock
-            key={`mermaid-preview-${previewTick}`}
-            id="standalone-mermaid"
-            code={code}
-            editedCode={code}
-            onChangeEditedCode={() => undefined}
-            isCopied={isCopied}
-            viewMode="visual"
-            zoom={zoom}
-            onSetViewMode={() => undefined}
-            onZoomChange={delta =>
-              setZoom(z => Math.min(3, Math.max(0.4, Number((z + delta).toFixed(2)))))
-            }
-            onResetZoom={() => setZoom(1)}
-            onOpenLightbox={() => undefined}
-            onReRender={() => setPreviewTick(n => n + 1)}
-            onDownloadSvg={() => undefined}
-            onCopy={() => void handleCopyFromBlock(code)}
-            locale={locale}
-          />
-        </div>
+        <MermaidStudioCanvas
+          code={code}
+          fileName={fileName}
+          locale={locale}
+          onCodeChange={onContentChange}
+        />
       )}
     />
   );
 };
+

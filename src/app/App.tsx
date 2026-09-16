@@ -52,6 +52,18 @@ export default function App() {
   const [zoom, setZoom] = useState<number>(initialSettings.zoom);
   const [viewMode, setViewMode] = useState<ViewMode>(initialSettings.viewMode);
 
+  // 全局同步外观令牌到根 DOM 节点，保证第三方图表/Portal/弹窗 100% 捕获语义变量
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.setAttribute('data-density', density);
+      if (document.body) {
+        document.body.setAttribute('data-theme', theme);
+        document.body.setAttribute('data-density', density);
+      }
+    }
+  }, [theme, density]);
+
   // 2. 布局与主导航状态（双向持久化）
   const [currentView, setCurrentView] = useState<WorkbenchView>(initialSettings.currentView || 'editor');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(initialSettings.sidebarOpen ?? true);
@@ -85,12 +97,32 @@ export default function App() {
     setTheme(newTheme);
     setSettings(prev => ({ ...prev, theme: newTheme }));
     saveStoredSettings({ theme: newTheme });
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', newTheme);
+      document.body?.setAttribute('data-theme', newTheme);
+    }
+    if (vscode) {
+      vscode.postMessage({
+        type: 'save-configuration',
+        settings: { theme: newTheme },
+      });
+    }
   };
 
   const handleDensityChange = (newDensity: DensityMode) => {
     setDensity(newDensity);
     setSettings(prev => ({ ...prev, density: newDensity }));
     saveStoredSettings({ density: newDensity });
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-density', newDensity);
+      document.body?.setAttribute('data-density', newDensity);
+    }
+    if (vscode) {
+      vscode.postMessage({
+        type: 'save-configuration',
+        settings: { density: newDensity },
+      });
+    }
   };
 
   const handleZoomChange = (newZoom: number) => {
@@ -131,13 +163,26 @@ export default function App() {
 
   const handleSettingsModalChange = (updatedSettings: WorkbenchSettings) => {
     setSettings(updatedSettings);
-    if (updatedSettings.theme) setTheme(updatedSettings.theme);
-    if (updatedSettings.density) setDensity(updatedSettings.density);
+    if (updatedSettings.theme) {
+      setTheme(updatedSettings.theme);
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-theme', updatedSettings.theme);
+        document.body?.setAttribute('data-theme', updatedSettings.theme);
+      }
+    }
+    if (updatedSettings.density) {
+      setDensity(updatedSettings.density);
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-density', updatedSettings.density);
+        document.body?.setAttribute('data-density', updatedSettings.density);
+      }
+    }
     if (updatedSettings.zoom) setZoom(updatedSettings.zoom);
     if (updatedSettings.viewMode) setViewMode(updatedSettings.viewMode);
     if (updatedSettings.currentView) setCurrentView(updatedSettings.currentView);
     if (updatedSettings.sidebarOpen !== undefined) setSidebarOpen(updatedSettings.sidebarOpen);
     if (updatedSettings.explorerOpen !== undefined) setExplorerOpen(updatedSettings.explorerOpen);
+    saveStoredSettings(updatedSettings);
     if (vscode) {
       vscode.postMessage({
         type: 'save-configuration',
@@ -171,8 +216,20 @@ export default function App() {
           saveStoredSettings(hostSettings);
           return merged;
         });
-        if (hostSettings.theme) setTheme(hostSettings.theme);
-        if (hostSettings.density) setDensity(hostSettings.density);
+        if (hostSettings.theme) {
+          setTheme(hostSettings.theme);
+          if (typeof document !== 'undefined') {
+            document.documentElement.setAttribute('data-theme', hostSettings.theme);
+            document.body?.setAttribute('data-theme', hostSettings.theme);
+          }
+        }
+        if (hostSettings.density) {
+          setDensity(hostSettings.density);
+          if (typeof document !== 'undefined') {
+            document.documentElement.setAttribute('data-density', hostSettings.density);
+            document.body?.setAttribute('data-density', hostSettings.density);
+          }
+        }
         return;
       }
       if (msgType === 'theme-changed') {

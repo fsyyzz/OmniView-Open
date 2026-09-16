@@ -64,13 +64,33 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
   const handleThemeSelect = (newTheme: ThemeId) => {
     setCurrentTheme(newTheme);
     saveStoredSettings({ theme: newTheme });
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', newTheme);
+      document.body?.setAttribute('data-theme', newTheme);
+    }
     onThemeChange?.(newTheme);
+    if (vscode) {
+      vscode.postMessage({
+        type: 'save-configuration',
+        settings: { theme: newTheme },
+      });
+    }
   };
 
   const handleDensitySelect = (newDensity: DensityMode) => {
     setCurrentDensity(newDensity);
     saveStoredSettings({ density: newDensity });
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-density', newDensity);
+      document.body?.setAttribute('data-density', newDensity);
+    }
     onDensityChange?.(newDensity);
+    if (vscode) {
+      vscode.postMessage({
+        type: 'save-configuration',
+        settings: { density: newDensity },
+      });
+    }
   };
 
   if (!file) {
@@ -574,8 +594,27 @@ const MarkdownPluginView: React.FC<{
   const handleSettingsChange = useCallback(
     (updated: WorkbenchSettings) => {
       setSettings(updated);
-      if (updated.theme) onThemeChange(updated.theme);
-      if (updated.density) onDensityChange(updated.density);
+      saveStoredSettings(updated);
+      if (updated.theme) {
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-theme', updated.theme);
+          document.body?.setAttribute('data-theme', updated.theme);
+        }
+        onThemeChange(updated.theme);
+      }
+      if (updated.density) {
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-density', updated.density);
+          document.body?.setAttribute('data-density', updated.density);
+        }
+        onDensityChange(updated.density);
+      }
+      if (vscode) {
+        vscode.postMessage({
+          type: 'save-configuration',
+          settings: updated,
+        });
+      }
       if (updated.locale === 'zh-CN' || updated.locale === 'en-US') {
         setLocale(updated.locale);
         saveStoredLocale(updated.locale);
@@ -590,7 +629,7 @@ const MarkdownPluginView: React.FC<{
       if (updated.enableOkfRendering !== undefined) setEnableOkfRendering(updated.enableOkfRendering);
       if (updated.viewMode) setViewMode(updated.viewMode);
     },
-    [onThemeChange, onDensityChange]
+    [onThemeChange, onDensityChange, vscode]
   );
 
   const handleOpenSourceAtLine = useCallback(
