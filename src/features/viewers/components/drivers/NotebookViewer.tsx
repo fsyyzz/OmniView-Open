@@ -189,12 +189,20 @@ export const NotebookViewer: React.FC<NotebookViewerProps> = ({
       {/* 顶部工具栏与统计状态栏 */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-2.5 bg-slate-900/90 backdrop-blur border-b border-slate-800 gap-3 z-10">
         {/* 左侧：内核元信息与过滤 Tab */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-md text-xs font-medium">
             <Sparkles className="w-3.5 h-3.5" />
             <span>{stats.kernelName}</span>
             <span className="opacity-40">•</span>
             <span>{stats.language.toUpperCase()}</span>
+          </div>
+
+          <div
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-800/80 border border-slate-700 text-slate-300 text-xs select-none"
+            title={locale === 'zh-CN' ? 'Jupyter Notebook 当前处于富文本交互式只读透视视图' : 'Jupyter Notebook is currently in interactive read-only perspective'}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+            <span className="text-[11px] font-medium">{locale === 'zh-CN' ? '只读透视' : 'Read-Only'}</span>
           </div>
 
           <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs">

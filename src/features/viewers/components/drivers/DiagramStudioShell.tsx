@@ -3,7 +3,8 @@
  * 左：DSL 编辑；右：实时预览；支持 split / preview / editor
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Code, Columns, Copy, Eye, FileCode, Sparkles } from 'lucide-react';
+import { Check, Code, Columns, Copy, Eye, FileCode, Sparkles, Undo2, Redo2 } from 'lucide-react';
+import { useTextHistory } from '../../hooks/useTextHistory';
 
 export type DiagramStudioMode = 'split' | 'preview' | 'editor';
 
@@ -77,6 +78,16 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextExternalSync = useRef(false);
 
+  // 接入通用受控历史栈 (TextHistoryStack)
+  const {
+    canUndo,
+    canRedo,
+    recordChange,
+    undo,
+    redo,
+    reset: resetHistory,
+  } = useTextHistory(content, { maxDepth: 100, mergeThresholdMs: 500 });
+
   useEffect(() => {
     if (skipNextExternalSync.current) {
       skipNextExternalSync.current = false;
@@ -84,8 +95,9 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
     }
     if (content !== localCode && isSynced) {
       setLocalCode(content);
+      resetHistory(content);
     }
-  }, [content, isSynced, localCode]);
+  }, [content, isSynced, localCode, resetHistory]);
 
   useEffect(() => {
     return () => {
@@ -113,9 +125,13 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   };
 
   const handleCodeChange = useCallback(
-    (newCode: string) => {
+    (newCode: string, forceNewSnapshot = false) => {
       setLocalCode(newCode);
       setIsSynced(false);
+      const selStart = textareaRef.current?.selectionStart;
+      const selEnd = textareaRef.current?.selectionEnd;
+      recordChange(newCode, selStart, selEnd, forceNewSnapshot);
+
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
         skipNextExternalSync.current = true;
@@ -123,19 +139,67 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
         setIsSynced(true);
       }, 350);
     },
-    [onContentChange]
+    [onContentChange, recordChange]
   );
+
+  const handleUndo = useCallback(() => {
+    const snapshot = undo();
+    if (!snapshot) return;
+    setLocalCode(snapshot.value);
+    setIsSynced(false);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      skipNextExternalSync.current = true;
+      onContentChange?.(snapshot.value);
+      setIsSynced(true);
+    }, 200);
+
+    setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (textarea && snapshot.selectionStart !== undefined) {
+        textarea.focus();
+        textarea.setSelectionRange(
+          snapshot.selectionStart,
+          snapshot.selectionEnd ?? snapshot.selectionStart
+        );
+      }
+    }, 10);
+  }, [undo, onContentChange]);
+
+  const handleRedo = useCallback(() => {
+    const snapshot = redo();
+    if (!snapshot) return;
+    setLocalCode(snapshot.value);
+    setIsSynced(false);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      skipNextExternalSync.current = true;
+      onContentChange?.(snapshot.value);
+      setIsSynced(true);
+    }, 200);
+
+    setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (textarea && snapshot.selectionStart !== undefined) {
+        textarea.focus();
+        textarea.setSelectionRange(
+          snapshot.selectionStart,
+          snapshot.selectionEnd ?? snapshot.selectionStart
+        );
+      }
+    }, 10);
+  }, [redo, onContentChange]);
 
   const handleInsertSnippet = (snippetCode: string) => {
     const textarea = textareaRef.current;
     if (!textarea) {
-      handleCodeChange(localCode + snippetCode);
+      handleCodeChange(localCode + snippetCode, true);
       return;
     }
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const updated = localCode.substring(0, start) + snippetCode + localCode.substring(end);
-    handleCodeChange(updated);
+    handleCodeChange(updated, true);
     setTimeout(() => {
       textarea.focus();
       const nextPos = start + snippetCode.length;
@@ -145,7 +209,28 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const textarea = textareaRef.current;
-    if (!textarea || e.key !== 'Tab') return;
+    if (!textarea) return;
+
+    // 撤销 / 重做快捷键处理 (Ctrl+Z, Ctrl+Y, Cmd+Z, Cmd+Shift+Z)
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+        return;
+      }
+      if (key === 'y') {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+    }
+
+    if (e.key !== 'Tab') return;
     e.preventDefault();
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
@@ -331,7 +416,34 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
                 <FileCode className="w-3.5 h-3.5" />
                 {languageLabel} ({lineCount} 行 · {charCount} 字符)
               </span>
-              <span className="text-slate-500 hidden sm:inline">Tab 缩进 / Shift+Tab 反缩进</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  className={`p-1 rounded transition ${
+                    canUndo ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 cursor-not-allowed'
+                  }`}
+                  title="撤销 (Ctrl+Z)"
+                  aria-label="撤销"
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  className={`p-1 rounded transition ${
+                    canRedo ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 cursor-not-allowed'
+                  }`}
+                  title="重做 (Ctrl+Y / Ctrl+Shift+Z)"
+                  aria-label="重做"
+                >
+                  <Redo2 className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-slate-600">|</span>
+                <span className="text-slate-500 hidden sm:inline">Tab 缩进 / Shift+Tab 反缩进</span>
+              </div>
             </div>
 
             {snippets.length > 0 && (

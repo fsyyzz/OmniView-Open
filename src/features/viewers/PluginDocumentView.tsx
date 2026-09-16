@@ -14,7 +14,7 @@ import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
 import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
 import { DocStatusBar } from './components/DocStatusBar';
 import { WorkbenchSettingsModal } from '../workbench/components/WorkbenchSettingsModal';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Save, Check, Loader2 } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
@@ -103,56 +103,14 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
   }
 
   if (!['md', 'markdown', 'okf'].includes(file.extension.toLowerCase())) {
-    const _locale = getStoredLocale();
-    const persistContent = (newContent: string) => {
-      onContentChange?.(newContent);
-      if (vscode) {
-        vscode.postMessage({
-          type: 'document-change',
-          path: file.path,
-          content: newContent,
-        });
-      }
-    };
     return (
-      <main
-        className="flex h-full w-full min-h-0 flex-col overflow-hidden text-slate-100"
-        data-theme={currentTheme}
-        data-density={currentDensity}
-        style={{ background: 'var(--ov-bg)' }}
-      >
-        {/* Top Action Bar for non-markdown files */}
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none">
-          <div className="flex items-center gap-2 font-mono text-slate-300">
-            <span className="font-semibold text-slate-200">{file.name}</span>
-            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-              {file.extension}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {vscode && (
-              <button
-                onClick={() => vscode.postMessage({ type: 'open-source', path: file.path })}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded transition text-xs font-medium"
-                title={t('openInEditor', _locale)}
-              >
-                <ExternalLink size={13} />
-                <span>{t('openSource', _locale)}</span>
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden h-full w-full">
-          <ViewerRenderer
-            file={file}
-            files={[file]}
-            mode="preview"
-            theme={currentTheme}
-            density={currentDensity}
-            onContentChange={persistContent}
-          />
-        </div>
-      </main>
+      <NonMarkdownPluginView
+        file={file}
+        theme={currentTheme}
+        density={currentDensity}
+        onContentChange={onContentChange}
+        vscode={vscode}
+      />
     );
   }
 
@@ -166,6 +124,163 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
       onContentChange={onContentChange}
       vscode={vscode}
     />
+  );
+};
+
+interface NonMarkdownPluginViewProps {
+  file: FileItem;
+  theme: ThemeId;
+  density: DensityMode;
+  onContentChange?: (content: string) => void;
+  vscode?: VsCodeApi;
+}
+
+const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
+  file,
+  theme,
+  density,
+  onContentChange,
+  vscode,
+}) => {
+  const _locale = getStoredLocale();
+  const [currentContent, setCurrentContent] = useState(file.content);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const initialContentRef = useRef(file.content);
+  const latestContentRef = useRef(file.content);
+
+  useEffect(() => {
+    initialContentRef.current = file.content;
+    latestContentRef.current = file.content;
+    setCurrentContent(file.content);
+    setIsDirty(false);
+  }, [file.id, file.content]);
+
+  const handleSaveImmediate = useCallback(() => {
+    if (!vscode) return;
+    setSaveStatus('saving');
+    vscode.postMessage({
+      type: 'save-content',
+      path: file.path,
+      content: latestContentRef.current,
+    });
+  }, [file.path, vscode]);
+
+  const persistContent = useCallback((newContent: string) => {
+    latestContentRef.current = newContent;
+    setCurrentContent(newContent);
+    const dirty = newContent !== initialContentRef.current;
+    setIsDirty(dirty);
+    if (dirty) setSaveStatus('idle');
+    onContentChange?.(newContent);
+    if (vscode) {
+      vscode.postMessage({
+        type: 'document-change',
+        path: file.path,
+        content: newContent,
+      });
+    }
+  }, [file.path, onContentChange, vscode]);
+
+  // 快捷键监听 (Ctrl+S / Cmd+S 立即落盘)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveImmediate();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSaveImmediate]);
+
+  // 监听来自 VS Code 宿主的 content-saved 反馈消息
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'content-saved' && e.data?.ok) {
+        initialContentRef.current = latestContentRef.current;
+        setIsDirty(false);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  return (
+    <main
+      className="flex h-full w-full min-h-0 flex-col overflow-hidden text-slate-100"
+      data-theme={theme}
+      data-density={density}
+      style={{ background: 'var(--ov-bg)' }}
+    >
+      {/* 顶部通用动作栏 */}
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none">
+        <div className="flex items-center gap-2 font-mono text-slate-300">
+          <span className="font-semibold text-slate-200">{file.name}</span>
+          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+            {file.extension}
+          </span>
+          <span className="text-slate-600">|</span>
+          <div className="flex items-center gap-1.5 text-[11px]">
+            {isDirty ? (
+              <span className="flex items-center gap-1 text-amber-400 font-sans" title="存在未落盘修改 (按 Ctrl+S 立即保存)">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span>未保存修改</span>
+              </span>
+            ) : saveStatus === 'saved' ? (
+              <span className="flex items-center gap-1 text-emerald-400 font-sans">
+                <Check size={13} className="text-emerald-400" />
+                <span>已保存</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-slate-400 font-sans">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
+                <span>已同步</span>
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {vscode && isDirty && (
+            <button
+              onClick={handleSaveImmediate}
+              disabled={saveStatus === 'saving'}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded transition text-xs font-medium cursor-pointer shadow-xs"
+              title="立即保存文件 (Ctrl+S)"
+            >
+              {saveStatus === 'saving' ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Save size={13} />
+              )}
+              <span>保存</span>
+            </button>
+          )}
+          {vscode && (
+            <button
+              onClick={() => vscode.postMessage({ type: 'open-source', path: file.path })}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white rounded border border-slate-700 transition text-xs font-medium cursor-pointer"
+              title={t('openInEditor', _locale)}
+            >
+              <ExternalLink size={13} />
+              <span>{t('openSource', _locale)}</span>
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden h-full w-full">
+        <ViewerRenderer
+          file={{ ...file, content: currentContent }}
+          files={[{ ...file, content: currentContent }]}
+          mode="preview"
+          theme={theme}
+          density={density}
+          onContentChange={persistContent}
+        />
+      </div>
+    </main>
   );
 };
 

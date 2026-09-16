@@ -598,12 +598,17 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
       </div>
 
       {/* Floating Diagram Step-by-Step Player HUD (if supported) */}
-      {playbackInfo.isSupported && (
+      {isPlaybackActive && playbackInfo.isSupported && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20">
           <DiagramStepPlayer
-            playbackInfo={playbackInfo}
+            steps={playbackInfo.steps}
             currentStep={currentStep}
             onStepChange={setCurrentStep}
+            onClose={() => {
+              setIsPlaybackActive(false);
+              setCurrentStep(-1);
+            }}
+            diagramType={playbackInfo.diagramType}
             locale={locale}
           />
         </div>

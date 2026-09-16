@@ -82,9 +82,22 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const fallbackTriedRef = useRef<Set<string>>(new Set());
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextExternalSync = useRef(false);
 
-  // 与宿主文档内容同步（修复插件打开后仍停留在空图/白点的问题）
+  // 组件卸载时清理防抖定时器
   useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  // 与宿主文档内容同步（修复插件打开后仍停留在空图/白点的问题，并增加本地防抖回声保护）
+  useEffect(() => {
+    if (skipNextExternalSync.current) {
+      skipNextExternalSync.current = false;
+      return;
+    }
     setLocalCode(content);
     setImgStatus(hasRenderablePlantUmlCode(content) ? 'loading' : 'idle');
     setRenderNonce(n => n + 1);
@@ -160,22 +173,30 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const displaySvgUrl = withPlantUmlCacheBust(svgUrl, renderNonce);
   const activeThemeId = detectPlantUmlTheme(localCode);
 
-  const handleCodeChange = (newText: string) => {
+  const handleCodeChange = (newText: string, immediate = false) => {
     setLocalCode(newText);
-    if (onContentChange) {
+    if (!onContentChange) return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    if (immediate) {
+      skipNextExternalSync.current = true;
       onContentChange(newText);
+      return;
     }
+    debounceTimerRef.current = setTimeout(() => {
+      skipNextExternalSync.current = true;
+      onContentChange(newText);
+    }, 300);
   };
 
   const handleApplyTemplate = (templateCode: string) => {
-    handleCodeChange(templateCode);
+    handleCodeChange(templateCode, true);
     setShowTemplateModal(false);
     handleResetViewport();
   };
 
   const handleSelectTheme = (themeVal: string) => {
     const updated = applyPlantUmlTheme(localCode, themeVal);
-    handleCodeChange(updated);
+    handleCodeChange(updated, true);
     setShowThemeMenu(false);
     handleRefresh();
   };

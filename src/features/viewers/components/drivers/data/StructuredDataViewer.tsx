@@ -1,8 +1,3 @@
-/**
- * 结构化数据全景可视化工作台 (StructuredDataViewer)
- * 深度集成五大视角：结构折叠树、全景思维导图投影、同构数组表格下钻、微服务依赖拓扑与代码模式
- * 并标配敏感密钥脱敏防护 (Secret Masking) 与跨格式离线无损互转工作台 (Format Converter)
- */
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Network,
@@ -21,7 +16,9 @@ import {
   Info,
   Layers,
   FileCode,
+  Sparkles,
 } from 'lucide-react';
+import { dump as dumpYaml } from 'js-yaml';
 import {
   parseStructuredData,
   detectArrayOfObjects,
@@ -62,6 +59,8 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   density = 'standard',
   onContentChange,
 }) => {
+  const [localRawText, setLocalRawText] = useState(content);
+  const [isSynced, setIsSynced] = useState(true);
   const [viewMode, setViewMode] = useState<DataViewMode>('tree');
   const [maskSecrets, setMaskSecrets] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,10 +68,31 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [topologySvg, setTopologySvg] = useState<string | null>(null);
 
-  // 解析结构化数据
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextExternalSync = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 外部 content 变化且非本地编辑时同步
+  useEffect(() => {
+    if (skipNextExternalSync.current) {
+      skipNextExternalSync.current = false;
+      return;
+    }
+    if (content !== localRawText && isSynced) {
+      setLocalRawText(content);
+    }
+  }, [content, isSynced, localRawText]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  // 实时解析结构化数据（响应用户编辑）
   const parseResult = useMemo(() => {
-    return parseStructuredData(content, extension);
-  }, [content, extension]);
+    return parseStructuredData(localRawText, extension);
+  }, [localRawText, extension]);
 
   const parsedData = parseResult.data;
 
@@ -151,29 +171,54 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   }, [topologyMermaid, viewMode, isDarkTheme]);
 
   const handleCopySource = useCallback(() => {
-    navigator.clipboard.writeText(content);
+    navigator.clipboard.writeText(localRawText);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
-  }, [content]);
+  }, [localRawText]);
 
-  // 语法高亮
-  const highlightedCode = useMemo(() => {
+  const handleCodeChange = useCallback((newText: string) => {
+    setLocalRawText(newText);
+    setIsSynced(false);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      skipNextExternalSync.current = true;
+      onContentChange?.(newText);
+      setIsSynced(true);
+    }, 350);
+  }, [onContentChange]);
+
+  const handleFormatCode = useCallback(() => {
+    if (!parseResult.success || !parseResult.data) return;
     try {
-      const ext = extension.toLowerCase();
-      let lang = 'json';
-      if (['yaml', 'yml'].includes(ext)) lang = 'yaml';
-      else if (ext === 'xml') lang = 'markup';
-      else if (ext === 'toml') lang = 'markdown'; // prism fallback
-
-      const grammar = Prism.languages[lang] || Prism.languages.json || Prism.languages.text;
-      if (grammar) {
-        return Prism.highlight(content, grammar, lang);
+      let formatted = localRawText;
+      if (parseResult.format === 'json') {
+        formatted = JSON.stringify(parseResult.data, null, 2);
+      } else if (parseResult.format === 'yaml') {
+        formatted = dumpYaml(parseResult.data, { indent: 2 });
+      }
+      if (formatted !== localRawText) {
+        handleCodeChange(formatted);
       }
     } catch {
-      // ignore
+      // ignore format error
     }
-    return null;
-  }, [content, extension]);
+  }, [parseResult, localRawText, handleCodeChange]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = textareaRef.current;
+    if (!textarea || e.key !== 'Tab') return;
+    e.preventDefault();
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const updated = localRawText.substring(0, start) + '  ' + localRawText.substring(end);
+    handleCodeChange(updated);
+    setTimeout(() => {
+      textarea.setSelectionRange(start + 2, start + 2);
+    }, 0);
+  }, [localRawText, handleCodeChange]);
+
+  const lineCount = Math.max(1, localRawText.split('\n').length);
+  const charCount = localRawText.length;
 
   return (
     <div id="structured-data-viewer" className="h-full w-full flex flex-col bg-slate-950 font-sans text-xs text-slate-300 select-text overflow-hidden">
@@ -419,18 +464,61 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           </div>
         )}
 
-        {/* 5. 源码文本模式 (Code) */}
+        {/* 5. 源码文本编辑模式 (Code) */}
         {(viewMode === 'code' || !parseResult.success) && (
-          <div className="h-full w-full flex flex-col bg-slate-950 font-mono text-xs text-slate-300">
-            <div className="flex-1 overflow-auto p-4 select-text">
-              {highlightedCode ? (
-                <pre
-                  className="whitespace-pre-wrap break-all leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: highlightedCode }}
-                />
-              ) : (
-                <pre className="whitespace-pre-wrap break-all leading-relaxed">{content}</pre>
-              )}
+          <div className="h-full w-full flex flex-col bg-slate-950 font-mono text-xs text-slate-300 overflow-hidden">
+            {/* 编辑器顶部辅助栏 */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-[11px] text-slate-400 shrink-0 select-none">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-indigo-300 flex items-center gap-1">
+                  <FileCode className="w-3.5 h-3.5" />
+                  源码编辑模式
+                </span>
+                <span className="text-slate-600">|</span>
+                <span>{lineCount} 行 · {charCount} 字符</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded border ${
+                    isSynced ? 'border-emerald-800 text-emerald-400' : 'border-amber-800 text-amber-300'
+                  }`}
+                >
+                  {isSynced ? '已同步' : '编辑中…'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {parseResult.success && ['json', 'yaml'].includes(parseResult.format) && (
+                  <button
+                    type="button"
+                    onClick={handleFormatCode}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded border border-slate-700 transition"
+                    title="一键美化排版"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <span>美化排版</span>
+                  </button>
+                )}
+                <span className="text-slate-500 hidden sm:inline">Tab 缩进</span>
+              </div>
+            </div>
+
+            {/* 语法解析错误警告条 */}
+            {!parseResult.success && (
+              <div className="px-3 py-1.5 bg-rose-950/80 border-b border-rose-800/60 text-rose-300 flex items-center gap-2 shrink-0">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                <span className="truncate">语法错误: {parseResult.error || '无法解析此结构化数据，请检查语法'}</span>
+              </div>
+            )}
+
+            {/* 可编辑源码区域 */}
+            <div className="flex-1 min-h-0 flex relative bg-slate-950">
+              <textarea
+                ref={textareaRef}
+                value={localRawText}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`请输入合法的 ${extension.toUpperCase()} 数据...`}
+                className="flex-1 h-full w-full p-4 bg-transparent resize-none outline-none font-mono text-xs leading-relaxed text-slate-200 selection:bg-indigo-600/40"
+                spellCheck={false}
+              />
             </div>
           </div>
         )}
