@@ -50,6 +50,7 @@ interface PlantUmlViewerProps {
   onContentChange?: (newContent: string) => void;
   fileName?: string;
   locale?: Locale;
+  onOpenInEditor?: () => void;
 }
 
 export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
@@ -57,6 +58,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   onContentChange,
   fileName = 'diagram.puml',
   locale = 'zh-CN',
+  onOpenInEditor,
 }) => {
   const [localCode, setLocalCode] = useState(content);
   const [zoom, setZoom] = useState(1);
@@ -672,6 +674,25 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             )}
           </div>
 
+          {onOpenInEditor && (
+            <button
+              type="button"
+              id="btn-plantuml-open-in-native-editor"
+              onClick={onOpenInEditor}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded border transition shrink-0 hover:border-[var(--ov-accent)] text-xs font-medium"
+              title="在 VS Code 原生文本编辑器中并排编辑（无缝支持 GitHub Copilot、AI 智能补全/对话、GitLens 与差异对比）"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline">在 VS Code 中编辑</span>
+              <span className="sm:hidden">VS 编辑</span>
+            </button>
+          )}
+
           <button
             onClick={handleCopy}
             style={{
@@ -715,6 +736,28 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             </span>
             <span style={{ color: 'var(--ov-text-muted)' }}>{localCode.split('\n').length} {t('linesUtf8', locale)}</span>
           </div>
+
+          {onOpenInEditor && (
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderBottomColor: 'var(--ov-border)',
+              }}
+              className="px-3 py-1 border-b text-[11px] text-sky-400 flex items-center justify-between shrink-0"
+            >
+              <span className="flex items-center gap-1.5 truncate">
+                <Sparkles className="w-3 h-3 text-sky-400 shrink-0" />
+                <span className="truncate">需 AI 补全或 Git 差异对比？可使用 VS Code 原生编辑器</span>
+              </span>
+              <button
+                type="button"
+                onClick={onOpenInEditor}
+                className="underline hover:opacity-80 cursor-pointer ml-2 shrink-0 font-medium text-sky-300"
+              >
+                打开原生编辑器 →
+              </button>
+            </div>
+          )}
 
           {/* Quick Snippets Insertion Bar */}
           <div

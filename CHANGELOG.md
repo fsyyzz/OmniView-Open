@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.11.9] - 2026-09-17
+
+### Added
+
+- **VS Code 原生编辑器无缝协同通道 (`onOpenInEditor` / `omniview.openSource`)**:
+  - 全驱引导集成：为所有主流驱动与查看器（Mermaid、Graphviz、PlantUML、Domain Storytelling、代码/文本查看器、结构化数据查看器、Markdown 浮动工具栏）统一新增「在原生编辑器中编辑」直达入口与智能引导条；
+  - 深度集成 VS Code 原生文本编辑与 Git/AI 工具链：一键唤起 VS Code 原生文本编辑器，无缝享受 GitHub Copilot、Claude 等 AI 实时补全与 Git Diff / 时间线比对能力；
+  - 双向编辑与光标行协同：保留轻量内嵌检视的同时，引导将沉浸式编辑任务交由 VS Code 原生编辑器处理，并通过双向监听机制实时热同步到 OmniView 画布。
+
 ## [0.11.5] - 2026-09-15
 
 ### Added

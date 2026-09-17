@@ -3,7 +3,7 @@
  * 左：DSL 编辑；右：实时预览；支持 split / preview / editor
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Code, Columns, Copy, Eye, FileCode, Sparkles, Undo2, Redo2 } from 'lucide-react';
+import { Check, Code, Columns, Copy, Eye, FileCode, Sparkles, Undo2, Redo2, ExternalLink } from 'lucide-react';
 import { useTextHistory } from '../../hooks/useTextHistory';
 
 export type DiagramStudioMode = 'split' | 'preview' | 'editor';
@@ -19,6 +19,7 @@ interface DiagramStudioShellProps {
   fileName: string;
   content: string;
   onContentChange?: (content: string) => void;
+  onOpenInEditor?: () => void;
   storageKeyPrefix: string;
   languageLabel: string;
   placeholder: string;
@@ -55,6 +56,7 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   fileName,
   content,
   onContentChange,
+  onOpenInEditor,
   storageKeyPrefix,
   languageLabel,
   placeholder,
@@ -391,6 +393,20 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             </button>
           )}
 
+          {onOpenInEditor && (
+            <button
+              type="button"
+              id="btn-diagram-open-in-native-editor"
+              onClick={onOpenInEditor}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 rounded-lg border border-sky-600/40 transition text-xs font-medium shadow-xs"
+              title="在 VS Code 原生文本编辑器中并排编辑（无缝支持 GitHub Copilot、AI 智能补全/对话、GitLens 与差异对比）"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline">在 VS Code 中编辑</span>
+              <span className="sm:hidden">VS 编辑</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleCopy}
@@ -445,6 +461,22 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
                 <span className="text-slate-500 hidden sm:inline">Tab 缩进 / Shift+Tab 反缩进</span>
               </div>
             </div>
+
+            {onOpenInEditor && (
+              <div className="flex items-center justify-between px-3 py-1 bg-sky-950/40 border-b border-sky-800/30 text-[11px] text-sky-300 shrink-0">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Sparkles className="w-3 h-3 text-sky-400 shrink-0" />
+                  <span className="truncate">需 AI 补全或 Git 差异对比？可使用 VS Code 原生编辑器</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenInEditor}
+                  className="underline hover:text-sky-100 cursor-pointer ml-2 shrink-0 font-medium"
+                >
+                  打开原生编辑器 →
+                </button>
+              </div>
+            )}
 
             {snippets.length > 0 && (
               <div className="flex items-center gap-1 px-2 py-1 bg-slate-950/90 border-b border-slate-800 overflow-x-auto no-scrollbar shrink-0">

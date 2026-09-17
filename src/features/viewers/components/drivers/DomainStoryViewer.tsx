@@ -13,6 +13,7 @@ interface DomainStoryViewerProps {
   fileName?: string;
   locale?: Locale;
   onContentChange?: (content: string) => void;
+  onOpenInEditor?: () => void;
 }
 
 const DOMAIN_STORY_SNIPPETS: DiagramSnippet[] = [
@@ -97,6 +98,7 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
   fileName = 'story.egn',
   locale = 'zh-CN',
   onContentChange,
+  onOpenInEditor,
 }) => {
   const [zoom, setZoom] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
@@ -117,6 +119,7 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
       fileName={fileName}
       content={content}
       onContentChange={onContentChange}
+      onOpenInEditor={onOpenInEditor}
       storageKeyPrefix="domainstory"
       languageLabel="Domain Story (.egn / DSL)"
       placeholder={'title: 业务流转\n1. 买家 -> 下单 -> 商城'}

@@ -130,6 +130,22 @@ npm install
 npm run dev
 ```
 
+### 自动化测试与工程门禁
+
+```bash
+# 运行全部单元测试与驱动验证套件
+npm test
+
+# 运行全量物理门禁与工程构建（含文档一致性与架构校验）
+npm run verify
+```
+
+### 用户设置与状态持久化
+
+OmniView 内置完整的双向配置同步与持久化体系（`settingsStorage`）：
+- **工作区与全局设置持久化**: 主题风格、字号排版、分屏比例、大纲状态与多语言偏好均自动保存在 VS Code 全局与工作区配置中；
+- **渲染状态与历史持久化**: 离线状态下自动持久化编辑缓存与缩放平移视图，下次打开即刻恢复现场。
+
 ### 构建与打包 VS Code 插件 (VSIX)
 
 ```bash
@@ -140,7 +156,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-0.11.2.vsix --force
+code --install-extension omniview-0.11.9.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

@@ -279,6 +279,7 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
           theme={theme}
           density={density}
           onContentChange={persistContent}
+          onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file.path }) : undefined}
         />
       </div>
     </main>
@@ -784,6 +785,12 @@ const MarkdownPluginView: React.FC<{
     [vscode, file.path]
   );
 
+  const handleOpenInEditor = useCallback(() => {
+    if (vscode) {
+      vscode.postMessage({ type: 'open-source', path: file?.path || '' });
+    }
+  }, [vscode, file?.path]);
+
   const currentHeading = headings?.[activeHeadingIndex];
   const fileWordCount = Math.max(1, (file?.content || '').trim().split(/\s+/).filter(Boolean).length || 1);
 
@@ -890,6 +897,7 @@ const MarkdownPluginView: React.FC<{
               onContentChange={handleContentUpdate}
               onRenderComplete={handleRenderComplete}
               onOpenSourceAtLine={handleOpenSourceAtLine}
+              onOpenInEditor={handleOpenInEditor}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
               eagerMount={eagerMountBlocks}
@@ -908,6 +916,7 @@ const MarkdownPluginView: React.FC<{
               onContentChange={handleContentUpdate}
               onRenderComplete={handleRenderComplete}
               onOpenSourceAtLine={handleOpenSourceAtLine}
+              onOpenInEditor={handleOpenInEditor}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
               eagerMount={eagerMountBlocks}
@@ -932,6 +941,7 @@ const MarkdownPluginView: React.FC<{
                 onContentChange={handleContentUpdate}
                 onRenderComplete={handleRenderComplete}
                 onOpenSourceAtLine={handleOpenSourceAtLine}
+                onOpenInEditor={handleOpenInEditor}
                 enableOkf={enableOkfRendering}
                 onToggleOkf={handleToggleOkf}
                 eagerMount={eagerMountBlocks}

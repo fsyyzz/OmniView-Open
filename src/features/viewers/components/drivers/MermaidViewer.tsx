@@ -12,6 +12,7 @@ interface MermaidViewerProps {
   fileName?: string;
   locale?: Locale;
   onContentChange?: (content: string) => void;
+  onOpenInEditor?: () => void;
 }
 
 const MERMAID_SNIPPETS: DiagramSnippet[] = [
@@ -48,6 +49,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   fileName = 'diagram.mmd',
   locale = 'zh-CN',
   onContentChange,
+  onOpenInEditor,
 }) => {
   return (
     <DiagramStudioShell
@@ -55,6 +57,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       fileName={fileName}
       content={content}
       onContentChange={onContentChange}
+      onOpenInEditor={onOpenInEditor}
       storageKeyPrefix="mermaid"
       languageLabel="Mermaid DSL"
       placeholder={'flowchart TD\n  A[开始] --> B[结束]'}

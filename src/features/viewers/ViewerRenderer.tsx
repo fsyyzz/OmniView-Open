@@ -41,6 +41,7 @@ export interface ViewerRendererProps {
   onContentChange: (content: string) => void;
   onRenderComplete?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  onOpenInEditor?: () => void;
   onSelectFile?: (file: FileItem) => void;
   enableOkf?: boolean;
   onToggleOkf?: () => void;
@@ -59,6 +60,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   onContentChange,
   onRenderComplete,
   onOpenSourceAtLine,
+  onOpenInEditor,
   onSelectFile,
   enableOkf,
   onToggleOkf,
@@ -110,7 +112,14 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
       if (mode === 'source') {
         return (
           <div className="flex-1 min-h-0 flex flex-col" style={zoomStyle}>
-            <CodeViewer content={file.content} fileName={file.name} extension={file.extension} locale={locale} onContentChange={onContentChange} />
+            <CodeViewer
+              content={file.content}
+              fileName={file.name}
+              extension={file.extension}
+              locale={locale}
+              onContentChange={onContentChange}
+              onOpenInEditor={onOpenInEditor}
+            />
           </div>
         );
       }
@@ -120,7 +129,14 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
           <div className="flex min-h-0 flex-1 overflow-hidden" data-theme={theme}>
             {/* Left: Source Code Editor */}
             <div className="flex min-h-0 w-1/2 flex-col border-r border-slate-800" style={zoomStyle}>
-              <CodeViewer content={file.content} fileName={file.name} extension={file.extension} locale={locale} onContentChange={onContentChange} />
+              <CodeViewer
+                content={file.content}
+                fileName={file.name}
+                extension={file.extension}
+                locale={locale}
+                onContentChange={onContentChange}
+                onOpenInEditor={onOpenInEditor}
+              />
             </div>
 
             {/* Right: Toggleable Preview / Mindmap */}
@@ -236,6 +252,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
       locale,
       onContentChange,
       onOpenSourceAtLine,
+      onOpenInEditor,
       files,
     };
 

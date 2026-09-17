@@ -12,6 +12,7 @@ interface GraphvizViewerProps {
   fileName?: string;
   locale?: Locale;
   onContentChange?: (content: string) => void;
+  onOpenInEditor?: () => void;
 }
 
 const GRAPHVIZ_SNIPPETS: DiagramSnippet[] = [
@@ -54,6 +55,7 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
   fileName = 'diagram.dot',
   locale = 'zh-CN',
   onContentChange,
+  onOpenInEditor,
 }) => {
   const [zoom, setZoom] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
@@ -75,6 +77,7 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
       fileName={fileName}
       content={content}
       onContentChange={onContentChange}
+      onOpenInEditor={onOpenInEditor}
       storageKeyPrefix="graphviz"
       languageLabel="DOT / Graphviz"
       placeholder={'digraph G {\n  A -> B;\n}'}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
-import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2 } from 'lucide-react';
+import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles } from 'lucide-react';
 import Prism from 'prismjs';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../shared/types';
@@ -27,6 +27,7 @@ interface CodeViewerProps {
   isDarkTheme?: boolean;
   density?: DensityMode;
   onContentChange?: (newContent: string) => void;
+  onOpenInEditor?: () => void;
 }
 
 const STRUCTURED_EXTENSIONS = ['json', 'yaml', 'yml', 'toml', 'xml'];
@@ -41,6 +42,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     isDarkTheme,
     density,
     onContentChange,
+    onOpenInEditor,
   } = props;
 
   const ext = (extension || '').toLowerCase();
@@ -63,6 +65,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
           isDarkTheme={isDarkTheme}
           density={density}
           onContentChange={onContentChange}
+          onOpenInEditor={onOpenInEditor}
         />
       </Suspense>
     );
@@ -523,6 +526,20 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
           )}
 
           {/* Copy Code */}
+          {onOpenInEditor && (
+            <button
+              type="button"
+              id="btn-code-open-in-native-editor"
+              onClick={onOpenInEditor}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 rounded border border-sky-600/40 transition text-xs font-medium"
+              title="在 VS Code 原生文本编辑器中并排编辑（无缝支持 GitHub Copilot、AI 智能补全/对话、GitLens 与差异对比）"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline">{t('openInNativeEditor', locale)}</span>
+              <span className="sm:hidden">VS 编辑</span>
+            </button>
+          )}
+
           <button
             id="btn-code-copy"
             onClick={handleCopy}
@@ -536,35 +553,53 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
 
       {/* Editor / Readonly View Body */}
       {isEditing ? (
-        <div className="flex-1 min-h-0 flex overflow-hidden relative">
-          {/* Synchronized Line Numbers Gutter */}
-          <div
-            ref={lineGutterRef}
-            className="py-3 pl-2 pr-3 text-right text-slate-600 select-none bg-slate-900/60 border-r border-slate-800 font-mono text-xs leading-relaxed shrink-0 min-w-[44px] overflow-hidden"
-          >
-            {lines.map((_, i) => (
-              <div key={i} className="leading-relaxed">
-                {i + 1}
-              </div>
-            ))}
-          </div>
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
+          {onOpenInEditor && (
+            <div className="px-3 py-1 bg-sky-950/70 border-b border-sky-800/40 text-[11px] text-sky-300 flex items-center justify-between shrink-0">
+              <span className="flex items-center gap-1.5 truncate">
+                <Sparkles className="w-3 h-3 text-sky-400 shrink-0" />
+                <span className="truncate">{t('openInNativeEditorHint', locale)}</span>
+              </span>
+              <button
+                type="button"
+                onClick={onOpenInEditor}
+                className="underline hover:text-sky-100 cursor-pointer ml-2 shrink-0 font-medium"
+              >
+                {t('openInNativeEditor', locale)} →
+              </button>
+            </div>
+          )}
 
-          {/* Textarea Editor */}
-          <textarea
-            ref={textareaRef}
-            id="code-editor-textarea"
-            value={editValue}
-            onChange={handleChange}
-            onScroll={handleScroll}
-            onSelect={handleSelect}
-            onKeyUp={handleSelect}
-            onClick={handleSelect}
-            onKeyDown={handleKeyDown}
-            spellCheck={false}
-            autoFocus
-            className="flex-1 w-full p-3 bg-slate-950 text-slate-100 font-mono text-xs leading-relaxed resize-none outline-none border-0 overflow-y-auto selection:bg-blue-600 selection:text-white"
-            placeholder="在此输入或编辑内容..."
-          />
+          <div className="flex-1 min-h-0 flex overflow-hidden relative">
+            {/* Synchronized Line Numbers Gutter */}
+            <div
+              ref={lineGutterRef}
+              className="py-3 pl-2 pr-3 text-right text-slate-600 select-none bg-slate-900/60 border-r border-slate-800 font-mono text-xs leading-relaxed shrink-0 min-w-[44px] overflow-hidden"
+            >
+              {lines.map((_, i) => (
+                <div key={i} className="leading-relaxed">
+                  {i + 1}
+                </div>
+              ))}
+            </div>
+
+            {/* Textarea Editor */}
+            <textarea
+              ref={textareaRef}
+              id="code-editor-textarea"
+              value={editValue}
+              onChange={handleChange}
+              onScroll={handleScroll}
+              onSelect={handleSelect}
+              onKeyUp={handleSelect}
+              onClick={handleSelect}
+              onKeyDown={handleKeyDown}
+              spellCheck={false}
+              autoFocus
+              className="flex-1 w-full p-3 bg-slate-950 text-slate-100 font-mono text-xs leading-relaxed resize-none outline-none border-0 overflow-y-auto selection:bg-blue-600 selection:text-white"
+              placeholder="在此输入或编辑内容..."
+            />
+          </div>
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-auto flex">

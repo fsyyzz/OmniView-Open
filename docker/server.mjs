@@ -139,7 +139,7 @@ const server = http.createServer((req, res) => {
       JSON.stringify({
         status: 'UP',
         service: 'OmniView Unified Rendering Hub',
-        version: '0.11.8',
+        version: '0.11.9',
         author: '周赞',
         timestamp: new Date().toISOString(),
         features: {
