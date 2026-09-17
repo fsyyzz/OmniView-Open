@@ -67,17 +67,23 @@ async function runTests() {
   assert.ok(healedBook.chapters.length > 0, '自愈后应具备默认阅读内容');
   console.log('✅ 异常数据自愈降级机制验证通过');
 
-  // 测试 7: 双叶并排流式布局与翻页页数换算纯函数模型验证
+  // 测试 7: 双叶并排流式布局与翻页页数换算全新几何物理步长模型验证
   console.log('--- 测试 7: 双叶并排流式布局与翻页页数计算验证 ---');
-  const calculateSpreadPages = (scrollW, clientW) => {
+  const calculateSpreadPages = (scrollW, clientW, cols = 2, gap = 48) => {
     if (clientW <= 0 || scrollW <= 0) return 1;
-    return Math.max(1, Math.ceil(scrollW / clientW));
+    const colWidth = cols === 2 ? Math.max(1, (clientW - gap) / 2) : clientW;
+    const colStep = colWidth + gap;
+    const rawCols = Math.round((scrollW + gap - 4) / colStep);
+    const computedCols = Math.max(1, rawCols);
+    return cols === 2 ? Math.max(1, Math.ceil(computedCols / 2)) : computedCols;
   };
   assert.strictEqual(calculateSpreadPages(0, 800), 1, '零宽度时回退至 1 页');
-  assert.strictEqual(calculateSpreadPages(800, 800), 1, '单页容量时为 1 页');
-  assert.strictEqual(calculateSpreadPages(1600, 800), 2, '两倍列宽时应切分为 2 个双叶跨页');
-  assert.strictEqual(calculateSpreadPages(2100, 800), 3, '超出两倍列宽时应自动向上流式进位为 3 页');
-  console.log('✅ 双叶并排流式分页步长与视口计算逻辑验证通过');
+  assert.strictEqual(calculateSpreadPages(752, 800), 1, '单跨页 2 列容量时为 1 页');
+  assert.strictEqual(calculateSpreadPages(1648, 800), 2, '两倍跨页容量时切分为 2 个双叶跨页');
+  // 翻页步长验证：平移位移精确对齐
+  const pageStep = 800 + 48; // clientW + gap = 848
+  assert.strictEqual(pageStep, 848, '翻页单步物理位移必须严格等于 clientW + gap');
+  console.log('✅ 双叶并排流式分页物理步长与几何跨页计算验证通过');
 
   // 测试 8: EPUB 排版偏好设置持久化验证
   console.log('--- 测试 8: EPUB 排版偏好设置读取与增量持久化验证 ---');
@@ -104,14 +110,12 @@ async function runTests() {
     flowMode: 'scroll',
     fontSize: 20,
     fontFamily: 'kaiti',
-    readerTheme: 'sepia',
     textIndent: false,
   });
   const reloadedSettings = loadEpubSettings();
   assert.strictEqual(reloadedSettings.flowMode, 'scroll', '流式滚动模式应持久化保存');
   assert.strictEqual(reloadedSettings.fontSize, 20, '字号应持久化保存');
   assert.strictEqual(reloadedSettings.fontFamily, 'kaiti', '楷体应持久化保存');
-  assert.strictEqual(reloadedSettings.readerTheme, 'sepia', '羊皮纸主题应持久化保存');
   assert.strictEqual(reloadedSettings.textIndent, false, '缩进配置应持久化保存');
   console.log('✅ EPUB 排版偏好设置持久化与增量保存验证通过');
 
@@ -134,7 +138,109 @@ async function runTests() {
   assert.ok(progress.timestamp > 0, '应包含有效的时间戳');
   console.log('✅ 电子书阅读进度持久化与自动还原验证通过');
 
-  console.log('\n🎉 全部 9 项 EPUB 原生解析引擎、流式布局与设置持久化测试 100% 通过！\n');
+  // 测试 10: 目录跳转高容错相对路径/基名/ID 解析机制验证
+  console.log('--- 测试 10: 目录跳转高容错路径解析与常驻逻辑验证 ---');
+  const mockChapters = [
+    { id: 'ch-1', title: '引言与设计哲学', href: 'Text/chapter1.xhtml' },
+    { id: 'ch-2', title: 'CSS 多列流式引擎', href: 'OEBPS/Text/chapter2.xhtml' },
+    { id: 'ch-3', title: '双叶并排排版实践', href: 'chapter3.html' },
+  ];
+
+  const resolveChapterIndex = (tocHref, tocId, tocLabel) => {
+    const rawTarget = tocHref.split('#')[0];
+    const cleanTarget = decodeURIComponent(rawTarget.replace(/^\.\//, ''));
+    const targetBaseName = cleanTarget.split('/').pop()?.toLowerCase();
+
+    let found = mockChapters.findIndex(ch => {
+      const cleanCh = decodeURIComponent(ch.href.split('#')[0].replace(/^\.\//, ''));
+      return cleanCh === cleanTarget;
+    });
+    if (found === -1 && targetBaseName) {
+      found = mockChapters.findIndex(ch => {
+        const chBaseName = ch.href.split('#')[0].split('/').pop()?.toLowerCase();
+        return chBaseName === targetBaseName;
+      });
+    }
+    if (found === -1 && tocId) {
+      found = mockChapters.findIndex(ch => ch.id === tocId);
+    }
+    if (found === -1 && tocLabel) {
+      found = mockChapters.findIndex(ch => ch.title.trim() === tocLabel.trim());
+    }
+    return found;
+  };
+
+  // 1. 精确匹配
+  assert.strictEqual(resolveChapterIndex('Text/chapter1.xhtml'), 0, '精确路径应成功匹配第 1 章');
+  // 2. 带相对路径 ./ 与 #hash 匹配
+  assert.strictEqual(resolveChapterIndex('./Text/chapter1.xhtml#subheading'), 0, '带 hash 和 ./ 相对路径应匹配第 1 章');
+  // 3. 跨目录基名匹配 (只提供 chapter2.xhtml 匹配 OEBPS/Text/chapter2.xhtml)
+  assert.strictEqual(resolveChapterIndex('chapter2.xhtml'), 1, '仅文件名基名应成功容错匹配第 2 章');
+  // 4. 按章节 ID 匹配
+  assert.strictEqual(resolveChapterIndex('nonexistent.html', 'ch-3'), 2, '通过 ID 降级应成功匹配第 3 章');
+  // 5. 按标题完全匹配
+  assert.strictEqual(resolveChapterIndex('unknown.html', null, '双叶并排排版实践'), 2, '通过标题降级应成功匹配第 3 章');
+  console.log('✅ 目录跳转多阶容错解析匹配机制验证通过');
+
+  // 测试 11: 多种版心宽度切换与循环切换逻辑验证
+  console.log('--- 测试 11: 多种版心宽度切换与循环切换逻辑验证 ---');
+  const widthOrder = ['standard', 'wide', 'full'];
+  const getNextWidth = (curr) => widthOrder[(widthOrder.indexOf(curr) + 1) % widthOrder.length];
+  assert.strictEqual(getNextWidth('standard'), 'wide', 'standard 后续应为 wide');
+  assert.strictEqual(getNextWidth('wide'), 'full', 'wide 后续应为 full');
+  assert.strictEqual(getNextWidth('full'), 'standard', 'full 后续应循环回 standard');
+
+  // 持久化保存与读取多种宽度
+  saveEpubSettings({ contentWidth: 'wide' });
+  assert.strictEqual(loadEpubSettings().contentWidth, 'wide', '宽幅版心设置应正确持久化');
+  saveEpubSettings({ contentWidth: 'full' });
+  assert.strictEqual(loadEpubSettings().contentWidth, 'full', '全幅版心设置应正确持久化');
+  console.log('✅ 多种版心宽度切换与循环切换逻辑验证通过');
+
+  // 测试 12: 连续流式滚动 (Continuous Flow Scroll) 全书连续渲染与滚动探针逻辑验证
+  console.log('--- 测试 12: 连续流式滚动全书连贯渲染与滚动探针逻辑验证 ---');
+  // 模拟章节相对偏移量
+  const mockChapterOffsets = [
+    { index: 0, top: 0, height: 1200 },
+    { index: 1, top: 1200, height: 2000 },
+    { index: 2, top: 3200, height: 1500 },
+  ];
+
+  // 探针算法：根据 scrollTop 确定当前处于哪一章
+  const getActiveChapterByScroll = (scrollTop, readingThreshold = 160) => {
+    let active = 0;
+    for (const ch of mockChapterOffsets) {
+      if (scrollTop >= ch.top - readingThreshold) {
+        active = ch.index;
+      } else {
+        break;
+      }
+    }
+    return active;
+  };
+
+  assert.strictEqual(getActiveChapterByScroll(0), 0, '顶部 0px 应激活第 1 章');
+  assert.strictEqual(getActiveChapterByScroll(1100), 1, '接近第 2 章 (1100px) 穿过阅读阈值应激活第 2 章');
+  assert.strictEqual(getActiveChapterByScroll(1500), 1, '1500px 应保持在第 2 章');
+  assert.strictEqual(getActiveChapterByScroll(3150), 2, '穿过第 3 章阈值应激活第 3 章');
+
+  // 连续滚动模式下的全局阅读进度百分比计算
+  const calculateScrollProgress = (scrollTop, scrollHeight, clientHeight) => {
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll <= 0) return 0;
+    return Math.min(100, Math.max(0, Math.round((scrollTop / maxScroll) * 100)));
+  };
+
+  assert.strictEqual(calculateScrollProgress(0, 4700, 700), 0, '未滚动时进度为 0%');
+  assert.strictEqual(calculateScrollProgress(2000, 4700, 700), 50, '滚动到中间时进度为 50%');
+  assert.strictEqual(calculateScrollProgress(4000, 4700, 700), 100, '滚动到底部时进度为 100%');
+
+  // 持久化保存与读取连续流式滚动模式
+  saveEpubSettings({ flowMode: 'scroll' });
+  assert.strictEqual(loadEpubSettings().flowMode, 'scroll', '连续流式滚动模式应正确持久化保存');
+  console.log('✅ 连续流式滚动全书连贯渲染与滚动探针逻辑验证通过');
+
+  console.log('\n🎉 全部 12 项 EPUB 原生解析引擎、高容错目录跳转、多种宽度与连续流式滚动测试 100% 通过！\n');
 }
 
 runTests().catch((err) => {

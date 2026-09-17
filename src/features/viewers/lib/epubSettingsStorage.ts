@@ -15,8 +15,6 @@ export interface EpubReaderSettings {
   flowMode: EpubFlowMode;
   /** 是否开启 3D 拟真翻书动效 */
   enableFlipEffect: boolean;
-  /** 阅读色彩主题 */
-  readerTheme: EpubReaderTheme;
   /** 阅读字号 (px: 13 ~ 28) */
   fontSize: number;
   /** 行高比例 (1.4 ~ 2.2) */
@@ -44,7 +42,6 @@ export const EPUB_PROGRESS_STORAGE_PREFIX = 'omniview:epub:progress:';
 export const DEFAULT_EPUB_SETTINGS: EpubReaderSettings = {
   flowMode: 'spread',
   enableFlipEffect: true,
-  readerTheme: 'auto',
   fontSize: 17,
   lineHeight: 1.75,
   contentWidth: 'wide',
@@ -78,10 +75,6 @@ export function loadEpubSettings(): EpubReaderSettings {
       ? parsed.enableFlipEffect
       : DEFAULT_EPUB_SETTINGS.enableFlipEffect;
 
-    const readerTheme: EpubReaderTheme = ['auto', 'sepia', 'light', 'dark', 'midnight'].includes(parsed.readerTheme)
-      ? parsed.readerTheme
-      : DEFAULT_EPUB_SETTINGS.readerTheme;
-
     const fontSize = typeof parsed.fontSize === 'number'
       ? Math.min(28, Math.max(13, Math.round(parsed.fontSize)))
       : DEFAULT_EPUB_SETTINGS.fontSize;
@@ -109,7 +102,6 @@ export function loadEpubSettings(): EpubReaderSettings {
     return {
       flowMode,
       enableFlipEffect,
-      readerTheme,
       fontSize,
       lineHeight,
       contentWidth,

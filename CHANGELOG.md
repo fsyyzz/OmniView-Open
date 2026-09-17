@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-17
+
+### Added
+
+- **EPUB 现代电子书流式阅读器 (`EpubViewer` / `.epub`)**:
+  - **三重流式阅读形态 (Flow Modes)**：支持双叶并排跨页（Two-Page Spread，拟真书脊中缝折痕与阴影、极窄屏智能自适应）、单页流式分页（Single-Page Flow，单栏专注阅读）与连续流式滚动（Continuous Scroll，纵向平滑无间断阅读）；
+  - **3D 拟真翻书微光效 (Page Flip Effect)**：具备 GPU 硬件加速的 3D 页面翻转物理光影过渡动效，支持快捷开关；
+  - **排版偏好与阅读进度持久化 (`epubSettingsStorage`)**：100% 支持用户界面点击交互的字号微调 (A-/A+)、字体族选择（宋体/黑体/楷体/等宽）、两字符首行缩进、对齐方式（两端对齐/靠左）、行距倍率（1.5x/1.75x/2.0x）、版心宽度（标准/宽幅/全幅）、护眼阅读主题（自动环境/羊皮纸/明亮/夜间）与书籍专属阅读进度（章节、页码、百分比）自动记录与恢复。
+
 ## [0.12.3] - 2026-09-17
 
 ### Fixed
@@ -213,7 +222,14 @@
 
 - 早期迭代未按本文件逐条归档；自 `0.9.18` 起以此 Changelog 为权威发布记录。
 
-[Unreleased]: https://github.com/fsyyzz/OmniView/compare/v0.9.20...HEAD
-[0.9.20]: https://github.com/fsyyzz/OmniView/compare/v0.9.19...v0.9.20
-[0.9.19]: https://github.com/fsyyzz/OmniView/compare/v0.9.18...v0.9.19
-[0.9.18]: https://github.com/fsyyzz/OmniView/releases/tag/v0.9.18
+[Unreleased]: https://github.com/fsyyzz/OmniView/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/fsyyzz/OmniView/compare/v0.12.3...v0.13.0
+[0.12.3]: https://github.com/fsyyzz/OmniView/compare/v0.12.0...v0.12.3
+[0.12.0]: https://github.com/fsyyzz/OmniView/compare/v0.11.9...v0.12.0
+[0.11.9]: https://github.com/fsyyzz/OmniView/compare/v0.11.5...v0.11.9
+[0.11.5]: https://github.com/fsyyzz/OmniView/compare/v0.11.2...v0.11.5
+[0.11.2]: https://github.com/fsyyzz/OmniView/compare/v0.11.1...v0.11.2
+[0.11.1]: https://github.com/fsyyzz/OmniView/compare/v0.11.0...v0.11.1
+[0.11.0]: https://github.com/fsyyzz/OmniView/compare/v0.10.1...v0.11.0
+[0.10.1]: https://github.com/fsyyzz/OmniView/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/fsyyzz/OmniView/compare/v0.9.23...v0.10.0

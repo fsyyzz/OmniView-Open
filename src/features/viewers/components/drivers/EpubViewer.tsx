@@ -22,9 +22,6 @@ import {
   Minimize2,
   Info,
   BookMarked,
-  Sun,
-  Moon,
-  Coffee,
   AlignLeft,
   AlignJustify,
   X,
@@ -34,6 +31,9 @@ import {
   RotateCcw,
   Smartphone,
   Type,
+  FoldHorizontal,
+  UnfoldHorizontal,
+  MoveHorizontal,
 } from 'lucide-react';
 import {
   parseEpub,
@@ -49,7 +49,6 @@ import {
   saveEpubProgress,
   type EpubReaderSettings,
   type EpubFlowMode,
-  type EpubReaderTheme,
   type EpubFontFamily,
   type EpubContentWidth,
   DEFAULT_EPUB_SETTINGS,
@@ -73,6 +72,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   binaryUrl,
   fileName = 'ebook.epub',
   fileSize,
+  theme,
   isDarkTheme = true,
   locale = 'zh-CN',
 }) => {
@@ -97,14 +97,28 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   const [tocSearch, setTocSearch] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isNarrowViewport, setIsNarrowViewport] = useState<boolean>(false);
+  const [viewportWidth, setViewportWidth] = useState<number>(0);
+  const [viewportHeight, setViewportHeight] = useState<number>(0);
   const [progressRestoredToast, setProgressRestoredToast] = useState<string | null>(null);
+  const [scrollProgressPercent, setScrollProgressPercent] = useState<number>(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const continuousScrollContainerRef = useRef<HTMLDivElement>(null);
   const spreadColumnsWrapperRef = useRef<HTMLDivElement>(null);
   const typographyMenuRef = useRef<HTMLDivElement>(null);
   const flipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRestoredProgressRef = useRef<boolean>(false);
+  const isUserScrollingRef = useRef<boolean>(false);
+  const scrollSpyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 实际生效的多列列数：双叶且宽屏时 2 栏，否则 1 栏
+  const effectiveColumnsCount = settings.flowMode === 'spread' && !isNarrowViewport ? '2' : '1';
+  // 双叶排版列间距 48px，单页排版列间距 32px
+  const columnGapPx = effectiveColumnsCount === '2' ? 48 : 32;
+  // 翻页物理步长：单页跨越宽度 = 视口宽度 + 跨页间距
+  const pageStepPx = viewportWidth > 0 ? viewportWidth + columnGapPx : 0;
+  const pageTranslationX = currentPageIndex * pageStepPx;
 
   // 书籍标识符，用于进度本地持久化隔离
   const bookStorageKey = useMemo(() => {
@@ -191,7 +205,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   // 当前是否处于分页流式模式 (双叶并排 或 单页流式)
   const isPaginatedMode = settings.flowMode === 'spread' || settings.flowMode === 'single';
 
-  // 视口宽度监听与流式多列分页总页数计算
+  // 视口宽度监听与流式多列分页总页数计算 (基于 CSS Multi-Column 物理步长)
   const recalculateSpreadPages = useCallback(() => {
     if (!isPaginatedMode || !spreadColumnsWrapperRef.current) {
       setTotalSpreadPages(1);
@@ -199,30 +213,64 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     }
     const el = spreadColumnsWrapperRef.current;
     const clientW = el.clientWidth;
+    const clientH = el.clientHeight;
     const scrollW = el.scrollWidth;
 
-    // 检查是否极窄屏幕
-    if (clientW < 768 && !isNarrowViewport) {
-      setIsNarrowViewport(true);
-    } else if (clientW >= 768 && isNarrowViewport) {
-      setIsNarrowViewport(false);
-    }
+    if (clientW <= 0) return;
 
-    if (clientW > 0 && scrollW > 0) {
-      const count = Math.max(1, Math.ceil(scrollW / clientW));
-      setTotalSpreadPages(count);
-      setCurrentPageIndex(prev => Math.min(prev, Math.max(0, count - 1)));
-    }
-  }, [isPaginatedMode, isNarrowViewport]);
+    setViewportWidth(clientW);
+    setViewportHeight(clientH);
 
-  // 窗口大小变动或排版变化时重算分页
+    // 检查是否极窄屏幕 (< 640px 强制退化为单列)
+    const narrow = clientW < 640;
+    setIsNarrowViewport(narrow);
+
+    const cols = settings.flowMode === 'spread' && !narrow ? 2 : 1;
+    const gap = cols === 2 ? 48 : 32;
+    const colWidth = cols === 2 ? Math.max(1, (clientW - gap) / 2) : clientW;
+    const colStep = colWidth + gap;
+
+    if (clientW > 0 && scrollW > 0 && colStep > 0) {
+      // CSS Multi-Column 理论几何关系:
+      // scrollW = N * colWidth + (N - 1) * gap = N * colStep - gap
+      // 故 N = (scrollW + gap) / colStep
+      // 减去 4px 弹性容差缓冲以平抑亚像素与浮点舍入误差
+      const rawCols = Math.round((scrollW + gap - 4) / colStep);
+      const computedCols = Math.max(1, rawCols);
+      const pages = cols === 2 ? Math.max(1, Math.ceil(computedCols / 2)) : computedCols;
+
+      setTotalSpreadPages(pages);
+      setCurrentPageIndex(prev => Math.min(prev, Math.max(0, pages - 1)));
+    }
+  }, [isPaginatedMode, settings.flowMode]);
+
+  // 监听多列视口容器真实几何尺寸变动 (包含侧边栏切换、全屏开合、窗口缩放)
+  useEffect(() => {
+    if (!spreadColumnsWrapperRef.current || !isPaginatedMode) return;
+    const el = spreadColumnsWrapperRef.current;
+    const ro = new ResizeObserver(() => {
+      recalculateSpreadPages();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [recalculateSpreadPages, isPaginatedMode]);
+
+  // 排版变化或窗口大小变动时多阶重算分页
   useEffect(() => {
     recalculateSpreadPages();
+    const rafId = requestAnimationFrame(() => {
+      recalculateSpreadPages();
+    });
+    const timer = setTimeout(recalculateSpreadPages, 80);
     const handleResize = () => {
       recalculateSpreadPages();
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
   }, [
     recalculateSpreadPages,
     currentChapterIndex,
@@ -232,17 +280,82 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     settings.contentWidth,
     settings.fontFamily,
     settings.textIndent,
+    settings.textAlign,
   ]);
+
+  // 平滑滚动至指定章节 (连续流式滚动模式专属)
+  const scrollToChapter = useCallback((targetIndex: number, behavior: ScrollBehavior = 'smooth') => {
+    if (!book || book.chapters.length === 0) return;
+    const clamped = Math.max(0, Math.min(book.chapters.length - 1, targetIndex));
+    isUserScrollingRef.current = false;
+    setCurrentChapterIndex(clamped);
+    if (!isPaginatedMode) {
+      const el = document.getElementById(`epub-chapter-node-${clamped}`);
+      if (el) {
+        el.scrollIntoView({ behavior, block: 'start' });
+      }
+    }
+  }, [book, isPaginatedMode]);
+
+  // 连续流式滚动模式下的滚动位置与章节探针监听 (Scroll Spy)
+  const handleContinuousScroll = useCallback(() => {
+    if (isPaginatedMode || !continuousScrollContainerRef.current) return;
+    const container = continuousScrollContainerRef.current;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll > 0) {
+      const pct = Math.min(100, Math.max(0, Math.round((scrollTop / maxScroll) * 100)));
+      setScrollProgressPercent(pct);
+    }
+
+    // 查找当前视口中正在阅读的章节
+    const sectionNodes = container.querySelectorAll<HTMLElement>('.epub-chapter-section');
+    if (sectionNodes.length === 0) return;
+
+    const containerTop = container.getBoundingClientRect().top;
+    let activeIndex = 0;
+
+    for (let i = 0; i < sectionNodes.length; i++) {
+      const node = sectionNodes[i];
+      const rect = node.getBoundingClientRect();
+      const relativeTop = rect.top - containerTop;
+      // 当章节顶部穿过视口阅读线（顶部下方 160px）
+      if (relativeTop <= 160) {
+        activeIndex = i;
+      } else {
+        break;
+      }
+    }
+
+    if (activeIndex !== currentChapterIndex) {
+      isUserScrollingRef.current = true;
+      setCurrentChapterIndex(activeIndex);
+      if (scrollSpyTimerRef.current) {
+        clearTimeout(scrollSpyTimerRef.current);
+      }
+      scrollSpyTimerRef.current = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 200);
+    }
+  }, [isPaginatedMode, currentChapterIndex]);
 
   // 章节切换
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
+    if (isPaginatedMode) {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+      setCurrentPageIndex(0);
+      const rafId = requestAnimationFrame(() => {
+        recalculateSpreadPages();
+      });
+      const timer = setTimeout(recalculateSpreadPages, 80);
+      return () => {
+        cancelAnimationFrame(rafId);
+        clearTimeout(timer);
+      };
     }
-    setCurrentPageIndex(0);
-    const timer = setTimeout(recalculateSpreadPages, 60);
-    return () => clearTimeout(timer);
-  }, [currentChapterIndex, recalculateSpreadPages]);
+  }, [currentChapterIndex, isPaginatedMode, recalculateSpreadPages]);
 
   const currentChapter: EpubChapter | undefined = book?.chapters[currentChapterIndex];
   const totalChapters = book?.chapters.length || 0;
@@ -254,8 +367,11 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       const chapterFraction = (currentPageIndex + 1) / Math.max(1, totalSpreadPages);
       return Math.min(100, Math.round(((currentChapterIndex + chapterFraction) / totalChapters) * 100));
     }
+    if (scrollProgressPercent > 0) {
+      return scrollProgressPercent;
+    }
     return Math.min(100, Math.round(((currentChapterIndex + 1) / totalChapters) * 100));
-  }, [totalChapters, isPaginatedMode, currentChapterIndex, currentPageIndex, totalSpreadPages]);
+  }, [totalChapters, isPaginatedMode, currentChapterIndex, currentPageIndex, totalSpreadPages, scrollProgressPercent]);
 
   // 自动保存阅读进度（带防抖）
   useEffect(() => {
@@ -301,10 +417,10 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       }
     } else {
       if (currentChapterIndex > 0) {
-        setCurrentChapterIndex(c => c - 1);
+        scrollToChapter(currentChapterIndex - 1, 'smooth');
       }
     }
-  }, [isPaginatedMode, currentPageIndex, currentChapterIndex, settings.enableFlipEffect]);
+  }, [isPaginatedMode, currentPageIndex, currentChapterIndex, settings.enableFlipEffect, scrollToChapter]);
 
   // 翻到下一页/下一章
   const goToNext = useCallback(() => {
@@ -320,7 +436,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       }
     } else {
       if (book && currentChapterIndex < totalChapters - 1) {
-        setCurrentChapterIndex(c => c + 1);
+        scrollToChapter(currentChapterIndex + 1, 'smooth');
       }
     }
   }, [
@@ -331,6 +447,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     currentChapterIndex,
     totalChapters,
     settings.enableFlipEffect,
+    scrollToChapter,
   ]);
 
   // 键盘快捷键监听 (← / → 翻页/翻章，Space 下一页)
@@ -351,15 +468,56 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [goToPrev, goToNext, isPaginatedMode]);
 
-  // 目录跳转
+  // 循环切换多种版心宽度 (标准 720/880px -> 宽幅 960/1180px -> 全幅 100%)
+  const cycleContentWidth = useCallback(() => {
+    const order: EpubContentWidth[] = ['standard', 'wide', 'full'];
+    const nextWidth = order[(order.indexOf(settings.contentWidth) + 1) % order.length];
+    updateSetting('contentWidth', nextWidth);
+    setTimeout(recalculateSpreadPages, 50);
+  }, [settings.contentWidth, updateSetting, recalculateSpreadPages]);
+
+  // 目录跳转：高容错路径匹配，桌面端选定章节后保持目录常驻打开，窄屏移动端才自动收起
   const jumpToToc = (tocItem: EpubTocItem) => {
-    if (!book) return;
-    const targetFile = tocItem.href.split('#')[0];
-    const foundIndex = book.chapters.findIndex(ch => ch.href.split('#')[0] === targetFile);
+    if (!book || book.chapters.length === 0) return;
+    const rawTarget = tocItem.href.split('#')[0];
+    const cleanTarget = decodeURIComponent(rawTarget.replace(/^\.\//, ''));
+    const targetBaseName = cleanTarget.split('/').pop()?.toLowerCase();
+
+    // 1. 精确相对路径匹配
+    let foundIndex = book.chapters.findIndex(ch => {
+      const cleanCh = decodeURIComponent(ch.href.split('#')[0].replace(/^\.\//, ''));
+      return cleanCh === cleanTarget;
+    });
+
+    // 2. 文件名基名降级匹配 (例如 text/ch01.xhtml 匹配 ch01.xhtml)
+    if (foundIndex === -1 && targetBaseName) {
+      foundIndex = book.chapters.findIndex(ch => {
+        const chBaseName = ch.href.split('#')[0].split('/').pop()?.toLowerCase();
+        return chBaseName === targetBaseName;
+      });
+    }
+
+    // 3. 按 spine/item ID 匹配
+    if (foundIndex === -1 && tocItem.id) {
+      foundIndex = book.chapters.findIndex(ch => ch.id === tocItem.id);
+    }
+
+    // 4. 按章节标题全等匹配
+    if (foundIndex === -1 && tocItem.label) {
+      foundIndex = book.chapters.findIndex(ch => ch.title.trim() === tocItem.label.trim());
+    }
+
     if (foundIndex !== -1) {
-      setCurrentChapterIndex(foundIndex);
-      setCurrentPageIndex(0);
-      setShowToc(false);
+      if (isPaginatedMode) {
+        setCurrentChapterIndex(foundIndex);
+        setCurrentPageIndex(0);
+      } else {
+        scrollToChapter(foundIndex, 'smooth');
+      }
+      // 桌面端保持目录常驻展开（方便用户连续浏览大纲），仅在小屏移动设备 (< 640px) 遮挡全文时才自动收起
+      if (typeof window !== 'undefined' && window.innerWidth < 640) {
+        setShowToc(false);
+      }
     }
   };
 
@@ -381,63 +539,16 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     }
   };
 
-  // 主题色彩计算
-  const themeStyles = useMemo(() => {
-    if (settings.readerTheme === 'sepia') {
-      return {
-        bg: '#fbf0d9',
-        paper: '#f6ebd0',
-        text: '#5c4832',
-        subtext: '#8c7358',
-        border: '#ebd9b8',
-        accent: '#b45309',
-        toolbarBg: '#f2e3c6',
-      };
-    }
-    if (settings.readerTheme === 'light') {
-      return {
-        bg: '#f8fafc',
-        paper: '#ffffff',
-        text: '#1e293b',
-        subtext: '#64748b',
-        border: '#e2e8f0',
-        accent: '#2563eb',
-        toolbarBg: '#f1f5f9',
-      };
-    }
-    if (settings.readerTheme === 'midnight') {
-      return {
-        bg: '#050811',
-        paper: '#0b1120',
-        text: '#cbd5e1',
-        subtext: '#64748b',
-        border: '#1e293b',
-        accent: '#60a5fa',
-        toolbarBg: '#0f172a',
-      };
-    }
-    if (settings.readerTheme === 'dark') {
-      return {
-        bg: '#0f172a',
-        paper: '#1e293b',
-        text: '#e2e8f0',
-        subtext: '#94a3b8',
-        border: '#334155',
-        accent: '#38bdf8',
-        toolbarBg: '#1e293b',
-      };
-    }
-    // 'auto': 跟随 OmniView / VS Code 整体变量
-    return {
-      bg: 'var(--ov-bg, #0f172a)',
-      paper: 'var(--ov-card-bg, #1e293b)',
-      text: 'var(--ov-fg, #e2e8f0)',
-      subtext: 'var(--ov-fg-muted, #94a3b8)',
-      border: 'var(--ov-border, #334155)',
-      accent: 'var(--ov-accent, #3b82f6)',
-      toolbarBg: 'var(--ov-sidebar-bg, #1e293b)',
-    };
-  }, [settings.readerTheme, isDarkTheme]);
+  // 主题色彩计算 (100% 依托 OmniView 整体主题与 --ov-* 设计令牌，保持与工作台及全应用主题统一)
+  const themeStyles = useMemo(() => ({
+    bg: 'var(--ov-bg)',
+    paper: 'var(--ov-card-bg)',
+    text: 'var(--ov-fg)',
+    subtext: 'var(--ov-fg-muted)',
+    border: 'var(--ov-border)',
+    accent: 'var(--ov-accent)',
+    toolbarBg: 'var(--ov-sidebar-bg)',
+  }), []);
 
   // 字体族 CSS 规则计算
   const fontFamilyCss = useMemo(() => {
@@ -478,9 +589,6 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         : 'max-w-full';
   }, [settings.flowMode, settings.contentWidth]);
 
-  // 实际生效的多列列数：双叶且宽屏时 2 栏，否则 1 栏
-  const effectiveColumnsCount = settings.flowMode === 'spread' && !isNarrowViewport ? '2' : '1';
-
   if (loading) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center select-none" style={{ background: themeStyles.bg, color: themeStyles.text }}>
@@ -514,6 +622,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   return (
     <div
       ref={containerRef}
+      data-theme={theme}
       className="w-full h-full flex flex-col overflow-hidden relative select-none font-sans"
       style={{
         background: themeStyles.bg,
@@ -652,16 +761,74 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
             <button
               onClick={() => {
                 updateSetting('flowMode', 'scroll');
+                setTimeout(() => {
+                  const targetEl = document.getElementById(`epub-chapter-node-${currentChapterIndex}`);
+                  if (targetEl) {
+                    targetEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+                  }
+                }, 60);
               }}
               className={`px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
                 settings.flowMode === 'scroll'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
               }`}
-              title="连续流式滚动 (纵向无间断平滑阅读)"
+              title="连续流式滚动 (纵向全书无间断阅读)"
             >
               <ScrollText className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">滚动</span>
+              <span className="hidden xl:inline">连续滚动</span>
+            </button>
+          </div>
+
+          {/* 多种版心宽度快捷切换组 (标准 880px / 宽幅 1180px / 全幅 100%) */}
+          <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border" style={{ borderColor: themeStyles.border }}>
+            <button
+              onClick={() => {
+                updateSetting('contentWidth', 'standard');
+                setTimeout(recalculateSpreadPages, 50);
+              }}
+              className={`px-1.5 sm:px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
+                settings.contentWidth === 'standard'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
+              }`}
+              title="标准版心宽度 (Standard: 720~880px)"
+              aria-label="标准版心宽度"
+            >
+              <FoldHorizontal className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">标准</span>
+            </button>
+            <button
+              onClick={() => {
+                updateSetting('contentWidth', 'wide');
+                setTimeout(recalculateSpreadPages, 50);
+              }}
+              className={`px-1.5 sm:px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
+                settings.contentWidth === 'wide'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
+              }`}
+              title="宽幅版心宽度 (Wide: 1000~1180px)"
+              aria-label="宽幅版心宽度"
+            >
+              <UnfoldHorizontal className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">宽幅</span>
+            </button>
+            <button
+              onClick={() => {
+                updateSetting('contentWidth', 'full');
+                setTimeout(recalculateSpreadPages, 50);
+              }}
+              className={`px-1.5 sm:px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
+                settings.contentWidth === 'full'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
+              }`}
+              title="全幅满屏宽度 (Full: 100%)"
+              aria-label="全幅满屏宽度"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">全幅</span>
             </button>
           </div>
 
@@ -706,46 +873,6 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
               title="放大字号"
             >
               A+
-            </button>
-          </div>
-
-          {/* 阅读主题切换 */}
-          <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border" style={{ borderColor: themeStyles.border }}>
-            <button
-              onClick={() => updateSetting('readerTheme', 'auto')}
-              className={`p-1 rounded text-[10px] transition ${
-                settings.readerTheme === 'auto' ? 'bg-blue-600 text-white' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="自动环境主题"
-            >
-              自
-            </button>
-            <button
-              onClick={() => updateSetting('readerTheme', 'sepia')}
-              className={`p-1 rounded text-[10px] transition ${
-                settings.readerTheme === 'sepia' ? 'bg-amber-600 text-white' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="羊皮纸护眼模式"
-            >
-              <Coffee className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => updateSetting('readerTheme', 'light')}
-              className={`p-1 rounded text-[10px] transition ${
-                settings.readerTheme === 'light' ? 'bg-slate-400 text-white' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="明亮纯白模式"
-            >
-              <Sun className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => updateSetting('readerTheme', 'dark')}
-              className={`p-1 rounded text-[10px] transition ${
-                settings.readerTheme === 'dark' ? 'bg-slate-700 text-white' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="夜间深色模式"
-            >
-              <Moon className="w-3 h-3" />
             </button>
           </div>
 
@@ -988,6 +1115,8 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
               <button
                 onClick={() => setShowToc(false)}
                 className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10"
+                title="收起目录抽屉"
+                aria-label="收起目录抽屉"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1016,21 +1145,36 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {filteredToc.length > 0 ? (
                 filteredToc.map((item, idx) => {
-                  const targetFile = item.href.split('#')[0];
-                  const isCurrent = currentChapter?.href.split('#')[0] === targetFile;
+                  const cleanItem = decodeURIComponent(item.href.split('#')[0].replace(/^\.\//, ''));
+                  const cleanCh = currentChapter ? decodeURIComponent(currentChapter.href.split('#')[0].replace(/^\.\//, '')) : '';
+                  const itemBase = cleanItem.split('/').pop()?.toLowerCase();
+                  const chBase = cleanCh.split('/').pop()?.toLowerCase();
+                  const isCurrent =
+                    cleanItem === cleanCh ||
+                    (!!itemBase && !!chBase && itemBase === chBase) ||
+                    (!!item.id && currentChapter?.id === item.id) ||
+                    (!!item.label && currentChapter?.title === item.label);
+
                   return (
                     <button
                       key={`${item.href}-${idx}`}
                       onClick={() => jumpToToc(item)}
                       style={{ paddingLeft: '8px' }}
-                      className={`w-full py-1.5 pr-2 rounded text-left text-xs transition flex items-center justify-between ${
+                      title={item.label}
+                      className={`w-full py-2 pr-2.5 rounded-lg text-left text-xs transition flex items-center justify-between group ${
                         isCurrent
-                          ? 'bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+                          ? 'bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold shadow-2xs'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
                       }`}
                     >
-                      <span className="truncate">{item.label}</span>
-                      {isCurrent && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 ml-2" />}
+                      <span className="truncate pr-2">{item.label}</span>
+                      {isCurrent ? (
+                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 ml-1 shadow-xs ring-2 ring-blue-500/20" />
+                      ) : (
+                        <span className="text-[10px] font-mono opacity-30 group-hover:opacity-60 shrink-0">
+                          #{idx + 1}
+                        </span>
+                      )}
                     </button>
                   );
                 })
@@ -1188,52 +1332,56 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
                   </>
                 )}
 
-                {/* 流式分页容器 (CSS Multi-Column 流式排版引擎) */}
-                <div
-                  ref={spreadColumnsWrapperRef}
-                  className="w-full h-full relative overflow-hidden transition-transform duration-300 ease-out"
-                >
+                {/* 装订内边距舞台 (Content Stage)：四周提供均一对称留白，消除单侧 padding 导致的跨页漂移与截断 */}
+                <div className="w-full h-full p-4 sm:p-6 lg:p-8 flex flex-col box-border overflow-hidden relative">
+                  {/* 流式分页视口容器 (CSS Multi-Column 流式排版引擎) */}
                   <div
-                    className="h-full transition-transform duration-300 ease-out"
-                    style={{
-                      transform: `translateX(-${currentPageIndex * 100}%)`,
-                    }}
+                    ref={spreadColumnsWrapperRef}
+                    className="w-full h-full relative overflow-hidden"
                   >
-                    <article
-                      className="h-full px-6 sm:px-12 py-8 box-border"
+                    <div
+                      className="h-full transition-transform duration-300 ease-out"
                       style={{
-                        columns: effectiveColumnsCount,
-                        columnGap: effectiveColumnsCount === '2' ? '64px' : '0px',
-                        columnRule: effectiveColumnsCount === '2' ? `1px dashed ${themeStyles.border}` : 'none',
-                        columnFill: 'auto',
-                        height: '100%',
+                        transform: `translateX(-${pageTranslationX}px)`,
                       }}
                     >
-                      {/* 章节标题头 */}
-                      {currentChapter && (
-                        <div className="mb-6 pb-3 border-b break-inside-avoid-column" style={{ borderColor: themeStyles.border }}>
-                          <div className="text-[10px] font-mono opacity-50 uppercase tracking-widest mb-1">
-                            Chapter {currentChapterIndex + 1} of {totalChapters}
+                      <article
+                        className="h-full box-border"
+                        style={{
+                          columns: effectiveColumnsCount,
+                          columnGap: `${columnGapPx}px`,
+                          columnRule: effectiveColumnsCount === '2' ? `1px dashed ${themeStyles.border}` : 'none',
+                          columnFill: 'auto',
+                          height: '100%',
+                          padding: 0,
+                        }}
+                      >
+                        {/* 章节标题头 */}
+                        {currentChapter && (
+                          <div className="mb-5 pb-2 border-b break-inside-avoid-column" style={{ borderColor: themeStyles.border }}>
+                            <div className="text-[10px] font-mono opacity-50 uppercase tracking-widest mb-1">
+                              Chapter {currentChapterIndex + 1} of {totalChapters}
+                            </div>
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+                              {currentChapter.title}
+                            </h1>
                           </div>
-                          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-                            {currentChapter.title}
-                          </h1>
-                        </div>
-                      )}
+                        )}
 
-                      {/* 章节 HTML 正文渲染 */}
-                      {currentChapter && (
-                        <div
-                          className="epub-rendered-content leading-relaxed"
-                          style={{
-                            fontSize: `${settings.fontSize}px`,
-                            lineHeight: settings.lineHeight,
-                            textAlign: settings.textAlign,
-                          }}
-                          dangerouslySetInnerHTML={{ __html: currentChapter.htmlContent }}
-                        />
-                      )}
-                    </article>
+                        {/* 章节 HTML 正文渲染 */}
+                        {currentChapter && (
+                          <div
+                            className="epub-rendered-content leading-relaxed"
+                            style={{
+                              fontSize: `${settings.fontSize}px`,
+                              lineHeight: settings.lineHeight,
+                              textAlign: settings.textAlign,
+                            }}
+                            dangerouslySetInnerHTML={{ __html: currentChapter.htmlContent }}
+                          />
+                        )}
+                      </article>
+                    </div>
                   </div>
                 </div>
 
@@ -1295,66 +1443,117 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
             </div>
           ) : (
             /* ====================================================================
-               连续流式滚动模式 (Continuous Flow Scroll Mode)
+               连续流式滚动模式 (Continuous Flow Scroll Mode - 全书无缝纵向连滚)
                ==================================================================== */
-            <div className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col items-center">
-              <article
-                className={`w-full ${maxWidthClass} transition-all duration-200 my-4`}
-              >
-                {/* 章节标题头 */}
-                {currentChapter && (
-                  <div className="mb-8 pb-4 border-b" style={{ borderColor: themeStyles.border }}>
-                    <div className="text-xs font-mono opacity-50 uppercase tracking-widest mb-2">
-                      Chapter {currentChapterIndex + 1} of {totalChapters}
+            <div
+              ref={continuousScrollContainerRef}
+              onScroll={handleContinuousScroll}
+              className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col items-center px-3 sm:px-6 relative scroll-smooth"
+            >
+              <article className={`w-full ${maxWidthClass} transition-all duration-200 py-4`}>
+                {book?.chapters.map((chapter, idx) => (
+                  <section
+                    key={chapter.id || `chapter-section-${idx}`}
+                    id={`epub-chapter-node-${idx}`}
+                    data-chapter-index={idx}
+                    className="epub-chapter-section py-8 first:pt-2"
+                  >
+                    {/* 章节过桥分割线 (第一章后呈现) */}
+                    {idx > 0 && (
+                      <div className="my-14 flex items-center justify-center gap-4 select-none opacity-40 hover:opacity-75 transition">
+                        <div className="h-px bg-current flex-1" />
+                        <div className="flex items-center gap-2 text-[11px] font-mono tracking-widest uppercase px-3.5 py-1 rounded-full border border-current/20 bg-black/5 dark:bg-white/5">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Chapter {idx + 1}</span>
+                        </div>
+                        <div className="h-px bg-current flex-1" />
+                      </div>
+                    )}
+
+                    {/* 章节标题头 */}
+                    <div className="mb-6 pb-4 border-b flex items-baseline justify-between" style={{ borderColor: themeStyles.border }}>
+                      <div>
+                        <div className="text-[11px] font-mono opacity-50 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                          <span>Chapter {idx + 1} of {totalChapters}</span>
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                          {chapter.title}
+                        </h2>
+                      </div>
+                      <span className="text-xs font-mono opacity-30 font-medium shrink-0 ml-4">
+                        #{idx + 1}
+                      </span>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                      {currentChapter.title}
-                    </h1>
-                  </div>
-                )}
 
-                {/* 章节 HTML 正文渲染 */}
-                {currentChapter && (
+                    {/* 章节 HTML 正文渲染 */}
+                    <div
+                      className="epub-rendered-content leading-relaxed"
+                      style={{
+                        fontSize: `${settings.fontSize}px`,
+                        lineHeight: settings.lineHeight,
+                        textAlign: settings.textAlign,
+                      }}
+                      dangerouslySetInnerHTML={{ __html: chapter.htmlContent }}
+                    />
+                  </section>
+                ))}
+
+                {/* 全书完结装帧卡片 */}
+                {book && (
                   <div
-                    className="epub-rendered-content leading-relaxed"
-                    style={{
-                      fontSize: `${settings.fontSize}px`,
-                      lineHeight: settings.lineHeight,
-                      textAlign: settings.textAlign,
-                    }}
-                    dangerouslySetInnerHTML={{ __html: currentChapter.htmlContent }}
-                  />
-                )}
-
-                {/* 底栏翻章导航与进度卡片 */}
-                <div
-                  className="mt-16 pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs select-none"
-                  style={{ borderColor: themeStyles.border }}
-                >
-                  <button
-                    onClick={goToPrev}
-                    disabled={currentChapterIndex <= 0}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg border flex items-center justify-center gap-2 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition"
-                    style={{ borderColor: themeStyles.border }}
+                    className="mt-16 mb-20 p-8 rounded-2xl border text-center select-none"
+                    style={{ borderColor: themeStyles.border, background: 'rgba(125, 125, 125, 0.05)' }}
                   >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>上一章</span>
-                  </button>
-
-                  <div className="text-center font-mono text-[11px] opacity-60">
-                    进度 {readingProgress}% · 第 {currentChapterIndex + 1} / {totalChapters} 节
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold mb-1">{book.metadata.title || '全书阅读完毕'}</h3>
+                    <p className="text-xs opacity-60 mb-6 font-mono">
+                      {book.metadata.creator ? `作者：${book.metadata.creator} · ` : ''}全书共 {totalChapters} 章节已全部载入
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={() => scrollToChapter(0, 'smooth')}
+                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center gap-2 transition shadow-xs"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>回到书首重新阅读</span>
+                      </button>
+                    </div>
                   </div>
-
-                  <button
-                    onClick={goToNext}
-                    disabled={currentChapterIndex >= totalChapters - 1}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg border flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white border-transparent disabled:opacity-30 disabled:pointer-events-none transition shadow-xs"
-                  >
-                    <span>下一章</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </article>
+
+              {/* 连续滚动浮动状态与快捷跳章小工具栏 */}
+              <div
+                className="sticky bottom-4 z-20 px-4 py-2 rounded-full border shadow-lg backdrop-blur-md flex items-center gap-3 text-xs select-none"
+                style={{
+                  background: themeStyles.paper,
+                  borderColor: themeStyles.border,
+                }}
+              >
+                <button
+                  onClick={goToPrev}
+                  disabled={currentChapterIndex <= 0}
+                  className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition"
+                  title="上一章"
+                  aria-label="上一章"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="font-mono text-[11px] opacity-75">
+                  第 {currentChapterIndex + 1}/{totalChapters} 章 · {readingProgress}%
+                </span>
+                <button
+                  onClick={goToNext}
+                  disabled={currentChapterIndex >= totalChapters - 1}
+                  className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition"
+                  title="下一章"
+                  aria-label="下一章"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
         </main>
@@ -1362,22 +1561,38 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
 
       {/* 注入流式排版专属样式 (字体、段落首行缩进、引用、表格与防冲突隔离) */}
       <style>{`
+        .epub-chapter-section {
+          content-visibility: auto;
+          contain-intrinsic-size: 1px 800px;
+        }
         .epub-rendered-content {
           font-family: ${fontFamilyCss};
+          orphans: 2;
+          widows: 2;
+          text-rendering: optimizeLegibility;
+          -webkit-font-smoothing: antialiased;
         }
         .epub-rendered-content p {
-          margin-bottom: 1.25em;
+          margin-top: 0;
+          margin-bottom: 0.85em;
           text-indent: ${settings.textIndent ? '2em' : '0'};
+          word-break: break-word;
+          overflow-wrap: break-word;
         }
         .epub-rendered-content h1,
         .epub-rendered-content h2,
         .epub-rendered-content h3,
-        .epub-rendered-content h4 {
+        .epub-rendered-content h4,
+        .epub-rendered-content h5,
+        .epub-rendered-content h6 {
           font-weight: 700;
-          margin-top: 1.6em;
-          margin-bottom: 0.6em;
-          line-height: 1.3;
+          margin-top: 1.2em;
+          margin-bottom: 0.5em;
+          line-height: 1.35;
           text-indent: 0 !important;
+          break-after: avoid-column;
+          page-break-after: avoid;
+          break-inside: avoid-column;
         }
         .epub-rendered-content h1 { font-size: 1.8em; }
         .epub-rendered-content h2 { font-size: 1.5em; }
@@ -1385,11 +1600,11 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         .epub-rendered-content ul,
         .epub-rendered-content ol {
           margin-left: 1.5em;
-          margin-bottom: 1.25em;
+          margin-bottom: 1em;
           text-indent: 0 !important;
         }
         .epub-rendered-content li {
-          margin-bottom: 0.4em;
+          margin-bottom: 0.35em;
           text-indent: 0 !important;
         }
         .epub-rendered-content ul { list-style-type: disc; }
@@ -1398,16 +1613,21 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
           border-left: 3px solid currentColor;
           opacity: 0.85;
           padding-left: 1em;
-          margin: 1.25em 0;
+          margin: 1em 0;
           font-style: italic;
           text-indent: 0 !important;
+          break-inside: avoid-column;
+          page-break-inside: avoid;
         }
         .epub-rendered-content img {
-          max-width: 100%;
-          height: auto;
-          margin: 1.5em auto;
+          max-width: 100% !important;
+          max-height: 80% !important;
+          object-fit: contain;
+          margin: 1em auto;
           display: block;
           border-radius: 6px;
+          break-inside: avoid-column;
+          page-break-inside: avoid;
         }
         .epub-rendered-content code {
           padding: 0.15em 0.35em;
@@ -1417,12 +1637,14 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
           font-size: 0.9em;
         }
         .epub-rendered-content pre {
-          padding: 1em;
+          padding: 0.85em;
           background: rgba(125, 125, 125, 0.12);
           border-radius: 6px;
           overflow-x: auto;
-          margin-bottom: 1.25em;
+          margin-bottom: 1em;
           text-indent: 0 !important;
+          break-inside: avoid-column;
+          page-break-inside: avoid;
         }
         .epub-rendered-content pre code {
           background: transparent;
@@ -1431,12 +1653,14 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         .epub-rendered-content table {
           width: 100%;
           border-collapse: collapse;
-          margin: 1.5em 0;
+          margin: 1.25em 0;
+          break-inside: avoid-column;
+          page-break-inside: avoid;
         }
         .epub-rendered-content th,
         .epub-rendered-content td {
           border: 1px solid rgba(125, 125, 125, 0.2);
-          padding: 0.5em 0.75em;
+          padding: 0.4em 0.6em;
           text-align: left;
         }
         .epub-rendered-content th {

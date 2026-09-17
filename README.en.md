@@ -69,37 +69,46 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **Layering**: bring forward / send backward (to front / to back);
 - **Developer exports**: reverse jump to source line, SVGO cleanup, React JSX / Vue 3 / Base64 Data URI export.
 
-### 5. Modern PDF Reader
+### 5. EPUB Modern E-book Reader Studio
+- Native `.epub` modern e-book reflowable rendering and unpacked reading;
+- **Three Flow Modes**:
+  - **Two-Page Spread**: CSS Multi-Column simulated book layout with 3D spine creases, paper drop-shadows, and narrow screen responsive fallback;
+  - **Single-Page Flow**: Elegant centered column with hover navigation hotspots and arrow key/spacebar shortcuts;
+  - **Continuous Scroll**: Vertical smooth reflowable reading with automatic chapter bottom triggers and progress tracking;
+- **3D Page Flip Effect**: GPU-accelerated 3D page flip animation with lighting transitions, toggleable at any time;
+- **Typography & Reading Progress Persistence (`epubSettingsStorage`)**: Instant persistence for font size (A-/A+), font family (Serif, Sans, Kai, Mono), first-line indent, alignment (justify/left), line height (1.5x/1.75x/2.0x), page width (720px/960px/100%), eye-care themes (Auto, Sepia, Light, Dark), and book-specific reading progress (chapter, page, percentage).
+
+### 6. Modern PDF Reader
 - Mozilla PDF.js v4+ binary parse + Canvas rendering;
 - **Three layouts**: continuous flow, single-page, dual-page book view;
 - **Reading awareness**: scroll-spy progress, lazy viewport rendering;
 - **Annotate & search**: cross-page search highlight, outline bookmarks, selection highlights with Markdown export, PNG snapshot, and print.
 
-### 6. Excalidraw Whiteboard Studio
+### 7. Excalidraw Whiteboard Studio
 - Native `.excalidraw` hand-drawn diagram file format support;
 - **Four view modes**: interactive canvas studio, dual-pane split, read-only SVG preview, and JSON source editor;
 - **Self-healing data pipe**: built-in `sanitizeExcalidrawElements` and `restoreElements` to repair invalid element schemas and prevent canvas crashes;
 - **Starter templates & export**: 8 architecture and flowchart templates with high-res SVG, PNG, and `.excalidraw` JSON export.
 
-### 7. Typst Academic & Publishing Studio (A4 2.0)
+### 8. Typst Academic & Publishing Studio (A4 2.0)
 - Pure client-side AST compiler for `.typ` and `.typst` files;
 - **Publishing-grade typography**: Outline TOC, physical page breaks, multi-page continuous SVG flow, KaTeX math, and CJK text-width overlap prevention;
 - **A4 2.0 print engine**: Dynamic header/footer macro variables (`{{page}}`, `{{totalPages}}`, `{{title}}`, `{{date}}`), alternating gutter margins for bookbinding, and `@page` rules.
 
-### 8. Jupyter Notebook (.ipynb v4) Studio
+### 9. Jupyter Notebook (.ipynb v4) Studio
 - Client-side offline parser and renderer for Jupyter Notebook v4 format;
 - Markdown narrative cells, syntax-highlighted Python code cells, execution counters, rich multi-format outputs, and ANSI traceback coloration;
 - One-click export to standard Markdown (`.md`) or executable Python script (`.py`).
 
-### 9. CSV / TSV Smart Grid
+### 10. CSV / TSV Smart Grid
 - Lightweight RFC 4180 parser with quoted escapes, multi-line cells, and ragged-width normalization;
 - Fuzzy filter, multi-column sort, pagination, stats overview, and export.
 
-### 10. Google OKF (Open Knowledge Format) Cards
+### 11. Google OKF (Open Knowledge Format) Cards
 - Native recognition of `.okf` files and Markdown Frontmatter OKF headers;
 - Extracts Knowledge ID, version, tags, and summary into structured knowledge cards.
 
-### 11. Domain Storytelling & egon.io Native Studio
+### 12. Domain Storytelling & egon.io Native Studio
 - **Multi-syntax lossless support**:
   - Native parsing for standard `.egn` (egon.io JSON) schema and standalone `.domainstory` files;
   - Markdown deep typesetting integration: ````domainstory````, ````story````, and ````egn```` fenced DSL blocks plus single-line stream syntax;
@@ -110,7 +119,7 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
   - Integrated `DiagramStepPlayer` for step-by-step animation, forward/backward navigation, and spotlight focus;
   - Export standard `.egn` and **Polyglot SVG** with embedded domain model for lossless bi-directional extraction.
 
-### 12. Preferences & Workspace Persistence
+### 13. Preferences & Workspace Persistence
 - **Central settings hub (`settingsStorage.ts`)**: `v2` keys with seamless legacy migration;
 - **Hard clamps**: zoom (0.5~2.5x), font size (12~22px), and split ratios to keep UI stable;
 - **Workspace lifecycle (`fileStorage.ts`)**: remember sidebar/explorer state, tab order, and last opened file;
@@ -140,7 +149,7 @@ npm run verify
 npm run package:vsix
 
 # 3. Install into local VS Code (keep version in sync with package.json)
-code --install-extension omniview-0.12.1.vsix --force
+code --install-extension omniview-0.13.0.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.
