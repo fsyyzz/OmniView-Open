@@ -18,6 +18,7 @@ import { ExternalLink, Save, Check, Loader2 } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
+import { INITIAL_FILES } from '../../shared/data/sampleFiles';
 
 interface PluginDocumentViewProps {
   file?: FileItem;
@@ -360,7 +361,6 @@ const MarkdownPluginView: React.FC<{
     if (file.id !== prevFileIdRef.current || file.content !== prevContentRef.current) {
       prevFileIdRef.current = file.id;
       prevContentRef.current = file.content;
-      setDocumentContent(file.content);
     }
   }, [file.id, file.content]);
 
@@ -500,7 +500,10 @@ const MarkdownPluginView: React.FC<{
     [file, documentContent]
   );
 
-  const viewerFiles = useMemo(() => [activeFile, ...(file?.relatedFiles || [])], [activeFile, file?.relatedFiles]);
+  const viewerFiles = useMemo(
+    () => [activeFile, ...(file?.relatedFiles || []), ...INITIAL_FILES],
+    [activeFile, file?.relatedFiles]
+  );
 
   // 搜索关键字高亮与变色联动（仅做高亮标注，绝不打断用户滚动）
   useEffect(() => {

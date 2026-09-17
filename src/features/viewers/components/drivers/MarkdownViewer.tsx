@@ -16,6 +16,10 @@ import { TableBlock } from './markdown/TableBlock';
 import { StableHtmlBlock } from './markdown/StableHtmlBlock';
 import { LazyViewportBlock } from './markdown/LazyViewportBlock';
 import { DomainStoryBlock } from './markdown/DomainStoryBlock';
+import { MarkmapBlock } from './markdown/MarkmapBlock';
+import { ExcalidrawBlock } from './markdown/ExcalidrawBlock';
+import { MarkmapViewer } from './MarkmapViewer';
+import { ExcalidrawViewer } from './ExcalidrawViewer';
 import { LightboxModal } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { Locale, t } from '../../../../shared/lib/i18n';
@@ -307,6 +311,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onDownloadSvg={() => handleDownloadSvg(block.svgContent!, 'mermaid-diagram')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
+                  externalFile={block.externalFile}
                   locale={locale}
                 />
               </RenderErrorBoundary>
@@ -393,6 +398,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onReRender={() => {}}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
+                  externalFile={block.externalFile}
                   locale={locale}
                 />
               </RenderErrorBoundary>
@@ -437,6 +443,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onReRender={() => {}}
                   onDownloadSvg={() => handleDownloadSvg(block.svgContent || block.raw, block.fileName ? block.fileName.replace(/\.svg$/i, '') : 'vector-graphic')}
                   onCopy={() => handleCopy(block.id, currentCode)}
+                  externalFile={block.externalFile}
                   locale={locale}
                 />
               </RenderErrorBoundary>
@@ -477,6 +484,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onDownloadSvg={() => handleDownloadSvg(block.svgContent || block.raw, 'graphviz-topology')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
+                  externalFile={block.externalFile}
                   locale={locale}
                 />
               </RenderErrorBoundary>
@@ -519,6 +527,87 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   }
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
+                  externalFile={block.externalFile}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </LazyViewportBlock>
+          );
+        }
+
+        if (block.type === 'markmap') {
+          const currentMode = diagramViewModes[block.id] || 'visual';
+          const zoom = zoomScales[block.id] || 1;
+          const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
+
+          return (
+            <LazyViewportBlock
+              key={block.id}
+              eager={eagerMount}
+              minHeight={320}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="Markmap Mindmap" locale={locale}>
+                <MarkmapBlock
+                  id={block.id}
+                  code={block.raw}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  isCopied={copiedId === block.id}
+                  viewMode={currentMode}
+                  zoom={zoom}
+                  editedCode={currentCode}
+                  isDarkTheme={isDarkTheme}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onZoomChange={delta => adjustZoom(block.id, delta)}
+                  onResetZoom={() => resetZoom(block.id)}
+                  onOpenLightbox={content =>
+                    setLightboxItem({ title: 'Markmap Mindmap', content: content || block.raw })
+                  }
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                  externalFile={block.externalFile}
+                  locale={locale}
+                />
+              </RenderErrorBoundary>
+            </LazyViewportBlock>
+          );
+        }
+
+        if (block.type === 'excalidraw') {
+          const currentMode = diagramViewModes[block.id] || 'visual';
+          const currentCode = editedCodes[block.id] !== undefined ? editedCodes[block.id] : block.raw;
+
+          return (
+            <LazyViewportBlock
+              key={block.id}
+              eager={eagerMount}
+              minHeight={360}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+            >
+              <RenderErrorBoundary blockName="Excalidraw Whiteboard" locale={locale}>
+                <ExcalidrawBlock
+                  id={block.id}
+                  code={block.raw}
+                  startLine={block.startLine}
+                  endLine={block.endLine}
+                  isCopied={copiedId === block.id}
+                  viewMode={currentMode}
+                  editedCode={currentCode}
+                  isDarkTheme={isDarkTheme}
+                  onChangeEditedCode={val => setEditedCode(block.id, val)}
+                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onOpenLightbox={content =>
+                    setLightboxItem({ title: 'Excalidraw Whiteboard', content: content || block.raw })
+                  }
+                  onCopy={() => handleCopy(block.id, currentCode)}
+                  onOpenSourceAtLine={onOpenSourceAtLine}
+                  externalFile={block.externalFile}
                   locale={locale}
                 />
               </RenderErrorBoundary>

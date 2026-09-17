@@ -180,15 +180,6 @@ OmniView 在 [`examples/`](./examples) 提供开箱即用的多格式样例（�
 
 ---
 
-## 🧪 自动化测试与质量保障
-
-OmniView 配备全面的单元测试与构建验证：
-
-- **自动化单元测试 (`npm test`)**: 覆盖图表诊断、Mindmap 导图驱动、配置与工作区持久化、CSV/TSV 数据解析、安全 XSS 拦截过滤、驱动路由分发等核心链路；
-- **类型检查与构建验证**: 执行 `npm run lint` 验证 TypeScript 静态类型，执行 `npm run build:plugin` 验证扩展包构建产物完整性。
-
----
-
 ## 📄 开源许可证
 
 本项目基于 [MIT License](./LICENSE) 开源。欢迎通过 [Issues](https://github.com/fsyyzz/OmniView/issues) 反馈问题，或阅读 [CONTRIBUTING.md](./CONTRIBUTING.md) 参与贡献。

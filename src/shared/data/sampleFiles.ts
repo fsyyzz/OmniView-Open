@@ -2832,5 +2832,218 @@ Our empirical results demonstrate that 2D square lattice layouts can achieve arb
       files: {}
     }, null, 2),
   },
+  {
+    id: 'file-domainstory-ecommerce',
+    name: 'ecommerce-fulfillment.egn',
+    path: '/workspace/domainstory/ecommerce-fulfillment.egn',
+    extension: 'egn',
+    size: 2528,
+    lastModified: 1714560000000,
+    content: JSON.stringify({
+      version: 'egon-1.0',
+      info: {
+        title: '跨境电商订单智能履约领域故事',
+        description: '基于 egon.io 标准规范的微服务与仓储物流全链路故事模型',
+        author: '周赞'
+      },
+      actors: [
+        { id: 'actor-buyer', name: '在线买家', type: 'person', x: 120, y: 140 },
+        { id: 'actor-mall', name: '电商交易中台', type: 'system', x: 380, y: 140 },
+        { id: 'actor-risk', name: '智能风控服务', type: 'system', x: 640, y: 140 },
+        { id: 'actor-wms', name: '智能仓储WMS', type: 'system', x: 380, y: 380 },
+        { id: 'actor-courier', name: '顺丰速运专员', type: 'person', x: 640, y: 380 }
+      ],
+      workObjects: [
+        { id: 'wo-cart', name: '结算购物车清单', type: 'document' },
+        { id: 'wo-risk-report', name: '反欺诈风险分', type: 'data' },
+        { id: 'wo-order', name: '正式销售订单', type: 'document' },
+        { id: 'wo-shipping-task', name: '拣货与打包指令', type: 'package' },
+        { id: 'wo-waybill', name: '电子面单与包裹', type: 'package' }
+      ],
+      activities: [
+        { id: 'act-1', number: 1, from: 'actor-buyer', to: 'actor-mall', label: '提交购物车结算', workObjectName: '结算购物车清单' },
+        { id: 'act-2', number: 2, from: 'actor-mall', to: 'actor-risk', label: '发起欺诈检测', workObjectName: '结算购物车清单' },
+        { id: 'act-3', number: 3, from: 'actor-risk', to: 'actor-mall', label: '核验通过并回传', workObjectName: '反欺诈风险分' },
+        { id: 'act-4', number: 4, from: 'actor-mall', to: 'actor-mall', label: '持久化生成订单', workObjectName: '正式销售订单' },
+        { id: 'act-5', number: 5, from: 'actor-mall', to: 'actor-wms', label: '下发分拣任务', workObjectName: '拣货与打包指令' },
+        { id: 'act-6', number: 6, from: 'actor-wms', to: 'actor-courier', label: '交接出库并寄发', workObjectName: '电子面单与包裹' },
+        { id: 'act-7', number: 7, from: 'actor-courier', to: 'actor-buyer', label: '送达签收短信通知', workObjectName: '电子面单与包裹' }
+      ],
+      groups: [
+        { id: 'g-core', name: '核心交易边界 (Core Trading Domain)', actors: ['actor-mall', 'actor-risk'] },
+        { id: 'g-fulfillment', name: '供应链与履约边界 (Fulfillment)', actors: ['actor-wms', 'actor-courier'] }
+      ]
+    }, null, 2),
+  },
+  {
+    id: 'file-mermaid-journey',
+    name: 'user-journey.mermaid',
+    path: '/workspace/mermaid/user-journey.mermaid',
+    extension: 'mermaid',
+    size: 673,
+    lastModified: 1714560000000,
+    content: `journey
+    title 用户在 OmniView 打开并编辑多格式文件的完整旅程
+    section 文件打开
+      在 VS Code 资源管理器双击 .excalidraw 文件: 5: 用户
+      OmniView 自定义编辑器毫秒级冷启动: 5: OmniView
+      驱动路由自动匹配至 ExcalidrawViewer: 5: OmniView
+    section 交互与编辑
+      在矢量画布上拖拽节点、缩放与调整画笔: 4: 用户
+      开启双向分屏模式同步修改 JSON 源码: 5: 用户, OmniView
+      画布实时响应热重载: 5: OmniView
+    section 产物交付
+      导出出版级 A4 PDF 与 SVG 矢量图: 5: 用户
+      一键无损保存至磁盘: 5: OmniView`,
+  },
+  {
+    id: 'file-plantuml-topology',
+    name: 'cloud-topology.puml',
+    path: '/workspace/plantuml/cloud-topology.puml',
+    extension: 'puml',
+    size: 1478,
+    lastModified: 1714560000000,
+    content: `@startuml
+title 微服务云原生拓扑架构 (OmniViewer PlantUML Driver)
+autonumber
+
+actor "客户端 / Web / VSCode" as Client #LightSkyBlue
+participant "API Gateway (Kong/Nginx)" as Gateway #LightGreen
+participant "Auth Service (JWT/OAuth)" as Auth #LightPink
+participant "Document Core Service" as Core #Gold
+database "PostgreSQL / Metadata" as DB #LightCyan
+queue "Kafka Message Queue" as MQ #Plum
+participant "Async Render Worker" as Worker #Orange
+
+Client -> Gateway : 发送文件渲染请求 /api/v1/render
+activate Gateway
+
+Gateway -> Auth : 鉴权验证 Bearer Token
+activate Auth
+Auth --> Gateway : 鉴权通过 (uid: 9527)
+deactivate Auth
+
+Gateway -> Core : 转发渲染任务负载 (Payload)
+activate Core
+Core -> DB : 读取文档结构元数据
+DB --> Core : 返回文档元数据与缓存状态
+
+alt 缓存命中 (Cache Hit)
+    Core --> Gateway : 毫秒级返回已生成的矢量 SVG
+    Gateway --> Client : 200 OK (渲染完成)
+else 缓存未命中 (Cache Miss)
+    Core -> MQ : 发布渲染异步事件 (render.task.created)
+    MQ -> Worker : 消费并编译 PlantUML / Mermaid 脚本
+    activate Worker
+    Worker -> Worker : 离线生成高清矢量图形
+    Worker -> DB : 写入图形持久化缓存
+    Worker --> MQ : 任务完成回调
+    deactivate Worker
+    Core --> Gateway : 返回编译结果流
+    Gateway --> Client : 200 OK (流式完成)
+end
+
+deactivate Core
+deactivate Gateway
+
+@enduml`,
+  },
+  {
+    id: 'file-graphviz-cloud',
+    name: 'cloud-architecture.dot',
+    path: '/workspace/graphviz/cloud-architecture.dot',
+    extension: 'dot',
+    size: 1690,
+    lastModified: 1714560000000,
+    content: `digraph CloudArchitecture {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fontname="sans-serif", fontsize=11];
+  edge [color="#64748b", fontname="sans-serif", fontsize=10];
+
+  subgraph cluster_frontend {
+    label="前端层 (Edge & Gateway)";
+    style="rounded,dashed";
+    color="#3b82f6";
+    bgcolor="#0f172a15";
+
+    Client [label="客户端 (Web / App)", fillcolor="#dbeafe", fontcolor="#1e40af"];
+    CDN [label="全球 CDN 节点", fillcolor="#e0e7ff", fontcolor="#3730a3"];
+    Gateway [label="API 网关 (Nginx / Envoy)", fillcolor="#bfdbfe", fontcolor="#1d4ed8"];
+  }
+
+  subgraph cluster_backend {
+    label="核心微服务集群 (Kubernetes)";
+    style="rounded,dashed";
+    color="#10b981";
+    bgcolor="#0f172a15";
+
+    AuthSvc [label="鉴权服务 (OAuth2 / JWT)", fillcolor="#d1fae5", fontcolor="#065f46"];
+    OrderSvc [label="订单引擎 (Order Svc)", fillcolor="#d1fae5", fontcolor="#065f46"];
+    PaySvc [label="支付结算 (Payment Svc)", fillcolor="#d1fae5", fontcolor="#065f46"];
+  }
+
+  subgraph cluster_data {
+    label="持久化与缓存集群";
+    style="rounded,dashed";
+    color="#f59e0b";
+    bgcolor="#0f172a15";
+
+    Redis [label="Redis 缓存 (Cluster)", shape=cylinder, fillcolor="#fef3c7", fontcolor="#92400e"];
+    MySQL [label="MySQL 主从库", shape=cylinder, fillcolor="#fed7aa", fontcolor="#9a3412"];
+    Kafka [label="Kafka 事件总线", shape=component, fillcolor="#fde68a", fontcolor="#854d0e"];
+  }
+
+  Client -> CDN -> Gateway;
+  Gateway -> AuthSvc;
+  Gateway -> OrderSvc;
+  OrderSvc -> PaySvc;
+  OrderSvc -> Redis;
+  OrderSvc -> MySQL;
+  OrderSvc -> Kafka;
+  PaySvc -> Kafka;
+}`,
+  },
+  {
+    id: 'file-markmap-arch',
+    name: 'system-architecture.markmap',
+    path: '/workspace/markmap/system-architecture.markmap',
+    extension: 'markmap',
+    size: 1130,
+    lastModified: 1714560000000,
+    content: `# 全景研发工程与图表渲染平台
+
+## 核心表现层驱动
+- Markdown 全功能引擎
+  - GFM 扩展语法排版
+  - 任务复选框列表
+  - 行内与独立代码着色
+- 交互式矢量思维导图 (Markmap)
+  - .markmap / .mm / .mindmap 多后缀原生识别
+  - 实时双向编辑与大纲快捷片段
+  - 动态折叠/展开与深度过滤
+  - 节点搜索定位与高亮
+- 架构建模工作台 (PlantUML)
+  - 时序图 / 类图 / 组件部署图
+  - 矢量 SVG 编译与缩放标尺
+- 矢量图形检测器 (SVG)
+  - 视口自适应与居中重置
+  - DOM 结构探针与源码双向校验
+- 专业文档阅读器 (PDF)
+  - 分页缩放与目录大纲快速跳转
+
+## 状态管理与协议层
+- VS Code Webview 宿主协议桥接
+  - document-change 文档双向实时持久化
+  - open-source 原文件精准行列跳转
+  - auto-save 自动防抖保存
+- 跨端弹性容器排版
+  - flex-col 全高满屏适配
+  - 拖拽式分屏宽度动态分配
+
+## 质量控制与门禁
+- TypeScript 强类型静态防护
+- 自动化端到端测试
+- 离线独立 HTML / SVG 一键导出`,
+  },
 ];
 

@@ -180,13 +180,6 @@ Ready-to-open samples live under [`examples/`](./examples) (see [`examples/READM
 
 ---
 
-## Tests & Quality
-
-- **Unit tests (`npm test`)**: diagram diagnostics, mindmap drivers, settings/workspace persistence, CSV/TSV parsing, XSS filters, driver routing, and more;
-- **Typecheck & build**: `npm run lint` (TypeScript), `npm run build:plugin` (extension artifacts).
-
----
-
 ## License
 
 Released under the [MIT License](./LICENSE). Feedback via [Issues](https://github.com/fsyyzz/OmniView/issues); see [CONTRIBUTING.md](./CONTRIBUTING.md) to contribute.

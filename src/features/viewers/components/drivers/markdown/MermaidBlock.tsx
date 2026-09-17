@@ -19,6 +19,7 @@ import {
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { analyzeMermaidError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
+import { ExternalBadgePill } from '../../common/ExternalBadgePill';
 import {
   detectDiagramPlaybackSupport,
   applyStepHighlightToSvg,
@@ -42,9 +43,10 @@ interface MermaidBlockProps {
   onResetZoom: () => void;
   onOpenLightbox: (svgContent?: string) => void;
   onReRender: () => void;
-  onDownloadSvg: () => void;
-  onCopy: () => void;
+  onDownloadSvg?: () => void;
+  onCopy?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  externalFile?: string;
   locale?: Locale;
 }
 
@@ -68,6 +70,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   onDownloadSvg,
   onCopy,
   onOpenSourceAtLine,
+  externalFile,
   locale = 'zh-CN',
 }) => {
   const [liveSvg, setLiveSvg] = useState<string>(svgContent || '');
@@ -355,7 +358,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           onMouseMove={handleCanvasMouseMove}
           onMouseLeave={handleCanvasMouseLeave}
           onClick={handleCanvasClick}
-          className="p-6 overflow-x-auto flex justify-center bg-slate-950/60 min-h-[140px] items-center relative group/canvas"
+          className="p-2.5 overflow-x-auto flex justify-center bg-slate-950/40 min-h-[100px] items-center relative group/canvas"
         >
           {/* 图文联动提示徽章：显示当前悬浮节点与其在 Markdown 源码中的精准行号 */}
           {hoveredNodeInfo && (
@@ -389,7 +392,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           ) : displaySvg ? (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-              className="diagram-canvas transition-transform duration-150 flex justify-center cursor-pointer"
+              className="diagram-canvas transition-transform duration-150 flex justify-center cursor-pointer max-w-full [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:block"
               onDoubleClick={() => onOpenLightbox(displaySvg)}
               title={t('fullScreen', locale)}
               dangerouslySetInnerHTML={{ __html: displaySvg }}
@@ -431,6 +434,8 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           locale={locale}
         />
       )}
+
+      <ExternalBadgePill externalFile={externalFile} />
     </div>
   );
 });

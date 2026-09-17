@@ -16,6 +16,7 @@ import { Locale, t } from '../../../../../shared/lib/i18n';
 import { getPlantUmlSvgUrl, hasRenderablePlantUmlCode, withPlantUmlCacheBust } from '../../../../../shared/lib/plantuml';
 import { analyzePlantUmlError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
+import { ExternalBadgePill } from '../../common/ExternalBadgePill';
 
 interface PlantUmlBlockProps {
   id: string;
@@ -35,6 +36,7 @@ interface PlantUmlBlockProps {
   onReRender: () => void;
   onCopy: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  externalFile?: string;
   locale?: Locale;
 }
 
@@ -56,6 +58,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   onReRender,
   onCopy,
   onOpenSourceAtLine,
+  externalFile,
   locale = 'zh-CN',
 }) => {
   const [hasError, setHasError] = React.useState<boolean>(false);
@@ -186,7 +189,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
 
       {/* PlantUML Body */}
       {viewMode === 'visual' ? (
-        <div className="p-6 overflow-x-auto flex justify-center bg-slate-950/60 min-h-[160px] items-center">
+        <div className="p-2.5 overflow-x-auto flex justify-center items-center bg-slate-950/40 min-h-[100px]">
           {hasError ? (
             <DiagramDiagnosticCard
               diagnostic={analyzePlantUmlError(
@@ -214,7 +217,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
           ) : (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-              className="diagram-canvas transition-transform duration-150 flex justify-center max-w-full cursor-zoom-in"
+              className="transition-transform duration-150 flex justify-center items-center max-w-full cursor-zoom-in"
               onDoubleClick={onOpenLightbox}
               title={t('fullScreen', locale)}
             >
@@ -222,7 +225,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
                 key={activeSvgUrl}
                 src={activeSvgUrl}
                 alt="PlantUML Diagram"
-                className="max-w-none rounded shadow-sm bg-white/95 p-3"
+                className="max-w-full h-auto max-h-[550px] object-contain rounded shadow-xs bg-white/95 p-1.5"
                 loading="lazy"
                 onError={() => {
                   setHasError(true);
@@ -246,6 +249,8 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
           />
         </div>
       )}
+
+      <ExternalBadgePill externalFile={externalFile} />
     </div>
   );
 };

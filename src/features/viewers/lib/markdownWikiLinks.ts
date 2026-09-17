@@ -278,6 +278,92 @@ function buildNoteEmbedHtml(
   );
 }
 
+const DIAGRAM_EXTS = new Set([
+  'egn', 'domainstory', 'dst',
+  'excalidraw', 'excalidraw.json',
+  'mmd', 'mermaid',
+  'puml', 'plantuml',
+  'dot', 'graphviz',
+  'markmap', 'mm', 'mindmap',
+  'svg',
+]);
+
+function getDiagramLang(ext: string): string {
+  switch (ext) {
+    case 'egn':
+    case 'domainstory':
+    case 'dst':
+      return 'domainstory';
+    case 'excalidraw':
+    case 'excalidraw.json':
+      return 'excalidraw';
+    case 'mmd':
+    case 'mermaid':
+      return 'mermaid';
+    case 'puml':
+    case 'plantuml':
+      return 'plantuml';
+    case 'dot':
+    case 'graphviz':
+      return 'graphviz';
+    case 'markmap':
+    case 'mm':
+    case 'mindmap':
+      return 'markmap';
+    case 'svg':
+      return 'svg';
+    default:
+      return ext;
+  }
+}
+
+/**
+ * 将外挂图形工程文件 (![[target.ext]] 或 ![alt](target.ext)) 替换为直接在 Markdown 正文中可渲染的 Block 围栏
+ */
+export function processExternalDiagramEmbeds(
+  source: string,
+  files: WikiFileRef[] = [],
+): string {
+  if (!source || files.length === 0) return source;
+
+  const { text: protectedText, slots } = protectCodeSegments(source);
+
+  // 1. 处理 Obsidian 风格 Wiki 嵌入: ![[file.ext]] 或 ![[file.ext|alias]]
+  let processed = protectedText.replace(/!\[\[([^\]]+?)\]\]/g, (fullMatch, inner: string) => {
+    const parts = parseWikiLinkInner(inner);
+    const resolved = resolveWikiTarget(parts.target, files);
+    if (!resolved) return fullMatch;
+
+    const ext = (resolved.extension || getExtension(resolved.name)).toLowerCase();
+    if (!DIAGRAM_EXTS.has(ext)) return fullMatch;
+
+    const lang = getDiagramLang(ext);
+    const fileName = resolved.name || parts.target;
+
+    return `\n\n\`\`\`${lang} external="${encodeURIComponent(fileName)}"\n${resolved.content}\n\`\`\`\n\n`;
+  });
+
+  // 2. 处理 CommonMark 标准图片嵌入: ![alt](file.ext)
+  processed = processed.replace(/!\[([^\]]*?)\]\(([^)]+?)\)/g, (fullMatch, altText: string, href: string) => {
+    // 忽略内联 base64
+    if (href.startsWith('data:')) return fullMatch;
+
+    const targetName = href.split('?')[0].split('#')[0];
+    const resolved = resolveWikiTarget(targetName, files);
+    if (!resolved) return fullMatch;
+
+    const ext = (resolved.extension || getExtension(resolved.name)).toLowerCase();
+    if (!DIAGRAM_EXTS.has(ext)) return fullMatch;
+
+    const lang = getDiagramLang(ext);
+    const fileName = resolved.name || targetName;
+
+    return `\n\n\`\`\`${lang} external="${encodeURIComponent(fileName)}"${altText ? ` alt="${encodeURIComponent(altText)}"` : ''}\n${resolved.content}\n\`\`\`\n\n`;
+  });
+
+  return restoreCodeSegments(processed, slots);
+}
+
 /**
  * 将 Obsidian Wiki 链接/嵌入替换为可渲染 HTML
  */
@@ -293,7 +379,10 @@ export function processMarkdownWikiLinks(
   const embedLabel = options.embedLabel || 'Embed';
   const previewMaxChars = options.previewMaxChars ?? 420;
 
-  const { text: protectedText, slots } = protectCodeSegments(source);
+  // 优先拦截外挂图形文件嵌入 (![[target.egn]], ![[target.excalidraw]] 等)
+  const sourceWithDiagramEmbeds = processExternalDiagramEmbeds(source, files);
+
+  const { text: protectedText, slots } = protectCodeSegments(sourceWithDiagramEmbeds);
   let linkCount = 0;
   let embedCount = 0;
 

@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 
+import { ExternalBadgePill } from '../../common/ExternalBadgePill';
+
 interface SvgBlockProps {
   id: string;
   mode?: 'code-block' | 'file';
@@ -36,6 +38,7 @@ interface SvgBlockProps {
   onReRender: () => void;
   onDownloadSvg: () => void;
   onCopy: () => void;
+  externalFile?: string;
   locale?: Locale;
 }
 
@@ -82,6 +85,7 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
   onOpenLightbox,
   onDownloadSvg,
   onCopy,
+  externalFile,
   locale = 'zh-CN',
 }) => {
   const activeCode = editedCode !== undefined ? editedCode : rawCode;
@@ -279,6 +283,8 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
           />
         )}
       </div>
+
+      <ExternalBadgePill externalFile={externalFile} />
     </div>
   );
 };

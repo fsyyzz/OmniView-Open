@@ -12,12 +12,13 @@ import { processMarkdownFootnotes } from '../lib/markdownFootnotes';
 import { processMarkdownWikiLinks } from '../lib/markdownWikiLinks';
 import { processMarkdownDefinitionLists } from '../lib/markdownDefinitionLists';
 import { processEmojiShortcodes } from '../lib/markdownEmojiShortcodes';
+import { parseExcalidrawJson, renderExcalidrawToSvgString } from '../components/drivers/excalidraw/excalidrawEngine';
 import { getPlantUmlSvgUrl } from '../../../shared/lib/plantuml';
 import { type Locale, t } from '../../../shared/lib/i18n';
 
 export interface RenderedBlock {
   id: string;
-  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak' | 'domainstory';
+  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak' | 'domainstory' | 'markmap' | 'excalidraw';
   mode?: 'code-block' | 'file';
   lang?: string;
   raw: string;
@@ -26,6 +27,7 @@ export interface RenderedBlock {
   renderedHtml?: string;
   svgContent?: string;
   fileName?: string;
+  externalFile?: string;
   title?: string;
   error?: string;
   tableData?: {
@@ -372,11 +374,24 @@ export function useMarkdownAstPipeline({
           });
         } else if (token.type === 'code') {
           const primaryLang = (token.lang || '').split(/\s+/)[0].toLowerCase();
+          let externalFile: string | undefined;
+          if (token.lang) {
+            const match = token.lang.match(/external="([^"]+)"|external='([^']+)'|external=(\S+)/);
+            if (match) {
+              try {
+                externalFile = decodeURIComponent(match[1] || match[2] || match[3]);
+              } catch {
+                externalFile = match[1] || match[2] || match[3];
+              }
+            }
+          }
+
           if (['mermaid'].includes(primaryLang)) {
             parsedBlocks.push({
               id: `block-mermaid-${counter++}`,
               type: 'mermaid',
               raw: token.text,
+              externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
@@ -385,6 +400,7 @@ export function useMarkdownAstPipeline({
               id: `block-plantuml-${counter++}`,
               type: 'plantuml',
               raw: token.text,
+              externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
@@ -393,6 +409,7 @@ export function useMarkdownAstPipeline({
               id: `block-graphviz-${counter++}`,
               type: 'graphviz',
               raw: token.text,
+              externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
@@ -405,6 +422,7 @@ export function useMarkdownAstPipeline({
               raw: token.text,
               svgContent: sanitized,
               title: locale === 'zh-CN' ? 'SVG 矢量代码' : 'SVG Vector Code',
+              externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
@@ -413,6 +431,7 @@ export function useMarkdownAstPipeline({
               id: `block-math-${counter++}`,
               type: 'math',
               raw: token.text,
+              externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
@@ -421,6 +440,25 @@ export function useMarkdownAstPipeline({
               id: `block-domainstory-${counter++}`,
               type: 'domainstory',
               raw: token.text,
+              externalFile,
+              startLine: tokenStartLine,
+              endLine: tokenEndLine,
+            });
+          } else if (['markmap', 'mm', 'mindmap'].includes(primaryLang)) {
+            parsedBlocks.push({
+              id: `block-markmap-${counter++}`,
+              type: 'markmap',
+              raw: token.text,
+              externalFile,
+              startLine: tokenStartLine,
+              endLine: tokenEndLine,
+            });
+          } else if (['excalidraw', 'excalidraw-embed'].includes(primaryLang)) {
+            parsedBlocks.push({
+              id: `block-excalidraw-${counter++}`,
+              type: 'excalidraw',
+              raw: token.text,
+              externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
@@ -430,6 +468,7 @@ export function useMarkdownAstPipeline({
               type: 'code',
               lang: primaryLang || 'text',
               raw: token.text,
+              externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });

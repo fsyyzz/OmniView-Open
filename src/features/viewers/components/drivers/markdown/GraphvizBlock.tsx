@@ -18,6 +18,7 @@ import { Locale, t } from '../../../../../shared/lib/i18n';
 import { graphvizRenderer, GraphvizEngine } from '../../../lib/graphvizRenderer';
 import { analyzeGraphvizError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
+import { ExternalBadgePill } from '../../common/ExternalBadgePill';
 
 interface GraphvizBlockProps {
   id: string;
@@ -38,6 +39,7 @@ interface GraphvizBlockProps {
   onDownloadSvg: () => void;
   onCopy: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  externalFile?: string;
   locale?: Locale;
 }
 
@@ -60,6 +62,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   onDownloadSvg,
   onCopy,
   onOpenSourceAtLine,
+  externalFile,
   locale = 'zh-CN',
 }) => {
   const [svgContent, setSvgContent] = useState<string>('');
@@ -272,6 +275,8 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
           />
         </div>
       )}
+
+      <ExternalBadgePill externalFile={externalFile} />
     </div>
   );
 };

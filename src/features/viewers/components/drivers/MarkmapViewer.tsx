@@ -37,6 +37,8 @@ interface MarkmapViewerProps {
   locale?: Locale;
   onOpenSourceAtLine?: (line: number) => void;
   onSwitchToDocumentView?: () => void;
+  /** 嵌入在 Markdown Block 预览时隐藏自身多余工具栏 */
+  embedded?: boolean;
 }
 
 const DARK_PALETTE = [
@@ -127,6 +129,7 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
   locale = 'zh-CN',
   onOpenSourceAtLine,
   onSwitchToDocumentView,
+  embedded = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -403,8 +406,9 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
       data-theme={theme}
     >
       {/* Top Interactive Header */}
-      <div
-        className={`h-11 px-3 border-b flex items-center justify-between shrink-0 z-10 backdrop-blur transition-colors ${
+      {!embedded && (
+        <div
+          className={`h-11 px-3 border-b flex items-center justify-between shrink-0 z-10 backdrop-blur transition-colors ${
           isDarkTheme
             ? 'bg-slate-900/90 border-slate-800 text-slate-200'
             : 'bg-white/90 border-slate-200 text-slate-800'
@@ -555,6 +559,7 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
           </div>
         </div>
       </div>
+    )}
 
       {/* SVG Canvas Area */}
       <div className="flex-1 min-h-0 w-full relative overflow-hidden">
@@ -579,9 +584,11 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
         )}
 
         {/* Floating watermark hint */}
-        <div className="absolute bottom-2 right-3 pointer-events-none opacity-40 text-[10px] font-mono text-slate-400">
-          Markmap Engine • 滚轮缩放 / 拖拽平移 / 点击圆圈展开
-        </div>
+        {!embedded && (
+          <div className="absolute bottom-2 right-3 pointer-events-none opacity-40 text-[10px] font-mono text-slate-400">
+            Markmap Engine • 滚轮缩放 / 拖拽平移 / 点击圆圈展开
+          </div>
+        )}
       </div>
     </div>
   );

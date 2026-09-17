@@ -56,40 +56,58 @@ async function openPrintableHtmlInBrowser(fileName: string, html: string): Promi
 }
 
 async function loadReferencedMediaFiles(markdownPath: string, markdown: string): Promise<Array<Record<string, unknown>>> {
-  const references = [...markdown.matchAll(/!\[[^\]]*\]\(([^)]+\.(?:svg|png|jpg|jpeg|gif|webp|bmp)(?:#[^)]*)?)\)/gi)]
-    .map(match => match[1].trim().split(/[?#]/, 1)[0])
-    .filter(source => source && !/^[a-z]+:/i.test(source));
-  const uniquePaths = [...new Set(references)];
+  const references: string[] = [];
+
+  // 1. 匹配 Obsidian Wiki 嵌入语法: ![[path/to/file.ext]] 或 ![[path/to/file.ext|alias]]
+  for (const match of markdown.matchAll(/!\[\[([^\]]+?)\]\]/g)) {
+    const rawInner = match[1].trim();
+    const target = rawInner.split('|')[0].trim().split('#')[0].trim();
+    if (target) references.push(target);
+  }
+
+  // 2. 匹配 Standard Markdown 图片/媒体嵌入: ![alt](path/to/file.ext)
+  for (const match of markdown.matchAll(/!\[[^\]]*\]\(([^)]+)\)/gi)) {
+    const rawTarget = match[1].trim().split(/[?#]/)[0].trim();
+    if (rawTarget && !/^[a-z]+:/i.test(rawTarget)) {
+      references.push(rawTarget);
+    }
+  }
+
+  const uniqueSources = [...new Set(references)];
   const assets: Array<Record<string, unknown>> = [];
 
-  for (const source of uniquePaths) {
-    const assetPath = resolvePath(dirname(markdownPath), decodeURIComponent(source));
-    const ext = extname(assetPath).toLowerCase().replace(/^\./, '');
+  for (const source of uniqueSources) {
+    let assetPath = resolvePath(dirname(markdownPath), decodeURIComponent(source));
+    let ext = extname(assetPath).toLowerCase().replace(/^\./, '');
+
+    // 容错: 若相对路径无后缀但对应同名工程文件
+    if (!ext && !existsSync(assetPath)) {
+      for (const candidateExt of ['md', 'egn', 'excalidraw', 'puml', 'mmd', 'svg', 'dot', 'markmap']) {
+        if (existsSync(`${assetPath}.${candidateExt}`)) {
+          assetPath = `${assetPath}.${candidateExt}`;
+          ext = candidateExt;
+          break;
+        }
+      }
+    }
+
     try {
-      if (ext === 'svg') {
-        const asset = await readFile(assetPath);
-        assets.push({
-          id: assetPath,
-          name: basename(assetPath),
-          path: assetPath,
-          extension: 'svg',
-          content: asset.toString('utf8'),
-          size: asset.byteLength,
-          lastModified: Date.now(),
-        });
-        log(`Referenced SVG loaded: ${assetPath} (${asset.byteLength} bytes)`);
-      } else if (existsSync(assetPath)) {
+      if (existsSync(assetPath)) {
         const stats = await readFile(assetPath);
+        // 对于文本类/图形工程类/矢量类文件，读取 utf8 文本作为 content 供 Webview 内联渲染
+        const isBinaryImg = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext);
+        const textContent = isBinaryImg ? '' : stats.toString('utf8');
+
         assets.push({
           id: assetPath,
           name: basename(assetPath),
           path: assetPath,
           extension: ext,
-          content: '',
+          content: textContent,
           size: stats.byteLength,
           lastModified: Date.now(),
         });
-        log(`Referenced image verified: ${assetPath} (${stats.byteLength} bytes)`);
+        log(`Referenced media/diagram asset loaded: ${assetPath} (${stats.byteLength} bytes, ext: ${ext})`);
       }
     } catch (error) {
       log(`Referenced asset unavailable: ${assetPath}`, error);

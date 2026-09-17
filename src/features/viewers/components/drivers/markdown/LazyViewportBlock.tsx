@@ -66,7 +66,7 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
       <div
         ref={ref}
         id={id}
-        className={className}
+        className={['lazy-block-wrapper', className].filter(Boolean).join(' ')}
         title={title}
         data-source-line={dataSourceLine}
         data-source-end-line={dataSourceEndLine}

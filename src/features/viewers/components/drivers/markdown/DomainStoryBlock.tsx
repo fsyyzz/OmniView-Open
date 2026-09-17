@@ -27,6 +27,7 @@ import {
   DomainStoryModel,
 } from '../../../lib/domainStoryEngine.ts';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer.tsx';
+import { ExternalBadgePill } from '../../common/ExternalBadgePill.tsx';
 
 interface DomainStoryBlockProps {
   id: string;
@@ -45,6 +46,7 @@ interface DomainStoryBlockProps {
   onOpenLightbox: (svgContent?: string) => void;
   onCopy: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  externalFile?: string;
   locale?: Locale;
 }
 
@@ -65,6 +67,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
   onOpenLightbox,
   onCopy,
   onOpenSourceAtLine,
+  externalFile,
   locale = 'zh-CN',
 }) => {
   const [isPlaybackActive, setIsPlaybackActive] = useState<boolean>(false);
@@ -140,10 +143,10 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
       id={id}
       data-source-line={startLine}
       data-source-end-line={endLine}
-      className="my-6 rounded-xl border border-slate-700/60 bg-slate-900/90 shadow-lg overflow-hidden transition-all duration-200"
+      className="markdown-diagram markdown-diagram-domainstory group relative"
     >
-      {/* Header Toolbar */}
-      <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-700/60 bg-slate-800/80 text-xs select-none">
+      {/* Header Toolbar: 悬浮 Overlay 纯图标设计 */}
+      <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className="flex items-center gap-2 font-mono text-slate-300">
           <span className="flex items-center gap-1.5 font-semibold text-sky-400">
             <Layers className="w-4 h-4 text-sky-400" />
@@ -165,11 +168,10 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
           <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-700">
             <button
               onClick={() => onSetViewMode('visual')}
-              className={`p-1 rounded flex items-center gap-1 text-[11px] transition ${
-                viewMode === 'visual'
+              className={`p-1 rounded flex items-center gap-1 text-[11px] transition ${viewMode === 'visual'
                   ? 'bg-sky-600 text-white font-medium'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
               title={t('previewTooltip', locale)}
               aria-label={t('preview', locale)}
             >
@@ -177,11 +179,10 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
             </button>
             <button
               onClick={() => onSetViewMode('code')}
-              className={`p-1 rounded flex items-center gap-1 text-[11px] transition ${
-                viewMode === 'code'
+              className={`p-1 rounded flex items-center gap-1 text-[11px] transition ${viewMode === 'code'
                   ? 'bg-sky-600 text-white font-medium'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
               title={t('codeTooltip', locale)}
               aria-label={t('code', locale)}
             >
@@ -199,11 +200,10 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
                     setIsPlaybackActive(next);
                     setCurrentStep(next ? 0 : -1);
                   }}
-                  className={`p-1 rounded transition flex items-center gap-1 px-1.5 font-sans text-[11px] ${
-                    isPlaybackActive
+                  className={`p-1 rounded transition flex items-center gap-1 px-1.5 font-sans text-[11px] ${isPlaybackActive
                       ? 'bg-sky-500 text-white shadow-sm ring-1 ring-sky-300'
                       : 'bg-slate-800 hover:bg-slate-700 text-sky-400'
-                  }`}
+                    }`}
                   title={t('stepPlaybackTooltip', locale)}
                 >
                   <PlayCircle className="w-3.5 h-3.5" />
@@ -309,9 +309,9 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
         </div>
       </div>
 
-      {/* Body: Visual vs Code */}
+      {/* Body: Visual vs Code: 紧凑自适应居中呈现矢量图片，无多余大片空白 */}
       {viewMode === 'visual' ? (
-        <div className="p-6 overflow-x-auto flex justify-center bg-slate-950/70 min-h-[160px] items-center relative">
+        <div className="p-2.5 overflow-x-auto flex justify-center items-center bg-slate-950/40 min-h-[100px] relative [&>div>svg]:max-w-full [&>div>svg]:h-auto [&>div>svg]:block">
           {error ? (
             <div className="flex items-center gap-2 text-rose-400 bg-rose-950/30 border border-rose-800/40 p-4 rounded-lg text-xs">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -357,6 +357,8 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
           locale={locale}
         />
       )}
+
+      <ExternalBadgePill externalFile={externalFile} />
     </div>
   );
 });

@@ -1,0 +1,23 @@
+# ==============================================================================
+# OmniView 集中渲染应用 Docker Compose 一键编排
+# 作者: 周赞
+# ==============================================================================
+services:
+  omniview:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: omniview:latest
+    container_name: omniview-hub
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - PLANTUML_INTERNAL_PORT=8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
