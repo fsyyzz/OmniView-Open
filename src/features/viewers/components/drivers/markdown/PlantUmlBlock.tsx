@@ -28,6 +28,7 @@ interface PlantUmlBlockProps {
   viewMode: 'visual' | 'code';
   zoom: number;
   editedCode: string;
+  isDarkTheme?: boolean;
   onChangeEditedCode: (val: string) => void;
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onZoomChange: (delta: number) => void;
@@ -50,6 +51,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   viewMode,
   zoom,
   editedCode,
+  isDarkTheme = true,
   onChangeEditedCode,
   onSetViewMode,
   onZoomChange,
@@ -65,12 +67,12 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   const [renderNonce, setRenderNonce] = React.useState(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
   const canRender = hasRenderablePlantUmlCode(activeCode);
-  const activeSvgUrl = canRender ? withPlantUmlCacheBust(getPlantUmlSvgUrl(activeCode), renderNonce) : '';
+  const activeSvgUrl = canRender ? withPlantUmlCacheBust(getPlantUmlSvgUrl(activeCode, undefined, isDarkTheme), renderNonce) : '';
 
   React.useEffect(() => {
     setHasError(false);
     setRenderNonce(n => n + 1);
-  }, [activeCode]);
+  }, [activeCode, isDarkTheme]);
 
   return (
     <div id={id} className="markdown-diagram markdown-diagram-plantuml group relative">
@@ -225,7 +227,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
                 key={activeSvgUrl}
                 src={activeSvgUrl}
                 alt="PlantUML Diagram"
-                className="max-w-full h-auto max-h-[550px] object-contain rounded shadow-xs bg-white/95 p-1.5"
+                className={`max-w-full h-auto max-h-[550px] object-contain rounded shadow-xs ${isDarkTheme ? 'p-1.5' : 'bg-white/95 p-1.5'}`}
                 loading="lazy"
                 onError={() => {
                   setHasError(true);

@@ -70,6 +70,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     content,
     files,
     locale,
+    isDarkTheme,
   });
 
   // 2. 块状态管理（缩放、视图模式、折叠、暂存代码、灯箱）Hook
@@ -390,6 +391,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   viewMode={currentMode}
                   zoom={zoom}
                   editedCode={currentCode}
+                  isDarkTheme={isDarkTheme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
                   onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}

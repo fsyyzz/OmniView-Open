@@ -152,12 +152,14 @@ export interface UseMarkdownAstPipelineOptions {
   content: string;
   files: Array<{ name: string; content: string; extension: string; path?: string }>;
   locale: Locale;
+  isDarkTheme?: boolean;
 }
 
 export function useMarkdownAstPipeline({
   content,
   files,
   locale,
+  isDarkTheme = true,
 }: UseMarkdownAstPipelineOptions) {
   const [blocks, setBlocks] = useState<RenderedBlock[]>([]);
   const [isRendering, setIsRendering] = useState(false);
@@ -547,7 +549,7 @@ export function useMarkdownAstPipeline({
 
       for (const block of parsedBlocks) {
         if (block.type === 'plantuml') {
-          block.renderedHtml = getPlantUmlSvgUrl(block.raw);
+          block.renderedHtml = getPlantUmlSvgUrl(block.raw, undefined, isDarkTheme);
         }
       }
 
@@ -565,7 +567,7 @@ export function useMarkdownAstPipeline({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [content, okfData, locale]);
+  }, [content, okfData, locale, isDarkTheme]);
 
   return {
     blocks,
