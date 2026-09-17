@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
-import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles } from 'lucide-react';
+import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles, MoreHorizontal } from 'lucide-react';
 import Prism from 'prismjs';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../shared/types';
 import { useTextHistory } from '../../hooks/useTextHistory';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { getVsCodeApi } from '../../../../shared/lib/vscode';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
 import {
@@ -77,6 +78,22 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
   const [editValue, setEditValue] = useState(content);
   const [isSaved, setIsSaved] = useState(true);
   const [lastSavedContent, setLastSavedContent] = useState(content);
+
+  // 容器响应式宽度监听与更多菜单
+  const [headerRef, headerWidth] = useContainerWidth<HTMLDivElement>(600);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMoreMenuOpen]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineGutterRef = useRef<HTMLDivElement>(null);
@@ -420,40 +437,74 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     return null;
   }, [activeContent, extension, isEditing]);
 
+  // 响应式级别判定 (基于当前容器实际渲染宽度，完全免疫全局窗口视口影响)
+  // >= 620: 宽裕态 (全部文字 + 快捷键)
+  // 460 ~ 620: 次紧凑态 (主要按钮有文字，次要按钮转为图标，隐藏快捷键)
+  // 360 ~ 460: 纯图标态 (所有按钮转为紧凑纯图标，完整保留 title 说明)
+  // < 360: 极窄态 (次要操作折叠进更多菜单)
+  const showShortcuts = headerWidth >= 620;
+  const showSecondaryBtnText = headerWidth >= 580;
+  const showPrimaryBtnText = headerWidth >= 460;
+  const showLinesCount = headerWidth >= 520;
+  const showExtensionBadge = headerWidth >= 400;
+  const showStatusText = headerWidth >= 440;
+  const isExtremelyNarrow = headerWidth < 360;
+
   return (
     <div id="code-viewer-container" className="h-full flex flex-col bg-slate-950 font-mono text-xs text-slate-300 select-text">
-      {/* Code Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none">
-        <div className="flex items-center gap-2 overflow-hidden">
+      {/* Code Header (自适应容器工具栏) */}
+      <div
+        ref={headerRef}
+        className="flex items-center justify-between px-2.5 sm:px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none min-w-0"
+      >
+        {/* 左侧元信息 */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-2 overflow-hidden">
           <FileCode className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <span className="font-semibold text-slate-200 truncate max-w-[180px]">{fileName}</span>
-          <span className="text-slate-600">|</span>
-          <span className="text-slate-400 uppercase text-[11px] font-sans">{extension}</span>
-          <span className="text-slate-600">|</span>
-          <span className="text-slate-400 font-sans">
-            {lines.length} {t('linesCodeCount', locale)}
+          <span className="font-semibold text-slate-200 truncate" title={fileName}>
+            {fileName}
           </span>
+          {showExtensionBadge && (
+            <>
+              <span className="text-slate-600 shrink-0">|</span>
+              <span className="text-slate-400 uppercase text-[11px] font-sans shrink-0">{extension}</span>
+            </>
+          )}
+          {showLinesCount && (
+            <>
+              <span className="text-slate-600 shrink-0">|</span>
+              <span className="text-slate-400 font-sans shrink-0">
+                {lines.length} {t('linesCodeCount', locale)}
+              </span>
+            </>
+          )}
           {onContentChange && (
             <>
-              <span className="text-slate-600">|</span>
+              <span className="text-slate-600 shrink-0">|</span>
               {isSaved ? (
-                <span className="flex items-center gap-1 text-emerald-400 text-[11px] font-sans">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>{t('saved', locale)}</span>
+                <span
+                  className="flex items-center gap-1 text-emerald-400 text-[11px] font-sans shrink-0"
+                  title={t('saved', locale)}
+                >
+                  <CheckCircle2 className="w-3 h-3 shrink-0" />
+                  {showStatusText && <span>{t('saved', locale)}</span>}
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-amber-400 text-[11px] font-sans">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span>{t('unsavedChanges', locale)}</span>
+                <span
+                  className="flex items-center gap-1 text-amber-400 text-[11px] font-sans shrink-0"
+                  title={t('unsavedChanges', locale)}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                  {showStatusText && <span>{t('unsavedChanges', locale)}</span>}
                 </span>
               )}
             </>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* 右侧操作按钮组 (随空间自动调整：纯图标 / 折叠 / 隐藏次要文字) */}
+        <div className="flex items-center gap-1 shrink-0 relative">
           {/* Undo / Redo History Controls */}
-          {onContentChange && isEditing && (
+          {onContentChange && isEditing && !isExtremelyNarrow && (
             <div className="flex items-center gap-0.5 pr-1 mr-0.5 border-r border-slate-800">
               <button
                 id="btn-code-undo"
@@ -486,23 +537,28 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             </div>
           )}
 
-          {/* Save Button (when content is modifiable) */}
+          {/* Save Button */}
           {onContentChange && (
             <button
               id="btn-code-save"
               onClick={handleSave}
               title={t('saveShortcutTooltip', locale)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition font-medium ${
+              className={`flex items-center gap-1 ${
+                showPrimaryBtnText ? 'px-2.5 py-1' : 'p-1.5'
+              } rounded text-xs transition font-medium ${
                 !isSaved
                   ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
+              aria-label={t('saveChanges', locale)}
             >
               <Save className="w-3.5 h-3.5" />
-              <span>{t('saveChanges', locale)}</span>
-              <kbd className="hidden sm:inline-block ml-1 text-[10px] text-slate-300 bg-slate-900/60 px-1 py-0.2 rounded border border-slate-700">
-                ⌘S
-              </kbd>
+              {showPrimaryBtnText && <span>{t('saveChanges', locale)}</span>}
+              {showShortcuts && (
+                <kbd className="ml-1 text-[10px] text-slate-300 bg-slate-900/60 px-1 py-0.2 rounded border border-slate-700">
+                  ⌘S
+                </kbd>
+              )}
             </button>
           )}
 
@@ -517,36 +573,125 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                 }
                 setIsEditing(!isEditing);
               }}
-              className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs"
+              className={`flex items-center gap-1 ${
+                showPrimaryBtnText ? 'px-2 py-1' : 'p-1.5'
+              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs`}
               title={isEditing ? t('viewReadonly', locale) : t('editSource', locale)}
+              aria-label={isEditing ? t('viewReadonly', locale) : t('editSource', locale)}
             >
               {isEditing ? <Eye className="w-3.5 h-3.5 text-slate-300" /> : <Edit3 className="w-3.5 h-3.5 text-blue-400" />}
-              <span>{isEditing ? t('viewReadonly', locale) : t('editSource', locale)}</span>
+              {showPrimaryBtnText && <span>{isEditing ? t('viewReadonly', locale) : t('editSource', locale)}</span>}
             </button>
           )}
 
-          {/* Copy Code */}
-          {onOpenInEditor && (
+          {/* 在编辑器中打开 (次要操作：中等宽度变纯图标，极窄时收入更多菜单) */}
+          {onOpenInEditor && !isExtremelyNarrow && (
             <button
               type="button"
               id="btn-code-open-in-native-editor"
               onClick={onOpenInEditor}
-              className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs cursor-pointer"
-              title="在 VS Code 原生文本编辑器中并排编辑"
+              className={`flex items-center gap-1 ${
+                showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
+              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs cursor-pointer`}
+              title={t('openInEditor', locale) || '在编辑器中打开'}
+              aria-label={t('openInEditor', locale) || '在编辑器中打开'}
             >
               <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline">在编辑器中打开</span>
+              {showSecondaryBtnText && <span>{t('openInEditor', locale) || '在编辑器中打开'}</span>}
             </button>
           )}
 
-          <button
-            id="btn-code-copy"
-            onClick={handleCopy}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? t('copied', locale) : t('copyCode2', locale)}</span>
-          </button>
+          {/* 复制代码 (次要操作：中等宽度变纯图标，极窄时收入更多菜单) */}
+          {!isExtremelyNarrow && (
+            <button
+              id="btn-code-copy"
+              onClick={handleCopy}
+              className={`flex items-center gap-1 ${
+                showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
+              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs`}
+              title={copied ? t('copied', locale) : t('copyCode2', locale)}
+              aria-label={copied ? t('copied', locale) : t('copyCode2', locale)}
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {showSecondaryBtnText && <span>{copied ? t('copied', locale) : t('copyCode2', locale)}</span>}
+            </button>
+          )}
+
+          {/* 极窄模式更多菜单 (< 360px) */}
+          {isExtremelyNarrow && (
+            <div ref={moreMenuRef} className="relative">
+              <button
+                type="button"
+                id="btn-code-more-menu"
+                onClick={() => setIsMoreMenuOpen(prev => !prev)}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs cursor-pointer"
+                title="更多操作"
+                aria-label="更多操作"
+              >
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </button>
+
+              {isMoreMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-md shadow-xl py-1 text-xs">
+                  {onOpenInEditor && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        onOpenInEditor();
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{t('openInEditor', locale) || '在编辑器中打开'}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      handleCopy();
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copied ? t('copied', locale) : t('copyCode2', locale)}</span>
+                  </button>
+                  {onContentChange && isEditing && (
+                    <>
+                      <div className="border-t border-slate-800 my-1" />
+                      <button
+                        type="button"
+                        disabled={!canUndo}
+                        onClick={() => {
+                          handleUndo();
+                        }}
+                        className={`w-full text-left px-3 py-1.5 flex items-center gap-2 ${
+                          canUndo ? 'text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer' : 'text-slate-600 opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        <span>{t('undo', locale)}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canRedo}
+                        onClick={() => {
+                          handleRedo();
+                        }}
+                        className={`w-full text-left px-3 py-1.5 flex items-center gap-2 ${
+                          canRedo ? 'text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer' : 'text-slate-600 opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        <Redo2 className="w-3.5 h-3.5" />
+                        <span>{t('redo', locale)}</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

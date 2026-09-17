@@ -44,6 +44,7 @@ import {
   applyPlantUmlTheme,
   detectPlantUmlTheme
 } from './plantuml/plantUmlData';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 
 interface PlantUmlViewerProps {
   content: string;
@@ -80,6 +81,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const [templateSearch, setTemplateSearch] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<PlantUmlTemplate>(PLANTUML_TEMPLATES[0]);
 
+  const [headerRef, headerWidth] = useContainerWidth<HTMLDivElement>(800);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
@@ -358,6 +360,13 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     return matchesCat && matchesSearch;
   });
 
+  const showTemplateLibraryText = headerWidth >= 720;
+  const showQuickPresets = headerWidth >= 820;
+  const showThemeText = headerWidth >= 650;
+  const showExportText = headerWidth >= 580;
+  const showEditorText = headerWidth >= 520;
+  const showCopyText = headerWidth >= 460;
+
   return (
     <div
       id="plantuml-studio-container"
@@ -369,24 +378,25 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     >
       {/* Top Header */}
       <div
+        ref={headerRef}
         style={{
           backgroundColor: 'var(--ov-surface-header)',
           borderBottomColor: 'var(--ov-border)',
           color: 'var(--ov-text)',
         }}
-        className="flex items-center justify-between px-4 py-2 border-b text-xs gap-3 flex-wrap sm:flex-nowrap shrink-0"
+        className="flex items-center justify-between px-3 py-2 border-b text-xs gap-2 shrink-0 min-w-0"
       >
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="font-semibold text-[var(--ov-accent)] flex items-center gap-1.5">
+        <div className="flex items-center gap-2 shrink-0 min-w-0">
+          <span className="font-semibold text-[var(--ov-accent)] flex items-center gap-1.5 shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-[var(--ov-accent)]" />
-            PlantUML 架构建模引擎
+            PlantUML
           </span>
           <span style={{ color: 'var(--ov-border)' }}>|</span>
-          <span style={{ color: 'var(--ov-text-muted)' }} className="font-mono text-[11px] truncate max-w-[140px]">{fileName}</span>
+          <span style={{ color: 'var(--ov-text-muted)' }} className="font-mono text-[11px] truncate max-w-[120px] sm:max-w-[200px]" title={fileName}>{fileName}</span>
         </div>
 
         {/* Center: Template Library Modal Launcher & Quick Presets */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0">
           <button
             onClick={() => setShowTemplateModal(true)}
             style={{
@@ -394,30 +404,32 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               borderColor: 'var(--ov-border)',
               color: 'var(--ov-text)',
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded border text-xs font-medium transition shrink-0 hover:border-[var(--ov-accent)]"
+            className={`flex items-center gap-1.5 ${showTemplateLibraryText ? 'px-2.5 py-1' : 'p-1.5'} rounded border text-xs font-medium transition shrink-0 hover:border-[var(--ov-accent)]`}
             title="浏览完整的系统架构、C4 容器、时序图、甘特图等企业级模版"
             aria-label="模板库"
           >
             <BookOpen className="w-3.5 h-3.5 text-[var(--ov-accent)]" />
-            <span className="hidden sm:inline">模板库 ({PLANTUML_TEMPLATES.length})</span>
+            {showTemplateLibraryText && <span>模板库 ({PLANTUML_TEMPLATES.length})</span>}
           </button>
 
-          <div className="hidden md:flex items-center gap-1">
-            {PLANTUML_TEMPLATES.slice(0, 3).map((tmpl) => (
-              <button
-                key={tmpl.id}
-                onClick={() => handleApplyTemplate(tmpl.code)}
-                style={{
-                  backgroundColor: 'var(--ov-surface)',
-                  borderColor: 'var(--ov-border)',
-                  color: 'var(--ov-text-secondary)',
-                }}
-                className="px-2 py-0.5 rounded text-[11px] border transition shrink-0 hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
-              >
-                {tmpl.name}
-              </button>
-            ))}
-          </div>
+          {showQuickPresets && (
+            <div className="flex items-center gap-1">
+              {PLANTUML_TEMPLATES.slice(0, 3).map((tmpl) => (
+                <button
+                  key={tmpl.id}
+                  onClick={() => handleApplyTemplate(tmpl.code)}
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text-secondary)',
+                  }}
+                  className="px-2 py-0.5 rounded text-[11px] border transition shrink-0 hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
+                >
+                  {tmpl.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Action Bar */}
@@ -431,13 +443,16 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 borderColor: 'var(--ov-border)',
                 color: 'var(--ov-text)',
               }}
-              className="flex items-center gap-1 px-2 py-1 rounded border transition hover:border-[var(--ov-accent)]"
+              className={`flex items-center gap-1 ${showThemeText ? 'px-2' : 'p-1.5'} py-1 rounded border transition hover:border-[var(--ov-accent)]`}
               title="切换 PlantUML 官方皮肤主题 (!theme)"
+              aria-label="主题"
             >
               <Palette className="w-3.5 h-3.5 text-pink-500" />
-              <span className="hidden lg:inline">
-                {activeThemeId ? `主题: ${activeThemeId}` : '官方主题'}
-              </span>
+              {showThemeText && (
+                <span>
+                  {activeThemeId ? `主题: ${activeThemeId}` : '官方主题'}
+                </span>
+              )}
               <ChevronDown className="w-3 h-3 text-[var(--ov-text-muted)]" />
             </button>
 
@@ -616,12 +631,12 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 borderColor: 'var(--ov-border)',
                 color: 'var(--ov-text)',
               }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded border transition hover:border-[var(--ov-accent)]"
+              className={`flex items-center gap-1 ${showExportText ? 'px-2.5' : 'p-1.5'} py-1 rounded border transition hover:border-[var(--ov-accent)]`}
               title="导出与复制矢量资产"
               aria-label="无损导出"
             >
               <Download className="w-3.5 h-3.5 text-cyan-500" />
-              <span className="hidden sm:inline">无损导出</span>
+              {showExportText && <span>无损导出</span>}
               <ChevronDown className="w-3 h-3 text-[var(--ov-text-muted)]" />
             </button>
 
@@ -684,11 +699,12 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 borderColor: 'var(--ov-border)',
                 color: 'var(--ov-text)',
               }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded border transition shrink-0 hover:border-[var(--ov-accent)] text-xs font-medium cursor-pointer"
+              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5' : 'p-1.5'} py-1 rounded border transition shrink-0 hover:border-[var(--ov-accent)] text-xs font-medium cursor-pointer`}
               title="在 VS Code 原生文本编辑器中并排编辑"
+              aria-label="在编辑器中打开"
             >
               <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline">在编辑器中打开</span>
+              {showEditorText && <span>在编辑器中打开</span>}
             </button>
           )}
 
@@ -698,10 +714,12 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               backgroundColor: 'var(--ov-accent)',
               color: '#ffffff',
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded transition shrink-0 hover:opacity-90 shadow-xs"
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5' : 'p-1.5'} py-1 rounded transition shrink-0 hover:opacity-90 shadow-xs`}
+            title="复制代码"
+            aria-label="复制代码"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-200" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{copied ? '已复制' : '复制代码'}</span>
+            {showCopyText && <span>{copied ? '已复制' : '复制代码'}</span>}
           </button>
         </div>
       </div>

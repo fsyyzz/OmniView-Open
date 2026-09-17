@@ -223,12 +223,21 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         )}
 
         {/* View switcher tabs */}
-        <nav className="flex items-center bg-slate-800/70 p-0.5 rounded-lg border border-slate-750 shrink-0" aria-label="工作台主视图">
+        <nav
+          style={{
+            backgroundColor: 'var(--ov-bg-elevated)',
+            borderColor: 'var(--ov-border)',
+          }}
+          className="flex items-center p-0.5 rounded-lg border shrink-0"
+          aria-label="工作台主视图"
+        >
           <button
             onClick={() => onViewChange('editor')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
-              currentView === 'editor' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: currentView === 'editor' ? 'var(--ov-accent)' : 'transparent',
+              color: currentView === 'editor' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
             title="渲染工作台"
             aria-label="渲染工作台"
           >
@@ -237,9 +246,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           </button>
           <button
             onClick={() => onViewChange('docs')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
-              currentView === 'docs' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: currentView === 'docs' ? 'var(--ov-accent)' : 'transparent',
+              color: currentView === 'docs' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span className="hidden xl:inline">工程技术规范</span>
@@ -247,9 +258,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           </button>
           <button
             onClick={() => onViewChange('drivers')}
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
-              currentView === 'drivers' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: currentView === 'drivers' ? 'var(--ov-accent)' : 'transparent',
+              color: currentView === 'drivers' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
             title="驱动矩阵与生态对标"
             aria-label="驱动矩阵"
           >
@@ -258,9 +271,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           </button>
           <button
             onClick={() => onViewChange('scaffold')}
-            className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
-              currentView === 'scaffold' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: currentView === 'scaffold' ? 'var(--ov-accent)' : 'transparent',
+              color: currentView === 'scaffold' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
             title="VS Code 插件生产源码脚手架"
             aria-label="扩展脚手架"
           >
@@ -273,12 +288,20 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
       {/* Center: View Modes (when in editor view) & Zoom Controls */}
       <div className="hidden md:flex items-center gap-1.5 shrink-0">
         {currentView === 'editor' && (
-          <div className="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/80">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-bg-elevated)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center p-0.5 rounded-lg border shadow-inner"
+          >
             <button
               onClick={() => onViewModeChange('preview')}
-              className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
-                viewMode === 'preview' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'preview' ? 'var(--ov-accent)' : 'transparent',
+                color: viewMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
               title="预览模式：查看富文本与即时渲染图表"
               aria-label="预览模式"
             >
@@ -287,9 +310,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             </button>
             <button
               onClick={() => onViewModeChange('split')}
-              className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
-                viewMode === 'split' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'split' ? 'var(--ov-accent)' : 'transparent',
+                color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
               title="分屏模式：左侧源码编辑，右侧同步渲染"
               aria-label="分屏模式"
             >
@@ -298,9 +323,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             </button>
             <button
               onClick={() => onViewModeChange('source')}
-              className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
-                viewMode === 'source' ? 'bg-blue-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'source' ? 'var(--ov-accent)' : 'transparent',
+                color: viewMode === 'source' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
               title="源码模式：查看与编辑原始文件"
               aria-label="源码模式"
             >
@@ -310,13 +337,15 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             {activeFile && ['md', 'markdown'].includes(activeFile.extension.toLowerCase()) && (
               <button
                 onClick={() => onViewModeChange('mindmap')}
-                className={`flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition ${
-                  viewMode === 'mindmap' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                }`}
+                style={{
+                  backgroundColor: viewMode === 'mindmap' ? 'var(--ov-accent)' : 'transparent',
+                  color: viewMode === 'mindmap' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
                 title="思维导图模式：整篇文档大纲全景树图与动态交互 (Markmap)"
                 aria-label="思维导图模式"
               >
-                <Network className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+                <Network className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden xl:inline">思维导图</span>
               </button>
             )}
@@ -324,10 +353,17 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         )}
 
         {/* Zoom Control Group */}
-        <div className="hidden lg:flex items-center bg-slate-800/80 rounded-lg border border-slate-700/80 px-1 py-0.5">
+        <div
+          style={{
+            backgroundColor: 'var(--ov-bg-elevated)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text-secondary)',
+          }}
+          className="hidden lg:flex items-center rounded-lg border px-1 py-0.5"
+        >
           <button
             onClick={() => onZoomChange(Math.max(0.5, Number((zoom - 0.1).toFixed(1))))}
-            className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 transition"
+            className="p-1 rounded transition hover:opacity-80"
             title="缩小文档/画布 (Ctrl -)"
             aria-label="缩小"
           >
@@ -335,14 +371,15 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           </button>
           <button
             onClick={() => onZoomChange(1.0)}
-            className="px-1.5 py-0.5 text-[11px] font-mono font-medium text-slate-300 hover:text-blue-400 transition"
+            style={{ color: 'var(--ov-text)' }}
+            className="px-1.5 py-0.5 text-[11px] font-mono font-medium transition hover:opacity-80"
             title="点击重置缩放比例为 100%"
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             onClick={() => onZoomChange(Math.min(1.6, Number((zoom + 0.1).toFixed(1))))}
-            className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 transition"
+            className="p-1 rounded transition hover:opacity-80"
             title="放大文档/画布 (Ctrl +)"
             aria-label="放大"
           >
@@ -350,7 +387,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           </button>
           <button
             onClick={() => onZoomChange(1.0)}
-            className="p-1 hover:bg-slate-700 rounded text-slate-500 hover:text-slate-300 transition ml-0.5"
+            className="p-1 rounded transition hover:opacity-80 ml-0.5"
             title="还原原始缩放 (1:1)"
             aria-label="还原原始比例"
           >
@@ -368,7 +405,12 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               setThemeDropdownOpen((prev) => !prev);
               setDensityDropdownOpen(false);
             }}
-            className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-md border border-slate-700 transition shadow-sm text-xs"
+            style={{
+              backgroundColor: 'var(--ov-bg-elevated)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md border transition shadow-sm text-xs hover:opacity-90"
             title="切换渲染色彩主题"
             aria-label="渲染色彩主题"
           >
@@ -383,12 +425,22 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
 
           {/* Theme Dropdown Menu */}
           {themeDropdownOpen && (
-            <div className="absolute right-0 mt-1.5 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50 animate-in fade-in-50 duration-150">
-              <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 border-b border-slate-800 flex items-center justify-between">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="absolute right-0 mt-1.5 w-64 border rounded-lg shadow-2xl py-1.5 z-50 animate-in fade-in-50 duration-150"
+            >
+              <div
+                style={{ borderColor: 'var(--ov-border)', color: 'var(--ov-text-muted)' }}
+                className="px-3 py-1 text-[11px] font-semibold border-b flex items-center justify-between"
+              >
                 <span>可选渲染主题 ({RENDER_THEMES.length})</span>
                 <Sparkles className="w-3 h-3 text-amber-400" />
               </div>
-              <div className="py-1">
+              <div className="py-1 max-h-80 overflow-y-auto">
                 {RENDER_THEMES.map((theme) => {
                   const isSelected = theme.id === currentTheme;
                   return (
@@ -398,9 +450,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                         onThemeChange(theme.id);
                         setThemeDropdownOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs transition ${
-                        isSelected ? 'bg-blue-600/20 text-blue-300' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
+                      style={{
+                        backgroundColor: isSelected ? 'var(--ov-surface-header)' : 'transparent',
+                        color: isSelected ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left text-xs transition hover:opacity-90"
                     >
                       <div className="flex items-start gap-2.5">
                         <span
@@ -410,9 +464,9 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                         <div>
                           <div className="font-medium flex items-center gap-1.5">
                             <span>{theme.name}</span>
-                            <span className="text-[10px] text-slate-400">({theme.label})</span>
+                            <span className="text-[10px] opacity-70">({theme.label})</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 line-clamp-1">{theme.description}</p>
+                          <p className="text-[11px] opacity-75 line-clamp-1">{theme.description}</p>
                         </div>
                       </div>
                       {isSelected && <Check className="w-4 h-4 text-blue-400 shrink-0 ml-2" />}
@@ -431,7 +485,12 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               setDensityDropdownOpen((prev) => !prev);
               setThemeDropdownOpen(false);
             }}
-            className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-md border border-slate-700 transition shadow-sm text-xs"
+            style={{
+              backgroundColor: 'var(--ov-bg-elevated)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md border transition shadow-sm text-xs hover:opacity-90"
             title="切换文档与图表紧凑排版密度"
             aria-label="排版紧凑度"
           >
@@ -442,8 +501,18 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
 
           {/* Density Dropdown Menu */}
           {densityDropdownOpen && (
-            <div className="absolute right-0 mt-1.5 w-60 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50 animate-in fade-in-50 duration-150">
-              <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 border-b border-slate-800 flex items-center justify-between">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="absolute right-0 mt-1.5 w-60 border rounded-lg shadow-2xl py-1.5 z-50 animate-in fade-in-50 duration-150"
+            >
+              <div
+                style={{ borderColor: 'var(--ov-border)', color: 'var(--ov-text-muted)' }}
+                className="px-3 py-1 text-[11px] font-semibold border-b flex items-center justify-between"
+              >
                 <span>排版紧凑度 (3)</span>
                 <span className="text-[10px] text-cyan-400 font-mono">DENSITY</span>
               </div>
@@ -457,16 +526,18 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                         onDensityChange(preset.id);
                         setDensityDropdownOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs transition ${
-                        isSelected ? 'bg-cyan-600/20 text-cyan-300' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
+                      style={{
+                        backgroundColor: isSelected ? 'var(--ov-surface-header)' : 'transparent',
+                        color: isSelected ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left text-xs transition hover:opacity-90"
                     >
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
                           <span>{preset.name}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">({preset.label})</span>
+                          <span className="text-[10px] opacity-70 font-mono">({preset.label})</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{preset.description}</p>
+                        <p className="text-[11px] opacity-75 line-clamp-2 mt-0.5">{preset.description}</p>
                       </div>
                       {isSelected && <Check className="w-4 h-4 text-cyan-400 shrink-0 ml-2" />}
                     </button>
@@ -478,7 +549,14 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         </div>
 
         {/* Quick Action Buttons Group */}
-        <div className="flex items-center bg-slate-800/80 rounded-md border border-slate-700 p-0.5 gap-0.5">
+        <div
+          style={{
+            backgroundColor: 'var(--ov-bg-elevated)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text-secondary)',
+          }}
+          className="flex items-center rounded-md border p-0.5 gap-0.5"
+        >
           {/* Copy Document Content */}
           <button
             onClick={handleCopy}
@@ -486,7 +564,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             className={`flex items-center p-1 sm:p-1.5 rounded transition text-xs ${
               copied
                 ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700'
+                : 'hover:opacity-80'
             }`}
             title="一键复制当前文档完整源码内容"
             aria-label="复制源码"
@@ -498,7 +576,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           <button
             onClick={handleExport}
             disabled={!activeFile}
-            className="p-1 sm:p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="p-1 sm:p-1.5 rounded transition hover:opacity-80"
             title="导出/下载当前文件到本地"
             aria-label="导出文件"
           >
@@ -508,7 +586,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           {/* Print / Export PDF */}
           <button
             onClick={handlePrint}
-            className="p-1 sm:p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="p-1 sm:p-1.5 rounded transition hover:opacity-80"
             title="打印或另存为 PDF"
             aria-label="打印或导出 PDF"
           >
@@ -518,7 +596,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           {/* Fullscreen Preview Toggle */}
           <button
             onClick={handleToggleFullscreen}
-            className="p-1 sm:p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="p-1 sm:p-1.5 rounded transition hover:opacity-80"
             title={isFullscreen ? '退出全屏' : '全屏沉浸式预览'}
             aria-label="全屏预览"
           >
@@ -537,7 +615,12 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md border border-slate-700 transition shadow-sm text-xs"
+          style={{
+            backgroundColor: 'var(--ov-bg-elevated)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text-secondary)',
+          }}
+          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md border transition shadow-sm text-xs hover:opacity-90"
           title="导入本地文件测试渲染"
           aria-label="打开本地文件"
         >

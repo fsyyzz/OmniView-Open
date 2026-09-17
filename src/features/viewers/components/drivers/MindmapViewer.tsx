@@ -27,6 +27,7 @@ import { ThemeId, DensityMode } from '../../../../shared/types';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { loadStoredSettings, saveStoredSettings } from '../../../../shared/lib/settingsStorage';
 import { MarkmapViewer } from './MarkmapViewer';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 
 interface MindmapViewerProps {
   content: string;
@@ -185,6 +186,7 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [isSynced, setIsSynced] = useState<boolean>(true);
 
+  const [headerRef, headerWidth] = useContainerWidth<HTMLElement>(800);
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -335,54 +337,65 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   const lineCount = localCode.split('\n').length;
   const charCount = localCode.length;
 
+  const showModeLabels = headerWidth >= 680;
+  const showRatios = headerWidth >= 760;
+  const showEditorText = headerWidth >= 600;
+  const showTemplateText = headerWidth >= 540;
+  const showCopyText = headerWidth >= 480;
+  const showStatusText = headerWidth >= 440;
+
   return (
     <div
       id="mindmap-studio-container"
       className="h-full w-full flex flex-col bg-slate-950 text-slate-200 select-none relative overflow-hidden"
     >
       {/* 顶部主工作栏 */}
-      <header className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 gap-2 z-20">
+      <header
+        ref={headerRef}
+        className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 gap-2 z-20 min-w-0"
+      >
         {/* 左侧：文件标识与同步状态 */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden mr-2">
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 font-mono text-[11px] font-semibold shrink-0">
             <GitFork className="w-3.5 h-3.5 text-cyan-400" />
             <span>MINDMAP STUDIO</span>
           </div>
 
-          <span className="font-medium text-slate-200 truncate max-w-[160px] sm:max-w-[240px]" title={fileName}>
+          <span className="font-medium text-slate-200 truncate" title={fileName}>
             {fileName}
           </span>
 
-          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono">
+          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono shrink-0">
             {extension}
           </span>
 
           {/* 实时同步状态指示灯 */}
-          <div className="hidden sm:flex items-center gap-1 text-[11px] font-mono text-slate-400 ml-1">
+          <div className="flex items-center gap-1 text-[11px] font-mono text-slate-400 shrink-0" title={isSynced ? '已实时同步' : '编辑中...'}>
             <span
-              className={`w-2 h-2 rounded-full transition-colors ${
+              className={`w-2 h-2 rounded-full transition-colors shrink-0 ${
                 isSynced ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-amber-400 animate-pulse'
               }`}
             />
-            <span>{isSynced ? '已实时同步' : '编辑中...'}</span>
+            {showStatusText && <span>{isSynced ? '已实时同步' : '编辑中...'}</span>}
           </div>
         </div>
 
         {/* 中间：视图模式切换与分屏预设比例 */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-md border border-slate-800 text-[11px]">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center bg-slate-950 p-0.5 rounded-md border border-slate-800 text-[11px] gap-0.5">
             <button
               onClick={() => {
                 setViewMode('mindmap');
                 saveStoredSettings({ mindmapViewMode: 'mindmap' });
               }}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
                 viewMode === 'mindmap' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="全屏交互式思维导图 (方案A默认推荐模式)"
+              aria-label="全屏导图"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">全屏导图</span>
+              {showModeLabels && <span>全屏导图</span>}
             </button>
 
             <button
@@ -390,13 +403,14 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                 setViewMode('split');
                 saveStoredSettings({ mindmapViewMode: 'split' });
               }}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
                 viewMode === 'split' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="内置分屏双向编辑与实时预览"
+              aria-label="内置分屏"
             >
               <Columns className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">内置分屏</span>
+              {showModeLabels && <span>内置分屏</span>}
             </button>
 
             <button
@@ -404,19 +418,20 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                 setViewMode('editor');
                 saveStoredSettings({ mindmapViewMode: 'editor' });
               }}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
                 viewMode === 'editor' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="仅查看内置源码"
+              aria-label="内置源码"
             >
               <Code className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">内置源码</span>
+              {showModeLabels && <span>内置源码</span>}
             </button>
           </div>
 
           {/* 分屏模式下的比例快捷按钮 */}
-          {viewMode === 'split' && (
-            <div className="hidden lg:flex items-center gap-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[10px] font-mono">
+          {viewMode === 'split' && showRatios && (
+            <div className="flex items-center gap-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[10px] font-mono">
               <button
                 onClick={() => {
                   setSplitRatio(30);
@@ -455,39 +470,40 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
               </button>
             </div>
           )}
-        </div>
 
-        {/* 右侧：操作区 */}
-        <div className="flex items-center gap-1.5">
+          {/* 右侧操作按钮 */}
           {onOpenInEditor && (
             <button
               type="button"
               id="btn-mindmap-open-in-native-editor"
               onClick={onOpenInEditor}
-              className="flex items-center gap-1 px-2.5 py-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-750 rounded border border-slate-700 transition text-xs font-medium cursor-pointer"
+              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5 py-1' : 'p-1.5'} text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-750 rounded border border-slate-700 transition text-xs font-medium cursor-pointer`}
               title="在 VS Code 原生编辑器中并排编辑"
+              aria-label="在编辑器中打开"
             >
               <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline">在编辑器中打开</span>
+              {showEditorText && <span>在编辑器中打开</span>}
             </button>
           )}
 
           <button
             onClick={handleResetTemplate}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded border border-slate-700 transition"
+            className={`flex items-center gap-1 ${showTemplateText ? 'px-2 py-1' : 'p-1.5'} bg-slate-800 hover:bg-slate-750 text-slate-300 rounded border border-slate-700 transition`}
             title="重置为经典多级导图模板"
+            aria-label="标准模板"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">标准模板</span>
+            {showTemplateText && <span>标准模板</span>}
           </button>
 
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 px-2.5 py-1 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 rounded border border-cyan-500/40 transition shrink-0 font-medium"
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5 py-1' : 'p-1.5'} bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 rounded border border-cyan-500/40 transition shrink-0 font-medium`}
             title="复制思维导图 Markdown 源码"
+            aria-label="复制源码"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{copied ? '已复制' : '复制源码'}</span>
+            {showCopyText && <span>{copied ? '已复制' : '复制源码'}</span>}
           </button>
         </div>
       </header>

@@ -1,9 +1,9 @@
 /**
  * OmniView 独立 Graphviz / DOT 图表工作室 (.dot / .gv)
- * 对齐 MindmapViewer：默认分屏源码编辑 + 实时预览
+ * 对齐 MindmapViewer / MermaidViewer：默认分屏源码编辑 + 实时全高交互矢量预览 (居中 + 缩放平移 + 多引擎)
  */
-import React, { useState } from 'react';
-import { GraphvizBlock } from './markdown/GraphvizBlock';
+import React from 'react';
+import { GraphvizStudioCanvas } from './graphviz/GraphvizStudioCanvas';
 import { DiagramStudioShell, DiagramSnippet } from './DiagramStudioShell';
 import { Locale } from '../../../../shared/lib/i18n';
 
@@ -57,20 +57,6 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
   onContentChange,
   onOpenInEditor,
 }) => {
-  const [zoom, setZoom] = useState(1);
-  const [isCopied, setIsCopied] = useState(false);
-  const [previewTick, setPreviewTick] = useState(0);
-
-  const handleCopyFromBlock = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 1600);
-    } catch {
-      /* ignore */
-    }
-  };
-
   return (
     <DiagramStudioShell
       title="Graphviz DOT 工作室"
@@ -85,30 +71,14 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
       snippets={GRAPHVIZ_SNIPPETS}
       defaultTemplate={DEFAULT_GRAPHVIZ_TEMPLATE}
       renderPreview={code => (
-        <div className="flex-1 min-h-0 overflow-auto p-3">
-          <GraphvizBlock
-            key={`graphviz-preview-${previewTick}`}
-            id="standalone-graphviz"
-            code={code}
-            engine="dot"
-            editedCode={code}
-            onChangeEditedCode={() => undefined}
-            isCopied={isCopied}
-            viewMode="visual"
-            zoom={zoom}
-            onSetViewMode={() => undefined}
-            onZoomChange={delta =>
-              setZoom(z => Math.min(3, Math.max(0.4, Number((z + delta).toFixed(2)))))
-            }
-            onResetZoom={() => setZoom(1)}
-            onOpenLightbox={() => undefined}
-            onReRender={() => setPreviewTick(n => n + 1)}
-            onDownloadSvg={() => undefined}
-            onCopy={() => void handleCopyFromBlock(code)}
-            locale={locale}
-          />
-        </div>
+        <GraphvizStudioCanvas
+          code={code}
+          fileName={fileName}
+          locale={locale}
+          onCodeChange={onContentChange}
+        />
       )}
     />
   );
 };
+

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { SvgStats, exportSvgAsPng } from './svgUtils';
 import { SvgBgMode } from './SvgCanvas';
+import { useContainerWidth } from '../../../hooks/useContainerWidth';
 
 export type SvgViewMode = 'split' | 'visual' | 'code';
 
@@ -80,6 +81,7 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const [toolbarRef, toolbarWidth] = useContainerWidth<HTMLDivElement>(800);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // 点击外部关闭下拉菜单
@@ -111,18 +113,24 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
     }
   };
 
+  const showModeLabels = toolbarWidth >= 760;
+  const showSplitPresets = toolbarWidth >= 660;
+  const showBgSelect = toolbarWidth >= 540;
+  const showExportText = toolbarWidth >= 460;
+
   return (
     <div
+      ref={toolbarRef}
       id="svg-studio-toolbar"
       style={{
         backgroundColor: 'var(--ov-surface)',
         borderBottomColor: 'var(--ov-border)',
         color: 'var(--ov-text)',
       }}
-      className="flex flex-wrap items-center justify-between px-3.5 py-2 border-b text-xs gap-2 select-none z-30"
+      className="flex flex-wrap items-center justify-between px-3.5 py-2 border-b text-xs gap-2 select-none z-30 min-w-0"
     >
       {/* 视图模式与分屏比例调节 */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 min-w-0">
         {/* 视口布局切换三态 */}
         <div
           style={{
@@ -137,11 +145,12 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
               backgroundColor: viewMode === 'split' ? 'var(--ov-accent, #3b82f6)' : 'transparent',
               color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition font-medium"
+            className={`flex items-center gap-1 ${showModeLabels ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-xs transition font-medium`}
             title="双向分屏编辑 (Split Mode)"
+            aria-label="分屏联动"
           >
             <Columns2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">分屏联动</span>
+            {showModeLabels && <span>分屏联动</span>}
           </button>
           <button
             onClick={() => setViewMode('visual')}
@@ -149,11 +158,12 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
               backgroundColor: viewMode === 'visual' ? 'var(--ov-accent, #3b82f6)' : 'transparent',
               color: viewMode === 'visual' ? '#ffffff' : 'var(--ov-text-secondary)',
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition font-medium"
+            className={`flex items-center gap-1 ${showModeLabels ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-xs transition font-medium`}
             title="仅矢量画布 (Canvas Only)"
+            aria-label="矢量画布"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">矢量画布</span>
+            {showModeLabels && <span>矢量画布</span>}
           </button>
           <button
             onClick={() => setViewMode('code')}
@@ -161,23 +171,24 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
               backgroundColor: viewMode === 'code' ? 'var(--ov-accent, #3b82f6)' : 'transparent',
               color: viewMode === 'code' ? '#ffffff' : 'var(--ov-text-secondary)',
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition font-medium"
+            className={`flex items-center gap-1 ${showModeLabels ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-xs transition font-medium`}
             title="仅代码编辑 (Code Only)"
+            aria-label="XML 源码"
           >
             <Code className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">XML 源码</span>
+            {showModeLabels && <span>XML 源码</span>}
           </button>
         </div>
 
         {/* 分屏比例快捷预设 */}
-        {viewMode === 'split' && (
+        {viewMode === 'split' && showSplitPresets && (
           <div
             style={{
               backgroundColor: 'var(--ov-surface-header)',
               borderColor: 'var(--ov-border)',
               color: 'var(--ov-text-secondary)',
             }}
-            className="hidden md:flex items-center gap-1 rounded-md p-0.5 border text-[11px]"
+            className="flex items-center gap-1 rounded-md p-0.5 border text-[11px]"
           >
             <button
               onClick={() => setSplitRatio(30)}
@@ -294,25 +305,27 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
               <Maximize className="w-3.5 h-3.5" />
             </button>
 
-            <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-4 w-px mx-1 hidden sm:block" />
+            {showBgSelect && <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-4 w-px mx-1" />}
 
             {/* 画布底板背景模式 */}
-            <select
-              value={bgMode}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setBgMode(e.target.value as SvgBgMode)}
-              style={{
-                backgroundColor: 'var(--ov-surface-header)',
-                borderColor: 'var(--ov-border)',
-                color: 'var(--ov-text)',
-              }}
-              className="text-xs px-2 py-1 rounded border outline-none cursor-pointer hidden sm:block"
-            >
-              <option value="dark-grid">深色网格</option>
-              <option value="light-grid">浅色网格</option>
-              <option value="slate">纯黑底板</option>
-              <option value="white">纯白底板</option>
-              <option value="transparent">经典透光棋盘</option>
-            </select>
+            {showBgSelect && (
+              <select
+                value={bgMode}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setBgMode(e.target.value as SvgBgMode)}
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="text-xs px-2 py-1 rounded border outline-none cursor-pointer"
+              >
+                <option value="dark-grid">深色网格</option>
+                <option value="light-grid">浅色网格</option>
+                <option value="slate">纯黑底板</option>
+                <option value="white">纯白底板</option>
+                <option value="transparent">经典透光棋盘</option>
+              </select>
+            )}
 
             <button
               onClick={() => setShowGrid(!showGrid)}
@@ -341,7 +354,7 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
                 title="图元检视器 (点选图元微调颜色、描边、图层或在代码中高亮定位)"
               >
                 <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden md:inline">检视微调</span>
+                {showBgSelect && <span>检视微调</span>}
                 {inspectorActive && (
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                 )}
@@ -360,12 +373,12 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
               backgroundColor: 'var(--ov-accent, #3b82f6)',
               color: '#ffffff',
             }}
-            className="flex items-center gap-1.5 px-2 sm:px-3 py-1 hover:opacity-90 rounded-md transition shadow-sm font-medium"
+            className={`flex items-center gap-1.5 ${showExportText ? 'px-2 sm:px-3' : 'p-1.5'} py-1 hover:opacity-90 rounded-md transition shadow-sm font-medium`}
             title="导出与代码转换"
             aria-label="导出 / 转换"
           >
             {copiedAction ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Share2 className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{copiedAction ? `已复制: ${copiedAction}` : '导出 / 转换'}</span>
+            {showExportText && <span>{copiedAction ? `已复制: ${copiedAction}` : '导出 / 转换'}</span>}
             <ChevronDown className="w-3 h-3 opacity-70" />
           </button>
 

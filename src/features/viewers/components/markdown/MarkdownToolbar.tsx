@@ -228,64 +228,48 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
 
       {/* Center: View Mode Switcher & Native Editor Quick Launch */}
       <div className="flex items-center gap-1.5 shrink-0">
-        <div className="markdown-view-mode-switcher flex items-center bg-slate-900/90 border border-slate-750/80 rounded-lg p-0.5 shadow-inner gap-0.5">
+        <div className="markdown-view-mode-switcher">
           <button
             type="button"
             onClick={() => onViewModeChange?.('preview')}
-            className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
-              viewMode === 'preview'
-                ? 'bg-blue-600 text-white font-medium shadow-xs'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
+            className={`markdown-view-mode-btn ${viewMode === 'preview' ? 'is-active' : ''}`}
             title={t('viewModePreviewTooltip', locale)}
             aria-label={t('viewModePreview', locale)}
           >
-            <Eye size={13} className={viewMode === 'preview' ? 'text-white' : 'text-slate-400'} />
+            <Eye size={13} />
             <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModePreview', locale)}</span>
           </button>
 
           <button
             type="button"
             onClick={() => onViewModeChange?.('split')}
-            className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
-              viewMode === 'split'
-                ? 'bg-blue-600 text-white font-medium shadow-xs'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
+            className={`markdown-view-mode-btn ${viewMode === 'split' ? 'is-active' : ''}`}
             title={t('viewModeSplitTooltip', locale)}
             aria-label={t('viewModeSplit', locale)}
           >
-            <Split size={13} className={viewMode === 'split' ? 'text-white' : 'text-slate-400'} />
+            <Split size={13} />
             <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModeSplit', locale)}</span>
           </button>
 
           <button
             type="button"
             onClick={() => onViewModeChange?.('source')}
-            className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
-              viewMode === 'source'
-                ? 'bg-blue-600 text-white font-medium shadow-xs'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
+            className={`markdown-view-mode-btn ${viewMode === 'source' ? 'is-active' : ''}`}
             title={t('viewModeSourceTooltip', locale)}
             aria-label={t('viewModeSource', locale)}
           >
-            <Code size={13} className={viewMode === 'source' ? 'text-white' : 'text-slate-400'} />
+            <Code size={13} />
             <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModeSource', locale)}</span>
           </button>
 
           <button
             type="button"
             onClick={() => onViewModeChange?.('mindmap')}
-            className={`markdown-view-mode-btn flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition select-none ${
-              viewMode === 'mindmap'
-                ? 'bg-indigo-600 text-white font-medium shadow-xs'
-                : 'text-slate-400 hover:text-indigo-300 hover:bg-slate-800/60'
-            }`}
+            className={`markdown-view-mode-btn ${viewMode === 'mindmap' ? 'is-active' : ''}`}
             title={t('viewModeMindmapTooltip', locale)}
             aria-label={t('viewModeMindmap', locale)}
           >
-            <Network size={13} className={viewMode === 'mindmap' ? 'text-white' : 'text-indigo-400'} />
+            <Network size={13} />
             <span className="markdown-view-mode-label text-[11px] font-medium">{t('viewModeMindmap', locale)}</span>
           </button>
         </div>
@@ -311,30 +295,41 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             <span className="text-[10px] font-mono font-bold uppercase">{locale === 'zh-CN' ? 'ZH' : 'EN'}</span>
           </button>
           {langMenuOpen && (
-            <div className="absolute right-0 mt-1 w-36 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 z-50">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="absolute right-0 mt-1 w-36 border rounded-lg shadow-xl py-1 z-50"
+            >
               <button
                 onClick={() => {
                   onLocaleChange('zh-CN');
                   setLangMenuOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left ${
-                  locale === 'zh-CN' ? 'bg-blue-600/20 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-800'
-                }`}
+                style={{
+                  backgroundColor: locale === 'zh-CN' ? 'var(--ov-surface-header)' : 'transparent',
+                  color: locale === 'zh-CN' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                }}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90"
               >
                 <span>简体中文</span>
-                {locale === 'zh-CN' && <Check size={12} className="text-blue-400" />}
+                {locale === 'zh-CN' && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
               </button>
               <button
                 onClick={() => {
                   onLocaleChange('en-US');
                   setLangMenuOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left ${
-                  locale === 'en-US' ? 'bg-blue-600/20 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-800'
-                }`}
+                style={{
+                  backgroundColor: locale === 'en-US' ? 'var(--ov-surface-header)' : 'transparent',
+                  color: locale === 'en-US' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                }}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90"
               >
                 <span>English</span>
-                {locale === 'en-US' && <Check size={12} className="text-blue-400" />}
+                {locale === 'en-US' && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
               </button>
             </div>
           )}
@@ -358,7 +353,14 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: activeTheme.colorDot }} />
           </button>
           {themeMenuOpen && (
-            <div className="absolute right-0 mt-1 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 z-50">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="absolute right-0 mt-1 w-48 border rounded-lg shadow-xl py-1 z-50 max-h-80 overflow-y-auto"
+            >
               {RENDER_THEMES.map(tItem => (
                 <button
                   key={tItem.id}
@@ -366,12 +368,14 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                     onThemeChange(tItem.id);
                     setThemeMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left ${
-                    tItem.id === theme ? 'bg-blue-600/20 text-blue-300' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
+                  style={{
+                    backgroundColor: tItem.id === theme ? 'var(--ov-surface-header)' : 'transparent',
+                    color: tItem.id === theme ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition hover:opacity-90"
                 >
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tItem.colorDot }} />
-                  <span>{tItem.name}</span>
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tItem.colorDot }} />
+                  <span className="truncate">{tItem.name}</span>
                 </button>
               ))}
             </div>
@@ -396,7 +400,14 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             <span className="text-[10px] opacity-80">{fontSize}</span>
           </button>
           {fontSizeMenuOpen && (
-            <div className="absolute right-0 mt-1 w-36 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 z-50">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="absolute right-0 mt-1 w-36 border rounded-lg shadow-xl py-1 z-50"
+            >
               {[13, 14, 15, 16, 18].map(size => (
                 <button
                   key={size}
@@ -404,12 +415,14 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                     onFontSizeChange(size);
                     setFontSizeMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left ${
-                    fontSize === size ? 'bg-blue-600/20 text-blue-300 font-semibold' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
+                  style={{
+                    backgroundColor: fontSize === size ? 'var(--ov-surface-header)' : 'transparent',
+                    color: fontSize === size ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90 font-medium"
                 >
                   <span>{size} px</span>
-                  {fontSize === size && <Check size={12} className="text-blue-400" />}
+                  {fontSize === size && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
                 </button>
               ))}
             </div>
@@ -433,7 +446,14 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             <AlignJustify size={14} />
           </button>
           {densityMenuOpen && (
-            <div className="absolute right-0 mt-1 w-52 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 z-50">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="absolute right-0 mt-1 w-52 border rounded-lg shadow-xl py-1 z-50"
+            >
               {DENSITY_PRESETS.map(d => (
                 <button
                   key={d.id}
@@ -441,15 +461,17 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                     onDensityChange(d.id);
                     setDensityMenuOpen(false);
                   }}
-                  className={`w-full flex flex-col px-3 py-1.5 text-xs text-left ${
-                    d.id === density ? 'bg-cyan-600/20 text-cyan-300' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
+                  style={{
+                    backgroundColor: d.id === density ? 'var(--ov-surface-header)' : 'transparent',
+                    color: d.id === density ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="w-full flex flex-col px-3 py-1.5 text-xs text-left transition hover:opacity-90"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{d.name}</span>
-                    <span className="text-[10px] text-slate-500 font-mono">({d.label})</span>
+                    <span className="text-[10px] opacity-70 font-mono">({d.label})</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">{d.description}</span>
+                  <span className="text-[10px] opacity-75 line-clamp-1 mt-0.5">{d.description}</span>
                 </button>
               ))}
             </div>

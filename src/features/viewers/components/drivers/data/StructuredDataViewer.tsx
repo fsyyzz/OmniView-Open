@@ -34,6 +34,7 @@ import { TableBlock, TableHeaderItem, TableRowItem } from '../markdown/TableBloc
 import { tableToMarkdown } from '../markdown/tableUtils';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../../shared/types';
+import { useContainerWidth } from '../../../hooks/useContainerWidth';
 import Prism from 'prismjs';
 import mermaid from 'mermaid';
 
@@ -71,6 +72,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [topologySvg, setTopologySvg] = useState<string | null>(null);
 
+  const [headerRef, headerWidth] = useContainerWidth<HTMLDivElement>(800);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextExternalSync = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -223,16 +225,26 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   const lineCount = Math.max(1, localRawText.split('\n').length);
   const charCount = localRawText.length;
 
+  const showModeLabels = headerWidth >= 780;
+  const showSearch = headerWidth >= 680;
+  const showEditorText = headerWidth >= 620;
+  const showConverterText = headerWidth >= 540;
+  const showMaskText = headerWidth >= 460;
+  const showCopyText = headerWidth >= 400;
+
   return (
     <div id="structured-data-viewer" className="h-full w-full flex flex-col bg-slate-950 font-sans text-xs text-slate-300 select-text overflow-hidden">
       {/* 顶部主工作台控制工具栏 */}
-      <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none gap-2">
+      <div
+        ref={headerRef}
+        className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none gap-2 min-w-0"
+      >
         {/* 左侧：文件基本元信息与视图模式切换器 */}
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <div className="flex items-center gap-1.5 mr-1 shrink-0">
-            <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-semibold text-slate-200 truncate max-w-[150px]">{fileName}</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 font-mono uppercase">
+        <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1 mr-1">
+          <div className="flex items-center gap-1.5 mr-1 shrink-0 min-w-0">
+            <FileCode className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <span className="font-semibold text-slate-200 truncate max-w-[120px] sm:max-w-[180px]" title={fileName}>{fileName}</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 font-mono uppercase shrink-0">
               {extension}
             </span>
           </div>
@@ -240,10 +252,10 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           <div className="h-4 w-px bg-slate-800 shrink-0" />
 
           {/* 核心多态视图切换选项卡 */}
-          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 shrink-0">
+          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 shrink-0 gap-0.5">
             <button
               onClick={() => setViewMode('tree')}
-              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                 viewMode === 'tree'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
@@ -252,12 +264,12 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               aria-label="结构树 (Tree)"
             >
               <FolderTree className="w-3 h-3" />
-              <span className="hidden sm:inline">结构树 (Tree)</span>
+              {showModeLabels && <span>结构树 (Tree)</span>}
             </button>
 
             <button
               onClick={() => setViewMode('mindmap')}
-              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                 viewMode === 'mindmap'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
@@ -266,14 +278,14 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               aria-label="思维导图 (Mindmap)"
             >
               <Network className="w-3 h-3 text-sky-400" />
-              <span className="hidden sm:inline">思维导图 (Mindmap)</span>
+              {showModeLabels && <span>思维导图 (Mindmap)</span>}
             </button>
 
             {/* 同构数组下钻视图 (若检测到数组) */}
             {arrayDetection.detected && (
               <button
                 onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                   viewMode === 'table'
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
@@ -282,7 +294,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
                 aria-label={`数据表格 (${arrayDetection.rows.length})`}
               >
                 <TableIcon className="w-3 h-3 text-emerald-400" />
-                <span className="hidden sm:inline">数据表格 ({arrayDetection.rows.length})</span>
+                {showModeLabels && <span>数据表格 ({arrayDetection.rows.length})</span>}
               </button>
             )}
 
@@ -290,7 +302,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
             {topologyMermaid && (
               <button
                 onClick={() => setViewMode('topology')}
-                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                   viewMode === 'topology'
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
@@ -299,13 +311,13 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
                 aria-label="服务拓扑 (Topology)"
               >
                 <GitBranch className="w-3 h-3 text-purple-400" />
-                <span className="hidden sm:inline">服务拓扑 (Topology)</span>
+                {showModeLabels && <span>服务拓扑 (Topology)</span>}
               </button>
             )}
 
             <button
               onClick={() => setViewMode('code')}
-              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                 viewMode === 'code'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
@@ -314,15 +326,15 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               aria-label="代码文本 (Code)"
             >
               <Code className="w-3 h-3" />
-              <span className="hidden sm:inline">代码文本 (Code)</span>
+              {showModeLabels && <span>代码文本 (Code)</span>}
             </button>
           </div>
         </div>
 
         {/* 右侧功能动作区：脱敏开关、跨格式互转、搜索框与源码复制 */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* 结构感知检索框 (仅树模式展示) */}
-          {viewMode === 'tree' && (
+          {showSearch && viewMode === 'tree' && (
             <div className="relative flex items-center">
               <Search className="w-3 h-3 text-slate-500 absolute left-2 pointer-events-none" />
               <input
@@ -330,7 +342,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
                 placeholder="搜索 Key 或 Value..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-36 sm:w-44 pl-6 pr-2 py-0.8 bg-slate-950 border border-slate-800 rounded-md text-[11px] text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition"
+                className="w-32 sm:w-40 pl-6 pr-2 py-0.8 bg-slate-950 border border-slate-800 rounded-md text-[11px] text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition"
               />
             </div>
           )}
@@ -338,39 +350,40 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           {/* 敏感信息脱敏防护开关 (Secret Masking) */}
           <button
             onClick={() => setMaskSecrets(!maskSecrets)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer border ${
+            className={`flex items-center gap-1 ${showMaskText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer border ${
               maskSecrets
                 ? 'bg-rose-950/50 text-rose-300 border-rose-800/70 hover:bg-rose-900/60'
-                : 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:text-slate-200 hover:bg-slate-800'
+                : 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:text-slate-200 hover:bg-slate-850'
             }`}
             title={maskSecrets ? '敏感密钥保护中 (已遮罩密码/Token)，点击解除' : '已显示明文，点击开启敏感信息遮罩'}
             aria-label={maskSecrets ? '脱敏防护' : '明文模式'}
           >
             {maskSecrets ? <Shield className="w-3 h-3 text-rose-400" /> : <ShieldAlert className="w-3 h-3 text-slate-400" />}
-            <span className="hidden sm:inline">{maskSecrets ? '脱敏防护' : '明文模式'}</span>
+            {showMaskText && <span>{maskSecrets ? '脱敏防护' : '明文模式'}</span>}
           </button>
 
           {/* 跨格式无损互转工作台入口 */}
           {parseResult.success && (
             <button
               onClick={() => setIsConverterOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-800/60 text-[11px] font-medium transition cursor-pointer"
+              className={`flex items-center gap-1 ${showConverterText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-800/60 text-[11px] font-medium transition cursor-pointer`}
               title="JSON ⇄ YAML ⇄ TOML ⇄ XML 实时本地转换"
               aria-label="格式互转"
             >
               <ArrowRightLeft className="w-3 h-3 text-indigo-400" />
-              <span className="hidden sm:inline">格式互转</span>
+              {showConverterText && <span>格式互转</span>}
             </button>
           )}
 
           {/* 一键复制源码 */}
           <button
             onClick={handleCopySource}
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-750 text-slate-300 text-[11px] transition cursor-pointer"
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2' : 'p-1.5'} py-1 rounded-md bg-slate-800 hover:bg-slate-750 text-slate-300 text-[11px] transition cursor-pointer`}
             title="复制原始源码"
+            aria-label="复制"
           >
             {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-            <span className="hidden sm:inline">{isCopied ? '已复制' : '复制'}</span>
+            {showCopyText && <span>{isCopied ? '已复制' : '复制'}</span>}
           </button>
 
           {/* 在 VS Code 原生编辑器中打开 */}
@@ -379,12 +392,12 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               type="button"
               id="btn-open-in-native-editor"
               onClick={onOpenInEditor}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-medium transition cursor-pointer"
+              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-medium transition cursor-pointer`}
               title="在 VS Code 原生文本编辑器中并排编辑"
               aria-label="在编辑器中打开"
             >
               <ExternalLink className="w-3 h-3 text-sky-400" />
-              <span className="hidden sm:inline">在编辑器中打开</span>
+              {showEditorText && <span>在编辑器中打开</span>}
             </button>
           )}
         </div>

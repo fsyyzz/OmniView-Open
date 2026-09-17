@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Code, Columns, Copy, Eye, FileCode, Sparkles, Undo2, Redo2, ExternalLink } from 'lucide-react';
 import { useTextHistory } from '../../hooks/useTextHistory';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 
 export type DiagramStudioMode = 'split' | 'preview' | 'editor';
 
@@ -75,6 +76,7 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   const [copied, setCopied] = useState(false);
   const [isSynced, setIsSynced] = useState(true);
 
+  const [headerRef, headerWidth] = useContainerWidth<HTMLElement>(800);
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -311,61 +313,76 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   const lineCount = Math.max(1, localCode.split('\n').length);
   const charCount = localCode.length;
 
+  const showModeLabels = headerWidth >= 680;
+  const showRatios = headerWidth >= 760;
+  const showTemplateText = headerWidth >= 580;
+  const showEditorText = headerWidth >= 600;
+  const showCopyText = headerWidth >= 500;
+  const showStatusBadge = headerWidth >= 420;
+
   return (
     <div id="diagram-studio-shell" className="h-full min-h-0 flex flex-col bg-slate-950 text-slate-200" data-file={fileName}>
-      <header className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900 border-b border-slate-800 text-xs shrink-0 flex-wrap">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`font-semibold ${accentText} truncate`}>{title}</span>
-          <span className="text-slate-600">|</span>
-          <span className="text-slate-400 font-mono truncate max-w-[180px]">{fileName}</span>
-          <span
-            className={`text-[10px] px-1.5 py-0.5 rounded border ${
-              isSynced ? 'border-emerald-800 text-emerald-400/90' : 'border-amber-800 text-amber-300'
-            }`}
-          >
-            {isSynced ? '已同步' : '编辑中…'}
-          </span>
+      <header
+        ref={headerRef}
+        className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none min-w-0"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden mr-2">
+          <span className={`font-semibold ${accentText} truncate shrink-0`}>{title}</span>
+          <span className="text-slate-600 shrink-0">|</span>
+          <span className="text-slate-400 font-mono truncate" title={fileName}>{fileName}</span>
+          {showStatusBadge && (
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
+                isSynced ? 'border-emerald-800 text-emerald-400/90' : 'border-amber-800 text-amber-300'
+              }`}
+            >
+              {isSynced ? '已同步' : '编辑中…'}
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 shrink-0">
           <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 gap-0.5">
             <button
               type="button"
               onClick={() => persistMode('preview')}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
                 viewMode === 'preview' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
               }`}
               title="全屏高清渲染预览 (方案A默认推荐模式)"
+              aria-label="全屏预览"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">全屏预览</span>
+              {showModeLabels && <span>全屏预览</span>}
             </button>
             <button
               type="button"
               onClick={() => persistMode('split')}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
                 viewMode === 'split' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
               }`}
               title="内置简易编辑分屏"
+              aria-label="内置分屏"
             >
               <Columns className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">内置分屏</span>
+              {showModeLabels && <span>内置分屏</span>}
             </button>
             <button
               type="button"
               onClick={() => persistMode('editor')}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
                 viewMode === 'editor' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
               }`}
               title="仅查看内置源码"
+              aria-label="内置源码"
             >
               <Code className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">内置源码</span>
+              {showModeLabels && <span>内置源码</span>}
             </button>
           </div>
 
-          {viewMode === 'split' && (
-            <div className="hidden lg:flex items-center gap-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[10px] font-mono">
+          {viewMode === 'split' && showRatios && (
+            <div className="flex items-center gap-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[10px] font-mono">
               {[30, 50, 70].map(ratio => (
                 <button
                   key={ratio}
@@ -385,11 +402,12 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             <button
               type="button"
               onClick={handleResetTemplate}
-              className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded border border-slate-700 transition"
+              className={`flex items-center gap-1 ${showTemplateText ? 'px-2 py-1' : 'p-1.5'} bg-slate-800 hover:bg-slate-750 text-slate-300 rounded border border-slate-700 transition`}
               title="重置为标准模板"
+              aria-label="模板"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">模板</span>
+              {showTemplateText && <span>模板</span>}
             </button>
           )}
 
@@ -398,22 +416,24 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
               type="button"
               id="btn-diagram-open-in-native-editor"
               onClick={onOpenInEditor}
-              className="flex items-center gap-1 px-2.5 py-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 transition text-xs font-medium cursor-pointer"
+              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5 py-1' : 'p-1.5'} text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 transition text-xs font-medium cursor-pointer`}
               title="在 VS Code 原生文本编辑器中并排编辑"
+              aria-label="在编辑器中打开"
             >
               <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline">在编辑器中打开</span>
+              {showEditorText && <span>在编辑器中打开</span>}
             </button>
           )}
 
           <button
             type="button"
             onClick={handleCopy}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded border transition shrink-0 font-medium ${accentSoft}`}
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5 py-1' : 'p-1.5'} rounded border transition shrink-0 font-medium ${accentSoft}`}
             title="复制源码"
+            aria-label="复制源码"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{copied ? '已复制' : '复制源码'}</span>
+            {showCopyText && <span>{copied ? '已复制' : '复制源码'}</span>}
           </button>
         </div>
       </header>
