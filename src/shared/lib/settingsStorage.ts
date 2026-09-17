@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS: WorkbenchSettings = {
   // 5. 编辑与辅助偏好
   wordWrap: true,
   showLineNumbers: true,
+  enableDoubleClickEdit: false,
 
   // 6. 渲染与知识库偏好
   enableOkfRendering: true,
@@ -180,6 +181,9 @@ export function loadStoredSettings(): WorkbenchSettings {
       plantUmlServerUrl,
       wordWrap,
       showLineNumbers,
+      enableDoubleClickEdit: typeof parsed.enableDoubleClickEdit === 'boolean'
+        ? parsed.enableDoubleClickEdit
+        : false,
       enableOkfRendering: parsed.enableOkfRendering !== undefined
         ? Boolean(parsed.enableOkfRendering)
         : DEFAULT_SETTINGS.enableOkfRendering ?? true,

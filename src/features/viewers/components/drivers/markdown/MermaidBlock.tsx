@@ -358,7 +358,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           onMouseMove={handleCanvasMouseMove}
           onMouseLeave={handleCanvasMouseLeave}
           onClick={handleCanvasClick}
-          className="p-2.5 overflow-x-auto flex justify-center bg-slate-950/40 min-h-[100px] items-center relative group/canvas"
+          className="p-2.5 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px] items-center relative group/canvas"
         >
           {/* 图文联动提示徽章：显示当前悬浮节点与其在 Markdown 源码中的精准行号 */}
           {hoveredNodeInfo && (

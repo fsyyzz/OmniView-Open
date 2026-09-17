@@ -157,6 +157,10 @@ export function useMarkdownScrollSync({
     };
 
     const handleContainerDblClick = (e: MouseEvent) => {
+      // 尊重用户偏好配置：若未开启双击打开编辑/源码定位，则直接忽略，杜绝文字选取与浏览时的误触中断
+      const settings = loadStoredSettings();
+      if (!settings.enableDoubleClickEdit) return;
+
       const target = e.target as HTMLElement;
       if (target.closest('button, input, textarea, select, details, summary')) return;
       const sourceElement = target.closest('[data-source-line]');

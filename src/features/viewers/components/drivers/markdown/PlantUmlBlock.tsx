@@ -191,7 +191,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
 
       {/* PlantUML Body */}
       {viewMode === 'visual' ? (
-        <div className="p-2.5 overflow-x-auto flex justify-center items-center bg-slate-950/40 min-h-[100px]">
+        <div className="p-2.5 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px]">
           {hasError ? (
             <DiagramDiagnosticCard
               diagnostic={analyzePlantUmlError(

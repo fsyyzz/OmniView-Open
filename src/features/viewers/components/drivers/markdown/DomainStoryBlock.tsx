@@ -311,7 +311,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
 
       {/* Body: Visual vs Code: 紧凑自适应居中呈现矢量图片，无多余大片空白 */}
       {viewMode === 'visual' ? (
-        <div className="p-2.5 overflow-x-auto flex justify-center items-center bg-slate-950/40 min-h-[100px] relative [&>div>svg]:max-w-full [&>div>svg]:h-auto [&>div>svg]:block">
+        <div className="p-2.5 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px] relative [&>div>svg]:max-w-full [&>div>svg]:h-auto [&>div>svg]:block">
           {error ? (
             <div className="flex items-center gap-2 text-rose-400 bg-rose-950/30 border border-rose-800/40 p-4 rounded-lg text-xs">
               <AlertCircle className="w-4 h-4 shrink-0" />

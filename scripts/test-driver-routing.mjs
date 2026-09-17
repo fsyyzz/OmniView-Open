@@ -52,13 +52,15 @@ assert.strictEqual(getDriverIdForFile(mockFile('ICON.SVG', 'SVG')), 'svg', '大�
 console.log('✅ 矢量图与 PlantUML 驱动路由测试通过');
 
 // 4. PDF 与表格数据测试
-console.log('--- 测试 4: PDF 版式与 CSV / TSV 表格路由 ---');
+console.log('--- 测试 4: PDF 版式、EPUB 电子书与 CSV / TSV 表格路由 ---');
 assert.strictEqual(getDriverIdForFile(mockFile('spec.pdf', 'pdf')), 'pdf');
 assert.strictEqual(getDriverIdForFile(mockFile('MANUAL.PDF', 'PDF')), 'pdf', '大写 PDF 后缀路由错误');
+assert.strictEqual(getDriverIdForFile(mockFile('book.epub', 'epub')), 'epub');
+assert.strictEqual(getDriverIdForFile(mockFile('NOVEL.EPUB', 'EPUB')), 'epub', '大写 EPUB 后缀路由错误');
 assert.strictEqual(getDriverIdForFile(mockFile('data.csv', 'csv')), 'csv');
 assert.strictEqual(getDriverIdForFile(mockFile('metrics.tsv', 'tsv')), 'csv');
 assert.strictEqual(getDriverIdForFile(mockFile('EXPORT.CSV', 'CSV')), 'csv', '大写 CSV 后缀路由错误');
-console.log('✅ PDF 与数据表格驱动路由测试通过');
+console.log('✅ PDF、EPUB 与数据表格驱动路由测试通过');
 
 // 5. Jupyter Notebook 与 Typst 现代排版路由测试
 console.log('--- 测试 5: Jupyter Notebook 与 Typst 现代排版引擎路由 ---');

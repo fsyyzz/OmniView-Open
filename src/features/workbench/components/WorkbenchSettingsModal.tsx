@@ -615,12 +615,25 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                 <label className="flex items-center justify-between cursor-pointer p-2 rounded-lg bg-slate-850 hover:bg-slate-800 transition">
                   <div>
                     <div className="font-medium text-slate-200">Markdown 源码与预览双向同步 (Scroll Sync)</div>
-                    <div className="text-[10px] text-slate-400">分屏模式下编辑器滚动实时同步预览位置；双击段落反向精确定位光标行</div>
+                    <div className="text-[10px] text-slate-400">分屏模式下编辑器滚动实时同步预览视口位置</div>
                   </div>
                   <input
                     type="checkbox"
                     checked={localSettings.scrollSync ?? true}
                     onChange={(e) => updateSetting('scrollSync', e.target.checked)}
+                    className="w-4 h-4 rounded accent-blue-600"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer p-2 rounded-lg bg-slate-850 hover:bg-slate-800 transition">
+                  <div>
+                    <div className="font-medium text-slate-200">双击打开编辑 / 源码定位 (Double-click to Edit)</div>
+                    <div className="text-[10px] text-slate-400">关闭后双击段落或图表不会跳转源码编辑，避免文本选择与浏览时的误触中断（默认关闭）</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={localSettings.enableDoubleClickEdit ?? false}
+                    onChange={(e) => updateSetting('enableDoubleClickEdit', e.target.checked)}
                     className="w-4 h-4 rounded accent-blue-600"
                   />
                 </label>

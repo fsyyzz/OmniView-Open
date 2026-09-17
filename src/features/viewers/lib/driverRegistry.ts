@@ -127,6 +127,12 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     getComponent: createLazyDriver('domainstory', () => import('../components/drivers/DomainStoryViewer'), 'DomainStoryViewer'),
   },
   {
+    id: 'epub',
+    name: 'EPUB 电子书阅读器',
+    extensions: ['epub'],
+    getComponent: createLazyDriver('epub', () => import('../components/drivers/EpubViewer'), 'EpubViewer'),
+  },
+  {
     id: 'code',
     name: '通用代码/文本查看器',
     extensions: [],

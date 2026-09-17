@@ -234,7 +234,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
 
       {/* Body Content */}
       {viewMode === 'visual' ? (
-        <div className="p-6 overflow-x-auto flex justify-center bg-slate-950/60 min-h-[160px] items-center">
+        <div className="p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[160px] items-center">
           {isLoading ? (
             <div className="flex items-center gap-2 text-slate-400 text-xs py-8">
               <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />

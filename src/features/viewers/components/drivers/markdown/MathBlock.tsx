@@ -325,18 +325,18 @@ export const MathBlock: React.FC<MathBlockProps> = ({
         <div className="relative group/canvas">
           {/* 横向滚动左边缘阴影遮罩 */}
           {canScrollLeft && (
-            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-950/80 to-transparent pointer-events-none z-10" />
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[var(--ov-diagram-mask-from,rgba(15,23,42,0.8))] to-transparent pointer-events-none z-10" />
           )}
 
           {/* 横向滚动右边缘阴影遮罩 */}
           {canScrollRight && (
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950/80 to-transparent pointer-events-none z-10" />
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--ov-diagram-mask-from,rgba(15,23,42,0.8))] to-transparent pointer-events-none z-10" />
           )}
 
           <div
             ref={scrollContainerRef}
             onScroll={checkScroll}
-            className="p-6 overflow-x-auto flex justify-center bg-slate-950/40 min-h-[90px] items-center scrollbar-thin scrollbar-thumb-slate-700"
+            className="p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[90px] items-center scrollbar-thin scrollbar-thumb-slate-700"
           >
             {error && !renderedHtml ? (
               <DiagramDiagnosticCard

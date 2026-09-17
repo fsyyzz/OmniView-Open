@@ -1,4 +1,4 @@
-export type DriverId = 'markdown' | 'svg' | 'pdf' | 'plantuml' | 'csv' | 'code' | 'mindmap' | 'mermaid' | 'graphviz' | 'notebook' | 'typst' | 'excalidraw' | 'domainstory';
+export type DriverId = 'markdown' | 'svg' | 'pdf' | 'plantuml' | 'csv' | 'code' | 'mindmap' | 'mermaid' | 'graphviz' | 'notebook' | 'typst' | 'excalidraw' | 'domainstory' | 'epub';
 
 export interface FileItem {
   id: string;
@@ -216,6 +216,8 @@ export interface WorkbenchSettings {
   // 5. 编辑与辅助偏好
   wordWrap?: boolean;
   showLineNumbers?: boolean;
+  /** 是否启用双击打开编辑或源码定位 (配置开关，默认 false 彻底避免误触) */
+  enableDoubleClickEdit?: boolean;
 
   // 6. 渲染与知识库偏好
   enableOkfRendering?: boolean;

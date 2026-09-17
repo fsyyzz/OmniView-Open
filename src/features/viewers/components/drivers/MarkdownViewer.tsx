@@ -28,6 +28,8 @@ import { ContentWidthMode } from '../../../../shared/types';
 import { useMarkdownAstPipeline, type RenderedBlock } from '../../hooks/useMarkdownAstPipeline';
 import { useMarkdownScrollSync } from '../../hooks/useMarkdownScrollSync';
 import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
+import { getMermaidConfig } from '../../../../shared/lib/mermaidConfig';
+import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
 
 export type { RenderedBlock };
 
@@ -106,15 +108,19 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     onOpenLightbox: setLightboxItem,
   });
 
-  // 初始化 Mermaid 渲染主题
+  // 初始化 Mermaid 渲染主题 (高对比度与全主题自适应)
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: isDarkTheme ? 'dark' : 'default',
-      securityLevel: 'loose',
-      fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-    });
+    try {
+      mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
+    } catch {
+      // 容错降级
+    }
   }, [isDarkTheme]);
+
+  // 双击定位配置：若关闭则不显示双击提示
+  const isDoubleClickEditEnabled = loadStoredSettings().enableDoubleClickEdit ?? false;
+  const getBlockTitle = (startLine?: number) =>
+    startLine && isDoubleClickEditEnabled ? `${t('doubleClickToLocate', locale)} (L${startLine})` : undefined;
 
   // 渲染完成回调
   useEffect(() => {
@@ -206,7 +212,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                 html={block.renderedHtml}
                 data-source-line={block.startLine}
                 data-source-end-line={block.endLine}
-                title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+                title={getBlockTitle(block.startLine)}
               />
             </RenderErrorBoundary>
           );
@@ -221,7 +227,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={120}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName={`Code (${block.lang || 'text'})`} locale={locale}>
                 <CodeBlock
@@ -247,7 +253,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={160}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="Markdown Table" locale={locale}>
                 <TableBlock
@@ -279,7 +285,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="Mermaid Diagram" locale={locale}>
                 <MermaidBlock
@@ -332,7 +338,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={100}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="KaTeX Math Formula" locale={locale}>
                 <MathBlock
@@ -378,7 +384,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="PlantUML Diagram" locale={locale}>
                 <PlantUmlBlock
@@ -421,7 +427,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={180}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName={`SVG (${block.title || 'Vector'})`} locale={locale}>
                 <SvgBlock
@@ -465,7 +471,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="Graphviz DOT Diagram" locale={locale}>
                 <GraphvizBlock
@@ -507,7 +513,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="Domain Storytelling Diagram" locale={locale}>
                 <DomainStoryBlock
@@ -549,7 +555,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={320}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="Markmap Mindmap" locale={locale}>
                 <MarkmapBlock
@@ -590,7 +596,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               minHeight={360}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
-              title={block.startLine ? `${t('doubleClickToLocate', locale)} (L${block.startLine})` : undefined}
+              title={getBlockTitle(block.startLine)}
             >
               <RenderErrorBoundary blockName="Excalidraw Whiteboard" locale={locale}>
                 <ExcalidrawBlock

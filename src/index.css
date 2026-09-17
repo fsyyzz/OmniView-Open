@@ -45,6 +45,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-table-col-hover: rgba(128, 128, 128, 0.04);
   --ov-surface-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
   --ov-shadow: 0 8px 24px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+  --ov-diagram-canvas-bg: transparent;
+  --ov-diagram-mask-from: var(--vscode-editor-background, rgba(30, 30, 30, 0.85));
 }
 
 /* OmniView 工作台外壳层深度映射 (像素级无缝融合与主题自适应) */
@@ -126,6 +128,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-table-col-hover: rgba(59, 130, 246, 0.04);
   --ov-surface-hover: rgba(255, 255, 255, 0.06);
   --ov-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --ov-diagram-canvas-bg: rgba(15, 23, 42, 0.4);
+  --ov-diagram-mask-from: rgba(11, 17, 32, 0.85);
 }
 
 [data-theme="light"] {
@@ -150,6 +154,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-table-col-hover: rgba(37, 99, 235, 0.03);
   --ov-surface-hover: rgba(0, 0, 0, 0.04);
   --ov-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  --ov-diagram-canvas-bg: rgba(248, 250, 252, 0.6);
+  --ov-diagram-mask-from: rgba(255, 255, 255, 0.9);
 }
 
 [data-theme="sepia"] {
@@ -174,6 +180,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-table-col-hover: rgba(180, 83, 9, 0.04);
   --ov-surface-hover: rgba(0, 0, 0, 0.04);
   --ov-shadow: 0 6px 20px rgba(78, 56, 30, 0.08);
+  --ov-diagram-canvas-bg: rgba(244, 236, 216, 0.5);
+  --ov-diagram-mask-from: rgba(251, 243, 228, 0.85);
 }
 
 [data-theme="midnight"] {
@@ -198,6 +206,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-table-col-hover: rgba(16, 185, 129, 0.04);
   --ov-surface-hover: rgba(255, 255, 255, 0.06);
   --ov-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  --ov-diagram-canvas-bg: rgba(5, 5, 5, 0.6);
+  --ov-diagram-mask-from: rgba(0, 0, 0, 0.9);
 }
 
 [data-theme="cyber"] {
@@ -3483,6 +3493,140 @@ details.ov-callout[open] .ov-callout-fold-icon {
   border: none;
   font-weight: 600;
 }
+
+/* ==========================================================================
+   EPUB Reader: 3D Realistic Book Flip & Flow Column Layout Engine
+   ========================================================================== */
+.epub-spread-container {
+  perspective: 2000px;
+  perspective-origin: 50% 50%;
+  transform-style: preserve-3d;
+}
+
+.epub-book-spine-shadow {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.12) 0%,
+    rgba(0, 0, 0, 0.28) 48%,
+    rgba(0, 0, 0, 0.45) 50%,
+    rgba(0, 0, 0, 0.28) 52%,
+    rgba(0, 0, 0, 0.12) 100%
+  );
+}
+
+[data-theme="light"] .epub-book-spine-shadow,
+[data-theme="sepia"] .epub-book-spine-shadow {
+  background: linear-gradient(
+    90deg,
+    rgba(100, 70, 40, 0.08) 0%,
+    rgba(100, 70, 40, 0.2) 48%,
+    rgba(100, 70, 40, 0.35) 50%,
+    rgba(100, 70, 40, 0.2) 52%,
+    rgba(100, 70, 40, 0.08) 100%
+  );
+}
+
+/* 翻书效果动效：下一页 (向左翻折) */
+@keyframes epubPageTurnNext {
+  0% {
+    transform: rotateY(0deg);
+    opacity: 1;
+    filter: brightness(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  30% {
+    filter: brightness(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    filter: brightness(0.85);
+    box-shadow: -12px 12px 28px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    transform: rotateY(-180deg);
+    opacity: 0;
+    filter: brightness(0.7);
+    box-shadow: -20px 20px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* 翻书效果动效：上一页 (向右翻折返回) */
+@keyframes epubPageTurnPrev {
+  0% {
+    transform: rotateY(0deg);
+    opacity: 1;
+    filter: brightness(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  30% {
+    filter: brightness(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    filter: brightness(0.85);
+    box-shadow: 12px 12px 28px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    transform: rotateY(180deg);
+    opacity: 0;
+    filter: brightness(0.7);
+    box-shadow: 20px 20px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.animate-epub-flip-next {
+  transform-origin: left center !important;
+  animation: epubPageTurnNext 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.animate-epub-flip-prev {
+  transform-origin: right center !important;
+  animation: epubPageTurnPrev 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* 书本装帧立体边缘与内侧渐变高光 */
+.epub-page-left-sheen {
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.03) 0%,
+    transparent 85%,
+    rgba(0, 0, 0, 0.08) 100%
+  );
+}
+
+.epub-page-right-sheen {
+  background: linear-gradient(
+    to left,
+    rgba(255, 255, 255, 0.03) 0%,
+    transparent 85%,
+    rgba(0, 0, 0, 0.08) 100%
+  );
+}
+
+[data-theme="light"] .epub-page-left-sheen,
+[data-theme="sepia"] .epub-page-left-sheen {
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.6) 0%,
+    transparent 85%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+}
+
+[data-theme="light"] .epub-page-right-sheen,
+[data-theme="sepia"] .epub-page-right-sheen {
+  background: linear-gradient(
+    to left,
+    rgba(255, 255, 255, 0.6) 0%,
+    transparent 85%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+}
+
 
 
 

@@ -34,8 +34,10 @@ assert.ok(darkCode.includes('skinparam backgroundColor transparent'), '暗色模
 const customThemeCode = '@startuml\n!theme plain\nBob -> Alice : hi\n@enduml';
 assert.equal(preparePlantUmlCode(customThemeCode, true), customThemeCode, '用户自定义 !theme 时不应注入默认皮肤');
 
+// 亮色主题注入验证
 const lightCode = preparePlantUmlCode('@startuml\nBob -> Alice : hi\n@enduml', false);
-assert.equal(lightCode, '@startuml\nBob -> Alice : hi\n@enduml', '亮色模式应保持原样');
+assert.ok(lightCode.includes('skinparam ArrowColor #1e293b'), '亮色模式应注入高对比度箭头颜色');
+assert.ok(lightCode.includes('skinparam backgroundColor transparent'), '亮色模式应注入透明背景');
 
 const busted = withPlantUmlCacheBust(url, 42);
 assert.match(busted, /\?ov_cb=42$/);

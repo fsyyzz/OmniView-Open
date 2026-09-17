@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath } from 'node:path';
 
 const VIEW_TYPE = 'omniview.editor';
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.egn', '.domainstory'];
+const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.epub', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.egn', '.domainstory'];
 let output: vscode.OutputChannel;
 
 function log(message: string, details?: unknown): void {
@@ -205,6 +205,8 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     const filePath = document.uri.fsPath || document.uri.path || '';
     const extension = extname(filePath).toLowerCase();
     const isPdf = extension === '.pdf';
+    const isEpub = extension === '.epub';
+    const isBinary = isPdf || isEpub;
     const disposables: vscode.Disposable[] = [];
     let isSyncingFromWebview = false;
     let syncFromWebviewTimeout: NodeJS.Timeout | undefined;
@@ -220,8 +222,9 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
         const raw = await vscode.workspace.fs.readFile(document.uri);
         buffer = Buffer.from(raw);
       }
-      const content = isPdf ? '' : buffer.toString('utf8');
-      const binaryUrl = isPdf ? `data:application/pdf;base64,${buffer.toString('base64')}` : undefined;
+      const content = isBinary ? '' : buffer.toString('utf8');
+      const mime = isPdf ? 'application/pdf' : isEpub ? 'application/epub+zip' : '';
+      const binaryUrl = isBinary ? `data:${mime};base64,${buffer.toString('base64')}` : undefined;
       const referencedFiles = (extension === '.md' || extension === '.markdown') && document.uri.fsPath
         ? await loadReferencedMediaFiles(document.uri.fsPath, content)
         : [];
@@ -264,8 +267,8 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
       if (typeof content !== 'string') {
         throw new Error('Invalid webview content payload');
       }
-      if (isPdf) {
-        log(`Skip text persist for PDF (${reason})`);
+      if (isBinary) {
+        log(`Skip text persist for binary file (${reason})`);
         return;
       }
 

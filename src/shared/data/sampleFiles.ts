@@ -183,6 +183,20 @@ export const SUPPORTED_DRIVERS: ViewerDriver[] = [
     engine: 'OmniView Native DST Engine + DiagramStepPlayer',
     license: 'MIT',
   },
+  {
+    id: 'epub',
+    name: 'EPUB E-Book Reader',
+    displayName: 'EPUB 原生电子书专业阅读器',
+    description: '轻量化端侧 EPUB 电子书阅读器，支持目录大纲树、羊皮纸护眼/夜间主题、无级字号调节、行高优化与键盘导航，无需外部 Calibre 服务。',
+    iconName: 'BookMarked',
+    supportedExtensions: ['epub'],
+    isBuiltin: true,
+    version: '1.0.0',
+    category: 'core',
+    lazyLoaded: true,
+    engine: 'OmniView EpubEngine (JSZip + DOMPurify)',
+    license: 'MIT',
+  },
 ];
 
 export const INITIAL_FILES: FileItem[] = [
@@ -1504,6 +1518,15 @@ Page 2: Sandboxed Webview IPC Protocols and CSP Security
 Page 3: Performance Benchmarks & Lazy-Loading Strategy
 Page 4: Deployment & Verification Runbook
 `,
+  },
+  {
+    id: 'file-sample-epub',
+    name: 'omniview-guide.epub',
+    path: '/books/omniview-guide.epub',
+    extension: 'epub',
+    size: 32800,
+    lastModified: Date.now() - 1000 * 60 * 45,
+    content: '',
   },
   {
     id: 'file-5',

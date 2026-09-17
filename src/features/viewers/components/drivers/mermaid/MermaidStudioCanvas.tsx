@@ -28,6 +28,7 @@ import {
   detectDiagramPlaybackSupport,
   applyStepHighlightToSvg,
 } from '../../../lib/diagramPlaybackEngine';
+import { getMermaidConfig } from '../../../../../shared/lib/mermaidConfig';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
 
 interface MermaidStudioCanvasProps {
@@ -82,12 +83,7 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
         : true;
 
     try {
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: isDark ? 'dark' : 'default',
-        securityLevel: 'loose',
-        fontFamily: 'var(--ov-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
-      });
+      mermaid.initialize(getMermaidConfig(isDark));
     } catch {
       /* ignore re-init errors */
     }
