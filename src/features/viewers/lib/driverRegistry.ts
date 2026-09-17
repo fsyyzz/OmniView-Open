@@ -145,6 +145,12 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     getComponent: createLazyDriver('pptx', () => import('../components/drivers/PptxViewer'), 'PptxViewer'),
   },
   {
+    id: 'xlsx',
+    name: 'Excel 电子表格工作簿',
+    extensions: ['xlsx', 'xls', 'xlsm', 'xltx'],
+    getComponent: createLazyDriver('xlsx', () => import('../components/drivers/XlsxViewer'), 'XlsxViewer'),
+  },
+  {
     id: 'code',
     name: '通用代码/文本查看器',
     extensions: [],

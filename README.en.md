@@ -118,7 +118,13 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - Fullscreen immersive slideshow (F5 / play button), keyboard navigation (`←` `→` / Space / PageUp / PageDown);
 - High-res slide thumbnail outline drawer and speaker notes drawer.
 
-### 14. Domain Storytelling & egon.io Native Studio
+### 14. Excel (.xlsx / .xls) Multi-Sheet Spreadsheet Workbench
+- **Client-Side Offline OOXML Engine**: Instant unpacking for multi-sheet tabs, SharedStrings pool, formula computed values, and hidden sheets;
+- **Smart Data Grid**: Toggle first-row headers / column letters, global search with highlight, column sorting, cell copying, and pagination;
+- **Data Profiling & Sparklines**: Real-time type inference, min/max/quartile distribution analysis, and embedded SVG sparkline trends;
+- **Multi-Format Export**: Export active worksheet to CSV, TSV, JSON, or Markdown tables with one click.
+
+### 15. Domain Storytelling & egon.io Native Studio
 - **Multi-syntax lossless support**:
   - Native parsing for standard `.egn` (egon.io JSON) schema and standalone `.domainstory` files;
   - Markdown deep typesetting integration: ````domainstory````, ````story````, and ````egn```` fenced DSL blocks plus single-line stream syntax;

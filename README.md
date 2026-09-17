@@ -118,7 +118,13 @@
 - 具备全屏沉浸放映（F5 / 点击播放）、键盘快捷切页（`←` `→` / Space / PageUp / PageDown）；
 - 配备左侧高清幻灯片缩略图大纲抽屉与底部演讲者备注（Speaker Notes）抽屉。
 
-### 14. 领域故事讲授法与 egon.io 原生支持 (Domain Storytelling Studio)
+### 14. Excel (.xlsx / .xls) 多工作表电子表格工作台 (Modern Excel Spreadsheet)
+- **纯前端离线 OOXML 引擎**: 毫秒级解包解析多工作表 (Multi-Sheet Tabs)、共享字符串池 (SharedStrings) 与隐藏表检测；
+- **智能数据网格**: 支持首行表头/列标自由切换、全局关键字高亮检索、单列排序、单元格一键复制与分页浏览；
+- **列特征画像 (Data Profiling)**: 联动自动类型推断、极值/均值/分位数统计与 Sparklines 迷你走势微图；
+- **多格式导出**: 支持将当前工作表一键导出为 CSV、TSV、JSON 或 Markdown 表格。
+
+### 15. 领域故事讲授法与 egon.io 原生支持 (Domain Storytelling Studio)
 - **多语法无损支持**:
   - 原生识别与解析标准 `.egn` (egon.io JSON) 规范及独立 `.domainstory` 文件；
   - Markdown 深度排版内嵌：支持 ````domainstory````、````story````、````egn```` 声明式 DSL 及极简流语法；
