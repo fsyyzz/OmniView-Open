@@ -151,6 +151,12 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     getComponent: createLazyDriver('xlsx', () => import('../components/drivers/XlsxViewer'), 'XlsxViewer'),
   },
   {
+    id: 'image',
+    name: '现代图像工作台与像素检视器',
+    extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'tiff'],
+    getComponent: createLazyDriver('image', () => import('../components/drivers/ImageViewer'), 'ImageViewer'),
+  },
+  {
     id: 'code',
     name: '通用代码/文本查看器',
     extensions: [],

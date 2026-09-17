@@ -49,7 +49,21 @@ assert.strictEqual(getDriverIdForFile(mockFile('FLOW.MMD', 'MMD')), 'mermaid', '
 assert.strictEqual(getDriverIdForFile(mockFile('TOPO.DOT', 'DOT')), 'graphviz', '大写 DOT 后缀路由错误');
 assert.strictEqual(getDriverIdForFile(mockFile('logo.svg', 'svg')), 'svg');
 assert.strictEqual(getDriverIdForFile(mockFile('ICON.SVG', 'SVG')), 'svg', '大写 SVG 后缀路由错误');
-console.log('✅ 矢量图与 PlantUML 驱动路由测试通过');
+// 常见位图与动图格式路由至 image 驱动
+const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'tiff'];
+for (const ext of imageExtensions) {
+  assert.strictEqual(
+    getDriverIdForFile(mockFile(`picture.${ext}`, ext)),
+    'image',
+    `图片格式 .${ext} 应正确路由至 image 驱动`
+  );
+  assert.strictEqual(
+    getDriverIdForFile(mockFile(`PICTURE.${ext.toUpperCase()}`, ext.toUpperCase())),
+    'image',
+    `大写图片格式 .${ext.toUpperCase()} 应正确路由至 image 驱动`
+  );
+}
+console.log('✅ 矢量图、位图与 PlantUML 驱动路由测试通过');
 
 // 4. Office 办公套件、PDF 与表格数据测试
 console.log('--- 测试 4: Office 办公套件、PDF 版式、EPUB 电子书与 CSV / TSV 表格路由 ---');

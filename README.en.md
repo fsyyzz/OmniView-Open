@@ -124,7 +124,15 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **Data Profiling & Sparklines**: Real-time type inference, min/max/quartile distribution analysis, and embedded SVG sparkline trends;
 - **Multi-Format Export**: Export active worksheet to CSV, TSV, JSON, or Markdown tables with one click.
 
-### 15. Domain Storytelling & egon.io Native Studio
+### 15. Modern ImageViewer & Pixel Inspector
+- **Universal Format Support**: Native handling for `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.ico`, `.avif`, `.tiff`;
+- **10% ~ 3200% High-Precision Zoom**: Crisp pixelated rendering when zoomed in >= 200%, smooth panning, and auto-fit;
+- **16x Pixel Crosshair Loupe & Color Sampler**: Floating HUD tracking cursor coordinates `(X, Y)` with live `HEX`, `RGBA`, and `HSLA` sampling, single-click copy;
+- **Quad-Mode Canvas Background**: Transparent checkerboard, pure dark room, pure white paper, and native VS Code theme;
+- **Geometric Transforms & Export**: 90° clockwise/counterclockwise rotation, horizontal/vertical flip, copy Base64 Data URI, and download original;
+- **Deep EXIF Metadata Extraction**: Image dimensions, megapixels, aspect ratio, file size, and camera exposure parameters (aperture, shutter, ISO, focal length).
+
+### 16. Domain Storytelling & egon.io Native Studio
 - **Multi-syntax lossless support**:
   - Native parsing for standard `.egn` (egon.io JSON) schema and standalone `.domainstory` files;
   - Markdown deep typesetting integration: ````domainstory````, ````story````, and ````egn```` fenced DSL blocks plus single-line stream syntax;
@@ -135,7 +143,7 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
   - Integrated `DiagramStepPlayer` for step-by-step animation, forward/backward navigation, and spotlight focus;
   - Export standard `.egn` and **Polyglot SVG** with embedded domain model for lossless bi-directional extraction.
 
-### 15. Preferences & Workspace Persistence
+### 17. Preferences & Workspace Persistence
 - **Central settings hub (`settingsStorage.ts`)**: `v2` keys with seamless legacy migration;
 - **Hard clamps**: zoom (0.5~2.5x), font size (12~22px), and split ratios to keep UI stable;
 - **Workspace lifecycle (`fileStorage.ts`)**: remember sidebar/explorer state, tab order, and last opened file;
