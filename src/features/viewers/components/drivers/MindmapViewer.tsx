@@ -21,6 +21,7 @@ import {
   Sparkles,
   FileCode,
   Layers,
+  ExternalLink,
 } from 'lucide-react';
 import { ThemeId, DensityMode } from '../../../../shared/types';
 import { Locale, t } from '../../../../shared/lib/i18n';
@@ -36,6 +37,7 @@ interface MindmapViewerProps {
   density?: DensityMode;
   locale?: Locale;
   onContentChange?: (content: string) => void;
+  onOpenInEditor?: () => void;
 }
 
 type MindmapViewMode = 'split' | 'mindmap' | 'editor';
@@ -168,11 +170,12 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   density = 'compact',
   locale = 'zh-CN',
   onContentChange,
+  onOpenInEditor,
 }) => {
   const [localCode, setLocalCode] = useState<string>(() => normalizeMindmapContent(content));
   const [viewMode, setViewMode] = useState<MindmapViewMode>(() => {
     const s = loadStoredSettings();
-    return s.mindmapViewMode || 'split';
+    return s.mindmapViewMode || 'mindmap';
   });
   const [splitRatio, setSplitRatio] = useState<number>(() => {
     const s = loadStoredSettings();
@@ -370,30 +373,30 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
           <div className="flex items-center bg-slate-950 p-0.5 rounded-md border border-slate-800 text-[11px]">
             <button
               onClick={() => {
-                setViewMode('split');
-                saveStoredSettings({ mindmapViewMode: 'split' });
-              }}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
-                viewMode === 'split' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="分屏双向编辑与实时预览"
-            >
-              <Columns className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">分屏协作</span>
-            </button>
-
-            <button
-              onClick={() => {
                 setViewMode('mindmap');
                 saveStoredSettings({ mindmapViewMode: 'mindmap' });
               }}
               className={`flex items-center gap-1 px-2 py-1 rounded transition ${
                 viewMode === 'mindmap' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="仅展示交互式全屏思维导图"
+              title="全屏交互式思维导图 (方案A默认推荐模式)"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">纯思维导图</span>
+              <span className="hidden md:inline">全屏导图</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setViewMode('split');
+                saveStoredSettings({ mindmapViewMode: 'split' });
+              }}
+              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+                viewMode === 'split' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="内置分屏双向编辑与实时预览"
+            >
+              <Columns className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">内置分屏</span>
             </button>
 
             <button
@@ -404,10 +407,10 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
               className={`flex items-center gap-1 px-2 py-1 rounded transition ${
                 viewMode === 'editor' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="仅展示文本编辑器"
+              title="仅查看内置源码"
             >
               <Code className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">纯代码编辑</span>
+              <span className="hidden md:inline">内置源码</span>
             </button>
           </div>
 
@@ -454,8 +457,22 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
           )}
         </div>
 
-        {/* 右侧：复制与模板重置 */}
+        {/* 右侧：操作区 */}
         <div className="flex items-center gap-1.5">
+          {onOpenInEditor && (
+            <button
+              type="button"
+              id="btn-mindmap-open-in-native-editor"
+              onClick={onOpenInEditor}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 hover:text-white rounded-lg border border-sky-600/50 transition text-xs font-medium shadow-xs cursor-pointer"
+              title="在 VS Code 原生编辑器中并排编辑（方案A：支持 Copilot 补全、Git 工具链与 Markdown 扩展）"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline">在 VS Code 中并排编辑</span>
+              <span className="sm:hidden">并排编辑</span>
+            </button>
+          )}
+
           <button
             onClick={handleResetTemplate}
             className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded border border-slate-700 transition"
@@ -510,6 +527,26 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* 方案A 并排原生编辑器推荐跳转提示条 */}
+            {onOpenInEditor && (
+              <div className="flex items-center justify-between px-3 py-1.5 bg-sky-950/70 border-b border-sky-800/60 text-[11px] text-sky-200 shrink-0 gap-2 select-none">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <span className="truncate">
+                    <span className="font-semibold text-sky-300">推荐方案 A (分屏协同)</span>：在 VS Code 原生编辑器中并排编辑（支持 Copilot 补全/GitLens）
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenInEditor}
+                  className="shrink-0 flex items-center gap-1 px-2.5 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium shadow-xs transition cursor-pointer"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>在侧边打开原生编辑器</span>
+                </button>
+              </div>
+            )}
 
             {/* 文本编辑区 */}
             <textarea

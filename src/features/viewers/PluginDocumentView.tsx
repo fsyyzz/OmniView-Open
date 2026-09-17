@@ -261,12 +261,13 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
           )}
           {vscode && (
             <button
+              id="btn-plugin-open-native-editor"
               onClick={() => vscode.postMessage({ type: 'open-source', path: file.path })}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white rounded border border-slate-700 transition text-xs font-medium cursor-pointer"
-              title={t('openInEditor', _locale)}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 hover:text-white rounded border border-sky-600/50 transition text-xs font-medium cursor-pointer shadow-xs"
+              title={t('openInNativeEditorHint', _locale)}
             >
-              <ExternalLink size={13} />
-              <span>{t('openSource', _locale)}</span>
+              <ExternalLink size={13} className="text-sky-400" />
+              <span>{t('openInNativeEditor', _locale)}</span>
             </button>
           )}
         </div>

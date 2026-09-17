@@ -69,7 +69,7 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   const splitKey = `omniview_${storageKeyPrefix}_split`;
 
   const [localCode, setLocalCode] = useState(content);
-  const [viewMode, setViewMode] = useState<DiagramStudioMode>(() => loadMode(modeKey, 'split'));
+  const [viewMode, setViewMode] = useState<DiagramStudioMode>(() => loadMode(modeKey, 'preview'));
   const [splitRatio, setSplitRatio] = useState(() => loadNumber(splitKey, 42));
   const [isDragging, setIsDragging] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -331,25 +331,25 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
           <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 gap-0.5">
             <button
               type="button"
-              onClick={() => persistMode('split')}
-              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
-                viewMode === 'split' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="源码与预览分屏"
-            >
-              <Columns className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">分屏</span>
-            </button>
-            <button
-              type="button"
               onClick={() => persistMode('preview')}
               className={`flex items-center gap-1 px-2 py-1 rounded transition ${
                 viewMode === 'preview' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="仅预览"
+              title="全屏高清渲染预览 (方案A默认推荐模式)"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">预览</span>
+              <span className="hidden md:inline">全屏预览</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => persistMode('split')}
+              className={`flex items-center gap-1 px-2 py-1 rounded transition ${
+                viewMode === 'split' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="内置简易编辑分屏"
+            >
+              <Columns className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">内置分屏</span>
             </button>
             <button
               type="button"
@@ -357,10 +357,10 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
               className={`flex items-center gap-1 px-2 py-1 rounded transition ${
                 viewMode === 'editor' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="仅编辑源码"
+              title="仅查看内置源码"
             >
               <Code className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">源码</span>
+              <span className="hidden md:inline">内置源码</span>
             </button>
           </div>
 
@@ -398,12 +398,12 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
               type="button"
               id="btn-diagram-open-in-native-editor"
               onClick={onOpenInEditor}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 rounded-lg border border-sky-600/40 transition text-xs font-medium shadow-xs"
-              title="在 VS Code 原生文本编辑器中并排编辑（无缝支持 GitHub Copilot、AI 智能补全/对话、GitLens 与差异对比）"
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 hover:text-white rounded-lg border border-sky-600/50 transition text-xs font-medium shadow-xs cursor-pointer"
+              title="在 VS Code 原生文本编辑器中并排编辑（方案A：支持 GitHub Copilot、AI 对话补全、GitLens 与完整语法高亮）"
             >
               <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline">在 VS Code 中编辑</span>
-              <span className="sm:hidden">VS 编辑</span>
+              <span className="hidden sm:inline">在 VS Code 中并排编辑</span>
+              <span className="sm:hidden">并排编辑</span>
             </button>
           )}
 
@@ -463,17 +463,20 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             </div>
 
             {onOpenInEditor && (
-              <div className="flex items-center justify-between px-3 py-1 bg-sky-950/40 border-b border-sky-800/30 text-[11px] text-sky-300 shrink-0">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-sky-950/70 border-b border-sky-800/60 text-[11px] text-sky-200 shrink-0 gap-2">
                 <span className="flex items-center gap-1.5 truncate">
-                  <Sparkles className="w-3 h-3 text-sky-400 shrink-0" />
-                  <span className="truncate">需 AI 补全或 Git 差异对比？可使用 VS Code 原生编辑器</span>
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <span className="truncate">
+                    <span className="font-semibold text-sky-300">推荐方案 A (分屏协同)</span>：在 VS Code 原生编辑器中并排编辑（支持 Copilot 补全/GitLens）
+                  </span>
                 </span>
                 <button
                   type="button"
                   onClick={onOpenInEditor}
-                  className="underline hover:text-sky-100 cursor-pointer ml-2 shrink-0 font-medium"
+                  className="shrink-0 flex items-center gap-1 px-2.5 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium shadow-xs transition cursor-pointer"
                 >
-                  打开原生编辑器 →
+                  <ExternalLink className="w-3 h-3" />
+                  <span>在侧边打开原生编辑器</span>
                 </button>
               </div>
             )}

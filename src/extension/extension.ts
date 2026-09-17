@@ -699,6 +699,33 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }));
 
+  // 方案 A: 打开并排协同 (原生文本编辑器 + OmniView 实时渲染预览)
+  context.subscriptions.push(vscode.commands.registerCommand('omniview.openSideBySide', async (uri?: vscode.Uri | vscode.Uri[]) => {
+    let target = Array.isArray(uri) ? uri[0] : uri;
+    if (!target) {
+      const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
+      const tabInput = activeTab?.input;
+      if (tabInput && typeof tabInput === 'object' && 'uri' in tabInput) {
+        target = (tabInput as { uri: vscode.Uri }).uri;
+      } else if (vscode.window.activeTextEditor?.document?.uri) {
+        target = vscode.window.activeTextEditor.document.uri;
+      }
+    }
+    if (!target) {
+      vscode.window.showWarningMessage('无法获取当前文档路径。');
+      return;
+    }
+    try {
+      // 1. 在当前激活列（或主编辑区）打开原生源码文本编辑器（支持 Copilot, GitLens, LSP 补全）
+      await vscode.window.showTextDocument(target, { viewColumn: vscode.ViewColumn.Active, preview: false });
+      // 2. 在侧边列打开 OmniView 实时可视化渲染预览
+      await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, vscode.ViewColumn.Beside);
+    } catch (error) {
+      log('openSideBySide failed', error);
+      vscode.window.showErrorMessage(`打开并排协同失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
+
   // 打开插件配置面板
   context.subscriptions.push(vscode.commands.registerCommand('omniview.openSettings', async () => {
     try {

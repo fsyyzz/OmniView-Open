@@ -581,6 +581,20 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           <Printer size={14} />
         </button>
 
+        {/* 在 VS Code 原生文本编辑器中并排打开 (方案 A) */}
+        {onOpenInEditor && (
+          <button
+            type="button"
+            id="btn-markdown-open-native-editor"
+            className="markdown-tool-button text-sky-400 hover:text-sky-300 hover:bg-sky-950/70 border border-sky-600/30"
+            onClick={onOpenInEditor}
+            title={t('openInNativeEditorHint', locale)}
+            aria-label={t('openInNativeEditor', locale)}
+          >
+            <ExternalLink size={14} />
+          </button>
+        )}
+
         {/* Toggle OKF Concept Card */}
         {onToggleOkf && (
           <button
