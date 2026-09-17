@@ -108,7 +108,17 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - Native recognition of `.okf` files and Markdown Frontmatter OKF headers;
 - Extracts Knowledge ID, version, tags, and summary into structured knowledge cards.
 
-### 12. Domain Storytelling & egon.io Native Studio
+### 12. Word (.docx) High-Fidelity Document Viewer
+- Client-side offline OOXML rendering via `docx-preview` with A4 paper simulation and continuous flow;
+- 50% ~ 200% smooth zoom, merged table cells, borders, shading, multi-level numbering, images, and headers/footers;
+- Classic paper, sepia eye-care, and dark mode color inversion with one-click print and PDF export.
+
+### 13. PowerPoint (.pptx) Vector Presentation Workbench
+- Offline OOXML shape and asset unpacking with 16:9 / 4:3 auto-scaling vector stage;
+- Fullscreen immersive slideshow (F5 / play button), keyboard navigation (`←` `→` / Space / PageUp / PageDown);
+- High-res slide thumbnail outline drawer and speaker notes drawer.
+
+### 14. Domain Storytelling & egon.io Native Studio
 - **Multi-syntax lossless support**:
   - Native parsing for standard `.egn` (egon.io JSON) schema and standalone `.domainstory` files;
   - Markdown deep typesetting integration: ````domainstory````, ````story````, and ````egn```` fenced DSL blocks plus single-line stream syntax;
@@ -119,7 +129,7 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
   - Integrated `DiagramStepPlayer` for step-by-step animation, forward/backward navigation, and spotlight focus;
   - Export standard `.egn` and **Polyglot SVG** with embedded domain model for lossless bi-directional extraction.
 
-### 13. Preferences & Workspace Persistence
+### 15. Preferences & Workspace Persistence
 - **Central settings hub (`settingsStorage.ts`)**: `v2` keys with seamless legacy migration;
 - **Hard clamps**: zoom (0.5~2.5x), font size (12~22px), and split ratios to keep UI stable;
 - **Workspace lifecycle (`fileStorage.ts`)**: remember sidebar/explorer state, tab order, and last opened file;

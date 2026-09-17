@@ -108,7 +108,17 @@
 - 原生识别 `.okf` 文件及 Markdown Frontmatter OKF 元数据头；
 - 智能抽取 Knowledge ID、版本标签、分类 Tags 与知识摘要并渲染为交互式知识卡片。
 
-### 12. 领域故事讲授法与 egon.io 原生支持 (Domain Storytelling Studio)
+### 12. Word (.docx) 高保真文档渲染器 (Modern Word Viewer)
+- 基于 OOXML 标准与 `docx-preview` 纯前端离线流水线，支持 A4 拟真纸张排版与连续滚动；
+- 50% ~ 200% 平滑缩放、复杂表格单元格合并与边框底纹、多级编号、嵌入图片与页眉页脚；
+- 支持原纸、羊皮纸与夜间暗色反转三重视效切换，支持一键系统打印与 PDF 导出。
+
+### 13. PowerPoint (.pptx) 矢量幻灯片演播工作台 (Modern PowerPoint Viewer)
+- 纯离线 OOXML 形状与资源解包，支持 16:9 / 4:3 矢量自适应画布与居中等比缩放；
+- 具备全屏沉浸放映（F5 / 点击播放）、键盘快捷切页（`←` `→` / Space / PageUp / PageDown）；
+- 配备左侧高清幻灯片缩略图大纲抽屉与底部演讲者备注（Speaker Notes）抽屉。
+
+### 14. 领域故事讲授法与 egon.io 原生支持 (Domain Storytelling Studio)
 - **多语法无损支持**:
   - 原生识别与解析标准 `.egn` (egon.io JSON) 规范及独立 `.domainstory` 文件；
   - Markdown 深度排版内嵌：支持 ````domainstory````、````story````、````egn```` 声明式 DSL 及极简流语法；
@@ -119,7 +129,7 @@
   - 接入 `DiagramStepPlayer` 播放器，支持按活动序号单步播放、上一帧/下一帧与聚焦高亮；
   - 导出标准 `.egn` 文件与将完整领域模型隐写嵌入的 **Polyglot SVG**，实现图形与源码双向无损提取。
 
-### 13. 全局偏好与工作区持久化体系
+### 15. 全局偏好与工作区持久化体系
 - **集中式配置中枢 (`settingsStorage.ts`)**: 存储键升级为 `v2`，无缝自动向前平滑兼容迁移旧版本配置并安全回写；
 - **严苛边界防护**: 对缩放比例 (0.5~2.5x)、字号 (12~22px) 及分屏比例建立数学截断与钳位容错，避免任何异常值影响交互；
 - **多工作区生命周期持久化 (`fileStorage.ts`)**: 记住侧边栏与资源管理器开关状态、活动标签页顺序与最后打开文件；

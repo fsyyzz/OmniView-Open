@@ -133,6 +133,18 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     getComponent: createLazyDriver('epub', () => import('../components/drivers/EpubViewer'), 'EpubViewer'),
   },
   {
+    id: 'docx',
+    name: 'Word 文档查看器',
+    extensions: ['docx'],
+    getComponent: createLazyDriver('docx', () => import('../components/drivers/DocxViewer'), 'DocxViewer'),
+  },
+  {
+    id: 'pptx',
+    name: 'PowerPoint 演示文稿',
+    extensions: ['pptx'],
+    getComponent: createLazyDriver('pptx', () => import('../components/drivers/PptxViewer'), 'PptxViewer'),
+  },
+  {
     id: 'code',
     name: '通用代码/文本查看器',
     extensions: [],
