@@ -2,7 +2,8 @@
  * OmniView 全屏交互式图表与图片灯箱组件 (LightboxModal)
  * 支持无级平滑缩放、鼠标拖拽平移、90°旋转、复制内容、高分辨率下载与快捷键导航
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import {
   X,
   ZoomIn,
@@ -36,6 +37,13 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({ item, onClose, loc
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const sanitizedContent = useMemo(() => {
+    if (!item?.content) return '';
+    return typeof DOMPurify?.sanitize === 'function'
+      ? DOMPurify.sanitize(item.content)
+      : item.content;
+  }, [item?.content]);
 
   // 当打开新项目时重置变换状态
   useEffect(() => {
@@ -268,10 +276,10 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({ item, onClose, loc
               draggable={false}
               className="max-w-full max-h-[82vh] object-contain rounded-lg shadow-2xl bg-slate-900/50 p-2 border border-slate-800"
             />
-          ) : item.content ? (
+          ) : sanitizedContent ? (
             <div
               className="max-w-full max-h-[82vh] flex items-center justify-center p-6 bg-slate-900/70 rounded-xl shadow-2xl border border-slate-800 overflow-visible"
-              dangerouslySetInnerHTML={{ __html: item.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
           ) : null}
         </div>

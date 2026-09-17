@@ -47,6 +47,12 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-shadow: 0 8px 24px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
   --ov-diagram-canvas-bg: transparent;
   --ov-diagram-mask-from: var(--vscode-editor-background, rgba(30, 30, 30, 0.85));
+
+  /* 语义化兼容别名体系 (Design Token Aliases & Robust Fallbacks) */
+  --ov-fg: var(--ov-text);
+  --ov-fg-muted: var(--ov-text-secondary);
+  --ov-card-bg: var(--ov-surface);
+  --ov-sidebar-bg: var(--ov-bg-elevated);
 }
 
 /* OmniView 工作台外壳层深度映射 (像素级无缝融合与主题自适应) */
@@ -130,6 +136,10 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   --ov-diagram-canvas-bg: rgba(15, 23, 42, 0.4);
   --ov-diagram-mask-from: rgba(11, 17, 32, 0.85);
+  --ov-fg: var(--ov-text);
+  --ov-fg-muted: var(--ov-text-secondary);
+  --ov-card-bg: var(--ov-surface);
+  --ov-sidebar-bg: var(--ov-bg-elevated);
 }
 
 [data-theme="light"] {
@@ -3515,7 +3525,8 @@ details.ov-callout[open] .ov-callout-fold-icon {
 }
 
 [data-theme="light"] .epub-book-spine-shadow,
-[data-theme="sepia"] .epub-book-spine-shadow {
+[data-theme="sepia"] .epub-book-spine-shadow,
+[data-theme="solarized"] .epub-book-spine-shadow {
   background: linear-gradient(
     90deg,
     rgba(100, 70, 40, 0.08) 0%,
@@ -3608,7 +3619,8 @@ details.ov-callout[open] .ov-callout-fold-icon {
 }
 
 [data-theme="light"] .epub-page-left-sheen,
-[data-theme="sepia"] .epub-page-left-sheen {
+[data-theme="sepia"] .epub-page-left-sheen,
+[data-theme="solarized"] .epub-page-left-sheen {
   background: linear-gradient(
     to right,
     rgba(255, 255, 255, 0.6) 0%,
@@ -3618,7 +3630,8 @@ details.ov-callout[open] .ov-callout-fold-icon {
 }
 
 [data-theme="light"] .epub-page-right-sheen,
-[data-theme="sepia"] .epub-page-right-sheen {
+[data-theme="sepia"] .epub-page-right-sheen,
+[data-theme="solarized"] .epub-page-right-sheen {
   background: linear-gradient(
     to left,
     rgba(255, 255, 255, 0.6) 0%,

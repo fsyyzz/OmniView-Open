@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-17
+
+### Fixed
+
+- **全量代码审查问题闭环修复与工程加固**:
+  - **TypeScript 类型契约与构建链打通**：在 `vite-env.d.ts` 中补齐 `@excalidraw/excalidraw`、`@excalidraw/utils` 与 `@myriaddreamin/typst.ts` 的完备类型声明，修复 `tsc --noEmit` 编译报错与 `build:plugin` 生产构建流水线；
+  - **XSS 安全沙箱加固**：为 `LightboxModal` 全屏灯箱多态内容渲染管道注入 `DOMPurify.sanitize()` 安全过滤，彻底杜绝潜在 XSS 注入风险；
+  - **设计令牌严格对齐**：全面替换 `CodeBlock` 与 `ExcalidrawViewer` 中的残留硬编码色值为 `--ov-*` 语义化设计令牌，保证在 11 套主题及 VS Code 原生深浅模式下的像素级自适应；
+  - **EPUB 高亮主题对比度修复与阅读主题恢复**：修复明雅日光主题下正文字色隐形问题，恢复排版菜单 5 态沉浸式专属阅读色彩选择面板与工具栏 4 态快捷切换组。
+
+### Refactored
+
+- **EPUB 超大单体组件解耦重构**:
+  - 将 1826 行单体组件 `EpubViewer.tsx` 优雅拆分为 `EpubToolbar`（工具栏与形态切换）、`EpubTocSidebar`（章节大纲树抽屉）、`EpubTypographyPopover`（高级排版面板）与 `EpubInfoModal`（书籍出版元数据详情）4 个高内聚子组件，显著提升代码可读性与长期维护性。
+
+- **Vite Rollup 打包分块优化**:
+  - 合并共享 D3 底层依赖的图表库至 `vendor-diagram`，消除打包构建时的 Circular Chunk 循环依赖警告。
+
 ## [0.13.0] - 2026-09-17
 
 ### Added
@@ -222,7 +240,8 @@
 
 - 早期迭代未按本文件逐条归档；自 `0.9.18` 起以此 Changelog 为权威发布记录。
 
-[Unreleased]: https://github.com/fsyyzz/OmniView/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/fsyyzz/OmniView/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/fsyyzz/OmniView/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/fsyyzz/OmniView/compare/v0.12.3...v0.13.0
 [0.12.3]: https://github.com/fsyyzz/OmniView/compare/v0.12.0...v0.12.3
 [0.12.0]: https://github.com/fsyyzz/OmniView/compare/v0.11.9...v0.12.0

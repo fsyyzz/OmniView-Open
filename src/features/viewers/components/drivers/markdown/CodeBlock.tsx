@@ -71,7 +71,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
 
       {/* Code Body：行号 gutter 与 pre 必须共享字号/行高；打印/导出禁止仅对 code 换行导致错位 */}
       {!isCollapsed && (
-        <div className="code-block-body overflow-x-auto flex bg-[#1d1f21] text-xs leading-relaxed">
+        <div className="code-block-body overflow-x-auto flex bg-[var(--ov-code-bg)] text-xs leading-relaxed">
           <div
             className="code-line-gutter py-3.5 pl-3.5 pr-2.5 text-right text-slate-600 select-none bg-black/25 border-r border-slate-800/80 font-mono shrink-0 min-w-[44px]"
             aria-hidden="true"

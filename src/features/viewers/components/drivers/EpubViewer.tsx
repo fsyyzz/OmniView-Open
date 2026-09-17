@@ -11,29 +11,12 @@
  */
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
-  BookOpen,
   ChevronLeft,
   ChevronRight,
-  List,
-  Columns2,
-  ScrollText,
-  Sparkles,
-  Maximize2,
-  Minimize2,
-  Info,
-  BookMarked,
-  AlignLeft,
-  AlignJustify,
-  X,
-  Search,
-  Sliders,
   Check,
+  BookOpen,
+  Info,
   RotateCcw,
-  Smartphone,
-  Type,
-  FoldHorizontal,
-  UnfoldHorizontal,
-  MoveHorizontal,
 } from 'lucide-react';
 import {
   parseEpub,
@@ -49,12 +32,16 @@ import {
   saveEpubProgress,
   type EpubReaderSettings,
   type EpubFlowMode,
+  type EpubReaderTheme,
   type EpubFontFamily,
   type EpubContentWidth,
   DEFAULT_EPUB_SETTINGS,
 } from '../../lib/epubSettingsStorage';
 import type { ThemeId, DensityMode } from '../../../../shared/types';
 import { t, type Locale } from '../../../../shared/lib/i18n';
+import { EpubToolbar } from './epub/EpubToolbar';
+import { EpubTocSidebar } from './epub/EpubTocSidebar';
+import { EpubInfoModal } from './epub/EpubInfoModal';
 
 export interface EpubViewerProps {
   content?: string;
@@ -539,15 +526,24 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     }
   };
 
+  // 实际生效的阅读器主题：若设置为 'auto'，则无缝跟随全局工作台与宿主主题；否则使用专属独立阅读主题
+  const effectiveTheme: ThemeId = useMemo(() => {
+    if (settings.readerTheme === 'auto') {
+      return theme || 'dark';
+    }
+    return settings.readerTheme as ThemeId;
+  }, [settings.readerTheme, theme]);
+
   // 主题色彩计算 (100% 依托 OmniView 整体主题与 --ov-* 设计令牌，保持与工作台及全应用主题统一)
   const themeStyles = useMemo(() => ({
     bg: 'var(--ov-bg)',
-    paper: 'var(--ov-card-bg)',
-    text: 'var(--ov-fg)',
-    subtext: 'var(--ov-fg-muted)',
+    paper: 'var(--ov-surface)',
+    text: 'var(--ov-text)',
+    subtext: 'var(--ov-text-secondary)',
     border: 'var(--ov-border)',
     accent: 'var(--ov-accent)',
-    toolbarBg: 'var(--ov-sidebar-bg)',
+    toolbarBg: 'var(--ov-surface-header)',
+    codeBg: 'var(--ov-code-bg)',
   }), []);
 
   // 字体族 CSS 规则计算
@@ -622,7 +618,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   return (
     <div
       ref={containerRef}
-      data-theme={theme}
+      data-theme={effectiveTheme}
       className="w-full h-full flex flex-col overflow-hidden relative select-none font-sans"
       style={{
         background: themeStyles.bg,
@@ -638,455 +634,40 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       )}
 
       {/* 顶部主工具栏 */}
-      <header
-        className="h-12 border-b px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 transition-colors duration-200"
-        style={{
-          background: themeStyles.toolbarBg,
-          borderColor: themeStyles.border,
+      <EpubToolbar
+        bookTitle={book?.metadata?.title || fileName}
+        isPaginatedMode={isPaginatedMode}
+        currentPageIndex={currentPageIndex}
+        totalSpreadPages={totalSpreadPages}
+        currentChapterIndex={currentChapterIndex}
+        totalChapters={totalChapters}
+        showToc={showToc}
+        showInfo={showInfo}
+        showTypographyMenu={showTypographyMenu}
+        isFullscreen={isFullscreen}
+        settings={settings}
+        theme={theme}
+        locale={locale}
+        themeStyles={themeStyles}
+        typographyMenuRef={typographyMenuRef}
+        onToggleToc={() => setShowToc(!showToc)}
+        onToggleInfo={() => setShowInfo(!showInfo)}
+        onToggleTypographyMenu={() => setShowTypographyMenu(!showTypographyMenu)}
+        onToggleFullscreen={toggleFullscreen}
+        onGoToPrev={goToPrev}
+        onGoToNext={goToNext}
+        onUpdateSetting={updateSetting}
+        onResetSettings={setSettings}
+        onRecalculatePages={recalculateSpreadPages}
+        onScrollToChapter={(idx) => {
+          setTimeout(() => {
+            const targetEl = document.getElementById(`epub-chapter-node-${idx}`);
+            if (targetEl) {
+              targetEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+            }
+          }, 60);
         }}
-      >
-        {/* 左侧：目录抽屉开关与书名 */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button
-            onClick={() => setShowToc(!showToc)}
-            className={`p-1.5 rounded-lg border transition flex items-center gap-1 text-xs ${
-              showToc
-                ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                : 'hover:bg-black/10 dark:hover:bg-white/10'
-            }`}
-            style={{ borderColor: showToc ? undefined : themeStyles.border }}
-            title="书籍目录大纲 (TOC)"
-          >
-            <List className="w-4 h-4" />
-            <span className="hidden md:inline font-medium">目录</span>
-          </button>
-
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-semibold truncate max-w-[140px] sm:max-w-xs" title={book?.metadata?.title}>
-              {book?.metadata?.title || fileName}
-            </span>
-            {book?.metadata?.creator && (
-              <span className="text-[11px] opacity-60 truncate hidden lg:inline">
-                / {book.metadata.creator}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* 中间：翻页/翻章快捷控制 */}
-        <div className="flex items-center gap-1 sm:gap-2">
-          <button
-            onClick={goToPrev}
-            disabled={
-              isPaginatedMode
-                ? currentChapterIndex <= 0 && currentPageIndex <= 0
-                : currentChapterIndex <= 0
-            }
-            className="p-1.5 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition"
-            title={isPaginatedMode ? t('epubPrevPage', locale) : '上一章'}
-            aria-label="上一页"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <div className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/5 dark:bg-white/5 border flex items-center gap-1.5" style={{ borderColor: themeStyles.border }}>
-            <span>
-              {isPaginatedMode ? (
-                <>
-                  <span className="font-bold">{currentPageIndex + 1}</span>
-                  <span className="opacity-40">/</span>
-                  <span className="opacity-70">{totalSpreadPages}</span>
-                  <span className="opacity-40 text-[10px] hidden sm:inline"> 页</span>
-                </>
-              ) : (
-                <>
-                  <span className="font-bold">{currentChapterIndex + 1}</span>
-                  <span className="opacity-40">/</span>
-                  <span className="opacity-70">{totalChapters}</span>
-                  <span className="opacity-40 text-[10px] hidden sm:inline"> 章</span>
-                </>
-              )}
-            </span>
-          </div>
-
-          <button
-            onClick={goToNext}
-            disabled={
-              isPaginatedMode
-                ? currentChapterIndex >= totalChapters - 1 && currentPageIndex >= totalSpreadPages - 1
-                : currentChapterIndex >= totalChapters - 1
-            }
-            className="p-1.5 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition"
-            title={isPaginatedMode ? t('epubNextPage', locale) : '下一章'}
-            aria-label="下一页"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* 右侧：排版形态切换与高级设置 */}
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          {/* 流式阅读形态快捷切换组：双叶并排 vs 单页流式 vs 连续滚动 */}
-          <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border" style={{ borderColor: themeStyles.border }}>
-            <button
-              onClick={() => {
-                updateSetting('flowMode', 'spread');
-                setTimeout(recalculateSpreadPages, 50);
-              }}
-              className={`px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
-                settings.flowMode === 'spread'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="双叶并排 (宽屏书卷跨页)"
-            >
-              <Columns2 className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">双叶</span>
-            </button>
-            <button
-              onClick={() => {
-                updateSetting('flowMode', 'single');
-                setTimeout(recalculateSpreadPages, 50);
-              }}
-              className={`px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
-                settings.flowMode === 'single'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="单页流式分页 (单列专注阅读)"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">单页</span>
-            </button>
-            <button
-              onClick={() => {
-                updateSetting('flowMode', 'scroll');
-                setTimeout(() => {
-                  const targetEl = document.getElementById(`epub-chapter-node-${currentChapterIndex}`);
-                  if (targetEl) {
-                    targetEl.scrollIntoView({ behavior: 'auto', block: 'start' });
-                  }
-                }, 60);
-              }}
-              className={`px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
-                settings.flowMode === 'scroll'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="连续流式滚动 (纵向全书无间断阅读)"
-            >
-              <ScrollText className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">连续滚动</span>
-            </button>
-          </div>
-
-          {/* 多种版心宽度快捷切换组 (标准 880px / 宽幅 1180px / 全幅 100%) */}
-          <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border" style={{ borderColor: themeStyles.border }}>
-            <button
-              onClick={() => {
-                updateSetting('contentWidth', 'standard');
-                setTimeout(recalculateSpreadPages, 50);
-              }}
-              className={`px-1.5 sm:px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
-                settings.contentWidth === 'standard'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="标准版心宽度 (Standard: 720~880px)"
-              aria-label="标准版心宽度"
-            >
-              <FoldHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">标准</span>
-            </button>
-            <button
-              onClick={() => {
-                updateSetting('contentWidth', 'wide');
-                setTimeout(recalculateSpreadPages, 50);
-              }}
-              className={`px-1.5 sm:px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
-                settings.contentWidth === 'wide'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="宽幅版心宽度 (Wide: 1000~1180px)"
-              aria-label="宽幅版心宽度"
-            >
-              <UnfoldHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">宽幅</span>
-            </button>
-            <button
-              onClick={() => {
-                updateSetting('contentWidth', 'full');
-                setTimeout(recalculateSpreadPages, 50);
-              }}
-              className={`px-1.5 sm:px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition ${
-                settings.contentWidth === 'full'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-              }`}
-              title="全幅满屏宽度 (Full: 100%)"
-              aria-label="全幅满屏宽度"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">全幅</span>
-            </button>
-          </div>
-
-          {/* 拟真翻书动效快捷开关 */}
-          {isPaginatedMode && (
-            <button
-              onClick={() => updateSetting('enableFlipEffect', !settings.enableFlipEffect)}
-              className={`p-1.5 rounded border transition flex items-center gap-1 ${
-                settings.enableFlipEffect
-                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-500 dark:text-amber-400'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-50'
-              }`}
-              style={{ borderColor: settings.enableFlipEffect ? undefined : themeStyles.border }}
-              title={settings.enableFlipEffect ? t('epubPageFlipEffectOn', locale) : t('epubPageFlipEffectOff', locale)}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span className="hidden 2xl:inline text-[10px]">翻书动效</span>
-            </button>
-          )}
-
-          {/* 字号微调 A- / A+ */}
-          <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border" style={{ borderColor: themeStyles.border }}>
-            <button
-              onClick={() => {
-                updateSetting('fontSize', Math.max(13, settings.fontSize - 1));
-                setTimeout(recalculateSpreadPages, 50);
-              }}
-              disabled={settings.fontSize <= 13}
-              className="px-1.5 py-0.5 text-[11px] font-bold rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30"
-              title="缩小字号"
-            >
-              A-
-            </button>
-            <span className="text-[10px] font-mono px-1 min-w-[20px] text-center">{settings.fontSize}</span>
-            <button
-              onClick={() => {
-                updateSetting('fontSize', Math.min(28, settings.fontSize + 1));
-                setTimeout(recalculateSpreadPages, 50);
-              }}
-              disabled={settings.fontSize >= 28}
-              className="px-1.5 py-0.5 text-[11px] font-bold rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30"
-              title="放大字号"
-            >
-              A+
-            </button>
-          </div>
-
-          {/* 综合高级排版菜单入口 (Typography & Flow Popover) */}
-          <div className="relative">
-            <button
-              onClick={() => setShowTypographyMenu(!showTypographyMenu)}
-              className={`p-1.5 rounded-lg border transition flex items-center gap-1 text-xs ${
-                showTypographyMenu
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                  : 'hover:bg-black/10 dark:hover:bg-white/10'
-              }`}
-              style={{ borderColor: showTypographyMenu ? undefined : themeStyles.border }}
-              title="排版与流式字体设置 (已全面持久化)"
-            >
-              <Sliders className="w-4 h-4" />
-              <span className="hidden lg:inline font-medium">排版</span>
-            </button>
-
-            {/* 高级排版下拉卡片 */}
-            {showTypographyMenu && (
-              <div
-                ref={typographyMenuRef}
-                className="absolute right-0 top-full mt-2 w-80 p-4 rounded-xl shadow-2xl border z-50 backdrop-blur-xl animate-in fade-in slide-in-from-top-1 duration-200"
-                style={{
-                  background: themeStyles.paper,
-                  borderColor: themeStyles.border,
-                  color: themeStyles.text,
-                }}
-              >
-                <div className="flex items-center justify-between pb-3 border-b mb-3" style={{ borderColor: themeStyles.border }}>
-                  <div className="flex items-center gap-1.5">
-                    <Type className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-bold">流式排版设置</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSettings({ ...DEFAULT_EPUB_SETTINGS });
-                      saveEpubSettings(DEFAULT_EPUB_SETTINGS);
-                      setTimeout(recalculateSpreadPages, 50);
-                    }}
-                    className="text-[10px] flex items-center gap-1 opacity-60 hover:opacity-100 transition hover:text-blue-500"
-                    title="恢复默认排版"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>恢复默认</span>
-                  </button>
-                </div>
-
-                <div className="space-y-3.5 text-xs">
-                  {/* 排版字体选择 */}
-                  <div>
-                    <label className="block text-[11px] font-semibold opacity-70 mb-1.5">流式字体</label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {[
-                        { id: 'serif', label: '典雅衬线 (宋体)' },
-                        { id: 'sans', label: '现代黑体 (无衬线)' },
-                        { id: 'kaiti', label: '人文楷体 (文学质感)' },
-                        { id: 'mono', label: '等宽代码' },
-                      ].map(f => (
-                        <button
-                          key={f.id}
-                          onClick={() => {
-                            updateSetting('fontFamily', f.id as EpubFontFamily);
-                            setTimeout(recalculateSpreadPages, 50);
-                          }}
-                          className={`px-2 py-1.5 rounded-lg border text-[11px] text-left transition flex items-center justify-between ${
-                            settings.fontFamily === f.id
-                              ? 'bg-blue-600/10 border-blue-500 text-blue-600 dark:text-blue-400 font-semibold'
-                              : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-                          }`}
-                          style={{ borderColor: settings.fontFamily === f.id ? undefined : themeStyles.border }}
-                        >
-                          <span className="truncate">{f.label}</span>
-                          {settings.fontFamily === f.id && <Check className="w-3 h-3 shrink-0 text-blue-500" />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 首行缩进与对齐方式 */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-semibold opacity-70 mb-1">首行两字符缩进</label>
-                      <button
-                        onClick={() => {
-                          updateSetting('textIndent', !settings.textIndent);
-                          setTimeout(recalculateSpreadPages, 50);
-                        }}
-                        className={`w-full py-1.5 px-2 rounded-lg border text-center transition ${
-                          settings.textIndent
-                            ? 'bg-blue-600/10 border-blue-500 text-blue-600 dark:text-blue-400 font-semibold'
-                            : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
-                        }`}
-                        style={{ borderColor: settings.textIndent ? undefined : themeStyles.border }}
-                      >
-                        {settings.textIndent ? '已开启缩进' : '关闭缩进'}
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold opacity-70 mb-1">对齐方式</label>
-                      <div className="flex border rounded-lg overflow-hidden" style={{ borderColor: themeStyles.border }}>
-                        <button
-                          onClick={() => updateSetting('textAlign', 'justify')}
-                          className={`flex-1 py-1.5 flex items-center justify-center transition ${
-                            settings.textAlign === 'justify' ? 'bg-blue-600 text-white' : 'hover:bg-black/5 opacity-70'
-                          }`}
-                          title="两端对齐"
-                        >
-                          <AlignJustify className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => updateSetting('textAlign', 'left')}
-                          className={`flex-1 py-1.5 flex items-center justify-center transition ${
-                            settings.textAlign === 'left' ? 'bg-blue-600 text-white' : 'hover:bg-black/5 opacity-70'
-                          }`}
-                          title="靠左对齐"
-                        >
-                          <AlignLeft className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 行高调节 */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-semibold opacity-70">行距倍率</label>
-                      <span className="font-mono text-[10px] opacity-70">{settings.lineHeight}x</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { val: 1.5, label: '紧凑 1.5' },
-                        { val: 1.75, label: '标准 1.75' },
-                        { val: 2.0, label: '宽松 2.0' },
-                      ].map(item => (
-                        <button
-                          key={item.val}
-                          onClick={() => {
-                            updateSetting('lineHeight', item.val);
-                            setTimeout(recalculateSpreadPages, 50);
-                          }}
-                          className={`py-1 rounded-lg border text-center text-[10px] transition ${
-                            settings.lineHeight === item.val
-                              ? 'bg-blue-600 text-white border-blue-600 font-semibold'
-                              : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
-                          }`}
-                          style={{ borderColor: settings.lineHeight === item.val ? undefined : themeStyles.border }}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 版心宽度 */}
-                  <div>
-                    <label className="block text-[11px] font-semibold opacity-70 mb-1">版心宽度</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { id: 'standard', label: '标准 (720px)' },
-                        { id: 'wide', label: '宽幅 (960px)' },
-                        { id: 'full', label: '全幅 (100%)' },
-                      ].map(w => (
-                        <button
-                          key={w.id}
-                          onClick={() => {
-                            updateSetting('contentWidth', w.id as EpubContentWidth);
-                            setTimeout(recalculateSpreadPages, 50);
-                          }}
-                          className={`py-1 rounded-lg border text-center text-[10px] transition ${
-                            settings.contentWidth === w.id
-                              ? 'bg-blue-600 text-white border-blue-600 font-semibold'
-                              : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
-                          }`}
-                          style={{ borderColor: settings.contentWidth === w.id ? undefined : themeStyles.border }}
-                        >
-                          {w.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-2.5 border-t text-[10px] opacity-50 flex items-center justify-between" style={{ borderColor: themeStyles.border }}>
-                  <span>OmniView 流式排版引擎</span>
-                  <span className="text-emerald-500 flex items-center gap-0.5">
-                    <Check className="w-2.5 h-2.5" /> 设置已实时持久化
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 元数据详情抽屉 */}
-          <button
-            onClick={() => setShowInfo(!showInfo)}
-            className="p-1.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition"
-            title="书籍出版元数据"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-
-          {/* 全屏切换 */}
-          <button
-            onClick={toggleFullscreen}
-            className="p-1.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition hidden sm:block"
-            title={isFullscreen ? '退出全屏' : '沉浸全屏阅读'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-        </div>
-      </header>
+      />
 
       {/* 顶部阅读进度指示条 */}
       <div className="w-full h-1 bg-black/10 dark:bg-white/10 shrink-0">
@@ -1099,160 +680,26 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       {/* 阅读器主视口区域 */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* 左侧：目录导航抽屉 (TOC Drawer) */}
-        {showToc && (
-          <aside
-            className="w-72 sm:w-80 h-full border-r flex flex-col z-20 shrink-0 shadow-xl transition-all duration-300"
-            style={{
-              background: themeStyles.toolbarBg,
-              borderColor: themeStyles.border,
-            }}
-          >
-            <div className="p-3 border-b flex items-center justify-between" style={{ borderColor: themeStyles.border }}>
-              <div className="flex items-center gap-2">
-                <BookMarked className="w-4 h-4 text-blue-500" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">目录大纲 ({book?.toc.length || 0})</h3>
-              </div>
-              <button
-                onClick={() => setShowToc(false)}
-                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10"
-                title="收起目录抽屉"
-                aria-label="收起目录抽屉"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* 目录快速检索 */}
-            <div className="p-2 border-b" style={{ borderColor: themeStyles.border }}>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/5 dark:bg-white/5 border text-xs" style={{ borderColor: themeStyles.border }}>
-                <Search className="w-3.5 h-3.5 opacity-50 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="搜索章节标题..."
-                  value={tocSearch}
-                  onChange={e => setTocSearch(e.target.value)}
-                  className="bg-transparent border-none outline-hidden w-full text-xs placeholder:opacity-40"
-                />
-                {tocSearch && (
-                  <button onClick={() => setTocSearch('')} className="opacity-50 hover:opacity-100">
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 目录列表 */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {filteredToc.length > 0 ? (
-                filteredToc.map((item, idx) => {
-                  const cleanItem = decodeURIComponent(item.href.split('#')[0].replace(/^\.\//, ''));
-                  const cleanCh = currentChapter ? decodeURIComponent(currentChapter.href.split('#')[0].replace(/^\.\//, '')) : '';
-                  const itemBase = cleanItem.split('/').pop()?.toLowerCase();
-                  const chBase = cleanCh.split('/').pop()?.toLowerCase();
-                  const isCurrent =
-                    cleanItem === cleanCh ||
-                    (!!itemBase && !!chBase && itemBase === chBase) ||
-                    (!!item.id && currentChapter?.id === item.id) ||
-                    (!!item.label && currentChapter?.title === item.label);
-
-                  return (
-                    <button
-                      key={`${item.href}-${idx}`}
-                      onClick={() => jumpToToc(item)}
-                      style={{ paddingLeft: '8px' }}
-                      title={item.label}
-                      className={`w-full py-2 pr-2.5 rounded-lg text-left text-xs transition flex items-center justify-between group ${
-                        isCurrent
-                          ? 'bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold shadow-2xs'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <span className="truncate pr-2">{item.label}</span>
-                      {isCurrent ? (
-                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 ml-1 shadow-xs ring-2 ring-blue-500/20" />
-                      ) : (
-                        <span className="text-[10px] font-mono opacity-30 group-hover:opacity-60 shrink-0">
-                          #{idx + 1}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="p-4 text-center text-xs opacity-50">未检索到匹配章节</div>
-              )}
-            </div>
-          </aside>
-        )}
+        <EpubTocSidebar
+          showToc={showToc}
+          toc={book?.toc || []}
+          filteredToc={filteredToc}
+          tocSearch={tocSearch}
+          currentChapter={currentChapter}
+          themeStyles={themeStyles}
+          onClose={() => setShowToc(false)}
+          onSearchChange={setTocSearch}
+          onJumpToToc={jumpToToc}
+        />
 
         {/* 右侧：电子书元数据抽屉 (Info Drawer) */}
-        {showInfo && (
-          <aside
-            className="absolute right-0 top-0 bottom-0 w-80 border-l p-4 flex flex-col z-20 shadow-2xl overflow-y-auto"
-            style={{
-              background: themeStyles.paper,
-              borderColor: themeStyles.border,
-            }}
-          >
-            <div className="flex items-center justify-between pb-3 border-b mb-4" style={{ borderColor: themeStyles.border }}>
-              <h3 className="text-xs font-bold uppercase tracking-wider">电子书出版元数据</h3>
-              <button
-                onClick={() => setShowInfo(false)}
-                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {book?.metadata?.coverDataUrl && (
-              <div className="mb-4 flex justify-center">
-                <img
-                  src={book.metadata.coverDataUrl}
-                  alt="Book Cover"
-                  className="max-h-48 rounded shadow-lg object-contain border"
-                  style={{ borderColor: themeStyles.border }}
-                />
-              </div>
-            )}
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-[10px] font-mono opacity-50 block uppercase">书名 / Title</span>
-                <p className="font-semibold text-sm">{book?.metadata?.title || '未知'}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-mono opacity-50 block uppercase">作者 / Creator</span>
-                <p>{book?.metadata?.creator || '未记录'}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-mono opacity-50 block uppercase">出版社 / Publisher</span>
-                <p>{book?.metadata?.publisher || '未记录'}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-mono opacity-50 block uppercase">语言 / Language</span>
-                <p className="font-mono">{book?.metadata?.language || 'und'}</p>
-              </div>
-
-              {book?.metadata?.description && (
-                <div>
-                  <span className="text-[10px] font-mono opacity-50 block uppercase">内容简介 / Description</span>
-                  <p className="opacity-80 text-[11px] leading-relaxed mt-1 max-h-40 overflow-y-auto">
-                    {book.metadata.description}
-                  </p>
-                </div>
-              )}
-
-              <div className="pt-4 border-t space-y-1 font-mono text-[10px] opacity-50" style={{ borderColor: themeStyles.border }}>
-                <div>总章节数: {book?.chapters.length || 0}</div>
-                <div>目录索引条目: {book?.toc.length || 0}</div>
-                <div>文件大小: {fileSize ? `${(fileSize / 1024).toFixed(1)} KB` : '标准 EPUB 载荷'}</div>
-              </div>
-            </div>
-          </aside>
-        )}
+        <EpubInfoModal
+          showInfo={showInfo}
+          book={book}
+          fileSize={fileSize}
+          themeStyles={themeStyles}
+          onClose={() => setShowInfo(false)}
+        />
 
         {/* 正文主视口 */}
         <main
@@ -1571,6 +1018,17 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
           widows: 2;
           text-rendering: optimizeLegibility;
           -webkit-font-smoothing: antialiased;
+          color: var(--ov-text) !important;
+        }
+        .epub-rendered-content p,
+        .epub-rendered-content div:not(.callout),
+        .epub-rendered-content span,
+        .epub-rendered-content li,
+        .epub-rendered-content dd,
+        .epub-rendered-content dt,
+        .epub-rendered-content section,
+        .epub-rendered-content article {
+          color: var(--ov-text);
         }
         .epub-rendered-content p {
           margin-top: 0;
@@ -1578,6 +1036,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
           text-indent: ${settings.textIndent ? '2em' : '0'};
           word-break: break-word;
           overflow-wrap: break-word;
+          line-height: inherit;
         }
         .epub-rendered-content h1,
         .epub-rendered-content h2,
@@ -1585,6 +1044,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         .epub-rendered-content h4,
         .epub-rendered-content h5,
         .epub-rendered-content h6 {
+          color: var(--ov-text) !important;
           font-weight: 700;
           margin-top: 1.2em;
           margin-bottom: 0.5em;
@@ -1597,11 +1057,25 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         .epub-rendered-content h1 { font-size: 1.8em; }
         .epub-rendered-content h2 { font-size: 1.5em; }
         .epub-rendered-content h3 { font-size: 1.25em; }
+        .epub-rendered-content a {
+          color: var(--ov-accent) !important;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .epub-rendered-content a:hover {
+          opacity: 0.8;
+        }
+        .epub-rendered-content strong,
+        .epub-rendered-content b {
+          font-weight: 700;
+          color: var(--ov-text) !important;
+        }
         .epub-rendered-content ul,
         .epub-rendered-content ol {
           margin-left: 1.5em;
           margin-bottom: 1em;
           text-indent: 0 !important;
+          color: var(--ov-text);
         }
         .epub-rendered-content li {
           margin-bottom: 0.35em;
@@ -1610,14 +1084,17 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         .epub-rendered-content ul { list-style-type: disc; }
         .epub-rendered-content ol { list-style-type: decimal; }
         .epub-rendered-content blockquote {
-          border-left: 3px solid currentColor;
-          opacity: 0.85;
-          padding-left: 1em;
+          border-left: 3px solid var(--ov-accent);
+          background: var(--ov-quote-bg, rgba(125, 125, 125, 0.08));
+          color: var(--ov-text);
+          opacity: 0.95;
+          padding: 0.5em 1em;
           margin: 1em 0;
           font-style: italic;
           text-indent: 0 !important;
           break-inside: avoid-column;
           page-break-inside: avoid;
+          border-radius: 0 4px 4px 0;
         }
         .epub-rendered-content img {
           max-width: 100% !important;
@@ -1631,14 +1108,17 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         }
         .epub-rendered-content code {
           padding: 0.15em 0.35em;
-          background: rgba(125, 125, 125, 0.15);
+          background: var(--ov-inline-code-bg, rgba(125, 125, 125, 0.15));
+          color: var(--ov-inline-code-color, var(--ov-accent)) !important;
           border-radius: 4px;
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
           font-size: 0.9em;
         }
         .epub-rendered-content pre {
           padding: 0.85em;
-          background: rgba(125, 125, 125, 0.12);
+          background: var(--ov-code-bg, rgba(125, 125, 125, 0.12));
+          color: var(--ov-text) !important;
+          border: 1px solid var(--ov-border);
           border-radius: 6px;
           overflow-x: auto;
           margin-bottom: 1em;
@@ -1648,6 +1128,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         }
         .epub-rendered-content pre code {
           background: transparent;
+          color: inherit !important;
           padding: 0;
         }
         .epub-rendered-content table {
@@ -1656,15 +1137,23 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
           margin: 1.25em 0;
           break-inside: avoid-column;
           page-break-inside: avoid;
+          color: var(--ov-text);
         }
         .epub-rendered-content th,
         .epub-rendered-content td {
-          border: 1px solid rgba(125, 125, 125, 0.2);
+          border: 1px solid var(--ov-border);
           padding: 0.4em 0.6em;
           text-align: left;
+          color: var(--ov-text);
         }
         .epub-rendered-content th {
-          background: rgba(125, 125, 125, 0.1);
+          background: var(--ov-table-th, rgba(125, 125, 125, 0.1));
+          font-weight: 600;
+        }
+        .epub-rendered-content hr {
+          border: none;
+          border-top: 1px solid var(--ov-border);
+          margin: 1.5em 0;
         }
       `}</style>
     </div>

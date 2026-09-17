@@ -15,17 +15,21 @@ export default defineConfig(() => {
             if (id.includes('node_modules/pdfjs-dist')) {
               return 'vendor-pdf';
             }
-            if (id.includes('node_modules/mermaid') || id.includes('node_modules/cytoscape') || id.includes('node_modules/dagre')) {
-              return 'vendor-mermaid';
+            if (
+              id.includes('node_modules/mermaid') ||
+              id.includes('node_modules/cytoscape') ||
+              id.includes('node_modules/dagre') ||
+              id.includes('node_modules/markmap-view') ||
+              id.includes('node_modules/markmap-lib') ||
+              id.includes('node_modules/d3')
+            ) {
+              return 'vendor-diagram';
             }
             if (id.includes('node_modules/katex')) {
               return 'vendor-katex';
             }
             if (id.includes('node_modules/@hpcc-js/wasm-graphviz')) {
               return 'vendor-graphviz';
-            }
-            if (id.includes('node_modules/markmap-view') || id.includes('node_modules/markmap-lib') || id.includes('node_modules/d3')) {
-              return 'vendor-markmap';
             }
             if (id.includes('node_modules/prismjs')) {
               return 'vendor-prism';

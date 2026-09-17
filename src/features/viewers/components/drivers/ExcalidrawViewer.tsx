@@ -670,9 +670,9 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
-            className={`flex-1 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing ${
-              isDarkTheme ? 'bg-[#121212]' : 'bg-[#fafafa]'
-            } ${showGrid ? (isDarkTheme ? 'ov-svg-grid-dark' : 'ov-svg-grid-light') : ''}`}
+            className={`flex-1 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing bg-[var(--ov-surface)] ${
+              showGrid ? (isDarkTheme ? 'ov-svg-grid-dark' : 'ov-svg-grid-light') : ''
+            }`}
             style={{ touchAction: 'none' }}
           >
             {isLoadingSvg && (

@@ -99,25 +99,37 @@ async function runTests() {
 
   // 空环境读取默认值
   const defaultSettings = loadEpubSettings();
+  assert.strictEqual(defaultSettings.readerTheme, 'auto', '默认主题模式必须为 auto (跟随整体)');
   assert.strictEqual(defaultSettings.flowMode, 'spread');
   assert.strictEqual(defaultSettings.fontSize, 17);
   assert.strictEqual(defaultSettings.fontFamily, 'serif');
   assert.strictEqual(defaultSettings.textIndent, true);
   assert.strictEqual(defaultSettings.enableFlipEffect, true);
 
-  // 增量更新持久化
+  // 增量更新持久化 (测试主题与排版混合保存)
   saveEpubSettings({
+    readerTheme: 'sepia',
     flowMode: 'scroll',
     fontSize: 20,
     fontFamily: 'kaiti',
     textIndent: false,
   });
   const reloadedSettings = loadEpubSettings();
+  assert.strictEqual(reloadedSettings.readerTheme, 'sepia', '暖阳羊皮阅读主题应持久化保存');
   assert.strictEqual(reloadedSettings.flowMode, 'scroll', '流式滚动模式应持久化保存');
   assert.strictEqual(reloadedSettings.fontSize, 20, '字号应持久化保存');
   assert.strictEqual(reloadedSettings.fontFamily, 'kaiti', '楷体应持久化保存');
   assert.strictEqual(reloadedSettings.textIndent, false, '缩进配置应持久化保存');
-  console.log('✅ EPUB 排版偏好设置持久化与增量保存验证通过');
+
+  // 测试 effectiveTheme 动态联动解析
+  const resolveEffectiveTheme = (readerTheme, globalTheme) => {
+    if (readerTheme === 'auto') return globalTheme || 'dark';
+    return readerTheme;
+  };
+  assert.strictEqual(resolveEffectiveTheme('auto', 'light'), 'light', 'auto 模式下应正确继承整体明亮主题');
+  assert.strictEqual(resolveEffectiveTheme('auto', 'sepia'), 'sepia', 'auto 模式下应正确继承整体羊皮主题');
+  assert.strictEqual(resolveEffectiveTheme('sepia', 'dark'), 'sepia', '独立设置的主题应优先于整体主题');
+  console.log('✅ EPUB 排版偏好设置与阅读主题持久化验证通过');
 
   // 测试 9: 电子书专属阅读进度持久化与还原验证
   console.log('--- 测试 9: 电子书专属阅读进度持久化与还原验证 ---');

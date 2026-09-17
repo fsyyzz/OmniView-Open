@@ -11,6 +11,8 @@ export type EpubFontFamily = 'serif' | 'sans' | 'kaiti' | 'mono';
 export type EpubContentWidth = 'standard' | 'wide' | 'full';
 
 export interface EpubReaderSettings {
+  /** 阅读器色彩主题：auto (跟随整体/系统主题)、sepia (暖阳羊皮)、light (明雅日光)、dark (暗夜深蓝)、midnight (黑曜纯黑) */
+  readerTheme: EpubReaderTheme;
   /** 流式阅读形态：双叶并排 (spread)、单页流式 (single)、连续滚动 (scroll) */
   flowMode: EpubFlowMode;
   /** 是否开启 3D 拟真翻书动效 */
@@ -40,6 +42,7 @@ export const EPUB_SETTINGS_STORAGE_KEY = 'omniview:epub:settings:v1';
 export const EPUB_PROGRESS_STORAGE_PREFIX = 'omniview:epub:progress:';
 
 export const DEFAULT_EPUB_SETTINGS: EpubReaderSettings = {
+  readerTheme: 'auto',
   flowMode: 'spread',
   enableFlipEffect: true,
   fontSize: 17,
@@ -66,6 +69,10 @@ export function loadEpubSettings(): EpubReaderSettings {
     if (typeof parsed !== 'object' || parsed === null) {
       return { ...DEFAULT_EPUB_SETTINGS };
     }
+
+    const readerTheme: EpubReaderTheme = ['auto', 'sepia', 'light', 'dark', 'midnight'].includes(parsed.readerTheme)
+      ? parsed.readerTheme
+      : DEFAULT_EPUB_SETTINGS.readerTheme;
 
     const flowMode: EpubFlowMode = ['spread', 'single', 'scroll'].includes(parsed.flowMode)
       ? parsed.flowMode
@@ -100,6 +107,7 @@ export function loadEpubSettings(): EpubReaderSettings {
       : DEFAULT_EPUB_SETTINGS.textAlign;
 
     return {
+      readerTheme,
       flowMode,
       enableFlipEffect,
       fontSize,
