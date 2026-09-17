@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import {
   parsePptx,
+  base64ToBytes,
   type ParsedPptxPresentation,
   type PptxSlide,
   type PptxElement,
@@ -65,8 +66,16 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
       let rawData: ArrayBuffer | Uint8Array | string = content || '';
 
       if (binaryUrl) {
-        const resp = await fetch(binaryUrl);
-        rawData = await resp.arrayBuffer();
+        if (binaryUrl.startsWith('data:') || /^[A-Za-z0-9+/=]/.test(binaryUrl)) {
+          rawData = base64ToBytes(binaryUrl);
+        } else {
+          try {
+            const resp = await fetch(binaryUrl);
+            rawData = await resp.arrayBuffer();
+          } catch {
+            rawData = base64ToBytes(binaryUrl);
+          }
+        }
       }
 
       const parsed = await parsePptx(rawData);

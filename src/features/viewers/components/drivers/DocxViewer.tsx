@@ -21,6 +21,7 @@ import {
 import {
   parseDocx,
   renderDocxToContainer,
+  base64ToBytes,
   type ParsedDocxDocument,
 } from '../../lib/docxEngine';
 import type { ThemeId } from '../../../../shared/types';
@@ -64,8 +65,16 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       let rawData: ArrayBuffer | Uint8Array | string = content || '';
 
       if (binaryUrl) {
-        const resp = await fetch(binaryUrl);
-        rawData = await resp.arrayBuffer();
+        if (binaryUrl.startsWith('data:') || /^[A-Za-z0-9+/=]/.test(binaryUrl)) {
+          rawData = base64ToBytes(binaryUrl);
+        } else {
+          try {
+            const resp = await fetch(binaryUrl);
+            rawData = await resp.arrayBuffer();
+          } catch {
+            rawData = base64ToBytes(binaryUrl);
+          }
+        }
       }
 
       const parsed = await parseDocx(rawData);
@@ -279,6 +288,39 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
             }}
             className="docx-preview-container max-w-full shadow-2xl rounded-sm"
           >
+            {/* 注入 docx-preview 专用拟真 A4 纸张排版与对比度样式，防止深色模式下字色与底色混杂 */}
+            <style>{`
+              .docx-viewport-root {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                min-height: 400px;
+              }
+              .docx-viewport-root section,
+              .docx-viewport-root .docx-rendered-wrapper,
+              .docx-viewport-root section.docx-rendered-wrapper,
+              .docx-viewport-root .docx_page {
+                background: #ffffff !important;
+                color: #1a1a1a !important;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 2px;
+                box-sizing: border-box;
+                margin-bottom: 24px;
+              }
+              .docx-viewport-root p,
+              .docx-viewport-root span,
+              .docx-viewport-root article,
+              .docx-viewport-root table,
+              .docx-viewport-root td,
+              .docx-viewport-root th {
+                color: #1a1a1a;
+              }
+              .docx-viewport-root table {
+                border-collapse: collapse;
+              }
+            `}</style>
             {/* docx-preview DOM 真实挂载节点 */}
             <div ref={docxMountRef} className="docx-viewport-root" />
           </div>
