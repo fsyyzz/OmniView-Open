@@ -379,12 +379,12 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               type="button"
               id="btn-open-in-native-editor"
               onClick={onOpenInEditor}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-950/70 hover:bg-sky-900/80 text-sky-300 border border-sky-700/60 text-[11px] font-medium transition cursor-pointer"
-              title={t('openInNativeEditorHint', locale)}
-              aria-label={t('openInNativeEditor', locale)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-medium transition cursor-pointer"
+              title="在 VS Code 原生文本编辑器中并排编辑"
+              aria-label="在编辑器中打开"
             >
               <ExternalLink className="w-3 h-3 text-sky-400" />
-              <span className="hidden sm:inline">{t('openInNativeEditor', locale)}</span>
+              <span className="hidden sm:inline">在编辑器中打开</span>
             </button>
           )}
         </div>
@@ -523,24 +523,6 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               <div className="px-3 py-1.5 bg-rose-950/80 border-b border-rose-800/60 text-rose-300 flex items-center gap-2 shrink-0">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
                 <span className="truncate">语法错误: {parseResult.error || '无法解析此结构化数据，请检查语法'}</span>
-              </div>
-            )}
-
-            {/* 提示使用 VS Code 原生编辑器的推荐横幅 */}
-            {onOpenInEditor && (
-              <div className="px-3 py-1.5 bg-sky-950/60 border-b border-sky-800/60 text-sky-200 text-xs flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>{t('openInNativeEditorHint', locale)}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={onOpenInEditor}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded text-xs font-medium cursor-pointer shadow-xs transition shrink-0 ml-2"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>{t('openInNativeEditor', locale)}</span>
-                </button>
               </div>
             )}
 

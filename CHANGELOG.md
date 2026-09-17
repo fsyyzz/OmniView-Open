@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-09-17
+
+### Added
+
+- **VS Code 官方标准快捷键绑定**:
+  - 新增 `Ctrl+K V` / `Ctrl+Shift+V`（macOS 对应 `Cmd+K V` / `Cmd+Shift+V`），在活动源码编辑器聚焦时一键唤起 OmniView 侧边实时渲染预览，全面对齐 VS Code 官方 Markdown 预览交互直觉。
+- **智能活动文本编辑器跟随与图钉锁定 (`omniview.togglePreviewLock`)**:
+  - 接入 `onDidChangeActiveTextEditor` 事件，侧边预览自动跟随当前激活的源码文件同步刷新渲染；
+  - 在编辑器标题栏新增锁定/跟随切换命令与图标按钮，支持一键锁定 (Pin) 当前预览，防止切换编辑器标签页时内容被冲掉。
+- **并排伴侣模式光标焦点保持 (`preserveFocus`)**:
+  - 侧边打开预览时默认设置 `preserveFocus: true`，主光标无缝驻留在左侧原生文本编辑器，实现即开即打，无缝享受 GitHub Copilot 与语言服务补全。
+
+### Changed
+
+- **Viewer 操作界面精简与去噪**:
+  - 统一所有查看器（PlantUML、代码编辑/只读、结构化数据、思维导图、图表工坊、Markdown 等）的顶部操作入口为「在编辑器中打开」（*Open in Editor*）；
+  - 全面清理各 Viewer 源码编辑区内突兀占位的推荐横幅与提示条，恢复清爽纯净的查看与阅读界面；
+  - 移除 Markdown 工具栏内重复冗余的原生编辑器直达按钮，统一收纳于操作栏规范位置。
+
 ## [0.12.0] - 2026-09-17
 
 ### Added

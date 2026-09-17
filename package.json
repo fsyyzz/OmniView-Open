@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "0.12.0",
+  "version": "0.12.1",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -160,8 +160,27 @@
         "icon": "$(settings-gear)"
       },
       {
+        "command": "omniview.togglePreviewLock",
+        "title": "OmniView: 锁定/解锁预览跟随 (Toggle Preview Lock)",
+        "icon": "$(lock)"
+      },
+      {
         "command": "omniview.showLogs",
         "title": "OmniView: 打开日志"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "omniview.openSidePreview",
+        "key": "ctrl+k v",
+        "mac": "cmd+k v",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|pdf|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+      },
+      {
+        "command": "omniview.openSidePreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|pdf|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
       }
     ],
     "menus": {
@@ -172,9 +191,14 @@
           "group": "navigation"
         },
         {
+          "command": "omniview.togglePreviewLock",
+          "when": "activeCustomEditorId == 'omniview.editor'",
+          "group": "navigation@1"
+        },
+        {
           "command": "omniview.openSource",
           "when": "activeCustomEditorId == 'omniview.editor'",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "explorer/context": [

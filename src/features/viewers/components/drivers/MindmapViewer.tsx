@@ -464,12 +464,11 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
               type="button"
               id="btn-mindmap-open-in-native-editor"
               onClick={onOpenInEditor}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 hover:text-white rounded-lg border border-sky-600/50 transition text-xs font-medium shadow-xs cursor-pointer"
-              title="在 VS Code 原生编辑器中并排编辑（方案A：支持 Copilot 补全、Git 工具链与 Markdown 扩展）"
+              className="flex items-center gap-1 px-2.5 py-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-750 rounded border border-slate-700 transition text-xs font-medium cursor-pointer"
+              title="在 VS Code 原生编辑器中并排编辑"
             >
               <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline">在 VS Code 中并排编辑</span>
-              <span className="sm:hidden">并排编辑</span>
+              <span className="hidden sm:inline">在编辑器中打开</span>
             </button>
           )}
 
@@ -527,26 +526,6 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                 </button>
               ))}
             </div>
-
-            {/* 方案A 并排原生编辑器推荐跳转提示条 */}
-            {onOpenInEditor && (
-              <div className="flex items-center justify-between px-3 py-1.5 bg-sky-950/70 border-b border-sky-800/60 text-[11px] text-sky-200 shrink-0 gap-2 select-none">
-                <span className="flex items-center gap-1.5 truncate">
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span className="truncate">
-                    <span className="font-semibold text-sky-300">推荐方案 A (分屏协同)</span>：在 VS Code 原生编辑器中并排编辑（支持 Copilot 补全/GitLens）
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={onOpenInEditor}
-                  className="shrink-0 flex items-center gap-1 px-2.5 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium shadow-xs transition cursor-pointer"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>在侧边打开原生编辑器</span>
-                </button>
-              </div>
-            )}
 
             {/* 文本编辑区 */}
             <textarea

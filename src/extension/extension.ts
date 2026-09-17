@@ -641,8 +641,49 @@ export function activate(context: vscode.ExtensionContext): void {
   }));
   log(`Custom Editor registered: ${VIEW_TYPE}`);
 
+  // 预览锁定与自动跟随状态
+  let isPreviewLocked = false;
+  let isSidePreviewActive = false;
+
+  // 切换预览锁定
+  context.subscriptions.push(vscode.commands.registerCommand('omniview.togglePreviewLock', () => {
+    isPreviewLocked = !isPreviewLocked;
+    vscode.window.showInformationMessage(`OmniView 实时预览跟随已${isPreviewLocked ? '锁定 (Pin 模式)' : '解锁 (跟随当前激活文件)'}`);
+  }));
+
+  // 监听当前活动文本编辑器切换，支持如同 VS Code 官方 Markdown Preview 的智能自动跟随
+  context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+    if (!editor || isPreviewLocked || !isSidePreviewActive) return;
+    const doc = editor.document;
+    if (doc.uri.scheme !== 'file') return;
+    const ext = extname(doc.uri.fsPath).toLowerCase();
+    if (!SUPPORTED_EXTENSIONS.includes(ext)) return;
+
+    const tabs = vscode.window.tabGroups?.all?.flatMap(g => g.tabs) || [];
+    const hasOmniviewBeside = tabs.some(t => {
+      const input = t.input as { viewType?: string } | undefined;
+      return t.group.viewColumn !== editor.viewColumn && input?.viewType === VIEW_TYPE;
+    });
+
+    if (hasOmniviewBeside) {
+      try {
+        await vscode.commands.executeCommand('vscode.openWith', doc.uri, VIEW_TYPE, {
+          viewColumn: vscode.ViewColumn.Beside,
+          preserveFocus: true,
+        });
+        await vscode.window.showTextDocument(editor.document, {
+          viewColumn: editor.viewColumn,
+          preserveFocus: false,
+        });
+      } catch (e) {
+        log('Auto-follow preview update failed', e);
+      }
+    }
+  }));
+
   // 在侧边打开预览
   context.subscriptions.push(vscode.commands.registerCommand('omniview.openSidePreview', async (uri?: vscode.Uri | vscode.Uri[]) => {
+    isSidePreviewActive = true;
     let target = Array.isArray(uri) ? uri[0] : uri;
     if (!target) {
       const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
@@ -664,7 +705,18 @@ export function activate(context: vscode.ExtensionContext): void {
       return;
     }
     try {
-      await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, vscode.ViewColumn.Beside);
+      const activeTextEditor = vscode.window.activeTextEditor;
+      await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: true,
+      });
+      // 保持或恢复左侧文本编辑器的光标焦点，实现即开即打体验
+      if (activeTextEditor && activeTextEditor.document.uri.toString() === target.toString()) {
+        await vscode.window.showTextDocument(activeTextEditor.document, {
+          viewColumn: activeTextEditor.viewColumn,
+          preserveFocus: false,
+        });
+      }
     } catch (error) {
       log('openWith failed', error);
       vscode.window.showErrorMessage(`打开预览失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -701,6 +753,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // 方案 A: 打开并排协同 (原生文本编辑器 + OmniView 实时渲染预览)
   context.subscriptions.push(vscode.commands.registerCommand('omniview.openSideBySide', async (uri?: vscode.Uri | vscode.Uri[]) => {
+    isSidePreviewActive = true;
     let target = Array.isArray(uri) ? uri[0] : uri;
     if (!target) {
       const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
@@ -717,9 +770,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     try {
       // 1. 在当前激活列（或主编辑区）打开原生源码文本编辑器（支持 Copilot, GitLens, LSP 补全）
-      await vscode.window.showTextDocument(target, { viewColumn: vscode.ViewColumn.Active, preview: false });
+      const editor = await vscode.window.showTextDocument(target, { viewColumn: vscode.ViewColumn.Active, preview: false });
       // 2. 在侧边列打开 OmniView 实时可视化渲染预览
-      await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, vscode.ViewColumn.Beside);
+      await vscode.commands.executeCommand('vscode.openWith', target, VIEW_TYPE, {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: true,
+      });
+      // 3. 焦点稳定保留在左侧原生文本编辑器中
+      if (editor) {
+        await vscode.window.showTextDocument(editor.document, { viewColumn: editor.viewColumn, preserveFocus: false });
+      }
     } catch (error) {
       log('openSideBySide failed', error);
       vscode.window.showErrorMessage(`打开并排协同失败: ${error instanceof Error ? error.message : String(error)}`);
