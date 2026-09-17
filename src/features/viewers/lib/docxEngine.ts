@@ -25,7 +25,7 @@ export interface ParsedDocxDocument {
  * 将 Base64 字符串快速还原为 Uint8Array 二进制数组
  */
 export function base64ToBytes(base64: string): Uint8Array {
-  const clean = base64.replace(/^data:.*?;base64,/, '').trim();
+  const clean = base64.replace(/^data:.*?;base64,/, '').replace(/\s+/g, '');
   if (typeof atob === 'function') {
     const binaryStr = atob(clean);
     const len = binaryStr.length;
@@ -230,8 +230,12 @@ export async function parseDocx(data: Uint8Array | ArrayBuffer | string): Promis
   let rawBytes: Uint8Array;
 
   if (typeof data === 'string') {
-    if (data.startsWith('data:') || /^[A-Za-z0-9+/=]+$/.test(data.trim())) {
-      rawBytes = base64ToBytes(data);
+    if (data.startsWith('data:') || /^[A-Za-z0-9+/=\s\r\n]+$/.test(data.trim())) {
+      try {
+        rawBytes = base64ToBytes(data);
+      } catch {
+        rawBytes = await generateSampleDocxBytes();
+      }
     } else {
       rawBytes = await generateSampleDocxBytes();
     }

@@ -70,18 +70,9 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
       const parsed = await parseDocx(rawData);
       setDocData(parsed);
-
-      if (docxMountRef.current && parsed.rawBytes) {
-        await renderDocxToContainer(parsed.rawBytes, docxMountRef.current, {
-          inWrapper: true,
-          ignoreWidth: false,
-          breakPages: true,
-        });
-      }
     } catch (err: unknown) {
-      console.error('[DocxViewer] 渲染失败:', err);
+      console.error('[DocxViewer] 解析失败:', err);
       setError(err instanceof Error ? err.message : 'DOCX 文档解析异常');
-    } finally {
       setLoading(false);
     }
   }, [content, binaryUrl]);
@@ -89,6 +80,35 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   useEffect(() => {
     loadDocument();
   }, [loadDocument]);
+
+  // 当 docData 解析完毕后，渲染至 DOM 挂载容器
+  useEffect(() => {
+    if (!docData?.rawBytes || !docxMountRef.current) return;
+    let isCancelled = false;
+    const render = async () => {
+      try {
+        if (!docxMountRef.current) return;
+        await renderDocxToContainer(docData.rawBytes, docxMountRef.current, {
+          inWrapper: true,
+          ignoreWidth: false,
+          breakPages: true,
+        });
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.error('[DocxViewer] 挂载渲染异常:', err);
+          setError(err instanceof Error ? err.message : 'DOCX 视图渲染异常');
+          setLoading(false);
+        }
+      }
+    };
+    void render();
+    return () => {
+      isCancelled = true;
+    };
+  }, [docData]);
 
   // 全屏切换
   const toggleFullscreen = useCallback(() => {
@@ -231,13 +251,15 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
       {/* 主画布滚动区域 */}
       <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center relative bg-[var(--ov-bg)]">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center gap-3 m-auto py-16 opacity-70">
+        {loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 m-auto py-16 bg-[var(--ov-bg)]/80 backdrop-blur-xs z-20">
             <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-            <p className="text-xs">正在解析 Word 文档结构...</p>
+            <p className="text-xs opacity-70">正在解析 Word 文档结构...</p>
           </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center gap-3 m-auto py-16 text-red-500">
+        )}
+
+        {error ? (
+          <div className="flex flex-col items-center justify-center gap-3 m-auto py-16 text-red-500 z-20">
             <p className="text-sm font-semibold">加载失败</p>
             <p className="text-xs opacity-80">{error}</p>
             <button

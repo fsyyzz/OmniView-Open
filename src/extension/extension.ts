@@ -5,7 +5,42 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join as joinPath, resolve as resolvePath } from 'node:path';
 
 const VIEW_TYPE = 'omniview.editor';
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid', '.dot', '.gv', '.svg', '.pdf', '.epub', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt', '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.egn', '.domainstory'];
+const SUPPORTED_EXTENSIONS = [
+  '.md', '.markdown', '.okf', '.puml', '.plantuml', '.iuml', '.mmd', '.mermaid',
+  '.dot', '.gv', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif', '.tiff',
+  '.pdf', '.epub', '.docx', '.pptx', '.xlsx', '.xls', '.xlsm', '.xltx',
+  '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt',
+  '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.egn', '.domainstory'
+];
+
+const BINARY_EXTENSIONS = [
+  '.pdf', '.epub', '.docx', '.pptx', '.xlsx', '.xls', '.xlsm', '.xltx',
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif', '.tiff'
+];
+
+function getMimeType(extension: string): string {
+  const mimeMap: Record<string, string> = {
+    '.pdf': 'application/pdf',
+    '.epub': 'application/epub+zip',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsm': 'application/vnd.ms-excel.sheet.macroEnabled.12',
+    '.xltx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.template',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.ico': 'image/x-icon',
+    '.avif': 'image/avif',
+    '.tiff': 'image/tiff',
+  };
+  return mimeMap[extension] || 'application/octet-stream';
+}
+
 let output: vscode.OutputChannel;
 
 function log(message: string, details?: unknown): void {
@@ -204,9 +239,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
 
     const filePath = document.uri.fsPath || document.uri.path || '';
     const extension = extname(filePath).toLowerCase();
-    const isPdf = extension === '.pdf';
-    const isEpub = extension === '.epub';
-    const isBinary = isPdf || isEpub;
+    const isBinary = BINARY_EXTENSIONS.includes(extension);
     const disposables: vscode.Disposable[] = [];
     let isSyncingFromWebview = false;
     let syncFromWebviewTimeout: NodeJS.Timeout | undefined;
@@ -222,9 +255,9 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
         const raw = await vscode.workspace.fs.readFile(document.uri);
         buffer = Buffer.from(raw);
       }
-      const content = isBinary ? '' : buffer.toString('utf8');
-      const mime = isPdf ? 'application/pdf' : isEpub ? 'application/epub+zip' : '';
+      const mime = getMimeType(extension);
       const binaryUrl = isBinary ? `data:${mime};base64,${buffer.toString('base64')}` : undefined;
+      const content = isBinary ? (binaryUrl || '') : buffer.toString('utf8');
       const referencedFiles = (extension === '.md' || extension === '.markdown') && document.uri.fsPath
         ? await loadReferencedMediaFiles(document.uri.fsPath, content)
         : [];
@@ -460,7 +493,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     let editDebounceTimer: NodeJS.Timeout | undefined;
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
       if (isWritingFromWebview) return;
-      if (event.document.uri.fsPath === document.uri.fsPath && !isPdf) {
+      if (event.document.uri.fsPath === document.uri.fsPath && !isBinary) {
         clearTimeout(editDebounceTimer);
         editDebounceTimer = setTimeout(async () => {
           if (isWritingFromWebview) return;
