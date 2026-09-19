@@ -10,25 +10,49 @@ export function getMermaidConfig(isDark: boolean): MermaidConfig {
     securityLevel: 'loose',
     fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     theme: isDark ? 'dark' : 'default',
+    flowchart: {
+      htmlLabels: true,
+      curve: 'basis',
+      padding: 15,
+      useMaxWidth: true,
+      nodeSpacing: 50,
+      rankSpacing: 50,
+    },
+    sequence: {
+      useMaxWidth: true,
+      showSequenceNumbers: false,
+      boxMargin: 10,
+      boxTextMargin: 5,
+      noteMargin: 10,
+      messageMargin: 35,
+    },
     themeVariables: isDark
       ? {
           darkMode: true,
           background: 'transparent',
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           fontSize: '13px',
-          // 节点边框与背景高对比度强化
+          // 流程图节点与形状全面高对比
           primaryColor: '#111827',
           primaryBorderColor: '#38bdf8',
           primaryTextColor: '#f8fafc',
+          nodeBkg: '#111827',
+          nodeBorder: '#38bdf8',
+          nodeTextColor: '#f8fafc',
+          mainBkg: '#111827',
           // 连线与箭头 (高对比亮天蓝，确保暗色背景下清晰可见)
           lineColor: '#60a5fa',
           textColor: '#f1f5f9',
+          defaultLinkColor: '#60a5fa',
+          titleColor: '#f1f5f9',
           // 连线文字背景 (杜绝线条穿刺文字，提供高对比纯净背景)
           edgeLabelBackground: '#0b1120',
           // 分组与集群子图 (高识别度边缘与微暗浮层)
           tertiaryColor: '#0f172a',
           tertiaryBorderColor: '#64748b',
           tertiaryTextColor: '#93c5fd',
+          clusterBkg: '#0f172a',
+          clusterBorder: '#64748b',
           // 备注框 (清晰暖色醒目背景)
           noteBkgColor: '#1e293b',
           noteBorderColor: '#f59e0b',
@@ -51,19 +75,27 @@ export function getMermaidConfig(isDark: boolean): MermaidConfig {
           background: 'transparent',
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           fontSize: '13px',
-          // 节点边框与背景高对比度强化
+          // 流程图节点与形状全面高对比
           primaryColor: '#f8fafc',
           primaryBorderColor: '#2563eb',
           primaryTextColor: '#0f172a',
+          nodeBkg: '#f8fafc',
+          nodeBorder: '#2563eb',
+          nodeTextColor: '#0f172a',
+          mainBkg: '#f8fafc',
           // 连线与箭头 (深冷灰蓝，高反差锐利显现)
           lineColor: '#1e293b',
           textColor: '#0f172a',
+          defaultLinkColor: '#1e293b',
+          titleColor: '#0f172a',
           // 连线文字背景 (纯净白底高清晰边框)
           edgeLabelBackground: '#ffffff',
           // 分组与集群子图
           tertiaryColor: '#f1f5f9',
           tertiaryBorderColor: '#94a3b8',
           tertiaryTextColor: '#1d4ed8',
+          clusterBkg: '#f1f5f9',
+          clusterBorder: '#94a3b8',
           // 备注框
           noteBkgColor: '#fefce8',
           noteBorderColor: '#ca8a04',

@@ -1041,6 +1041,52 @@ body.vscode-high-contrast-light[data-theme="system"] {
   object-fit: contain;
 }
 
+/* Mermaid & 矢量图表 foreignObject 文本与节点标签渲染保证 (杜绝放大灯箱与全屏模式下中英文字符裁剪或消失) */
+.diagram-canvas svg,
+.markdown-lightbox-content svg,
+.ov-mermaid-svg-container svg {
+  overflow: visible;
+}
+
+.diagram-canvas svg foreignObject,
+.markdown-lightbox-content svg foreignObject,
+.ov-mermaid-svg-container svg foreignObject {
+  overflow: visible !important;
+}
+
+.diagram-canvas svg foreignObject > div,
+.markdown-lightbox-content svg foreignObject > div,
+.ov-mermaid-svg-container svg foreignObject > div {
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+.diagram-canvas svg foreignObject span,
+.markdown-lightbox-content svg foreignObject span,
+.ov-mermaid-svg-container svg foreignObject span {
+  overflow: visible !important;
+}
+
+.diagram-canvas svg foreignObject *,
+.markdown-lightbox-content svg foreignObject *,
+.ov-mermaid-svg-container svg foreignObject * {
+  user-select: text;
+}
+
+.diagram-canvas svg .nodeLabel,
+.diagram-canvas svg .edgeLabel,
+.diagram-canvas svg .label,
+.markdown-lightbox-content svg .nodeLabel,
+.markdown-lightbox-content svg .edgeLabel,
+.markdown-lightbox-content svg .label,
+.ov-mermaid-svg-container svg .nodeLabel,
+.ov-mermaid-svg-container svg .edgeLabel,
+.ov-mermaid-svg-container svg .label {
+  font-family: inherit;
+  letter-spacing: normal;
+  overflow: visible !important;
+}
+
 /* =========================================================
    Density Modes (紧凑度排版系统)
    ========================================================= */

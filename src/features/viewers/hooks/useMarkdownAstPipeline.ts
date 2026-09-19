@@ -15,6 +15,7 @@ import { processEmojiShortcodes } from '../lib/markdownEmojiShortcodes';
 import { parseExcalidrawJson, renderExcalidrawToSvgString } from '../components/drivers/excalidraw/excalidrawEngine';
 import { getPlantUmlSvgUrl } from '../../../shared/lib/plantuml';
 import { type Locale, t } from '../../../shared/lib/i18n';
+import { DOMPURIFY_DIAGRAM_SVG_CONFIG, sanitizeDiagramSvg, sanitizeDiagramHtml } from '../lib/diagramSanitizer';
 
 export interface RenderedBlock {
   id: string;
@@ -37,33 +38,7 @@ export interface RenderedBlock {
   };
 }
 
-const DOMPURIFY_SVG_CONFIG: Record<string, any> = {
-  USE_PROFILES: { html: true, svg: true, svgFilters: true },
-  ADD_TAGS: [
-    'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
-    'text', 'tspan', 'defs', 'clipPath', 'linearGradient', 'radialGradient', 'stop',
-    'use', 'symbol', 'filter', 'feDropShadow', 'feGaussianBlur', 'feOffset', 'feMerge', 'feMergeNode',
-    'feBlend', 'feColorMatrix', 'feComponentTransfer', 'feComposite', 'feConvolveMatrix',
-    'feDiffuseLighting', 'feDisplacementMap', 'feDistantLight', 'feFlood', 'feFuncA',
-    'feFuncB', 'feFuncG', 'feFuncR', 'feImage', 'feMorphology', 'fePointLight',
-    'feSpecularLighting', 'feSpotLight', 'feTile', 'feTurbulence', 'image', 'pattern', 'mask',
-    'details', 'summary', 'input', 'label', 'aside'
-  ],
-  ADD_ATTR: [
-    'viewBox', 'xmlns', 'xmlns:xlink', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2',
-    'cx', 'cy', 'r', 'rx', 'ry', 'd', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray',
-    'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'opacity', 'fill-opacity',
-    'stroke-opacity', 'transform', 'style', 'id', 'class', 'gradientUnits', 'gradientTransform',
-    'offset', 'stop-color', 'stop-opacity', 'preserveAspectRatio', 'text-anchor', 'font-family',
-    'font-size', 'font-weight', 'letter-spacing', 'dominant-baseline', 'href', 'xlink:href',
-    'target', 'rel', 'crossorigin', 'points', 'dx', 'dy', 'stdDeviation', 'flood-color', 'flood-opacity',
-    'marker-end', 'marker-start', 'marker-mid',
-    'data-source-line', 'data-source-end-line', 'data-task-line', 'data-checked', 'data-callout',
-    'data-footnotes', 'data-footnote-ref', 'data-footnote-backref', 'data-footnote-id',
-    'data-wiki-link', 'data-wiki-embed', 'data-wiki-target', 'data-wiki-heading', 'data-wiki-block',
-    'open', 'type', 'checked', 'aria-label', 'aria-describedby', 'role'
-  ],
-};
+const DOMPURIFY_SVG_CONFIG = DOMPURIFY_DIAGRAM_SVG_CONFIG;
 
 const getCalloutMeta = (typeStr: string, locale: Locale) => {
   const tStr = typeStr.toLowerCase();

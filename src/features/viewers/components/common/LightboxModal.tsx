@@ -1,9 +1,8 @@
 /**
  * OmniView 全屏交互式图表与图片灯箱组件 (LightboxModal)
- * 支持无级平滑缩放、鼠标拖拽平移、90°旋转、复制内容、高分辨率下载与快捷键导航
+ * 支持无级平滑缩放、鼠标拖拽平移、90°旋转、复制内容、高分辨率下载、背景对比度切换与快捷键导航
  */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import DOMPurify from 'dompurify';
 import {
   X,
   ZoomIn,
@@ -13,8 +12,12 @@ import {
   Copy,
   Check,
   Download,
+  Sun,
+  Moon,
+  Grid,
 } from 'lucide-react';
 import { Locale, t } from '../../../../shared/lib/i18n';
+import { sanitizeDiagramSvg, sanitizeDiagramHtml } from '../../lib/diagramSanitizer';
 
 export interface LightboxItem {
   title: string;
@@ -36,14 +39,20 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({ item, onClose, loc
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [copied, setCopied] = useState(false);
+  const [bgMode, setBgMode] = useState<'theme' | 'dark' | 'light' | 'grid'>('theme');
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const isSvg = useMemo(() => {
+    if (!item?.content) return false;
+    return item.content.includes('<svg') || item.content.includes('</svg>');
+  }, [item?.content]);
 
   const sanitizedContent = useMemo(() => {
     if (!item?.content) return '';
-    return typeof DOMPurify?.sanitize === 'function'
-      ? DOMPurify.sanitize(item.content)
-      : item.content;
-  }, [item?.content]);
+    return isSvg
+      ? sanitizeDiagramSvg(item.content)
+      : sanitizeDiagramHtml(item.content);
+  }, [item?.content, isSvg]);
 
   // 当打开新项目时重置变换状态
   useEffect(() => {
@@ -224,6 +233,28 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({ item, onClose, loc
 
           <div className="w-[1px] h-3.5 bg-slate-800 mx-1" />
 
+          {/* Background Contrast Switcher */}
+          <button
+            type="button"
+            onClick={() => {
+              const modes: Array<'theme' | 'dark' | 'light' | 'grid'> = ['theme', 'dark', 'light', 'grid'];
+              const nextIndex = (modes.indexOf(bgMode) + 1) % modes.length;
+              setBgMode(modes[nextIndex]);
+            }}
+            className="p-1.5 hover:bg-slate-800 text-slate-300 rounded transition flex items-center gap-1"
+            title={`切换画布背景 (当前: ${bgMode})`}
+          >
+            {bgMode === 'light' ? (
+              <Sun size={14} className="text-amber-400" />
+            ) : bgMode === 'dark' ? (
+              <Moon size={14} className="text-indigo-400" />
+            ) : bgMode === 'grid' ? (
+              <Grid size={14} className="text-emerald-400" />
+            ) : (
+              <Sun size={14} className="text-slate-400" />
+            )}
+          </button>
+
           <button
             type="button"
             onClick={handleCopy}
@@ -274,11 +305,27 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({ item, onClose, loc
               src={item.url}
               alt={item.title}
               draggable={false}
-              className="max-w-full max-h-[82vh] object-contain rounded-lg shadow-2xl bg-slate-900/50 p-2 border border-slate-800"
+              className={`max-w-full max-h-[82vh] object-contain rounded-xl shadow-2xl p-4 border transition-colors ${
+                bgMode === 'light'
+                  ? 'bg-slate-50 border-slate-300 text-slate-900'
+                  : bgMode === 'dark'
+                  ? 'bg-slate-950 border-slate-800 text-slate-100'
+                  : bgMode === 'grid'
+                  ? 'bg-[radial-gradient(#475569_1px,transparent_1px)] [background-size:16px_16px] bg-slate-900 border-slate-700 text-slate-100'
+                  : 'bg-[var(--ov-surface,rgba(15,23,42,0.9))] border-[var(--ov-border,rgba(51,65,85,0.6))] text-[var(--ov-text,#f1f5f9)]'
+              }`}
             />
           ) : sanitizedContent ? (
             <div
-              className="max-w-full max-h-[82vh] flex items-center justify-center p-6 bg-slate-900/70 rounded-xl shadow-2xl border border-slate-800 overflow-visible"
+              className={`markdown-lightbox-content ov-mermaid-svg-container max-w-full max-h-[85vh] flex items-center justify-center p-6 rounded-xl shadow-2xl border transition-colors overflow-visible [&>svg]:max-w-full [&>svg]:max-h-[78vh] [&>svg]:h-auto [&>svg]:block ${
+                bgMode === 'light'
+                  ? 'bg-slate-50 border-slate-300 text-slate-900'
+                  : bgMode === 'dark'
+                  ? 'bg-slate-950 border-slate-800 text-slate-100'
+                  : bgMode === 'grid'
+                  ? 'bg-[radial-gradient(#475569_1px,transparent_1px)] [background-size:16px_16px] bg-slate-900 border-slate-700 text-slate-100'
+                  : 'bg-[var(--ov-surface,rgba(15,23,42,0.9))] border-[var(--ov-border,rgba(51,65,85,0.6))] text-[var(--ov-text,#f1f5f9)]'
+              }`}
               dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
           ) : null}
