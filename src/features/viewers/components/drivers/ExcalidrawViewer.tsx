@@ -40,9 +40,12 @@ import {
   renderExcalidrawToSvgString,
   downloadBlob,
 } from './excalidraw/excalidrawEngine';
-import { ExcalidrawCanvas } from './excalidraw/ExcalidrawCanvas';
 import { EXCALIDRAW_TEMPLATES, ExcalidrawTemplate } from './excalidraw/excalidrawTemplates';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
+
+const ExcalidrawCanvas = React.lazy(() =>
+  import('./excalidraw/ExcalidrawCanvas').then((m) => ({ default: m.ExcalidrawCanvas }))
+);
 
 export interface ExcalidrawViewerProps {
   content: string;
@@ -644,19 +647,27 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
                 </div>
               }
             >
-              <ExcalidrawCanvas
-                key={fileName}
-                initialParsedData={parsedData}
-                isDarkTheme={isDarkTheme}
-                locale={locale}
-                showGrid={showGrid}
-                isZenMode={isZenMode}
-                isViewOnly={isViewOnly}
-                onDocChange={handleCanvasDocChange}
-                onApiReady={(api) => {
-                  excalidrawApiRef.current = api;
-                }}
-              />
+              <React.Suspense
+                fallback={
+                  <div className="flex-1 min-h-[400px] flex items-center justify-center text-slate-400 text-xs">
+                    加载白板引擎...
+                  </div>
+                }
+              >
+                <ExcalidrawCanvas
+                  key={fileName}
+                  initialParsedData={parsedData}
+                  isDarkTheme={isDarkTheme}
+                  locale={locale}
+                  showGrid={showGrid}
+                  isZenMode={isZenMode}
+                  isViewOnly={isViewOnly}
+                  onDocChange={handleCanvasDocChange}
+                  onApiReady={(api) => {
+                    excalidrawApiRef.current = api;
+                  }}
+                />
+              </React.Suspense>
             </RenderErrorBoundary>
           </div>
         )}

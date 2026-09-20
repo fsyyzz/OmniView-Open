@@ -12,6 +12,16 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks(id) {
+            if (
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/scheduler/')
+            ) {
+              return 'vendor-react';
+            }
+            if (id.includes('node_modules/@excalidraw')) {
+              return 'vendor-excalidraw';
+            }
             if (id.includes('node_modules/pdfjs-dist')) {
               return 'vendor-pdf';
             }
@@ -36,9 +46,6 @@ export default defineConfig(() => {
             }
             if (id.includes('node_modules/js-yaml')) {
               return 'vendor-yaml';
-            }
-            if (id.includes('node_modules/@excalidraw')) {
-              return 'vendor-excalidraw';
             }
           },
         },

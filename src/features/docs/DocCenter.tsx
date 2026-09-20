@@ -2,10 +2,9 @@
  * OmniViewer 研发规范与工程技术设计中心 (DocCenter)
  * 采用 MarkdownViewer 驱动渲染全规格文档，原生支持 Mermaid 流程图/时序图/状态图、SVG 矢量图元与代码高亮
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import { PROJECT_DOCS } from '../../shared/docs/projectDocs';
 import { SoftwareDoc } from '../../shared/types';
-import { MarkdownViewer } from '../viewers/components/drivers/MarkdownViewer';
 import {
   BookOpen,
   Copy,
@@ -20,7 +19,12 @@ import {
   ExternalLink,
   ChevronRight,
   ListTree,
+  Loader2,
 } from 'lucide-react';
+
+const MarkdownViewer = React.lazy(() =>
+  import('../viewers/components/drivers/MarkdownViewer').then((m) => ({ default: m.MarkdownViewer }))
+);
 
 interface DocCenterProps {
   theme?: string;
@@ -269,12 +273,21 @@ export const DocCenter: React.FC<DocCenterProps> = ({ theme, onOpenInWorkbench }
         {/* 中间核心内容阅读区 (采用全功能 MarkdownViewer 驱动) */}
         <div className="flex-1 overflow-y-auto p-6 lg:p-8 bg-slate-950/70">
           <div className="max-w-4xl mx-auto bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 lg:p-10 shadow-2xl">
-            <MarkdownViewer
-              content={currentDoc.content}
-              isDarkTheme={isDarkTheme}
-              density="comfortable"
-              contentWidth="full"
-            />
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center p-12 text-slate-400 gap-2 font-mono text-xs">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                  <span>载入文档解析引擎...</span>
+                </div>
+              }
+            >
+              <MarkdownViewer
+                content={currentDoc.content}
+                isDarkTheme={isDarkTheme}
+                density="comfortable"
+                contentWidth="full"
+              />
+            </Suspense>
           </div>
         </div>
 

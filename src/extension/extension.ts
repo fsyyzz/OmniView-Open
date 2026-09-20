@@ -659,10 +659,6 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
       log('Failed to initialize webview HTML', error);
       throw error instanceof Error ? error : new Error(String(error));
     }
-
-    for (const delay of [100, 500, 1500]) {
-      setTimeout(() => void postDocument(false).catch((error) => log(`Document retry failed (${delay}ms)`, error)), delay);
-    }
   }
 }
 

@@ -6,16 +6,17 @@ import { Sidebar } from '../features/workbench/components/Sidebar';
 import { StatusBar } from '../features/workbench/components/StatusBar';
 import { getDriverIdForFile } from '../features/viewers/ViewerRenderer';
 import { EditorWorkspace } from '../features/workbench/components/EditorWorkspace';
-import { DocCenter } from '../features/docs/DocCenter';
-import { DriversManager } from '../features/drivers/DriversManager';
-import { ScaffoldExporter } from '../features/scaffold/ScaffoldExporter';
 import { getVsCodeApi, VsCodeApi } from '../shared/lib/vscode';
 import { PluginDocumentView } from '../features/viewers/PluginDocumentView';
 import { RenderErrorBoundary } from '../features/viewers/components/common/RenderErrorBoundary';
 import { loadStoredSettings, saveStoredSettings } from '../shared/lib/settingsStorage';
 import { loadStoredFiles, saveStoredFiles, resetStoredFiles } from '../shared/lib/fileStorage';
-import { WorkbenchSettingsModal } from '../features/workbench/components/WorkbenchSettingsModal';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../shared/lib/nativeTheme';
+
+const DocCenter = React.lazy(() => import('../features/docs/DocCenter').then(m => ({ default: m.DocCenter })));
+const DriversManager = React.lazy(() => import('../features/drivers/DriversManager').then(m => ({ default: m.DriversManager })));
+const ScaffoldExporter = React.lazy(() => import('../features/scaffold/ScaffoldExporter').then(m => ({ default: m.ScaffoldExporter })));
+const WorkbenchSettingsModal = React.lazy(() => import('../features/workbench/components/WorkbenchSettingsModal').then(m => ({ default: m.WorkbenchSettingsModal })));
 
 function getEmbeddedInitialFile(): FileItem | undefined {
   try {
@@ -243,17 +244,38 @@ export default function App() {
       }
       if (!['document', 'document-update'].includes(msgType || '') || !event.data.file) return;
       const incomingFile = event.data.file;
-      setPluginFile(incomingFile);
+      setPluginFile((prev) => {
+        if (
+          prev &&
+          prev.id === incomingFile.id &&
+          prev.content === incomingFile.content &&
+          prev.lastModified === incomingFile.lastModified &&
+          prev.binaryUrl === incomingFile.binaryUrl
+        ) {
+          return prev;
+        }
+        return incomingFile;
+      });
       setFiles((current) => {
-        const updated = current.some((file) => file.id === incomingFile.id)
-          ? current.map((file) => file.id === incomingFile.id ? incomingFile : file)
+        const existing = current.find((f) => f.id === incomingFile.id);
+        if (
+          existing &&
+          existing.content === incomingFile.content &&
+          existing.lastModified === incomingFile.lastModified &&
+          existing.binaryUrl === incomingFile.binaryUrl
+        ) {
+          return current;
+        }
+        const updated = existing
+          ? current.map((file) => (file.id === incomingFile.id ? incomingFile : file))
           : [incomingFile, ...current];
         if (!vscode) saveStoredFiles(updated);
         return updated;
       });
       setActiveFileId(incomingFile.id);
       setOpenTabIds((current) => {
-        const updatedTabs = current.includes(incomingFile.id) ? current : [...current, incomingFile.id];
+        if (current.includes(incomingFile.id)) return current;
+        const updatedTabs = [...current, incomingFile.id];
         if (!vscode) saveStoredSettings({ activeFileId: incomingFile.id, openTabIds: updatedTabs });
         return updatedTabs;
       });
@@ -536,30 +558,38 @@ flowchart LR
           <main className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--ov-bg)' }}>
             {/* If viewing Documentation Center */}
             {currentView === 'docs' && (
-              <DocCenter
-                theme={theme}
-                onOpenInWorkbench={(title, content) => {
-                  handleNewFile(`${title.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_')}.md`, content, 'md');
-                  handleCurrentViewChange('editor');
-                }}
-              />
+              <React.Suspense fallback={<div className="flex-1 flex items-center justify-center text-slate-400 text-xs">加载规范与文档中心...</div>}>
+                <DocCenter
+                  theme={theme}
+                  onOpenInWorkbench={(title, content) => {
+                    handleNewFile(`${title.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_')}.md`, content, 'md');
+                    handleCurrentViewChange('editor');
+                  }}
+                />
+              </React.Suspense>
             )}
 
             {/* If viewing Drivers Manager */}
             {currentView === 'drivers' && (
-              <DriversManager
-                onOpenSampleFile={(extension) => {
-                  const match = files.find(f => f.extension.toLowerCase() === extension.toLowerCase());
-                  if (match) {
-                    handleSelectFile(match.id);
-                  }
-                  handleCurrentViewChange('editor');
-                }}
-              />
+              <React.Suspense fallback={<div className="flex-1 flex items-center justify-center text-slate-400 text-xs">加载驱动管理器...</div>}>
+                <DriversManager
+                  onOpenSampleFile={(extension) => {
+                    const match = files.find(f => f.extension.toLowerCase() === extension.toLowerCase());
+                    if (match) {
+                      handleSelectFile(match.id);
+                    }
+                    handleCurrentViewChange('editor');
+                  }}
+                />
+              </React.Suspense>
             )}
 
             {/* If viewing Extension Scaffolding */}
-            {currentView === 'scaffold' && <ScaffoldExporter />}
+            {currentView === 'scaffold' && (
+              <React.Suspense fallback={<div className="flex-1 flex items-center justify-center text-slate-400 text-xs">加载脚手架导出器...</div>}>
+                <ScaffoldExporter />
+              </React.Suspense>
+            )}
 
             {/* If in Editor Workbench Mode */}
             {currentView === 'editor' && (
@@ -599,13 +629,17 @@ flowchart LR
         />
 
         {/* Global Preferences & Persistence Settings Modal */}
-        <WorkbenchSettingsModal
-          isOpen={isSettingsModalOpen}
-          onClose={() => setIsSettingsModalOpen(false)}
-          settings={settings}
-          onSettingsChange={handleSettingsModalChange}
-          onResetWorkspace={handleResetWorkspace}
-        />
+        {isSettingsModalOpen && (
+          <React.Suspense fallback={null}>
+            <WorkbenchSettingsModal
+              isOpen={isSettingsModalOpen}
+              onClose={() => setIsSettingsModalOpen(false)}
+              settings={settings}
+              onSettingsChange={handleSettingsModalChange}
+              onResetWorkspace={handleResetWorkspace}
+            />
+          </React.Suspense>
+        )}
       </div>
     </RenderErrorBoundary>
   );

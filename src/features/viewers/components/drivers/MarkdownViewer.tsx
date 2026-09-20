@@ -18,8 +18,6 @@ import { LazyViewportBlock } from './markdown/LazyViewportBlock';
 import { DomainStoryBlock } from './markdown/DomainStoryBlock';
 import { MarkmapBlock } from './markdown/MarkmapBlock';
 import { ExcalidrawBlock } from './markdown/ExcalidrawBlock';
-import { MarkmapViewer } from './MarkmapViewer';
-import { ExcalidrawViewer } from './ExcalidrawViewer';
 import { LightboxModal } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { Locale, t } from '../../../../shared/lib/i18n';

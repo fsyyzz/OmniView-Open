@@ -11,7 +11,6 @@ import { processMarkdownFootnotes } from '../lib/markdownFootnotes';
 import { processMarkdownWikiLinks } from '../lib/markdownWikiLinks';
 import { processMarkdownDefinitionLists } from '../lib/markdownDefinitionLists';
 import { processEmojiShortcodes } from '../lib/markdownEmojiShortcodes';
-import { parseExcalidrawJson, renderExcalidrawToSvgString } from '../components/drivers/excalidraw/excalidrawEngine';
 import { getPlantUmlSvgUrl } from '../../../shared/lib/plantuml';
 import { type Locale, t } from '../../../shared/lib/i18n';
 import { sanitizeDiagramSvg, sanitizeDiagramHtml } from '../lib/diagramSanitizer';
