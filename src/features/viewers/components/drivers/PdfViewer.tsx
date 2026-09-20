@@ -177,6 +177,20 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
   // 编程触发滚动锁，防止 smooth 滚动过程中反复触发 onScroll 导致状态抖动
   const isProgrammaticScrollRef = useRef(false);
+  const scrollRafRef = useRef<number | null>(null);
+  const searchDebounceTimerRef = useRef<number | null>(null);
+
+  // 组件卸载时清理定时器与动画帧
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current !== null) {
+        cancelAnimationFrame(scrollRafRef.current);
+      }
+      if (searchDebounceTimerRef.current !== null) {
+        clearTimeout(searchDebounceTimerRef.current);
+      }
+    };
+  }, []);
 
   // 2. 页面导航控制
   const handlePageJump = useCallback((targetPage: number) => {
@@ -197,38 +211,43 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   }, [totalPages, viewMode]);
 
-  // 连续流式模式下的视口滚动监听与当前阅读页自动同步 (Scroll Spy)
+  // 连续流式模式下的视口滚动监听与当前阅读页自动同步 (Scroll Spy) - 采用 requestAnimationFrame 稳帧节流
   const handleScroll = useCallback(() => {
     if (viewMode !== 'continuous' || isProgrammaticScrollRef.current) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
+    if (scrollRafRef.current !== null) return;
 
-    const containerRect = container.getBoundingClientRect();
-    const probeY = containerRect.top + Math.min(180, containerRect.height * 0.35);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const container = scrollContainerRef.current;
+      if (!container) return;
 
-    let activePage = 1;
-    let minDiff = Infinity;
+      const containerRect = container.getBoundingClientRect();
+      const probeY = containerRect.top + Math.min(180, containerRect.height * 0.35);
 
-    for (let p = 1; p <= totalPages; p++) {
-      const el = document.getElementById(`pdf-page-container-${p}`);
-      if (!el) continue;
-      const r = el.getBoundingClientRect();
-      if (r.bottom < containerRect.top) continue;
+      let activePage = 1;
+      let minDiff = Infinity;
 
-      const diff = Math.abs(r.top - probeY);
-      if (diff < minDiff) {
-        minDiff = diff;
-        activePage = p;
+      for (let p = 1; p <= totalPages; p++) {
+        const el = document.getElementById(`pdf-page-container-${p}`);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.bottom < containerRect.top) continue;
+
+        const diff = Math.abs(r.top - probeY);
+        if (diff < minDiff) {
+          minDiff = diff;
+          activePage = p;
+        }
+        if (r.top > containerRect.bottom) break;
       }
-      if (r.top > containerRect.bottom) break;
-    }
 
-    setCurrentPage((prev) => {
-      if (prev !== activePage) {
-        setPageInput(String(activePage));
-        return activePage;
-      }
-      return prev;
+      setCurrentPage((prev) => {
+        if (prev !== activePage) {
+          setPageInput(String(activePage));
+          return activePage;
+        }
+        return prev;
+      });
     });
   }, [viewMode, totalPages]);
 
@@ -296,7 +315,16 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
   const handleSearchQueryChange = (q: string) => {
     setSearchQuery(q);
-    performSearch(q);
+    if (searchDebounceTimerRef.current !== null) {
+      clearTimeout(searchDebounceTimerRef.current);
+    }
+    if (!q.trim()) {
+      performSearch('');
+      return;
+    }
+    searchDebounceTimerRef.current = window.setTimeout(() => {
+      performSearch(q);
+    }, 280);
   };
 
   const handleNextMatch = () => {

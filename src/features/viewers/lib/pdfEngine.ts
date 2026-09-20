@@ -283,7 +283,9 @@ export function renderPageToCanvas(
 
     const baseScale = options.scale ?? 1.0;
     const rotation = options.rotation ?? 0;
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    // 缩略图使用标准 1.0 DPR，普通页面限制最高 DPR 为 2.0，避免在 3x/4x 屏幕或极端缩放时创建巨大 Canvas 导致显存溢出与卡顿
+    const dpr = baseScale <= 0.25 ? 1.0 : Math.min(rawDpr, 2.0);
 
     // 获取页面原始视口
     const viewport = page.getViewport({ scale: baseScale * dpr, rotation });
@@ -357,6 +359,7 @@ export interface PdfSearchMatch {
 
 /**
  * 全文检索：遍历 PDF 所有页面提取文本并匹配查询词，生成上下文摘要与精准定位索引
+ * 支持事件循环让渡，防止大文件多页检索卡死主线程
  */
 export async function searchPdfDocument(
   doc: pdfjsLib.PDFDocumentProxy,
@@ -367,6 +370,11 @@ export async function searchPdfDocument(
   const matches: PdfSearchMatch[] = [];
 
   for (let pNum = 1; pNum <= doc.numPages; pNum++) {
+    // 每检索 5 页让渡一次主线程，避免长任务阻塞 UI
+    if (pNum % 5 === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
     try {
       const page = await doc.getPage(pNum);
       const textContent = await page.getTextContent();
@@ -410,7 +418,7 @@ export interface PdfOutlineItem {
 }
 
 /**
- * 解析并生成层级大纲目录（优先解析 PDF 内嵌 Outline 书签，若无则自动根据页面标题智能生成）
+ * 解析并生成层级大纲目录（优先解析 PDF 内嵌 Outline 书签，若无内嵌书签则瞬间返回空数组，避免顺序拉取数十页文本阻塞文档载入）
  */
 export async function getPdfOutline(doc: pdfjsLib.PDFDocumentProxy): Promise<PdfOutlineItem[]> {
   try {
@@ -444,41 +452,11 @@ export async function getPdfOutline(doc: pdfjsLib.PDFDocumentProxy): Promise<Pdf
       return await parseItems(rawOutline as Array<{ title?: string; dest?: unknown; items?: unknown[] }>);
     }
   } catch (err) {
-    console.warn('[OmniView PDF] 解析内嵌书签目录失败，采用智能目录生成:', err);
+    console.warn('[OmniView PDF] 解析内嵌书签目录失败:', err);
   }
 
-  // 启发式目录回退：解析前 50 页首部标题
-  const fallbackOutline: PdfOutlineItem[] = [];
-  const total = doc.numPages;
-  for (let i = 1; i <= Math.min(total, 50); i++) {
-    try {
-      const page = await doc.getPage(i);
-      const textContent = await page.getTextContent();
-      const firstLine = textContent.items
-        .slice(0, 3)
-        .map((it: unknown) => (typeof it === 'object' && it && 'str' in it ? String((it as { str: unknown }).str) : ''))
-        .join(' ')
-        .trim();
-
-      const title =
-        firstLine && firstLine.length > 3
-          ? firstLine.length > 36
-            ? firstLine.slice(0, 36) + '...'
-            : firstLine
-          : `第 ${i} 页`;
-
-      fallbackOutline.push({
-        title,
-        pageNumber: i,
-      });
-    } catch {
-      fallbackOutline.push({
-        title: `第 ${i} 页`,
-        pageNumber: i,
-      });
-    }
-  }
-  return fallbackOutline;
+  // 若无内嵌目录书签，直接返回空数组，绝不按页遍历解析前 50 页文本导致大文档打开卡顿
+  return [];
 }
 
 /**

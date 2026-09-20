@@ -114,6 +114,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const stageRef = useRef<HTMLDivElement>(null);
   const imageElementRef = useRef<HTMLImageElement>(null);
   const isInitialFitDoneRef = useRef(false);
+  const imgDimensionsRef = useRef<{ width: number; height: number } | null>(null);
 
   const isSvg = useMemo(() => {
     if (!activeItem?.content) return false;
@@ -155,27 +156,30 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     };
   }, []);
 
-  // 1. 快速适应视口 (Fit to Window): 保证整张图完整置于视口中且视觉占比最佳
-  const handleFitToScreen = useCallback((overrideDims?: { width: number; height: number }) => {
-    const dims = overrideDims || imgDimensions;
+  // 执行自适应视口计算核心纯函数
+  const applyFitToScreen = useCallback((dims: { width: number; height: number } | null) => {
     const stage = getStageDimensions();
-    
     if (dims && dims.width > 0 && dims.height > 0) {
       const scaleX = stage.width / (dims.width + 48);
       const scaleY = stage.height / (dims.height + 48);
       const fitScale = Math.min(scaleX, scaleY);
-      // 无死锁上限：允许无级自适应，若图表超大则缩放到合适视口，若图表适中则铺满视口
       const optimalZoom = Number(Math.max(0.05, Math.min(15, fitScale)).toFixed(2));
       setZoom(optimalZoom);
     } else {
       setZoom(1);
     }
     setPan({ x: 0, y: 0 });
-  }, [imgDimensions, getStageDimensions]);
+  }, [getStageDimensions]);
+
+  // 1. 快速适应视口 (Fit to Window)
+  const handleFitToScreen = useCallback((overrideDims?: { width: number; height: number }) => {
+    const dims = overrideDims || imgDimensionsRef.current;
+    applyFitToScreen(dims);
+  }, [applyFitToScreen]);
 
   // 2. 快速铺满屏幕 (Fill Screen)
   const handleFillScreen = useCallback(() => {
-    const dims = imgDimensions;
+    const dims = imgDimensionsRef.current;
     const stage = getStageDimensions();
 
     if (dims && dims.width > 0 && dims.height > 0) {
@@ -188,11 +192,11 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       setZoom(1.5);
     }
     setPan({ x: 0, y: 0 });
-  }, [imgDimensions, getStageDimensions]);
+  }, [getStageDimensions]);
 
   // 3. 适应宽度 (Fit Width)
   const handleFitWidth = useCallback(() => {
-    const dims = imgDimensions;
+    const dims = imgDimensionsRef.current;
     const stage = getStageDimensions();
     if (dims && dims.width > 0) {
       const scaleX = stage.width / (dims.width + 48);
@@ -201,11 +205,11 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       setZoom(1.2);
     }
     setPan({ x: 0, y: 0 });
-  }, [imgDimensions, getStageDimensions]);
+  }, [getStageDimensions]);
 
   // 4. 适应高度 (Fit Height)
   const handleFitHeight = useCallback(() => {
-    const dims = imgDimensions;
+    const dims = imgDimensionsRef.current;
     const stage = getStageDimensions();
     if (dims && dims.height > 0) {
       const scaleY = stage.height / (dims.height + 48);
@@ -214,7 +218,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       setZoom(1.2);
     }
     setPan({ x: 0, y: 0 });
-  }, [imgDimensions, getStageDimensions]);
+  }, [getStageDimensions]);
 
   // 5. 1:1 原始尺寸 (Actual Size)
   const handleActualSize = useCallback(() => {
@@ -263,6 +267,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   // 打开新项目时初始化探测尺寸并自动适应屏幕
   useEffect(() => {
     if (!activeItem) {
+      imgDimensionsRef.current = null;
       setImgDimensions(null);
       isInitialFitDoneRef.current = false;
       return;
@@ -280,11 +285,13 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         const w = img.naturalWidth || img.width || 800;
         const h = img.naturalHeight || img.height || 600;
         const dims = { width: w, height: h };
+        imgDimensionsRef.current = dims;
         setImgDimensions(dims);
-        handleFitToScreen(dims);
+        applyFitToScreen(dims);
         isInitialFitDoneRef.current = true;
       };
       img.onerror = () => {
+        imgDimensionsRef.current = null;
         setImgDimensions(null);
         setZoom(1);
       };
@@ -292,12 +299,13 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     } else if (activeItem.content) {
       const dims = extractSvgDimensions(activeItem.content);
       if (dims) {
+        imgDimensionsRef.current = dims;
         setImgDimensions(dims);
-        handleFitToScreen(dims);
+        applyFitToScreen(dims);
         isInitialFitDoneRef.current = true;
       }
     }
-  }, [activeItem, handleFitToScreen]);
+  }, [activeItem, applyFitToScreen]);
 
   // DOM 挂载后精确探测真实渲染尺寸（针对 Mermaid/Graphviz/PlantUML 动态矢量图二次校验）
   useLayoutEffect(() => {
@@ -338,14 +346,20 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
 
       if (measuredW > 0 && measuredH > 0) {
         const naturalDims = { width: Math.round(measuredW), height: Math.round(measuredH) };
-        setImgDimensions(naturalDims);
-        if (!isInitialFitDoneRef.current) {
-          handleFitToScreen(naturalDims);
-          isInitialFitDoneRef.current = true;
+        const prev = imgDimensionsRef.current;
+        const isChanged = !prev || Math.abs(prev.width - naturalDims.width) > 2 || Math.abs(prev.height - naturalDims.height) > 2;
+
+        if (isChanged || !isInitialFitDoneRef.current) {
+          imgDimensionsRef.current = naturalDims;
+          setImgDimensions(naturalDims);
+          if (!isInitialFitDoneRef.current) {
+            applyFitToScreen(naturalDims);
+            isInitialFitDoneRef.current = true;
+          }
         }
       }
     }
-  }, [sanitizedContent, handleFitToScreen]);
+  }, [sanitizedContent, applyFitToScreen]);
 
   // 快捷键监听
   useEffect(() => {

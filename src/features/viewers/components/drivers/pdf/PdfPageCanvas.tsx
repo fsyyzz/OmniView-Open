@@ -37,16 +37,20 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // 视口懒渲染探测（连续流式模式下优化性能与显存）
+  // 视口懒渲染探测（连续流式模式下优化性能与显存，支持离开视口动态卸载以释放 GPU 纹理显存）
   const [isVisible, setIsVisible] = useState(() => !lazyRender || pageNumber <= 2);
   const [isRendering, setIsRendering] = useState(true);
+  const [actualDims, setActualDims] = useState<{ width: number; height: number } | null>(null);
   const [selectedText, setSelectedText] = useState('');
   const [selectionPopupPos, setSelectionPopupPos] = useState<{ x: number; y: number } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // 视口观测器：提前 600px 预加载，避免滚动到时白屏
+  // 视口观测器：双向动态感测，提前 800px 预渲染，离开 800px 自动卸载光栅缓冲释放显存
   useEffect(() => {
-    if (!lazyRender || isVisible) return;
+    if (!lazyRender) {
+      setIsVisible(true);
+      return;
+    }
     const el = wrapperRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') {
       setIsVisible(true);
@@ -55,17 +59,17 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setIsVisible(true);
-          observer.disconnect();
+        const entry = entries[0];
+        if (entry) {
+          setIsVisible(entry.isIntersecting);
         }
       },
-      { rootMargin: '600px 0px 600px 0px' }
+      { rootMargin: '800px 0px 800px 0px' }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [lazyRender, isVisible]);
+  }, [lazyRender]);
 
   // 持久化 onPageLoaded 引用，坚决不在 useEffect 依赖数组中添加函数引用以杜绝死循环刷新
   const onPageLoadedRef = useRef(onPageLoaded);
@@ -101,7 +105,9 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
           const page = await doc.getPage(pageNumber);
           if (isCancelled) return;
           const vp = page.getViewport({ scale: 1.0, rotation });
-          onPageLoadedRef.current?.({ width: Math.round(vp.width), height: Math.round(vp.height) });
+          const dims = { width: Math.round(vp.width), height: Math.round(vp.height) };
+          setActualDims(dims);
+          onPageLoadedRef.current?.(dims);
         } catch {
           // ignore
         }
@@ -132,6 +138,11 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
       cancelCanvas();
       if (cancelTextLayer) {
         cancelTextLayer();
+      }
+      if (canvas) {
+        // 关键性能优化：重置 canvas 宽高为 0，通知浏览器立即回收底层的 GPU 光栅位图显存
+        canvas.width = 0;
+        canvas.height = 0;
       }
     };
   }, [doc, pageNumber, scale, rotation, searchQuery, isVisible]);
@@ -195,24 +206,9 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
   // 过滤本页相关的批注
   const pageAnnotations = annotations.filter((a) => a.pageNumber === pageNumber);
 
-  const estW = Math.round(estimatedDimensions.width * scale);
-  const estH = Math.round(estimatedDimensions.height * scale);
-
-  if (!isVisible) {
-    return (
-      <div
-        ref={wrapperRef}
-        id={`pdf-page-container-${pageNumber}`}
-        style={{ width: `${estW}px`, height: `${estH}px` }}
-        className="relative shadow-2xl rounded-sm border border-slate-700/80 bg-white/95 flex flex-col items-center justify-center text-slate-400 select-none"
-      >
-        <div className="flex flex-col items-center gap-2 animate-pulse text-slate-400">
-          <div className="w-8 h-8 rounded-full border-2 border-slate-300 border-t-blue-500 animate-spin" />
-          <span className="text-xs font-mono text-slate-500 font-medium">第 {pageNumber} 页加载中...</span>
-        </div>
-      </div>
-    );
-  }
+  const currentDims = actualDims || estimatedDimensions;
+  const pageW = Math.round(currentDims.width * scale);
+  const pageH = Math.round(currentDims.height * scale);
 
   return (
     <div
@@ -220,70 +216,82 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
       onMouseUp={handleMouseUp}
       className="relative shadow-2xl rounded-sm border border-slate-700/80 bg-white overflow-hidden select-text transition-transform"
       id={`pdf-page-container-${pageNumber}`}
+      style={{ width: `${pageW}px`, height: `${pageH}px` }}
     >
-      {/* 渲染加载中的半透明轻遮罩 */}
-      {isRendering && (
-        <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[0.5px] z-10 pointer-events-none" />
-      )}
+      {isVisible ? (
+        <>
+          {/* 渲染加载中的半透明轻遮罩 */}
+          {isRendering && (
+            <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[0.5px] z-10 pointer-events-none" />
+          )}
 
-      {/* 真实 Canvas 图像光栅层 */}
-      <canvas ref={canvasRef} className="block mx-auto" />
+          {/* 真实 Canvas 图像光栅层 */}
+          <canvas ref={canvasRef} className="block mx-auto" />
 
-      {/* PDF.js 文本选择与匹配高亮 DOM 层 */}
-      <div ref={textLayerRef} className="pdf-text-layer" />
+          {/* PDF.js 文本选择与匹配高亮 DOM 层 */}
+          <div ref={textLayerRef} className="pdf-text-layer" />
 
-      {/* 本页批注标签指示器 */}
-      {pageAnnotations.length > 0 && (
-        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur px-2 py-0.5 rounded-full border border-slate-700 text-[10px] text-slate-300 pointer-events-none">
-          <Highlighter className="w-3 h-3 text-amber-400" />
-          <span>{pageAnnotations.length} 处高亮批注</span>
-        </div>
-      )}
+          {/* 本页批注标签指示器 */}
+          {pageAnnotations.length > 0 && (
+            <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur px-2 py-0.5 rounded-full border border-slate-700 text-[10px] text-slate-300 pointer-events-none">
+              <Highlighter className="w-3 h-3 text-amber-400" />
+              <span>{pageAnnotations.length} 处高亮批注</span>
+            </div>
+          )}
 
-      {/* 选中文本后弹出的迷你快捷工具栏 */}
-      {selectionPopupPos && (
-        <div
-          style={{ left: `${selectionPopupPos.x}px`, top: `${selectionPopupPos.y}px` }}
-          className="absolute z-30 flex items-center gap-1 p-1 bg-slate-900/95 border border-slate-700 rounded-lg shadow-xl backdrop-blur text-xs select-none ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {/* 颜色高亮按钮 */}
-          <button
-            onClick={(e) => handleApplyHighlight('yellow', e)}
-            className="w-5 h-5 rounded bg-amber-400 hover:scale-110 transition shadow-sm"
-            title="黄色高亮"
-          />
-          <button
-            onClick={(e) => handleApplyHighlight('green', e)}
-            className="w-5 h-5 rounded bg-emerald-400 hover:scale-110 transition shadow-sm"
-            title="绿色高亮"
-          />
-          <button
-            onClick={(e) => handleApplyHighlight('pink', e)}
-            className="w-5 h-5 rounded bg-rose-400 hover:scale-110 transition shadow-sm"
-            title="粉色高亮"
-          />
+          {/* 选中文本后弹出的迷你快捷工具栏 */}
+          {selectionPopupPos && (
+            <div
+              style={{ left: `${selectionPopupPos.x}px`, top: `${selectionPopupPos.y}px` }}
+              className="absolute z-30 flex items-center gap-1 p-1 bg-slate-900/95 border border-slate-700 rounded-lg shadow-xl backdrop-blur text-xs select-none ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {/* 颜色高亮按钮 */}
+              <button
+                onClick={(e) => handleApplyHighlight('yellow', e)}
+                className="w-5 h-5 rounded bg-amber-400 hover:scale-110 transition shadow-sm"
+                title="黄色高亮"
+              />
+              <button
+                onClick={(e) => handleApplyHighlight('green', e)}
+                className="w-5 h-5 rounded bg-emerald-400 hover:scale-110 transition shadow-sm"
+                title="绿色高亮"
+              />
+              <button
+                onClick={(e) => handleApplyHighlight('pink', e)}
+                className="w-5 h-5 rounded bg-rose-400 hover:scale-110 transition shadow-sm"
+                title="粉色高亮"
+              />
 
-          <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
+              <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
 
-          {/* 复制按钮 */}
-          <button
-            onClick={handleCopyText}
-            className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded text-[11px] transition"
-            title="复制选中文本"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3 h-3 text-emerald-400" />
-                <span className="text-emerald-400">已复制</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3" />
-                <span>复制</span>
-              </>
-            )}
-          </button>
+              {/* 复制按钮 */}
+              <button
+                onClick={handleCopyText}
+                className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded text-[11px] transition"
+                title="复制选中文本"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span className="text-emerald-400">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>复制</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/20 text-slate-400 select-none">
+          <div className="flex flex-col items-center gap-2 text-slate-500">
+            <div className="w-6 h-6 rounded-full border-2 border-slate-400 border-t-blue-500 animate-spin" />
+            <span className="text-xs font-mono text-slate-500 font-medium">第 {pageNumber} 页</span>
+          </div>
         </div>
       )}
     </div>

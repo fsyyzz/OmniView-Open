@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-09-20
+
+### Fixed
+
+- **全屏灯箱自适应稳定性与高并发渲染防护 (Lightbox Stability & Re-render Guard)**:
+  - **状态与计算彻底解耦**：固化 `imgDimensionsRef` 物理尺寸快照机制，全面消除 React 异步批处理过程中因视口回调重建引起的冗余渲染；
+  - **视口缩放与边界稳态防护**：加强自适应铺满计算的容错与边界保护，保证高频缩放、背景切换、旋转与切图时 60 FPS 流畅交互无卡顿。
+
+## [1.0.6] - 2026-09-20
+
+### Fixed
+
+- **灯箱重渲染死循环与状态更新深度防护 (Fix Minified React Error #185)**:
+  - **解耦自适应计算与尺寸状态依赖**：重构 `LightboxModal` 中的尺寸测算与视口自适应逻辑，引入 `imgDimensionsRef` 稳定引用机制，将视口自适应核心计算转化为稳定的 `applyFitToScreen` 纯函数；
+  - **阻断 Effect 连锁死循环**：在 `useLayoutEffect` 与 `useEffect` 中增加尺寸 Diff 阈值防护，仅在尺寸发生有效变动或首次初始化时触发状态更新，彻底解决 `handleFitToScreen` 引用变化引发的无限嵌套更新 (Maximum update depth exceeded) 报错。
+
 ## [1.0.5] - 2026-09-20
 
 ### Fixed
