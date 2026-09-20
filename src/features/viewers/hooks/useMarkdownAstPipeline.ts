@@ -5,7 +5,6 @@
  */
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import katex from 'katex';
 import { parseOkfFrontmatter, type OkfParseResult } from '../lib/okfParser';
 import { processMarkdownFootnotes } from '../lib/markdownFootnotes';
@@ -15,7 +14,8 @@ import { processEmojiShortcodes } from '../lib/markdownEmojiShortcodes';
 import { parseExcalidrawJson, renderExcalidrawToSvgString } from '../components/drivers/excalidraw/excalidrawEngine';
 import { getPlantUmlSvgUrl } from '../../../shared/lib/plantuml';
 import { type Locale, t } from '../../../shared/lib/i18n';
-import { DOMPURIFY_DIAGRAM_SVG_CONFIG, sanitizeDiagramSvg, sanitizeDiagramHtml } from '../lib/diagramSanitizer';
+import { sanitizeDiagramSvg, sanitizeDiagramHtml } from '../lib/diagramSanitizer';
+import { fastFnv1a } from '../lib/diagramCache';
 
 export interface RenderedBlock {
   id: string;
@@ -31,14 +31,14 @@ export interface RenderedBlock {
   externalFile?: string;
   title?: string;
   error?: string;
+  /** 内容快速 Hash 指纹，用于增量 Diff 与 Fiber 引用复用 */
+  contentHash?: string;
   tableData?: {
     header: any[];
     rows: Array<{ cells: any[] }>;
     align?: Array<'left' | 'center' | 'right' | null>;
   };
 }
-
-const DOMPURIFY_SVG_CONFIG = DOMPURIFY_DIAGRAM_SVG_CONFIG;
 
 const getCalloutMeta = (typeStr: string, locale: Locale) => {
   const tStr = typeStr.toLowerCase();
@@ -143,6 +143,7 @@ export function useMarkdownAstPipeline({
   const filesRef = useRef(files);
   filesRef.current = files;
   const isFirstRender = useRef(true);
+  const prevBlocksRef = useRef<RenderedBlock[]>([]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -309,7 +310,7 @@ export function useMarkdownAstPipeline({
           raw: token.raw,
           startLine,
           endLine,
-          renderedHtml: DOMPurify.sanitize(htmlWithMath, DOMPURIFY_SVG_CONFIG) as string,
+          renderedHtml: sanitizeDiagramHtml(htmlWithMath),
         });
       };
 
@@ -391,7 +392,7 @@ export function useMarkdownAstPipeline({
               endLine: tokenEndLine,
             });
           } else if (primaryLang === 'svg' || (primaryLang === 'xml' && token.text.includes('<svg'))) {
-            const sanitized = DOMPurify.sanitize(token.text, DOMPURIFY_SVG_CONFIG) as string;
+            const sanitized = sanitizeDiagramSvg(token.text);
             parsedBlocks.push({
               id: `block-svg-${counter++}`,
               type: 'svg',
@@ -486,7 +487,7 @@ export function useMarkdownAstPipeline({
           );
 
           if (matchedFile && matchedFile.extension.toLowerCase() === 'svg') {
-            const sanitized = DOMPurify.sanitize(matchedFile.content, DOMPURIFY_SVG_CONFIG) as string;
+            const sanitized = sanitizeDiagramSvg(matchedFile.content);
             parsedBlocks.push({
               id: `block-svg-${counter++}`,
               type: 'svg',
@@ -526,10 +527,37 @@ export function useMarkdownAstPipeline({
         if (block.type === 'plantuml') {
           block.renderedHtml = getPlantUmlSvgUrl(block.raw, undefined, isDarkTheme);
         }
+        // 计算内容指纹，用于增量 Diff 与引用稳定化
+        block.contentHash = fastFnv1a(
+          `${block.type}:${block.raw}:${block.renderedHtml || ''}:${block.svgContent || ''}`
+        );
       }
 
       if (!isCancelled) {
-        setBlocks(parsedBlocks);
+        // 增量引用稳定化：对内容未发生改变的块，复用前一次渲染的同一个对象引用，彻底阻断子树无效重渲染
+        const prevBlocks = prevBlocksRef.current;
+        const prevHashMap = new Map<string, RenderedBlock>();
+        for (const pb of prevBlocks) {
+          if (pb.contentHash) {
+            prevHashMap.set(`${pb.id}:${pb.contentHash}`, pb);
+          }
+        }
+
+        const reconciledBlocks = parsedBlocks.map((cur) => {
+          if (!cur.contentHash) return cur;
+          const matched = prevHashMap.get(`${cur.id}:${cur.contentHash}`);
+          if (
+            matched &&
+            matched.startLine === cur.startLine &&
+            matched.endLine === cur.endLine
+          ) {
+            return matched;
+          }
+          return cur;
+        });
+
+        prevBlocksRef.current = reconciledBlocks;
+        setBlocks(reconciledBlocks);
         setIsRendering(false);
       }
     };

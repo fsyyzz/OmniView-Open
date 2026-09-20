@@ -73,7 +73,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
       {!isCollapsed && (
         <div className="code-block-body overflow-x-auto flex bg-[var(--ov-code-bg)] text-xs leading-relaxed">
           <div
-            className="code-line-gutter py-3.5 pl-3.5 pr-2.5 text-right text-slate-600 select-none bg-black/25 border-r border-slate-800/80 font-mono shrink-0 min-w-[44px]"
+            className="code-line-gutter py-3.5 pl-3.5 pr-2.5 text-right select-none bg-[var(--ov-surface-header)]/60 text-[var(--ov-text-muted)] border-r border-[var(--ov-border)] font-mono shrink-0 min-w-[44px]"
             aria-hidden="true"
           >
             {codeLines.map((_, i) => (

@@ -42,6 +42,51 @@ export function validateGraphvizSource(source: string): GraphvizValidationResult
 }
 
 /**
+ * 获取 DOMPurify 净化实例（支持 ESM default、CJS、浏览器及沙箱环境）
+ */
+function getPurifyInstance() {
+  if (typeof DOMPurify?.sanitize === 'function') {
+    return DOMPurify;
+  }
+  const defaultPurify = (DOMPurify as any)?.default;
+  if (typeof defaultPurify?.sanitize === 'function') {
+    return defaultPurify;
+  }
+  if (typeof window !== 'undefined') {
+    if (typeof DOMPurify === 'function') {
+      return (DOMPurify as any)(window);
+    }
+    if (typeof defaultPurify === 'function') {
+      return defaultPurify(window);
+    }
+  }
+  return null;
+}
+
+/**
+ * 容错安全矢量清洗（当 DOMPurify 实例在当前环境下未就绪时执行兜底过滤）
+ */
+function fallbackSanitizeSvg(html: string): string {
+  if (!html) return '';
+  return html
+    // 移除危险脚本与可执行容器标签
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
+    .replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, '')
+    .replace(/<meta\b[^>]*>/gi, '')
+    .replace(/<link\b[^>]*>/gi, '')
+    .replace(/<base\b[^>]*>/gi, '')
+    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '')
+    // 移除各类 on* 内联事件属性 (如 onload, onerror, onclick, onmouseover 等)
+    .replace(/\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
+    // 阻断 javascript: 伪协议与 data:text/html 注入
+    .replace(/href\s*=\s*["'](?:javascript:|data:text\/html)[^"']*["']/gi, 'href="#"')
+    .replace(/xlink:href\s*=\s*["'](?:javascript:|data:text\/html)[^"']*["']/gi, 'xlink:href="#"');
+}
+
+/**
  * DOMPurify 安全配置，专用于 Graphviz 生成的 SVG 矢量图
  */
 const GRAPHVIZ_DOMPURIFY_CONFIG: Record<string, any> = {
@@ -77,8 +122,15 @@ export function sanitizeGraphvizSvg(rawSvg: string): string {
   }
   const cleanSource = rawSvg.slice(svgStartIndex);
 
-  // 2. DOMPurify 安全过滤
-  const sanitized = DOMPurify.sanitize(cleanSource, GRAPHVIZ_DOMPURIFY_CONFIG) as unknown as string;
+  // 2. 多阶安全过滤：优先调用 DOMPurify 净化，无法加载时平滑自愈降级到兜底安全清洗
+  const purify = getPurifyInstance();
+  let sanitized = '';
+
+  if (purify && typeof purify.sanitize === 'function') {
+    sanitized = purify.sanitize(cleanSource, GRAPHVIZ_DOMPURIFY_CONFIG) as unknown as string;
+  } else {
+    sanitized = fallbackSanitizeSvg(cleanSource);
+  }
 
   if (!sanitized || !sanitized.includes('<svg')) {
     throw new Error('SVG 经安全清洗后内容无效');

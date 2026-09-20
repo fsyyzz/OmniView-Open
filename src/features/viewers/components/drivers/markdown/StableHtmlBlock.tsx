@@ -9,7 +9,7 @@ export interface StableHtmlBlockProps extends React.HTMLAttributes<HTMLDivElemen
   html: string;
 }
 
-export const StableHtmlBlock: React.FC<StableHtmlBlockProps> = ({
+export const StableHtmlBlock: React.FC<StableHtmlBlockProps> = React.memo(({
   html,
   className,
   ...rest
@@ -26,4 +26,6 @@ export const StableHtmlBlock: React.FC<StableHtmlBlockProps> = ({
   }, [html]);
 
   return <div ref={ref} className={className} {...rest} />;
-};
+});
+
+StableHtmlBlock.displayName = 'StableHtmlBlock';

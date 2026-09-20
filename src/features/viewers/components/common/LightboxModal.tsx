@@ -47,12 +47,25 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({ item, onClose, loc
     return item.content.includes('<svg') || item.content.includes('</svg>');
   }, [item?.content]);
 
+  const isGraphviz = useMemo(() => {
+    if (!item) return false;
+    return (
+      item.title?.toLowerCase().includes('graphviz') ||
+      item.title?.toLowerCase().includes('dot') ||
+      (typeof item.content === 'string' && (item.content.includes('class="graph"') || item.content.includes('id="graph0"')))
+    );
+  }, [item]);
+
   const sanitizedContent = useMemo(() => {
     if (!item?.content) return '';
-    return isSvg
+    let content = isSvg
       ? sanitizeDiagramSvg(item.content)
       : sanitizeDiagramHtml(item.content);
-  }, [item?.content, isSvg]);
+    if (isGraphviz && isSvg && content) {
+      content = content.replace(/<svg\b([^>]*)>/i, '<svg$1 class="graphviz-svg-dark-inverted">');
+    }
+    return content;
+  }, [item?.content, isSvg, isGraphviz]);
 
   // 当打开新项目时重置变换状态
   useEffect(() => {

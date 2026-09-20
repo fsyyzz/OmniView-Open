@@ -228,13 +228,13 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-border: #3b2066;
   --ov-border-subtle: #2b164c;
   --ov-text: #f5f3ff;
-  --ov-text-secondary: #ddd6fe;
-  --ov-text-muted: #c084fc;
+  --ov-text-secondary: #e9d5ff;
+  --ov-text-muted: #d8b4fe;
   --ov-code-bg: #120b24;
   --ov-inline-code-bg: #2e1a54;
   --ov-inline-code-color: #f472b6;
-  --ov-quote-bg: rgba(192, 132, 252, 0.12);
-  --ov-quote-border: #c084fc;
+  --ov-quote-bg: rgba(216, 180, 254, 0.12);
+  --ov-quote-border: #d8b4fe;
   --ov-accent: #ec4899;
   --ov-table-th: #261647;
   --ov-table-alt: rgba(38, 22, 71, 0.5);
@@ -253,7 +253,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-border-subtle: #3b4252;
   --ov-text: #eceff4;
   --ov-text-secondary: #e5e9f0;
-  --ov-text-muted: #95d5e5;
+  --ov-text-muted: #b4e1ed;
   --ov-code-bg: #2e3440;
   --ov-inline-code-bg: #3b4252;
   --ov-inline-code-color: #88c0d0;
@@ -276,8 +276,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-border: #44475a;
   --ov-border-subtle: #383a4c;
   --ov-text: #f8f8f2;
-  --ov-text-secondary: #e2e8f0;
-  --ov-text-muted: #bd93f9;
+  --ov-text-secondary: #ede9fe;
+  --ov-text-muted: #d6bcfa;
   --ov-code-bg: #21222c;
   --ov-inline-code-bg: #44475a;
   --ov-inline-code-color: #ff79c6;
@@ -1286,6 +1286,37 @@ body.vscode-high-contrast-light[data-theme="system"] {
   height: auto;
   display: block;
   margin: 0 auto;
+}
+
+/* Graphviz / DOT 矢量图全主题高对比度自适应 (Dark Theme Inversion & Border Normalization) */
+:root:not([data-theme="light"]):not([data-theme="sepia"]):not([data-theme="solarized"]) .markdown-diagram-graphviz .diagram-canvas svg {
+  filter: invert(0.92) hue-rotate(180deg) contrast(1.15);
+}
+
+/* 灯箱全屏模式下 Graphviz 矢量图随暗色背景自适应 */
+.markdown-lightbox-content svg.graphviz-svg-dark-inverted {
+  filter: invert(0.92) hue-rotate(180deg) contrast(1.15);
+}
+
+/* =========================================================
+   Markdown 渲染性能优化：现代内容可见性与流体占位防抖
+   ========================================================= */
+
+.lazy-block-wrapper {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
+}
+
+.lazy-block-wrapper[data-lazy-mounted="0"] {
+  min-height: 140px;
+}
+
+.markdown-lazy-placeholder {
+  width: 100%;
+  border-radius: 8px;
+  background: var(--ov-surface-header, rgba(125, 125, 125, 0.05));
+  border: 1px dashed var(--ov-border, rgba(125, 125, 125, 0.2));
+  opacity: 0.6;
 }
 
 

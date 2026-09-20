@@ -34,9 +34,9 @@ interface GraphvizBlockProps {
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onZoomChange: (delta: number) => void;
   onResetZoom: () => void;
-  onOpenLightbox: () => void;
+  onOpenLightbox: (svgContent?: string) => void;
   onReRender: () => void;
-  onDownloadSvg: () => void;
+  onDownloadSvg: (svgContent?: string) => void;
   onCopy: () => void;
   onOpenSourceAtLine?: (line: number) => void;
   externalFile?: string;
@@ -121,7 +121,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
       a.click();
       URL.revokeObjectURL(url);
     } else {
-      onDownloadSvg();
+      onDownloadSvg(svgContent);
     }
   };
 
@@ -195,7 +195,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
                 1:1
               </button>
               <button
-                onClick={onOpenLightbox}
+                onClick={() => onOpenLightbox(svgContent)}
                 className="p-1 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition"
                 title={t('fullScreen', locale)}
                 aria-label={t('fullScreen', locale)}
@@ -254,7 +254,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               className="diagram-canvas transition-transform duration-150 flex justify-center max-w-full [&>svg]:max-w-full [&>svg]:h-auto cursor-zoom-in"
-              onDoubleClick={onOpenLightbox}
+              onDoubleClick={() => onOpenLightbox(svgContent)}
               title={t('fullScreen', locale)}
               dangerouslySetInnerHTML={{ __html: svgContent }}
             />

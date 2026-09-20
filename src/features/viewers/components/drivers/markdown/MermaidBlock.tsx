@@ -25,6 +25,7 @@ import {
   applyStepHighlightToSvg,
 } from '../../../lib/diagramPlaybackEngine';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
+import { mermaidRenderCache } from '../../../lib/diagramCache';
 
 interface MermaidBlockProps {
   id: string;
@@ -103,6 +104,16 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       return;
     }
 
+    // 优先命中 LRU 内存缓存，避免同代码重复编译
+    const cacheKey = mermaidRenderCache.makeKey('mermaid', activeCode);
+    const cachedSvg = mermaidRenderCache.get(cacheKey);
+    if (cachedSvg) {
+      setLiveSvg(cachedSvg);
+      setLiveError(undefined);
+      setIsCompiling(false);
+      return;
+    }
+
     let isCurrent = true;
     const count = ++renderCountRef.current;
     setIsCompiling(true);
@@ -112,6 +123,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
         const uniqueId = `mermaid-live-${Math.random().toString(36).substr(2, 9)}`;
         const { svg } = await mermaid.render(uniqueId, activeCode);
         if (isCurrent && count === renderCountRef.current) {
+          mermaidRenderCache.set(cacheKey, svg);
           setLiveSvg(svg);
           setLiveError(undefined);
           setIsCompiling(false);

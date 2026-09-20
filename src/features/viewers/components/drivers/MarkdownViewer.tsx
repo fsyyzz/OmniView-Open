@@ -487,9 +487,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
-                  onOpenLightbox={() => setLightboxItem({ title: t('graphvizTitle', locale), content: block.svgContent || block.raw })}
+                  onOpenLightbox={liveSvg => setLightboxItem({ title: t('graphvizTitle', locale), content: liveSvg || block.svgContent || block.raw })}
                   onReRender={() => {}}
-                  onDownloadSvg={() => handleDownloadSvg(block.svgContent || block.raw, 'graphviz-topology')}
+                  onDownloadSvg={liveSvg => handleDownloadSvg(liveSvg || block.svgContent || block.raw, 'graphviz-topology')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   externalFile={block.externalFile}

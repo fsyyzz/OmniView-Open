@@ -19,6 +19,7 @@ import {
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { analyzeKatexError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
+import { katexRenderCache } from '../../../lib/diagramCache';
 
 interface MathBlockProps {
   id: string;
@@ -85,20 +86,30 @@ export const MathBlock: React.FC<MathBlockProps> = ({
     return () => window.removeEventListener('resize', checkScroll);
   }, [checkScroll, renderedHtml, zoom]);
 
-  // 实时编译 KaTeX 数学公式 (支持即时热响应)
+  // 实时编译 KaTeX 数学公式 (支持 LRU 缓存与即时热响应)
   useEffect(() => {
+    const trimmed = activeCode.trim();
+    const cacheKey = katexRenderCache.makeKey('katex', trimmed);
+    const cached = katexRenderCache.get(cacheKey);
+    if (cached) {
+      setRenderedHtml(cached);
+      setError(null);
+      return;
+    }
+
     try {
-      const html = katex.renderToString(activeCode.trim(), {
+      const html = katex.renderToString(trimmed, {
         displayMode: true,
         throwOnError: true,
         errorColor: '#f43f5e',
       });
+      katexRenderCache.set(cacheKey, html);
       setRenderedHtml(html);
       setError(null);
     } catch (err: any) {
       try {
         // 尝试非严格模式容错标红渲染
-        const fallbackHtml = katex.renderToString(activeCode.trim(), {
+        const fallbackHtml = katex.renderToString(trimmed, {
           displayMode: true,
           throwOnError: false,
           errorColor: '#f43f5e',
