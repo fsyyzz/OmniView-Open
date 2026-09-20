@@ -3717,6 +3717,104 @@ details.ov-callout[open] .ov-callout-fold-icon {
   );
 }
 
+/* =========================================================
+   Print & PDF Export Fidelity Optimization
+   - Page break control for headings, tables, code blocks, diagrams
+   - High-contrast typography & clean background print mode
+   - Preserves SVG diagram sharpness & hides floating toolbars
+   ========================================================= */
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: auto;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  /* 隐藏所有悬浮工具栏、侧边栏、状态栏和灯箱控制件 */
+  #workbench-header,
+  #workbench-sidebar,
+  #workbench-statusbar,
+  .table-block-toolbar,
+  .diagram-header,
+  .code-block-header,
+  .ov-floating-toolbar,
+  .ov-lightbox-modal,
+  .code-lightbox-modal,
+  .ov-table-lightbox-modal,
+  button,
+  .ov-wiki-embed-open {
+    display: none !important;
+  }
+
+  /* 避免标题孤行 (Orphan) 与跨页截断 */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    color: #0f172a !important;
+  }
+
+  /* 块级元素防跨页撕裂保护 */
+  .ov-table-block,
+  .ov-table-wrapper,
+  table,
+  pre,
+  .ov-code-block,
+  .ov-diagram-block,
+  .ov-callout,
+  .ov-wiki-embed,
+  .ov-math-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    border-color: #cbd5e1 !important;
+    background-color: transparent !important;
+  }
+
+  /* 表格打印保真 */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+    padding: 6px 10px !important;
+  }
+  th {
+    background-color: #f1f5f9 !important;
+  }
+
+  /* 矢量图表 SVG 矢量锐利度与尺寸适配 */
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* 代码块打印样式 */
+  pre, code {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+  }
+
+  /* 链接打印时保留文本可读性 */
+  a {
+    color: #2563eb !important;
+    text-decoration: underline !important;
+  }
+}
+
 
 
 

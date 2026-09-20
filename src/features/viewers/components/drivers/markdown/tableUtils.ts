@@ -57,6 +57,37 @@ export function parseNumericValue(text: string): number | null {
 }
 
 /**
+ * 计算某一列的统计数据 (行数、总和、均值、极值)
+ */
+export function calculateColStats(matrix: string[][], colIdx: number): { count: number; sum: number; avg: number; min: number; max: number } {
+  let count = 0;
+  let sum = 0;
+  let min = Infinity;
+  let max = -Infinity;
+
+  for (const row of matrix) {
+    const val = row[colIdx];
+    if (val !== undefined && val.trim().length > 0) {
+      const num = parseNumericValue(val);
+      if (num !== null) {
+        count++;
+        sum += num;
+        if (num < min) min = num;
+        if (num > max) max = num;
+      }
+    }
+  }
+
+  return {
+    count,
+    sum: Math.round(sum * 100) / 100,
+    avg: count > 0 ? Math.round((sum / count) * 100) / 100 : 0,
+    min: min === Infinity ? 0 : min,
+    max: max === -Infinity ? 0 : max,
+  };
+}
+
+/**
  * 校验字符串是否为标准日期格式 (YYYY-MM-DD 或 YYYY/MM/DD)
  */
 export function parseDateValue(text: string): number | null {

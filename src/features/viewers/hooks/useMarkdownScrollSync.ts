@@ -21,7 +21,14 @@ export interface UseMarkdownScrollSyncOptions {
   onOpenSourceAtLine?: (line: number) => void;
   onSelectFile?: (file: any) => void;
   onContentChange?: (content: string) => void;
-  onOpenLightbox?: (item: { title: string; url?: string; content?: string }) => void;
+  onOpenLightbox?: (item: {
+    title: string;
+    url?: string;
+    content?: string;
+    items?: Array<{ title: string; url: string }>;
+    initialIndex?: number;
+  }) => void;
+  onHoverWikiLink?: (info: { x: number; y: number; target: string; heading?: string; file?: any } | null) => void;
 }
 
 export function useMarkdownScrollSync({
@@ -32,10 +39,12 @@ export function useMarkdownScrollSync({
   onSelectFile,
   onContentChange,
   onOpenLightbox,
+  onHoverWikiLink,
 }: UseMarkdownScrollSyncOptions) {
   const filesRef = useRef(files);
   filesRef.current = files;
   const applyingRemoteScrollRef = useRef(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 1. 点击交互与双击源码定位事件监听
   useEffect(() => {
@@ -76,15 +85,28 @@ export function useMarkdownScrollSync({
         return;
       }
 
-      // 2. 图片灯箱放大
+      // 2. 图片灯箱放大与多图画廊画卷组装
       if (target.tagName.toLowerCase() === 'img') {
         const img = target as HTMLImageElement;
         if (img.classList.contains('ov-img-broken')) return;
         e.preventDefault();
         e.stopPropagation();
+
+        const allImgs = Array.from(
+          container.querySelectorAll<HTMLImageElement>('img:not(.ov-img-broken)')
+        ).filter(el => el.src && !el.closest('.ov-table-wrapper, .code-block-header'));
+
+        const galleryItems = allImgs.map(i => ({
+          title: i.alt || i.title || 'Image Preview',
+          url: i.src,
+        }));
+        const targetIndex = allImgs.findIndex(i => i === img);
+
         onOpenLightbox?.({
           title: img.alt || img.title || 'Image Preview',
           url: img.src,
+          items: galleryItems.length > 1 ? galleryItems : undefined,
+          initialIndex: targetIndex >= 0 ? targetIndex : 0,
         });
         return;
       }
@@ -175,13 +197,73 @@ export function useMarkdownScrollSync({
       }
     };
 
+    // WikiLink 悬浮预览事件监听
+    const handleMouseOver = (e: MouseEvent) => {
+      if (!onHoverWikiLink) return;
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a');
+      if (!anchor) return;
+
+      const isWiki = anchor.getAttribute('data-wiki-link') === 'true' || anchor.classList.contains('ov-wiki-link');
+      if (!isWiki) return;
+
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+
+      const wikiTarget = (anchor.getAttribute('data-wiki-target') || '').trim();
+      const wikiHeading = (anchor.getAttribute('data-wiki-heading') || '').trim();
+      const rect = anchor.getBoundingClientRect();
+
+      // 在当前工作区检索匹配文件
+      const foundFile = filesRef.current.find(f => {
+        const lowerName = f.name.toLowerCase();
+        const lowerTarget = wikiTarget.toLowerCase();
+        return (
+          lowerName === lowerTarget ||
+          lowerName === `${lowerTarget}.md` ||
+          lowerName === `${lowerTarget}.markdown` ||
+          (f.path && f.path.toLowerCase().endsWith(`/${lowerTarget}.md`))
+        );
+      });
+
+      hoverTimeoutRef.current = setTimeout(() => {
+        onHoverWikiLink({
+          x: rect.left + rect.width / 2,
+          y: rect.bottom,
+          target: wikiTarget,
+          heading: wikiHeading,
+          file: foundFile || null,
+        });
+      }, 150);
+    };
+
+    const handleMouseOut = (e: MouseEvent) => {
+      if (!onHoverWikiLink) return;
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a');
+      if (anchor && (anchor.getAttribute('data-wiki-link') === 'true' || anchor.classList.contains('ov-wiki-link'))) {
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+        }
+        hoverTimeoutRef.current = setTimeout(() => {
+          onHoverWikiLink(null);
+        }, 300);
+      }
+    };
+
     container.addEventListener('click', handleContainerClick);
     container.addEventListener('dblclick', handleContainerDblClick);
+    container.addEventListener('mouseover', handleMouseOver);
+    container.addEventListener('mouseout', handleMouseOut);
     return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
       container.removeEventListener('click', handleContainerClick);
       container.removeEventListener('dblclick', handleContainerDblClick);
+      container.removeEventListener('mouseover', handleMouseOver);
+      container.removeEventListener('mouseout', handleMouseOut);
     };
-  }, [onSelectFile, onOpenSourceAtLine, onContentChange, onOpenLightbox, content]);
+  }, [onSelectFile, onOpenSourceAtLine, onContentChange, onOpenLightbox, onHoverWikiLink, content]);
 
   // 2. 双向滚动与光标高亮同步
   useEffect(() => {

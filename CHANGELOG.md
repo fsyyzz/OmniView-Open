@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-20
+
+### Added
+
+- **Markdown 深度交互与视口演进**:
+  - **多图画廊灯箱 (Gallery Carousel & True Fill-Screen)**：支持快速铺满 (Fill)、适应窗口 (Fit)、原始尺寸 (1:1)、90° 旋转、键盘切图（`←`/`→`）与胶片缩略图；
+  - **表格沉浸灯箱与就地编辑 (Table Lightbox & In-Place Editing)**：React Portal 沉浸式灯箱突破容器限制，支持双击单元格就地编辑、底部统计分析栏实时展示数值列求和（Sum）与均值（Avg）；
+  - **代码块全屏灯箱 (Code Lightbox)**：集成全文搜索与实时高亮定位、代码字号自由缩放与自动换行/单行滚动切换；
+  - **WikiLink 悬浮预览卡片 (WikiLink Hover Preview Popover)**：鼠标悬浮在 `[[Page]]` 或文档内部链接时即时弹出半透明磨砂卡片，呈现前 260 字符摘要、行数/字数统计与标题锚点，支持一键直达。
+
+### Optimized
+
+- **视口防抖与打印保真 (CLS Zero-Jitter & Print Fidelity)**：
+  - 为懒加载视口块引入 `ResizeObserver` 尺寸记录与全局高度缓存，消除快速滚动时的内容抖动 (CLS)；
+  - 深度适配 `@media print`，保护标题孤行防截断、表格/代码块/图表防跨页撕裂并自动隐藏悬浮工具栏。
+
 ## [1.0.0] - 2026-09-17
 
 ### Added

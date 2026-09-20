@@ -20,6 +20,7 @@ import { MarkmapBlock } from './markdown/MarkmapBlock';
 import { ExcalidrawBlock } from './markdown/ExcalidrawBlock';
 import { LightboxModal } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
+import { WikiLinkPreviewPopover } from './markdown/WikiLinkPreviewPopover';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
 import { ContentWidthMode } from '../../../../shared/types';
@@ -95,6 +96,15 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   } = useDiagramBlockStates();
 
 
+  // WikiLink 悬浮预览状态
+  const [hoverWikiLinkInfo, setHoverWikiLinkInfo] = React.useState<{
+    x: number;
+    y: number;
+    target: string;
+    heading?: string;
+    file?: any;
+  } | null>(null);
+
   // 3. 双向滚动同步与点击交互 Hook
   useMarkdownScrollSync({
     containerRef,
@@ -104,6 +114,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     onSelectFile,
     onContentChange,
     onOpenLightbox: setLightboxItem,
+    onHoverWikiLink: setHoverWikiLinkInfo,
   });
 
   // 初始化 Mermaid 渲染主题 (高对比度与全主题自适应)
@@ -627,6 +638,25 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       {/* 全屏灯箱模态框 */}
       {lightboxItem && (
         <LightboxModal item={lightboxItem} onClose={() => setLightboxItem(null)} locale={locale} />
+      )}
+
+      {/* WikiLink 悬浮预览卡片 */}
+      {hoverWikiLinkInfo && (
+        <WikiLinkPreviewPopover
+          isOpen={Boolean(hoverWikiLinkInfo)}
+          x={hoverWikiLinkInfo.x}
+          y={hoverWikiLinkInfo.y}
+          targetName={hoverWikiLinkInfo.target}
+          heading={hoverWikiLinkInfo.heading}
+          file={hoverWikiLinkInfo.file}
+          locale={locale}
+          onNavigate={() => {
+            if (hoverWikiLinkInfo.file && onSelectFile) {
+              onSelectFile(hoverWikiLinkInfo.file);
+            }
+          }}
+          onClose={() => setHoverWikiLinkInfo(null)}
+        />
       )}
     </div>
   );

@@ -30,8 +30,10 @@ import {
   tableToMarkdown,
   detectChartableColumns,
   parseNumericValue,
+  calculateColStats,
 } from './tableUtils';
 import { TableChart } from './TableChart';
+import { TableLightboxModal } from './TableLightboxModal';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 
 export interface TableHeaderItem {
@@ -86,24 +88,30 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   const [colWidths, setColWidths] = useState<Record<number, number>>({});
   const resizingRef = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null);
 
+  // 单元格在线编辑状态 (双击单元格开启编辑)
+  const [editedMatrix, setEditedMatrix] = useState<string[][] | null>(null);
+  const [editingCell, setEditingCell] = useState<{ rowIdx: number; colIdx: number } | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+
   // 提取纯文本表头与矩阵数据
   const headerTexts = useMemo(() => header.map(h => h.text || ''), [header]);
   const rawMatrix = useMemo(
     () => rows.map(r => r.cells.map(c => c.text || '')),
     [rows]
   );
+  const currentMatrix = editedMatrix || rawMatrix;
 
   // 探测图表支持能力
   const chartableInfo = useMemo(() => {
-    return detectChartableColumns(headerTexts, rawMatrix);
-  }, [headerTexts, rawMatrix]);
+    return detectChartableColumns(headerTexts, currentMatrix);
+  }, [headerTexts, currentMatrix]);
 
   // 列数据类型预先探测 (用于对齐优化)
   const isNumericColumn = useMemo(() => {
     return headerTexts.map((_, colIdx) => {
       let numCount = 0;
       let totalCount = 0;
-      for (const row of rawMatrix) {
+      for (const row of currentMatrix) {
         const val = row[colIdx];
         if (val !== undefined && val.trim().length > 0) {
           totalCount++;
@@ -112,11 +120,23 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
       }
       return totalCount > 0 && numCount / totalCount >= 0.7;
     });
-  }, [headerTexts, rawMatrix]);
+  }, [headerTexts, currentMatrix]);
+
+  // 保存单元格内联编辑
+  const handleSaveCellEdit = (originalRowIdx: number, colIdx: number, val: string) => {
+    const next = (editedMatrix || rawMatrix).map((r, rIdx) => {
+      if (rIdx !== originalRowIdx) return [...r];
+      const nextRow = [...r];
+      nextRow[colIdx] = val;
+      return nextRow;
+    });
+    setEditedMatrix(next);
+    setEditingCell(null);
+  };
 
   // 2. 检索与排序复合处理流水线
   const processedRows = useMemo(() => {
-    let result = rawMatrix.map((row, originalIndex) => ({
+    let result = currentMatrix.map((row, originalIndex) => ({
       originalIndex,
       cells: row,
     }));
@@ -139,7 +159,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     }
 
     return result;
-  }, [rawMatrix, searchQuery, sortCol, sortDir]);
+  }, [currentMatrix, searchQuery, sortCol, sortDir]);
 
   // 3. 点击表头触发三态排序切换 (Asc -> Desc -> Reset)
   const handleToggleSort = (colIndex: number) => {
@@ -419,22 +439,66 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                     );
                     const isColHovered = hoveredColIndex === colIdx;
                     const colWidth = colWidths[colIdx];
+                    const isEditing =
+                      editingCell?.rowIdx === rowItem.originalIndex &&
+                      editingCell?.colIdx === colIdx;
 
                     return (
                       <td
                         key={colIdx}
                         onMouseEnter={() => setHoveredColIndex(colIdx)}
                         onMouseLeave={() => setHoveredColIndex(null)}
-                        className={`transition-colors border-r last:border-r-0 ${alignClass} ${
+                        onDoubleClick={() => {
+                          setEditingCell({
+                            rowIdx: rowItem.originalIndex,
+                            colIdx,
+                          });
+                          setEditValue(cellText);
+                        }}
+                        className={`transition-colors border-r last:border-r-0 cursor-pointer ${alignClass} ${
                           density === 'compact' ? 'px-3 py-1.5' : 'px-3.5 py-2.5'
                         } ${isColHovered ? 'col-hovered' : ''} ${colWidth ? 'overflow-hidden text-ellipsis' : ''}`}
                         style={{
                           borderColor: 'var(--ov-border)',
-                          backgroundColor: isColHovered ? 'var(--ov-table-col-hover)' : undefined,
+                          backgroundColor: isEditing
+                            ? 'var(--ov-surface-hover)'
+                            : isColHovered
+                            ? 'var(--ov-table-col-hover)'
+                            : undefined,
                           maxWidth: colWidth ? `${colWidth}px` : undefined,
                         }}
-                        dangerouslySetInnerHTML={{ __html: formattedHtml }}
-                      />
+                        title={t('tableDblClickEdit', locale)}
+                      >
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editValue}
+                            onChange={e => setEditValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                handleSaveCellEdit(
+                                  rowItem.originalIndex,
+                                  colIdx,
+                                  editValue
+                                );
+                              } else if (e.key === 'Escape') {
+                                setEditingCell(null);
+                              }
+                            }}
+                            onBlur={() =>
+                              handleSaveCellEdit(
+                                rowItem.originalIndex,
+                                colIdx,
+                                editValue
+                              )
+                            }
+                            className="w-full px-1.5 py-0.5 rounded text-xs border border-cyan-500 bg-[var(--ov-surface)] text-[var(--ov-text)] shadow-sm focus:outline-none"
+                          />
+                        ) : (
+                          <div dangerouslySetInnerHTML={{ __html: formattedHtml }} />
+                        )}
+                      </td>
                     );
                   })}
                 </tr>
@@ -762,44 +826,55 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
         )}
       </div>
 
-      {/* 全屏放大 Modal */}
-      {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col p-4 sm:p-6 animate-in fade-in duration-150">
-          <div
-            className="flex items-center justify-between px-4 py-3 rounded-t-lg border-b border-t border-l border-r"
-            style={{
-              backgroundColor: 'var(--ov-surface-header)',
-              borderColor: 'var(--ov-border)',
-              color: 'var(--ov-text)',
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <TableIcon className="w-4 h-4" style={{ color: 'var(--ov-accent)' }} />
-              <span className="font-semibold text-sm">
-                {t('tableFullscreen', locale)} ({header.length} 列 × {rows.length} 行)
+      {/* 底部统计分析栏 (展示行数、数值列合计与均值、双击编辑提示) */}
+      <div
+        className="flex items-center justify-between px-3.5 py-1.5 border-t text-[11px] select-none gap-2 flex-wrap"
+        style={{
+          borderColor: 'var(--ov-border)',
+          backgroundColor: 'var(--ov-surface-header, var(--ov-surface))',
+          color: 'var(--ov-text-secondary)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span>
+            {t('tableTotalRows', locale)}: <strong className="font-mono text-[var(--ov-text)]">{processedRows.length}</strong>
+          </span>
+          {hoveredColIndex !== null && isNumericColumn[hoveredColIndex] && (
+            <span className="flex items-center gap-2 font-mono text-[11px]">
+              <span>[{headerTexts[hoveredColIndex]}]:</span>
+              <span>
+                {t('tableSum', locale)}: <strong className="text-cyan-400">{calculateColStats(currentMatrix, hoveredColIndex).sum}</strong>
               </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsFullscreen(false)}
-              className="p-1.5 rounded-lg transition-colors ov-table-btn"
-              title={t('closeFullScreen', locale)}
-            >
-              <Minimize2 className="w-4 h-4" />
-            </button>
-          </div>
-          <div
-            className="flex-1 overflow-auto p-4 rounded-b-lg border-b border-l border-r"
-            style={{
-              backgroundColor: 'var(--ov-surface)',
-              borderColor: 'var(--ov-border)',
-              color: 'var(--ov-text)',
-            }}
-          >
-            {renderTableContent()}
-          </div>
+              <span>
+                {t('tableAvg', locale)}: <strong className="text-emerald-400">{calculateColStats(currentMatrix, hoveredColIndex).avg}</strong>
+              </span>
+            </span>
+          )}
         </div>
-      )}
+        <div className="text-[10px]" style={{ color: 'var(--ov-text-muted)' }}>
+          {t('tableDblClickEdit', locale)}
+        </div>
+      </div>
+
+      {/* 全屏沉浸灯箱 Modal (Portal 渲染至 document.body) */}
+      <TableLightboxModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        header={header.map(h => ({ text: h.text, align: h.align }))}
+        rows={currentMatrix.map(cells => ({ cells }))}
+        align={align}
+        rawMarkdown={rawMarkdown}
+        startLine={startLine}
+        isDarkTheme={isDarkTheme}
+        locale={locale}
+        onOpenSourceAtLine={onOpenSourceAtLine}
+        initialSearchQuery={searchQuery}
+        initialSortCol={sortCol}
+        initialSortDir={sortDir}
+        initialDensity={density}
+        initialShowRowNumbers={showRowNumbers}
+        initialViewMode={viewMode}
+      />
     </div>
   );
 });
