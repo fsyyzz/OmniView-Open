@@ -105,4 +105,46 @@ console.log('🧪 开始运行 Markdown 划选悬浮格式化测试...');
   console.log('  ✅ 全文行级源映射与精准替换测试通过');
 }
 
+// 3. 测试块级操作 (H1, H2, H3, Quote, Todo)
+{
+  const blockSample = [
+    '主要概览',
+    '二级小结',
+    '这是一段重点引用的描述文字',
+    '完成功能开发任务',
+  ].join('\n');
+
+  // H1 测试
+  const h1Res = applyMarkdownSelectionFormat({
+    fullContent: blockSample,
+    selectedText: '主要概览',
+    sourceLine: 1,
+    action: 'h1',
+  });
+  assert.ok(h1Res !== null);
+  assert.ok(h1Res.newFullContent.startsWith('# 主要概览'));
+
+  // Quote 引用块测试
+  const quoteRes = applyMarkdownSelectionFormat({
+    fullContent: blockSample,
+    selectedText: '重点引用',
+    sourceLine: 3,
+    action: 'quote',
+  });
+  assert.ok(quoteRes !== null);
+  assert.ok(quoteRes.newFullContent.includes('> 这是一段重点引用的描述文字'));
+
+  // Todo 待办任务测试
+  const todoRes = applyMarkdownSelectionFormat({
+    fullContent: blockSample,
+    selectedText: '完成功能开发任务',
+    sourceLine: 4,
+    action: 'todo',
+  });
+  assert.ok(todoRes !== null);
+  assert.ok(todoRes.newFullContent.includes('- [ ] 完成功能开发任务'));
+
+  console.log('  ✅ 块级格式化扩展 (H1, Quote, Todo) 测试通过');
+}
+
 console.log('🎉 所有 Markdown 划选悬浮格式化单元测试全部通过！\n');

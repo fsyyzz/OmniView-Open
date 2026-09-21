@@ -14,6 +14,11 @@ export type MarkdownFormatAction =
   | 'strikethrough'
   | 'code'
   | 'highlight'
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'quote'
+  | 'todo'
   | 'link'
   | 'wikilink';
 
@@ -118,6 +123,39 @@ export function toggleFormatText(
     return { resultText: `${leadingSpace}[${trimmed}](${url})${trailingSpace}`, isToggledOff: false };
   }
 
+  // 块级行前缀切换 (Heading, Quote, Todo)
+  if (action === 'h1' || action === 'h2' || action === 'h3') {
+    const targetLevel = action === 'h1' ? '# ' : action === 'h2' ? '## ' : '### ';
+    const existingPrefixMatch = trimmed.match(/^#{1,6}\s+/);
+    if (existingPrefixMatch) {
+      const currentPrefix = existingPrefixMatch[0];
+      if (currentPrefix.trim() === targetLevel.trim()) {
+        // 已经是相同级别标题，还原为普通段落
+        return { resultText: leadingSpace + trimmed.slice(currentPrefix.length) + trailingSpace, isToggledOff: true };
+      }
+      // 替换为目标级别标题
+      return { resultText: leadingSpace + targetLevel + trimmed.slice(currentPrefix.length) + trailingSpace, isToggledOff: false };
+    }
+    return { resultText: `${leadingSpace}${targetLevel}${trimmed}${trailingSpace}`, isToggledOff: false };
+  }
+
+  if (action === 'quote') {
+    if (trimmed.startsWith('> ')) {
+      return { resultText: leadingSpace + trimmed.slice(2) + trailingSpace, isToggledOff: true };
+    }
+    return { resultText: `${leadingSpace}> ${trimmed}${trailingSpace}`, isToggledOff: false };
+  }
+
+  if (action === 'todo') {
+    if (trimmed.startsWith('- [ ] ')) {
+      return { resultText: leadingSpace + trimmed.slice(6) + trailingSpace, isToggledOff: true };
+    }
+    if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ')) {
+      return { resultText: leadingSpace + trimmed.slice(6) + trailingSpace, isToggledOff: true };
+    }
+    return { resultText: `${leadingSpace}- [ ] ${trimmed}${trailingSpace}`, isToggledOff: false };
+  }
+
   return { resultText: rawText, isToggledOff: false };
 }
 
@@ -212,19 +250,36 @@ export function applyMarkdownSelectionFormat({
     return null;
   }
 
-  // 执行文本转换
-  const { resultText } = toggleFormatText(targetSlice, action, linkUrl);
-
   const targetLine = lines[foundLineIdx];
-  const updatedLine =
-    targetLine.slice(0, foundColIdx) + resultText + targetLine.slice(foundColIdx + targetSlice.length);
+
+  const isBlockAction =
+    action === 'h1' ||
+    action === 'h2' ||
+    action === 'h3' ||
+    action === 'quote' ||
+    action === 'todo';
+
+  let updatedLine = '';
+  let formattedTextResult = '';
+
+  if (isBlockAction) {
+    // 块级操作应用于整行
+    const { resultText } = toggleFormatText(targetLine, action, linkUrl);
+    updatedLine = resultText;
+    formattedTextResult = resultText;
+  } else {
+    const { resultText } = toggleFormatText(targetSlice, action, linkUrl);
+    updatedLine =
+      targetLine.slice(0, foundColIdx) + resultText + targetLine.slice(foundColIdx + targetSlice.length);
+    formattedTextResult = resultText;
+  }
 
   lines[foundLineIdx] = updatedLine;
   const newFullContent = lines.join('\n');
 
   return {
     newFullContent,
-    formattedText: resultText,
+    formattedText: formattedTextResult,
     appliedAction: action,
   };
 }

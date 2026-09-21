@@ -14,9 +14,13 @@ import {
   Strikethrough,
   Code,
   Highlighter,
+  Heading1,
+  Heading2,
+  Heading3,
+  Quote,
+  CheckSquare,
   Link,
   BookOpen,
-  ArrowRight,
   ExternalLink,
   Check,
   X,
@@ -86,7 +90,7 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
   if (!isOpen || !position) return null;
 
   // 避免工具栏超出视口左右或顶部
-  const toolbarWidth = isLinkInputOpen ? 320 : 280;
+  const toolbarWidth = isLinkInputOpen ? 340 : 450;
   const halfWidth = toolbarWidth / 2;
   const clampedX = Math.max(halfWidth + 12, Math.min(window.innerWidth - halfWidth - 12, position.x));
   const clampedY = Math.max(16, position.y - 10);
@@ -180,6 +184,63 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
             aria-label="Highlight"
           >
             <Highlighter size={15} />
+          </button>
+
+          <div className="w-[1px] h-4 bg-[var(--ov-border)] mx-1 opacity-70" />
+
+          {/* 一级标题 H1 */}
+          <button
+            type="button"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-indigo-400 transition active:scale-95"
+            onClick={() => handleActionClick('h1')}
+            title={`${t('formatH1', locale)} (# title)`}
+            aria-label="Heading 1"
+          >
+            <Heading1 size={15} />
+          </button>
+
+          {/* 二级标题 H2 */}
+          <button
+            type="button"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-indigo-400 transition active:scale-95"
+            onClick={() => handleActionClick('h2')}
+            title={`${t('formatH2', locale)} (## title)`}
+            aria-label="Heading 2"
+          >
+            <Heading2 size={15} />
+          </button>
+
+          {/* 三级标题 H3 */}
+          <button
+            type="button"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-indigo-400 transition active:scale-95"
+            onClick={() => handleActionClick('h3')}
+            title={`${t('formatH3', locale)} (### title)`}
+            aria-label="Heading 3"
+          >
+            <Heading3 size={15} />
+          </button>
+
+          {/* 引用块 */}
+          <button
+            type="button"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-teal-400 transition active:scale-95"
+            onClick={() => handleActionClick('quote')}
+            title={`${t('formatQuote', locale)} (> quote)`}
+            aria-label="Quote"
+          >
+            <Quote size={14} />
+          </button>
+
+          {/* 待办清单 */}
+          <button
+            type="button"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-emerald-400 transition active:scale-95"
+            onClick={() => handleActionClick('todo')}
+            title={`${t('formatTodo', locale)} (- [ ])`}
+            aria-label="Todo"
+          >
+            <CheckSquare size={14} />
           </button>
 
           <div className="w-[1px] h-4 bg-[var(--ov-border)] mx-1 opacity-70" />
