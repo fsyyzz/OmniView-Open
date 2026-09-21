@@ -379,39 +379,82 @@ export default function App() {
 
   // Upload local files with persistence
   const handleFileUpload = (file: File) => {
-    const reader = new FileReader();
     const ext = file.name.split('.').pop()?.toLowerCase() || 'txt';
-    const isPdf = ext === 'pdf';
+    const binaryExts = new Set([
+      'pdf', 'epub', 'docx', 'pptx', 'xlsx', 'xls', 'xlsm', 'xltx',
+      'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'tiff'
+    ]);
+    const isBinary = binaryExts.has(ext);
 
-    reader.onload = e => {
-      const content = (e.target?.result as string) || '';
-      const newFile: FileItem = {
-        id: `upload-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        name: file.name,
-        path: `/workspace/${file.name}`,
-        extension: ext,
-        content: isPdf ? 'PDF binary content' : content,
-        size: file.size,
-        lastModified: file.lastModified || Date.now(),
-        isCustomUploaded: true,
-        binaryUrl: isPdf ? URL.createObjectURL(file) : undefined,
+    if (isBinary) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const arrayBuffer = e.target?.result as ArrayBuffer;
+        let base64String = '';
+        try {
+          if (arrayBuffer && arrayBuffer.byteLength > 0 && arrayBuffer.byteLength < 50 * 1024 * 1024) {
+            let binary = '';
+            const bytes = new Uint8Array(arrayBuffer);
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+            }
+            base64String = btoa(binary);
+          }
+        } catch {
+          base64String = '';
+        }
+
+        const newFile: FileItem = {
+          id: `upload-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          name: file.name,
+          path: `/workspace/${file.name}`,
+          extension: ext,
+          content: base64String,
+          size: file.size,
+          lastModified: file.lastModified || Date.now(),
+          isCustomUploaded: true,
+          binaryUrl: URL.createObjectURL(file),
+        };
+
+        setFiles(prev => {
+          const updated = [newFile, ...prev];
+          saveStoredFiles(updated);
+          return updated;
+        });
+        setActiveFileId(newFile.id);
+        const nextTabs = openTabIds.includes(newFile.id) ? openTabIds : [...openTabIds, newFile.id];
+        setOpenTabIds(nextTabs);
+        saveStoredSettings({ activeFileId: newFile.id, openTabIds: nextTabs });
+        setCurrentView('editor');
       };
-
-      setFiles(prev => {
-        const updated = [newFile, ...prev];
-        saveStoredFiles(updated);
-        return updated;
-      });
-      setActiveFileId(newFile.id);
-      const nextTabs = openTabIds.includes(newFile.id) ? openTabIds : [...openTabIds, newFile.id];
-      setOpenTabIds(nextTabs);
-      saveStoredSettings({ activeFileId: newFile.id, openTabIds: nextTabs });
-      setCurrentView('editor');
-    };
-
-    if (isPdf) {
       reader.readAsArrayBuffer(file);
     } else {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const content = (e.target?.result as string) || '';
+        const newFile: FileItem = {
+          id: `upload-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          name: file.name,
+          path: `/workspace/${file.name}`,
+          extension: ext,
+          content,
+          size: file.size,
+          lastModified: file.lastModified || Date.now(),
+          isCustomUploaded: true,
+        };
+
+        setFiles(prev => {
+          const updated = [newFile, ...prev];
+          saveStoredFiles(updated);
+          return updated;
+        });
+        setActiveFileId(newFile.id);
+        const nextTabs = openTabIds.includes(newFile.id) ? openTabIds : [...openTabIds, newFile.id];
+        setOpenTabIds(nextTabs);
+        saveStoredSettings({ activeFileId: newFile.id, openTabIds: nextTabs });
+        setCurrentView('editor');
+      };
       reader.readAsText(file);
     }
   };

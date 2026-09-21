@@ -16,6 +16,7 @@ import {
   Info,
   X,
   Play,
+  RefreshCw,
 } from 'lucide-react';
 import {
   parsePptx,
@@ -200,6 +201,14 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
 
         {/* 右侧：放映、备注与全屏 */}
         <div className="flex items-center gap-1 sm:gap-2">
+          <button
+            onClick={() => loadPresentation()}
+            className="p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 opacity-80 hover:opacity-100 transition"
+            title="重新载入与解析幻灯片"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+
           <button
             onClick={() => setShowNotes(!showNotes)}
             className={`p-1.5 rounded-md border border-[var(--ov-border)] transition flex items-center gap-1 text-xs ${

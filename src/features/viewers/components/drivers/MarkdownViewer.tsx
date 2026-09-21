@@ -21,6 +21,8 @@ import { ExcalidrawBlock } from './markdown/ExcalidrawBlock';
 import { LightboxModal } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { WikiLinkPreviewPopover } from './markdown/WikiLinkPreviewPopover';
+import { MarkdownBubbleToolbar } from './markdown/MarkdownBubbleToolbar';
+import { applyMarkdownSelectionFormat, MarkdownFormatAction } from '../../lib/markdownSelectionReplacer';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
 import { ContentWidthMode } from '../../../../shared/types';
@@ -104,6 +106,118 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     heading?: string;
     file?: any;
   } | null>(null);
+
+  // 划选格式悬浮工具条状态
+  const [bubbleToolbarInfo, setBubbleToolbarInfo] = React.useState<{
+    isOpen: boolean;
+    position: { x: number; y: number } | null;
+    selectedText: string;
+    sourceLine?: number;
+  }>({
+    isOpen: false,
+    position: null,
+    selectedText: '',
+  });
+
+  // 监听预览区划选文本事件
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !onContentChange) return;
+
+    const handleMouseUp = () => {
+      // 延时等待浏览器 selection 更新完成
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount) {
+          return;
+        }
+
+        const text = selection.toString().trim();
+        // 忽略纯空白或过长文本（超过 500 字符通常为跨大段划选，不适宜行内格式工具条）
+        if (!text || text.length > 500) {
+          return;
+        }
+
+        const range = selection.getRangeAt(0);
+        // 确认选区在 Markdown 预览容器内
+        if (!container.contains(range.commonAncestorContainer)) {
+          return;
+        }
+
+        // 避免在代码块编辑器或输入框内划选时弹窗干扰
+        const anchorEl = (
+          range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement
+        ) as HTMLElement | null;
+
+        if (anchorEl?.closest('textarea, input, button, pre, code, .ov-code-editor, .markdown-toolbar')) {
+          return;
+        }
+
+        // 获取所在行号
+        const sourceLineEl = anchorEl?.closest('[data-source-line]');
+        let lineNum: number | undefined;
+        if (sourceLineEl) {
+          const attr = sourceLineEl.getAttribute('data-source-line');
+          if (attr) {
+            const parsed = parseInt(attr, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+              lineNum = parsed;
+            }
+          }
+        }
+
+        const rect = range.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return;
+
+        setBubbleToolbarInfo({
+          isOpen: true,
+          position: {
+            x: rect.left + rect.width / 2,
+            y: rect.top,
+          },
+          selectedText: text,
+          sourceLine: lineNum,
+        });
+      }, 30);
+    };
+
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        setBubbleToolbarInfo(prev => (prev.isOpen ? { ...prev, isOpen: false } : prev));
+      }
+    };
+
+    container.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('selectionchange', handleSelectionChange);
+
+    return () => {
+      container.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [onContentChange]);
+
+  // 处理气泡工具条格式应用
+  const handleApplyBubbleFormat = (action: MarkdownFormatAction, linkUrl = '') => {
+    if (!onContentChange || !bubbleToolbarInfo.selectedText) return;
+
+    const result = applyMarkdownSelectionFormat({
+      fullContent: content,
+      selectedText: bubbleToolbarInfo.selectedText,
+      sourceLine: bubbleToolbarInfo.sourceLine,
+      action,
+      linkUrl,
+    });
+
+    if (result) {
+      onContentChange(result.newFullContent);
+      // 清空浏览器当前选区并关闭工具栏
+      window.getSelection()?.removeAllRanges();
+      setBubbleToolbarInfo(prev => ({ ...prev, isOpen: false }));
+    }
+  };
 
   // 3. 双向滚动同步与点击交互 Hook
   useMarkdownScrollSync({
@@ -659,6 +773,18 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           onClose={() => setHoverWikiLinkInfo(null)}
         />
       )}
+
+      {/* 划选轻量格式化悬浮工具条 (Bubble Toolbar) */}
+      <MarkdownBubbleToolbar
+        isOpen={bubbleToolbarInfo.isOpen}
+        position={bubbleToolbarInfo.position}
+        selectedText={bubbleToolbarInfo.selectedText}
+        sourceLine={bubbleToolbarInfo.sourceLine}
+        locale={locale}
+        onApplyFormat={handleApplyBubbleFormat}
+        onOpenSourceAtLine={onOpenSourceAtLine}
+        onClose={() => setBubbleToolbarInfo(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

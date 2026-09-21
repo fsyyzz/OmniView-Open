@@ -1,0 +1,282 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" fill="none">
+  <defs>
+    <!-- Background Gradients -->
+    <radialGradient id="bgGlow" cx="50%" cy="30%" r="70%" fx="50%" fy="20%">
+      <stop offset="0%" stop-color="#1E293B" stop-opacity="0.8"/>
+      <stop offset="60%" stop-color="#0B0F17" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#030712" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="neonPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="neonEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="panelGlass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="glowLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#818CF8" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Filters -->
+    <filter id="softShadow" x="-10%" y="-10%" width="125%" height="125%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+    <filter id="cyanGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Canvas Background -->
+  <rect width="1200" height="675" fill="url(#bgGlow)"/>
+
+  <!-- Subtle Blueprint Tech Grid -->
+  <g opacity="0.08" stroke="#94A3B8" stroke-width="1">
+    <line x1="0" y1="75" x2="1200" y2="75" />
+    <line x1="0" y1="150" x2="1200" y2="150" />
+    <line x1="0" y1="225" x2="1200" y2="225" />
+    <line x1="0" y1="300" x2="1200" y2="300" />
+    <line x1="0" y1="375" x2="1200" y2="375" />
+    <line x1="0" y1="450" x2="1200" y2="450" />
+    <line x1="0" y1="525" x2="1200" y2="525" />
+    <line x1="0" y1="600" x2="1200" y2="600" />
+    <line x1="150" y1="0" x2="150" y2="675" />
+    <line x1="300" y1="0" x2="300" y2="675" />
+    <line x1="450" y1="0" x2="450" y2="675" />
+    <line x1="600" y1="0" x2="600" y2="675" />
+    <line x1="750" y1="0" x2="750" y2="675" />
+    <line x1="900" y1="0" x2="900" y2="675" />
+    <line x1="1050" y1="0" x2="1050" y2="675" />
+  </g>
+
+  <!-- Ambient Light Orbs -->
+  <circle cx="220" cy="180" r="140" fill="#0284C7" opacity="0.15" filter="url(#cyanGlow)"/>
+  <circle cx="980" cy="450" r="180" fill="#7C3AED" opacity="0.12" filter="url(#cyanGlow)"/>
+
+  <!-- Brand Title Section -->
+  <g transform="translate(80, 70)">
+    <!-- Brand Badge -->
+    <rect width="180" height="28" rx="14" fill="#1E293B" stroke="#38BDF8" stroke-width="1.2" stroke-opacity="0.4"/>
+    <circle cx="14" cy="14" r="4" fill="#38BDF8"/>
+    <text x="26" y="18" fill="#38BDF8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" letter-spacing="1">VS CODE EXTENSION</text>
+
+    <!-- Main Title -->
+    <text x="0" y="76" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="46" font-weight="800" letter-spacing="-0.5">
+      Omni<tspan fill="#38BDF8">View</tspan>
+    </text>
+
+    <!-- Subtitle -->
+    <text x="0" y="108" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="400">
+      面向 VS Code 的多格式文件统一渲染引擎与工程级工作台
+    </text>
+
+    <!-- Capabilities Chips -->
+    <g transform="translate(0, 130)">
+      <!-- Chip 1 -->
+      <rect width="112" height="26" rx="6" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+      <text x="12" y="17" fill="#E2E8F0" font-family="sans-serif" font-size="11" font-weight="500">⚡ 20+ 原生格式</text>
+      <!-- Chip 2 -->
+      <rect x="122" width="124" height="26" rx="6" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+      <text x="134" y="17" fill="#E2E8F0" font-family="sans-serif" font-size="11" font-weight="500">🛡️ 100% 纯端侧离线</text>
+      <!-- Chip 3 -->
+      <rect x="256" width="134" height="26" rx="6" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+      <text x="268" y="17" fill="#E2E8F0" font-family="sans-serif" font-size="11" font-weight="500">🎬 时序与图表逐帧演播</text>
+      <!-- Chip 4 -->
+      <rect x="400" width="124" height="26" rx="6" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+      <text x="412" y="17" fill="#E2E8F0" font-family="sans-serif" font-size="11" font-weight="500">🎨 原生主题无缝自适应</text>
+    </g>
+  </g>
+
+  <!-- Central Visual Matrix (4 Interactive Feature Showcases) -->
+  
+  <!-- Showcase Card 1: Markdown & Diagram Matrix (Top-Right) -->
+  <g transform="translate(640, 60)" filter="url(#softShadow)">
+    <rect width="480" height="230" rx="12" fill="url(#panelGlass)" stroke="#38BDF8" stroke-width="1.2" stroke-opacity="0.3"/>
+    <!-- Window Bar -->
+    <rect width="480" height="32" rx="12" fill="#0F172A" fill-opacity="0.8"/>
+    <circle cx="18" cy="16" r="4.5" fill="#EF4444"/>
+    <circle cx="34" cy="16" r="4.5" fill="#F59E0B"/>
+    <circle cx="50" cy="16" r="4.5" fill="#10B981"/>
+    <text x="70" y="20" fill="#94A3B8" font-family="monospace" font-size="11">architecture-spec.md — Mermaid &amp; KaTeX</text>
+    
+    <!-- State & Flowchart Diagram Simulation -->
+    <g transform="translate(24, 52)">
+      <!-- Start Node -->
+      <circle cx="30" cy="30" r="14" fill="#0284C7" stroke="#38BDF8" stroke-width="2"/>
+      <circle cx="30" cy="30" r="6" fill="#F8FAFC"/>
+      
+      <!-- Arrow 1 -->
+      <line x1="44" y1="30" x2="100" y2="30" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="50" y="22" fill="#94A3B8" font-family="monospace" font-size="9">parse()</text>
+
+      <!-- State Box 1 -->
+      <rect x="100" y="14" width="94" height="32" rx="6" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+      <text x="116" y="34" fill="#F8FAFC" font-family="sans-serif" font-size="11" font-weight="600">AST Tree</text>
+
+      <!-- Arrow 2 -->
+      <path d="M 194 30 L 250 30" stroke="#38BDF8" stroke-width="2"/>
+      
+      <!-- State Box 2 -->
+      <rect x="250" y="14" width="104" height="32" rx="6" fill="#1E293B" stroke="#A855F7" stroke-width="1.5"/>
+      <text x="264" y="34" fill="#F8FAFC" font-family="sans-serif" font-size="11" font-weight="600">WASM Engine</text>
+
+      <!-- Arrow 3 -->
+      <path d="M 354 30 L 400 30" stroke="#38BDF8" stroke-width="2"/>
+
+      <!-- End Node -->
+      <circle cx="414" cy="30" r="14" fill="#0F172A" stroke="#10B981" stroke-width="2"/>
+      <circle cx="414" cy="30" r="7" fill="#10B981"/>
+
+      <!-- Code Snippet / Math Block -->
+      <g transform="translate(0, 68)">
+        <rect width="432" height="74" rx="6" fill="#090D16" stroke="#1E293B" stroke-width="1"/>
+        <text x="14" y="24" fill="#64748B" font-family="monospace" font-size="11">1  ```mermaid</text>
+        <text x="14" y="42" fill="#38BDF8" font-family="monospace" font-size="11">2    stateDiagram-v2</text>
+        <text x="14" y="60" fill="#A5B4FC" font-family="monospace" font-size="11">3      [*] --&gt; OfflineRenderer : \int_{\Omega} \nabla u \cdot \nabla v = 0</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Showcase Card 2: EPUB 3D Book & Academic Typesetting (Bottom-Left) -->
+  <g transform="translate(80, 260)" filter="url(#softShadow)">
+    <rect width="490" height="340" rx="12" fill="url(#panelGlass)" stroke="#A855F7" stroke-width="1.2" stroke-opacity="0.3"/>
+    <!-- Window Bar -->
+    <rect width="490" height="32" rx="12" fill="#0F172A" fill-opacity="0.8"/>
+    <circle cx="18" cy="16" r="4.5" fill="#EF4444"/>
+    <circle cx="34" cy="16" r="4.5" fill="#F59E0B"/>
+    <circle cx="50" cy="16" r="4.5" fill="#10B981"/>
+    <text x="70" y="20" fill="#94A3B8" font-family="monospace" font-size="11">system-design-guide.epub — 双叶流式阅读器</text>
+    
+    <!-- Realistic Book Spread -->
+    <g transform="translate(24, 48)">
+      <!-- Left Page -->
+      <rect width="210" height="264" rx="4" fill="#182234" stroke="#334155" stroke-width="1"/>
+      <text x="18" y="32" fill="#38BDF8" font-family="sans-serif" font-size="12" font-weight="700">第 3 章 架构模式演进</text>
+      <rect x="18" y="46" width="174" height="2" fill="#38BDF8" opacity="0.4"/>
+      <text x="18" y="70" fill="#CBD5E1" font-family="serif" font-size="10" opacity="0.9">OmniView 的微核插件模型通过</text>
+      <text x="18" y="86" fill="#CBD5E1" font-family="serif" font-size="10" opacity="0.9">格式探测器 (Sniffer) 实现毫秒级</text>
+      <text x="18" y="102" fill="#CBD5E1" font-family="serif" font-size="10" opacity="0.9">精确分发，将 AST 解包、图表渲染</text>
+      <text x="18" y="118" fill="#CBD5E1" font-family="serif" font-size="10" opacity="0.9">与安全沙箱层实现物理单向解耦。</text>
+
+      <!-- Mini Illustration in Book -->
+      <rect x="18" y="140" width="174" height="90" rx="4" fill="#090D16" stroke="#1E293B" stroke-width="1"/>
+      <circle cx="60" cy="185" r="18" fill="#0284C7" opacity="0.6"/>
+      <circle cx="150" cy="185" r="18" fill="#7C3AED" opacity="0.6"/>
+      <line x1="78" y1="185" x2="132" y2="185" stroke="#38BDF8" stroke-dasharray="3,3" stroke-width="2"/>
+      <text x="18" y="246" fill="#64748B" font-family="sans-serif" font-size="9">图 3-1 纯端侧流水线拓扑图</text>
+      <text x="100" y="254" fill="#475569" font-family="sans-serif" font-size="9">42</text>
+
+      <!-- Spine Center Divider -->
+      <line x1="221" y1="10" x2="221" y2="254" stroke="#0F172A" stroke-width="4"/>
+      <line x1="221" y1="10" x2="221" y2="254" stroke="#475569" stroke-opacity="0.3" stroke-width="1"/>
+
+      <!-- Right Page -->
+      <rect x="232" width="210" height="264" rx="4" fill="#182234" stroke="#334155" stroke-width="1"/>
+      <text x="250" y="32" fill="#F8FAFC" font-family="sans-serif" font-size="12" font-weight="700">3.2 离线渲染稳定性</text>
+      <rect x="250" y="46" width="174" height="2" fill="#A855F7" opacity="0.4"/>
+      <text x="250" y="70" fill="#CBD5E1" font-family="serif" font-size="10" opacity="0.9">在无网络的环境下，所有基于</text>
+      <text x="250" y="86" fill="#CBD5E1" font-family="serif" font-size="10" opacity="0.9">WebAssembly 与本地规范的视图均</text>
+      <text x="250" y="102" fill="#CBD5E1" font-family="serif" font-size="10" opacity="0.9">可稳定保持 60 FPS 的流畅视口滚动。</text>
+      
+      <!-- Typst / Formula Highlight Box -->
+      <rect x="250" y="124" width="174" height="60" rx="4" fill="#090D16" stroke="#334155" stroke-width="1"/>
+      <text x="260" y="148" fill="#F43F5E" font-family="monospace" font-size="10">#show math.equation: ...</text>
+      <text x="260" y="168" fill="#34D399" font-family="serif" font-size="12">f(x) = \lim_{\Delta t \to 0} \frac{\Delta x}{\Delta t}</text>
+      <text x="330" y="254" fill="#475569" font-family="sans-serif" font-size="9">43</text>
+    </g>
+  </g>
+
+  <!-- Showcase Card 3: Enterprise Office & Whiteboard & Data Matrix (Bottom-Right) -->
+  <g transform="translate(600, 310)" filter="url(#softShadow)">
+    <rect width="520" height="290" rx="12" fill="url(#panelGlass)" stroke="#10B981" stroke-width="1.2" stroke-opacity="0.3"/>
+    <!-- Window Bar -->
+    <rect width="520" height="32" rx="12" fill="#0F172A" fill-opacity="0.8"/>
+    <circle cx="18" cy="16" r="4.5" fill="#EF4444"/>
+    <circle cx="34" cy="16" r="4.5" fill="#F59E0B"/>
+    <circle cx="50" cy="16" r="4.5" fill="#10B981"/>
+    <text x="70" y="20" fill="#94A3B8" font-family="monospace" font-size="11">quarterly-analysis.xlsx &amp; story.egn — 领域故事与数据画像</text>
+
+    <!-- Content Split: Left Table / Right Domain Story Step Player -->
+    <g transform="translate(20, 48)">
+      <!-- Left: Excel Sheet Grid with Sparkline -->
+      <rect width="230" height="220" rx="6" fill="#090D16" stroke="#1E293B" stroke-width="1"/>
+      <!-- Sheet Tabs Header -->
+      <rect width="230" height="24" rx="6" fill="#1E293B"/>
+      <text x="12" y="16" fill="#38BDF8" font-family="sans-serif" font-size="10" font-weight="600">Sheet 1: 渲染性能画像</text>
+      
+      <!-- Table Rows -->
+      <line x1="0" y1="50" x2="230" y2="50" stroke="#1E293B"/>
+      <text x="12" y="42" fill="#94A3B8" font-family="monospace" font-size="9">Format</text>
+      <text x="80" y="42" fill="#94A3B8" font-family="monospace" font-size="9">Parse(ms)</text>
+      <text x="150" y="42" fill="#94A3B8" font-family="monospace" font-size="9">Trend</text>
+      
+      <line x1="0" y1="80" x2="230" y2="80" stroke="#1E293B"/>
+      <text x="12" y="70" fill="#E2E8F0" font-family="monospace" font-size="10">EPUB</text>
+      <text x="80" y="70" fill="#34D399" font-family="monospace" font-size="10">18.2 ms</text>
+      <polyline points="150,72 165,65 180,68 195,60 210,62" fill="none" stroke="#34D399" stroke-width="2"/>
+
+      <line x1="0" y1="110" x2="230" y2="110" stroke="#1E293B"/>
+      <text x="12" y="100" fill="#E2E8F0" font-family="monospace" font-size="10">Mermaid</text>
+      <text x="80" y="100" fill="#34D399" font-family="monospace" font-size="10">12.5 ms</text>
+      <polyline points="150,102 165,98 180,104 195,92 210,95" fill="none" stroke="#38BDF8" stroke-width="2"/>
+
+      <line x1="0" y1="140" x2="230" y2="140" stroke="#1E293B"/>
+      <text x="12" y="130" fill="#E2E8F0" font-family="monospace" font-size="10">Typst AST</text>
+      <text x="80" y="130" fill="#34D399" font-family="monospace" font-size="10">24.1 ms</text>
+      <polyline points="150,132 165,126 180,122 195,124 210,118" fill="none" stroke="#A855F7" stroke-width="2"/>
+
+      <rect x="10" y="160" width="210" height="46" rx="4" fill="#1E293B" opacity="0.6"/>
+      <text x="20" y="180" fill="#38BDF8" font-family="sans-serif" font-size="9" font-weight="600">✓ 内存自愈机制激活</text>
+      <text x="20" y="196" fill="#94A3B8" font-family="sans-serif" font-size="9">LRU 缓存命中率: 98.6%</text>
+
+      <!-- Right: Domain Storytelling Step-by-Step Player -->
+      <g transform="translate(250, 0)">
+        <rect width="230" height="220" rx="6" fill="#090D16" stroke="#1E293B" stroke-width="1"/>
+        <rect width="230" height="24" rx="6" fill="#1E293B"/>
+        <text x="12" y="16" fill="#A855F7" font-family="sans-serif" font-size="10" font-weight="600">Domain Story 演播模式</text>
+        
+        <!-- Story Nodes -->
+        <!-- Actor 1 -->
+        <circle cx="50" cy="70" r="16" fill="#3B82F6" opacity="0.3"/>
+        <text x="38" y="75" fill="#38BDF8" font-family="sans-serif" font-size="14">👤</text>
+        <text x="32" y="100" fill="#E2E8F0" font-family="sans-serif" font-size="9">Developer</text>
+
+        <!-- Step Badge 1 -->
+        <circle cx="115" cy="62" r="9" fill="#F59E0B"/>
+        <text x="112" y="66" fill="#000000" font-family="sans-serif" font-size="10" font-weight="800">1</text>
+        <!-- Arrow -->
+        <line x1="72" y1="70" x2="160" y2="70" stroke="#F59E0B" stroke-width="2"/>
+
+        <!-- Work Object -->
+        <rect x="160" y="52" width="54" height="36" rx="4" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+        <text x="174" y="74" fill="#38BDF8" font-family="sans-serif" font-size="11">📄 .typ</text>
+
+        <!-- Step Player Controls at bottom -->
+        <rect x="12" y="160" width="206" height="46" rx="4" fill="#1E293B"/>
+        <!-- Play / Pause Buttons -->
+        <circle cx="34" cy="183" r="12" fill="#38BDF8"/>
+        <polygon points="31,177 39,183 31,189" fill="#0F172A"/>
+        <text x="56" y="187" fill="#F8FAFC" font-family="sans-serif" font-size="11" font-weight="600">Step 1 / 4</text>
+        <rect x="126" y="180" width="80" height="6" rx="3" fill="#334155"/>
+        <rect x="126" y="180" width="30" height="6" rx="3" fill="#38BDF8"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Bottom Accent Strip -->
+  <line x1="0" y1="673" x2="1200" y2="673" stroke="url(#glowLine)" stroke-width="2"/>
+</svg>

@@ -610,7 +610,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           type="file"
           className="hidden"
           onChange={handleFileInputChange}
-          accept=".md,.markdown,.puml,.plantuml,.mmd,.mermaid,.dot,.gv,.svg,.pdf,.csv,.tsv,.json,.yaml,.yml,.xml,.ts,.tsx,.js,.jsx,.txt,.mm,.markmap,.mindmap,.km"
+          accept=".md,.markdown,.puml,.plantuml,.mmd,.mermaid,.dot,.gv,.svg,.pdf,.pptx,.ppt,.docx,.doc,.xlsx,.xls,.xlsm,.xltx,.epub,.csv,.tsv,.json,.yaml,.yml,.xml,.ts,.tsx,.js,.jsx,.txt,.mm,.markmap,.mindmap,.km,.typ,.typst,.excalidraw,.ipynb"
         />
 
         <button

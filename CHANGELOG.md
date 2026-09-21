@@ -4,7 +4,23 @@
 
 ## [Unreleased]
 
-## [1.0.8] - 2026-09-20
+## [1.0.9] - 2026-09-21
+
+### Added
+
+- **Markdown 划选轻量格式化悬浮工具条 (Floating Bubble Toolbar)**:
+  - **划选感知与智能跟随**：在 Markdown 预览容器划选文字时自动计算视口坐标，在选区上方以精致微晶箭头浮现气泡工具栏；
+  - **行内格式矩阵与 Toggle 反选**：支持粗体 (`**text**`)、斜体 (`*text*`)、删除线 (`~~text~~`)、行内代码 (`` `text` ``)、重点高亮 (`==text==`)、超链接 (`[text](url)`) 与双向链接 (`[[Page]]`) 快速转换与反向解除；
+  - **AST 行级源映射精准定位替换 (`markdownSelectionReplacer`)**：基于 `data-source-line` 建立局部行搜索窗口，避免全文同名词汇误伤替换，并实时同步回写源文档；
+  - **多主题适配与专属测试套件**：100% 依托 `--ov-*` 语义令牌与毛玻璃质感，新增 `scripts/test-markdown-selection-replacer.mjs` 纳入自动化测试门禁。
+
+### Fixed
+
+- **PPTX 演示文稿文件上传二进制解码修复 (PPTX File Import & Reload)**:
+  - 修复 PPTX 演示文稿在本地文件上传后被误作为文本读取导致解析失败并回退至默认示例的问题，增加 ArrayBuffer 二进制与 Data URL 安全流转，并在工具栏提供重载原文件功能；
+- **开发服务器启动与端口冲突治理**:
+  - 修正 package.json 中的开发脚本与 Vite 配置，严格锁定 3000 端口并消除参数重复传递问题。
+
 
 ### Fixed
 

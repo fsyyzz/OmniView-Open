@@ -241,6 +241,18 @@ export const TRANSLATIONS = {
     previewRestored: '预览已恢复，请将修复代码贴回源码保存',
     copyFixedCode: '复制修复后代码',
 
+    // Floating Bubble Toolbar
+    formatBold: '粗体',
+    formatItalic: '斜体',
+    formatStrikethrough: '删除线',
+    formatCode: '行内代码',
+    formatHighlight: '高亮标记',
+    formatLink: '超链接',
+    formatWikiLink: '双向链接 (WikiLink)',
+    wikiTarget: '目标文档',
+    confirm: '确认',
+    cancel: '取消',
+
     // Lightbox & Math
     fitToScreen: '适应窗口',
     fillScreen: '快速铺满',
@@ -604,6 +616,18 @@ export const TRANSLATIONS = {
     copyErrorReport: 'Copy Error Report',
     previewRestored: 'Preview restored. Remember to save changes to source file.',
     copyFixedCode: 'Copy Fixed Code',
+
+    // Floating Bubble Toolbar
+    formatBold: 'Bold',
+    formatItalic: 'Italic',
+    formatStrikethrough: 'Strikethrough',
+    formatCode: 'Inline Code',
+    formatHighlight: 'Highlight',
+    formatLink: 'Link',
+    formatWikiLink: 'WikiLink',
+    wikiTarget: 'Target Document',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
 
     // Lightbox & Math
     fitToScreen: 'Fit to Window',
