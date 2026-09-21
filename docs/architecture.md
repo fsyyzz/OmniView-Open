@@ -40,7 +40,11 @@ flowchart TB
   - `PdfViewer.tsx`: 基于 Mozilla PDF.js v4+ 的现代化版式阅读器，支持多页连续流式 (Continuous Flow)、单页翻页与双页图书并排开本；集成视口阅读进度感知 (Scroll Spy)、视口懒渲染防卡顿 (Lazy Viewport)、全文检索跨页高亮、划词批注与 Markdown 导出、多级大纲书签与无损打印导出；
   - `TypstViewer.tsx`: 基于轻量纯端侧 AST 编译器架构与 A4 2.0 工业级出版排版引擎的 Typst (`.typ`, `.typst`) 双向分屏工作台 (Typst Typesetting Studio)，支持实时增量编译、KaTeX 矢量数学公式渲染、大纲跳转、瀑布流/单页/双页视图切换、语法片段快捷插入与高精度 A4 矢量打印/SVG 导出；
   - `DomainStoryViewer.tsx`: 基于 egon.io 官方规范的领域故事讲授工作台 (Domain Storytelling Studio)，支持标准 `.egn` (JSON) 及 `.domainstory` 文件，支持参与者 (Actor)、工作对象 (Work Object) 与带序号活动连接的可视化矢量渲染、逐帧步进演播与 Polyglot SVG 双向还原导出；
-  - `StructuredDataViewer.tsx`: 结构化数据全景可视化工作台，针对 JSON、YAML、TOML、XML 提供层级折叠树 (Tree)、全景矢量思维导图投影 (Mindmap)、同构数组下钻表格 (Table & 柱状折线微图表)、微服务/Docker 依赖拓扑 (Topology)、敏感密钥脱敏防护 (Secret Masking) 与离线无损跨格式互转 (Format Converter)。
+  - `StructuredDataViewer.tsx`: 结构化数据全景可视化工作台，针对 JSON、YAML、TOML、XML 提供层级折叠树 (Tree)、全景矢量思维导图投影 (Mindmap)、同构数组下钻表格 (Table & 柱状折线微图表)、微服务/Docker 依赖拓扑 (Topology)、敏感密钥脱敏防护 (Secret Masking) 与离线无损跨格式互转 (Format Converter)；
+  - `DocxViewer.tsx`: 基于 OOXML 标准与 `docx-preview` 纯前端离线流水线的 Word 高保真文档渲染器，支持 A4 拟真纸张排版、50%~200% 平滑缩放、复杂表格单元格合并、多级编号、嵌入图片、页眉页脚与夜间暗色反转；
+  - `PptxViewer.tsx`: 纯离线 OOXML 形状与资源解包的 PowerPoint 矢量幻灯片演播工作台，支持 16:9/4:3 矢量自适应画布、全屏沉浸放映、键盘切页、幻灯片缩略图大纲与演讲者备注抽屉；
+  - `XlsxViewer.tsx`: 纯前端离线 OOXML 解析与工作簿提取的 Excel 多工作表电子表格工作台，支持多工作表 (Multi-Sheet Tabs) 毫秒级切换、共享字符串池、公式计算值、列特征统计画像 (Profiling)、Sparklines 迷你走势图与多格式导出；
+  - `ImageViewer.tsx`: 现代图像工作台与像素检视器，原生支持全量图片格式，提供 10%~3200% 极清矢量缩放（高倍开启像素化渲染）、16x 像素十字放大镜取色器 (HEX/RGBA/HSLA)、四态画布底色、轻量几何变换与 EXIF 深度元数据透视。
 
 ### 2.3 持久化存储与配置层 (Persistence & Storage Layer)
 - **配置持久化 (`src/shared/lib/settingsStorage.ts`)**:
@@ -93,7 +97,7 @@ flowchart TD
 ## 4. 验证与门禁标准
 
 每次迭代必须通过全量物理门禁（`npm run verify`）与单元测试：
-- `test`: 9 大自动化单元测试套件（共 66 组用例，覆盖图表诊断修复引擎、思维导图驱动映射、配置持久化体系、RFC 4180 CSV/TSV 解析、安全 XSS/DoS 防护、格式路由与未知降级、SVG 开发者工程工具与转换引擎、Markdown 交互式表格工具链、结构化数据多态视图与转换）；
+- `test`: 43 组全链路自动化单元测试套件（覆盖 Mermaid 状态机与渲染配置高对比度防退化、图表诊断修复引擎、思维导图驱动映射、配置持久化体系、RFC 4180 CSV/TSV 解析与画像分析、安全 XSS/DoS 防护、格式路由与未知降级、SVG 开发者工程工具与转换引擎、Markdown 交互式表格工具链、结构化数据多态视图与转换、Office 三件套 DOCX/PPTX/XLSX、图像引擎、EPUB 流式排版与阅读进度持久化等）；
 - `lint:codex`: 规范索引与引用检查；
 - `check:structure`: 源码分层与入口检查；
 - `check:doc-code-consistency`: 文档事实与代码一致性检查；

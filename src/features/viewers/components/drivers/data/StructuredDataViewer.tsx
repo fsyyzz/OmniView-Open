@@ -37,6 +37,7 @@ import { ThemeId, DensityMode } from '../../../../../shared/types';
 import { useContainerWidth } from '../../../hooks/useContainerWidth';
 import Prism from 'prismjs';
 import mermaid from 'mermaid';
+import { getMermaidConfig } from '../../../../../shared/lib/mermaidConfig';
 
 interface StructuredDataViewerProps {
   content: string;
@@ -154,11 +155,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
       let isMounted = true;
       const renderTopology = async () => {
         try {
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: isDarkTheme ? 'dark' : 'default',
-            securityLevel: 'loose',
-          });
+          mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
           const id = `topology-${Math.random().toString(36).slice(2, 9)}`;
           const { svg } = await mermaid.render(id, topologyMermaid);
           if (isMounted) {

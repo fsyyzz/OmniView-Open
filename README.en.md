@@ -33,7 +33,7 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 
 ### 2. Enhanced Markdown Rendering Engine
 - **Multi-engine diagram matrix**:
-  - **Mermaid.js**: flowcharts, sequence diagrams, class/state diagrams, Git graphs, Gantt, C4, and more;
+  - **Mermaid.js**: flowcharts, sequence diagrams, class/state diagrams (stateDiagram / stateDiagram-v2 with full dark/light adaptive contrast and text invisibility guards), Git graphs, Gantt, C4, and more;
   - **PlantUML**: architecture / sequence / component diagrams with preview ↔ source dual-mode hot render and private server URL config;
   - **Graphviz / DOT**: native ````dot```` / ````graphviz```` fenced blocks via `@hpcc-js/wasm-graphviz` offline WASM + Web Worker;
   - **SVG driver**: inline ````svg```` blocks and local relative `.svg` references, with dark / grid / light backgrounds;
@@ -173,7 +173,7 @@ npm run verify
 npm run package:vsix
 
 # 3. Install into local VS Code (keep version in sync with package.json)
-code --install-extension omniview-0.14.0.vsix --force
+code --install-extension omniview-1.0.8.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.

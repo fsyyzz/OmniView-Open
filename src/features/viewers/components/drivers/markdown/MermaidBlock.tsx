@@ -26,6 +26,7 @@ import {
 } from '../../../lib/diagramPlaybackEngine';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
 import { mermaidRenderCache } from '../../../lib/diagramCache';
+import { getMermaidConfig } from '../../../../../shared/lib/mermaidConfig';
 
 interface MermaidBlockProps {
   id: string;
@@ -49,6 +50,7 @@ interface MermaidBlockProps {
   onOpenSourceAtLine?: (line: number) => void;
   externalFile?: string;
   locale?: Locale;
+  isDarkTheme?: boolean;
 }
 
 export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
@@ -73,6 +75,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   onOpenSourceAtLine,
   externalFile,
   locale = 'zh-CN',
+  isDarkTheme = true,
 }) => {
   const [liveSvg, setLiveSvg] = useState<string>(svgContent || '');
   const [liveError, setLiveError] = useState<string | undefined>(error);
@@ -104,8 +107,9 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       return;
     }
 
-    // 优先命中 LRU 内存缓存，避免同代码重复编译
-    const cacheKey = mermaidRenderCache.makeKey('mermaid', activeCode);
+    // 优先命中 LRU 内存缓存，避免同代码重复编译（并绑定暗色/亮色主题维度）
+    const themeSuffix = isDarkTheme ? 'dark' : 'light';
+    const cacheKey = mermaidRenderCache.makeKey('mermaid', activeCode, themeSuffix);
     const cachedSvg = mermaidRenderCache.get(cacheKey);
     if (cachedSvg) {
       setLiveSvg(cachedSvg);
@@ -120,6 +124,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
 
     const timer = setTimeout(async () => {
       try {
+        mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
         const uniqueId = `mermaid-live-${Math.random().toString(36).substr(2, 9)}`;
         const { svg } = await mermaid.render(uniqueId, activeCode);
         if (isCurrent && count === renderCountRef.current) {
@@ -140,7 +145,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [activeCode, code, editedCode, svgContent]);
+  }, [activeCode, code, editedCode, svgContent, isDarkTheme]);
 
   // 计算应用步进高亮后的 SVG 内容
   const displaySvg = useMemo(() => {

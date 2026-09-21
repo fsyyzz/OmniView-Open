@@ -329,6 +329,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   externalFile={block.externalFile}
                   locale={locale}
+                  isDarkTheme={isDarkTheme}
                 />
               </RenderErrorBoundary>
             </LazyViewportBlock>

@@ -237,30 +237,44 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
         {/* 左侧：幻灯片缩略图抽屉 */}
         {showThumbnails && (
           <aside className="w-48 sm:w-56 h-full border-r border-[var(--ov-border)] bg-[var(--ov-surface-header)] flex flex-col shrink-0 z-20 overflow-y-auto p-2.5 space-y-2.5">
-            {data?.slides.map((slide, idx) => (
-              <button
-                key={`thumb-${idx}`}
-                onClick={() => setCurrentSlideIndex(idx)}
-                className={`w-full p-1.5 rounded-xl border text-left transition flex flex-col gap-1 group ${
-                  idx === currentSlideIndex
-                    ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-500/10 shadow-sm'
-                    : 'border-[var(--ov-border)] hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-                }`}
-              >
-                {/* 缩略图极简模拟卡片 (16:9) */}
-                <div className="w-full aspect-video bg-white dark:bg-slate-900 rounded-md border border-slate-300 dark:border-slate-800 p-2 flex flex-col justify-between overflow-hidden shadow-2xs">
-                  <div className="w-full h-1.5 bg-blue-500/40 rounded-full" />
-                  <div className="space-y-1">
-                    <div className="w-3/4 h-1 bg-slate-400/30 rounded-full" />
-                    <div className="w-1/2 h-1 bg-slate-400/20 rounded-full" />
+            {data?.slides.map((slide, idx) => {
+              const hasImages = slide.elements.some(e => e.type === 'image');
+              const hasTables = slide.elements.some(e => e.type === 'table');
+              const hasShapes = slide.elements.some(e => e.type === 'shape');
+
+              return (
+                <button
+                  key={`thumb-${idx}`}
+                  onClick={() => setCurrentSlideIndex(idx)}
+                  className={`w-full p-1.5 rounded-xl border text-left transition flex flex-col gap-1 group ${
+                    idx === currentSlideIndex
+                      ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-500/10 shadow-sm'
+                      : 'border-[var(--ov-border)] hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+                  }`}
+                >
+                  {/* 缩略图极简模拟卡片 (16:9) */}
+                  <div
+                    className="w-full aspect-video rounded-md border border-slate-300 dark:border-slate-800 p-2 flex flex-col justify-between overflow-hidden shadow-2xs relative"
+                    style={{ background: slide.backgroundColor || undefined }}
+                  >
+                    <div className="w-full h-1.5 bg-blue-500/40 rounded-full" />
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                      {hasImages && <span title="包含内嵌图片">🖼️</span>}
+                      {hasTables && <span title="包含表格">📊</span>}
+                      {hasShapes && <span title="包含矢量形状">🔷</span>}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="w-3/4 h-1 bg-slate-400/30 rounded-full" />
+                      <div className="w-1/2 h-1 bg-slate-400/20 rounded-full" />
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between px-1 text-[11px]">
-                  <span className="font-mono font-bold opacity-60">#{idx + 1}</span>
-                  <span className="truncate max-w-[120px] font-medium opacity-90">{slide.title}</span>
-                </div>
-              </button>
-            ))}
+                  <div className="flex items-center justify-between px-1 text-[11px]">
+                    <span className="font-mono font-bold opacity-60">#{idx + 1}</span>
+                    <span className="truncate max-w-[120px] font-medium opacity-90">{slide.title}</span>
+                  </div>
+                </button>
+              );
+            })}
           </aside>
         )}
 
@@ -291,44 +305,156 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
               }}
             >
               {/* 幻灯片矢量元素列表 */}
-              {currentSlide.elements.map(el => (
-                <div
-                  key={el.id}
-                  style={{
-                    position: 'absolute',
-                    left: `${(el.x / (data?.metadata?.width || 960)) * 100}%`,
-                    top: `${(el.y / (data?.metadata?.height || 540)) * 100}%`,
-                    width: `${(el.width / (data?.metadata?.width || 960)) * 100}%`,
-                    minHeight: `${(el.height / (data?.metadata?.height || 540)) * 100}%`,
-                  }}
-                  className="flex flex-col justify-start"
-                >
-                  {el.paragraphs?.map((p, pIdx) => (
-                    <p
-                      key={pIdx}
+              {currentSlide.elements.map(el => {
+                const metaW = data?.metadata?.width || 960;
+                const metaH = data?.metadata?.height || 540;
+                const leftPct = `${(el.x / metaW) * 100}%`;
+                const topPct = `${(el.y / metaH) * 100}%`;
+                const widthPct = `${(el.width / metaW) * 100}%`;
+                const heightPct = `${(el.height / metaH) * 100}%`;
+                const transform = el.rotation ? `rotate(${el.rotation}deg)` : undefined;
+
+                // 1. 图片元素渲染
+                if (el.type === 'image') {
+                  return (
+                    <div
+                      key={el.id}
                       style={{
-                        textAlign: p.align || 'left',
+                        position: 'absolute',
+                        left: leftPct,
+                        top: topPct,
+                        width: widthPct,
+                        height: heightPct,
+                        transform,
                       }}
-                      className="my-0.5 leading-relaxed"
+                      className="overflow-hidden flex items-center justify-center pointer-events-none"
                     >
-                      {p.runs.map((r, rIdx) => (
-                        <span
-                          key={rIdx}
-                          style={{
-                            fontWeight: r.bold ? 'bold' : 'normal',
-                            fontStyle: r.italic ? 'italic' : 'normal',
-                            textDecoration: r.underline ? 'underline' : 'none',
-                            fontSize: r.fontSize ? `${r.fontSize}px` : '15px',
-                            color: r.color || 'inherit',
-                          }}
-                        >
-                          {r.text}
-                        </span>
-                      ))}
-                    </p>
-                  ))}
-                </div>
-              ))}
+                      {el.imageDataUrl ? (
+                        <img
+                          src={el.imageDataUrl}
+                          alt={el.imageAlt || '幻灯片图片'}
+                          className="w-full h-full object-contain pointer-events-auto"
+                          loading="lazy"
+                        />
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                // 2. 表格元素渲染
+                if (el.type === 'table' && el.tableRows && el.tableRows.length > 0) {
+                  return (
+                    <div
+                      key={el.id}
+                      style={{
+                        position: 'absolute',
+                        left: leftPct,
+                        top: topPct,
+                        width: widthPct,
+                        height: heightPct,
+                        transform,
+                      }}
+                      className="overflow-hidden"
+                    >
+                      <table className="w-full h-full border-collapse text-xs table-fixed">
+                        <tbody>
+                          {el.tableRows.map((row, rIdx) => (
+                            <tr key={rIdx} className="border border-slate-300 dark:border-slate-700">
+                              {row.map((cell, cIdx) => (
+                                <td
+                                  key={cIdx}
+                                  style={{
+                                    backgroundColor: cell.background || 'transparent',
+                                    color: cell.color || 'inherit',
+                                    textAlign: cell.align || 'left',
+                                    fontWeight: cell.bold || cell.isHeader ? '600' : 'normal',
+                                    fontSize: cell.fontSize ? `${Math.max(10, cell.fontSize * 0.85)}px` : undefined,
+                                  }}
+                                  className="p-1.5 border border-slate-300 dark:border-slate-700 break-words align-middle"
+                                >
+                                  {cell.text}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                }
+
+                // 3. 纯矢量几何形状渲染
+                if (el.type === 'shape') {
+                  const isRound = el.shapeType === 'ellipse';
+                  const isRoundRect = el.shapeType === 'roundRect';
+                  const isLine = el.shapeType === 'line';
+
+                  return (
+                    <div
+                      key={el.id}
+                      style={{
+                        position: 'absolute',
+                        left: leftPct,
+                        top: topPct,
+                        width: widthPct,
+                        height: isLine ? `${Math.max(2, el.strokeWidth || 2)}px` : heightPct,
+                        backgroundColor: el.fillColor || (isLine ? (el.strokeColor || '#94a3b8') : 'transparent'),
+                        borderColor: el.strokeColor || 'transparent',
+                        borderWidth: el.strokeWidth ? `${el.strokeWidth}px` : undefined,
+                        borderStyle: el.strokeColor ? 'solid' : 'none',
+                        transform,
+                      }}
+                      className={`${isRound ? 'rounded-full' : isRoundRect ? 'rounded-lg' : 'rounded-none'} pointer-events-none`}
+                    />
+                  );
+                }
+
+                // 4. 标准文本框与复合文本块渲染
+                return (
+                  <div
+                    key={el.id}
+                    style={{
+                      position: 'absolute',
+                      left: leftPct,
+                      top: topPct,
+                      width: widthPct,
+                      minHeight: heightPct,
+                      backgroundColor: el.backgroundColor || 'transparent',
+                      borderColor: el.borderColor || 'transparent',
+                      borderWidth: el.borderWidth ? `${el.borderWidth}px` : undefined,
+                      borderStyle: el.borderColor ? 'solid' : 'none',
+                      transform,
+                    }}
+                    className={`flex flex-col justify-start ${el.backgroundColor || el.borderColor ? 'p-2 rounded-md' : ''}`}
+                  >
+                    {el.paragraphs?.map((p, pIdx) => (
+                      <p
+                        key={pIdx}
+                        style={{
+                          textAlign: p.align || 'left',
+                        }}
+                        className="my-0.5 leading-relaxed"
+                      >
+                        {p.runs.map((r, rIdx) => (
+                          <span
+                            key={rIdx}
+                            style={{
+                              fontWeight: r.bold ? 'bold' : 'normal',
+                              fontStyle: r.italic ? 'italic' : 'normal',
+                              textDecoration: r.underline ? 'underline' : 'none',
+                              fontSize: r.fontSize ? `${r.fontSize}px` : '15px',
+                              color: r.color || 'inherit',
+                              fontFamily: r.fontFamily || 'inherit',
+                            }}
+                          >
+                            {r.text}
+                          </span>
+                        ))}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })}
 
               {/* 幻灯片右下角页码标记 */}
               <div className="absolute right-4 bottom-3 text-[11px] font-mono opacity-40">

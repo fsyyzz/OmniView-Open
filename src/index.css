@@ -1087,6 +1087,66 @@ body.vscode-high-contrast-light[data-theme="system"] {
   overflow: visible !important;
 }
 
+/* 状态图 (stateDiagram / stateDiagram-v2) 文本与状态标签可见性与对比度保障 */
+.diagram-canvas svg .stateLabel text,
+.diagram-canvas svg .statediagram-state text,
+.diagram-canvas svg g.stateGroup text,
+.diagram-canvas svg .state-title,
+.diagram-canvas svg .statediagramTitleText,
+.markdown-lightbox-content svg .stateLabel text,
+.markdown-lightbox-content svg .statediagram-state text,
+.markdown-lightbox-content svg g.stateGroup text,
+.markdown-lightbox-content svg .state-title,
+.markdown-lightbox-content svg .statediagramTitleText,
+.ov-mermaid-svg-container svg .stateLabel text,
+.ov-mermaid-svg-container svg .statediagram-state text,
+.ov-mermaid-svg-container svg g.stateGroup text,
+.ov-mermaid-svg-container svg .state-title,
+.ov-mermaid-svg-container svg .statediagramTitleText {
+  fill: var(--ov-text) !important;
+  font-family: inherit;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.diagram-canvas svg .statediagram-state .nodeLabel,
+.diagram-canvas svg .statediagram-cluster .cluster-label,
+.diagram-canvas svg .cluster-label,
+.markdown-lightbox-content svg .statediagram-state .nodeLabel,
+.markdown-lightbox-content svg .statediagram-cluster .cluster-label,
+.markdown-lightbox-content svg .cluster-label,
+.ov-mermaid-svg-container svg .statediagram-state .nodeLabel,
+.ov-mermaid-svg-container svg .statediagram-cluster .cluster-label,
+.ov-mermaid-svg-container svg .cluster-label {
+  color: var(--ov-text) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.diagram-canvas svg .transitionLabel,
+.diagram-canvas svg .edgeLabel,
+.diagram-canvas svg .edgeLabel text,
+.diagram-canvas svg .edgeLabel span,
+.markdown-lightbox-content svg .transitionLabel,
+.markdown-lightbox-content svg .edgeLabel,
+.markdown-lightbox-content svg .edgeLabel text,
+.markdown-lightbox-content svg .edgeLabel span,
+.ov-mermaid-svg-container svg .transitionLabel,
+.ov-mermaid-svg-container svg .edgeLabel,
+.ov-mermaid-svg-container svg .edgeLabel text,
+.ov-mermaid-svg-container svg .edgeLabel span {
+  fill: var(--ov-text) !important;
+  color: var(--ov-text) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.diagram-canvas svg .statediagram-note text,
+.markdown-lightbox-content svg .statediagram-note text,
+.ov-mermaid-svg-container svg .statediagram-note text {
+  fill: var(--ov-warning-text, #fef08a) !important;
+}
+
 /* =========================================================
    Density Modes (紧凑度排版系统)
    ========================================================= */

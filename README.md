@@ -33,7 +33,7 @@
 
 ### 2. 深度增强型 Markdown 排版与渲染引擎
 - **多引擎图表矩阵集成**:
-  - **Mermaid.js**: 支持流程图、时序图、类图、状态机图、Git 提交历史图、甘特图、C4 架构图等；
+  - **Mermaid.js**: 支持流程图、时序图、类图、状态机图 (stateDiagram / stateDiagram-v2 具备深浅双主题自适应与高对比度文字防隐形保障)、Git 提交历史图、甘特图、C4 架构图等；
   - **PlantUML**: 支持架构图、时序图、组件图，支持【可视化预览 / 源码编辑】双向热渲染与私有服务地址配置；
   - **Graphviz / DOT**: 原生支持 Markdown 内嵌 ````dot```` 与 ````graphviz```` 代码块，基于 `@hpcc-js/wasm-graphviz` 离线 WebAssembly 引擎与 Web Worker 异步计算；
   - **SVG 矢量图驱动**: 支持内联 ````svg```` 代码块与本地相对路径 `.svg` 引用，支持深色/网格/浅色背景切换；
@@ -189,7 +189,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-0.14.0.vsix --force
+code --install-extension omniview-1.0.8.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

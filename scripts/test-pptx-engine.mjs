@@ -64,7 +64,35 @@ async function runTests() {
   assert.strictEqual(parsedCorrupt.slides.length, 3);
   console.log('✅ PPTX 异常自愈降级验证通过');
 
-  console.log('\n🎉 全部 6 项 PowerPoint (.pptx) 引擎解析与自愈测试 100% 通过！\n');
+  // --- 测试 7: 纯几何形状与主题色映射提取 ---
+  console.log('--- 测试 7: 纯几何形状与主题色映射提取 ---');
+  const shapeEl = slide1.elements.find(el => el.type === 'shape');
+  assert(shapeEl, '封面页底部的装饰形状应当被正确保留');
+  assert.strictEqual(shapeEl.shapeType, 'roundRect', '形状类型应当为 roundRect');
+  assert.strictEqual(shapeEl.fillColor?.toUpperCase(), '#3B82F6', '主题色 accent1 应当被正确映射解析为 #3B82F6');
+  console.log(`✅ 形状与主题调色板解析正确: ${shapeEl.shapeType} 填充色: ${shapeEl.fillColor}`);
+
+  // --- 测试 8: 幻灯片内嵌图片与关系表解包提取 ---
+  console.log('--- 测试 8: 内嵌图片与关系表解包提取 ---');
+  const slide2 = parsed.slides[1];
+  const imgEl = slide2.elements.find(el => el.type === 'image');
+  assert(imgEl, '第 2 页应当成功解析出内嵌图片');
+  assert(imgEl.imageDataUrl && imgEl.imageDataUrl.startsWith('data:image/png;base64,'), '图片 DataURL 必须有效');
+  assert.strictEqual(imgEl.imageAlt, '架构示意图', '图片描述应当被正确提取');
+  console.log(`✅ 图片节点解包正确: ${imgEl.imageAlt}, 数据长度: ${imgEl.imageDataUrl.length}`);
+
+  // --- 测试 9: 幻灯片表格结构与单元格提取 ---
+  console.log('--- 测试 9: 表格结构与单元格提取 ---');
+  const slide3 = parsed.slides[2];
+  const tableEl = slide3.elements.find(el => el.type === 'table');
+  assert(tableEl, '第 3 页应当成功解析出特性支持矩阵表格');
+  assert(tableEl.tableRows && tableEl.tableRows.length >= 3, '表格应当至少有 3 行');
+  assert.strictEqual(tableEl.tableRows[0][0].text, '格式类型', '表头第一格文本匹配');
+  assert.strictEqual(tableEl.tableRows[0][0].isHeader, true, '首行应为表头');
+  assert.strictEqual(tableEl.tableRows[1][0].text, 'PowerPoint (.pptx)', '数据行文本匹配');
+  console.log(`✅ 表格矩阵提取正确: ${tableEl.tableRows.length} 行 x ${tableEl.tableRows[0].length} 列`);
+
+  console.log('\n🎉 全部 9 项 PowerPoint (.pptx) 引擎解析、媒体解包与自愈测试 100% 通过！\n');
 }
 
 runTests().catch(err => {

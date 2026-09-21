@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-09-20
+
+### Fixed
+
+- **Mermaid 状态图 (`stateDiagram` / `stateDiagram-v2`) 渲染对比度与暗色文本隐形修复 (State Diagram High Contrast & Accessibility)**:
+  - **显式注入状态图专属主题变量**：补齐 `stateLabelColor`、`stateBkg`、`stateBorder`、`stateEdgeLabelBackground`、`transitionColor`、`transitionLabelColor`、`specialStateColor`、`innerEndBackground` 与 `composite*`，彻底杜绝状态节点文字因变量回退导致与背景同色隐形的问题；
+  - **全局样式对比度与可见性兜底**：在全局样式层补充 `.stateLabel text`、`.statediagram-state text`、`g.stateGroup text`、`.state-title` 等基于 `--ov-text` 语义设计令牌的高对比度色彩与文字抗锯齿渲染约束；
+  - **主题与缓存维度隔离防污染**：渲染缓存键绑定 `themeSuffix`，并在 Markdown 与结构化数据拓扑图中保持深浅色动态响应；
+  - **自动化测试固化**：新增 `scripts/test-mermaid-config.mjs` 测试套件，纳入 CI 核心门禁。
+
 ## [1.0.7] - 2026-09-20
 
 ### Fixed
