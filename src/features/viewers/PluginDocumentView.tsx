@@ -14,7 +14,8 @@ import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
 import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
 import { DocStatusBar } from './components/DocStatusBar';
 import { WorkbenchSettingsModal } from '../workbench/components/WorkbenchSettingsModal';
-import { ExternalLink, Save, Check, Loader2 } from 'lucide-react';
+import { KeyboardShortcutsModal } from './components/HelpShortcutsModal';
+import { ExternalLink, Save, Check, Loader2, Keyboard } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
@@ -147,6 +148,7 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
   const [currentContent, setCurrentContent] = useState(file.content);
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const initialContentRef = useRef(file.content);
   const latestContentRef = useRef(file.content);
 
@@ -183,12 +185,18 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
     }
   }, [file.path, onContentChange, vscode]);
 
-  // 快捷键监听 (Ctrl+S / Cmd+S 立即落盘)
+  // 快捷键监听 (Ctrl+S / Cmd+S 立即落盘; Ctrl+? / Shift+? 打开快捷键指南)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSaveImmediate();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash')))) {
+        e.preventDefault();
+        setIsShortcutsModalOpen(prev => !prev);
+        return;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -270,6 +278,15 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
               <span>在编辑器中打开</span>
             </button>
           )}
+          <button
+            id="btn-non-markdown-shortcuts"
+            onClick={() => setIsShortcutsModalOpen(true)}
+            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 transition text-xs cursor-pointer shadow-xs"
+            title="快捷键与使用指南 (Ctrl+?)"
+          >
+            <Keyboard size={13} className="text-blue-400" />
+            <span className="hidden sm:inline">快捷键</span>
+          </button>
         </div>
       </div>
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden h-full w-full">
@@ -283,6 +300,10 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
           onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file.path }) : undefined}
         />
       </div>
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+      />
     </main>
   );
 };
@@ -299,6 +320,7 @@ const MarkdownPluginView: React.FC<{
   const initialSettings = useMemo(() => loadStoredSettings(), []);
   const [settings, setSettings] = useState<WorkbenchSettings>(initialSettings);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'appearance' | 'editor' | 'diagrams' | 'shortcuts' | 'storage'>('appearance');
   const [locale, setLocale] = useState<Locale>(() => getStoredLocale());
   const [outlineOpen, setOutlineOpen] = useState(initialSettings.outlineOpen ?? true);
   const [outlinePosition, setOutlinePosition] = useState<OutlinePosition>(
@@ -708,7 +730,32 @@ const MarkdownPluginView: React.FC<{
 
   const handleOpenSettings = useCallback(() => {
     setSettings(loadStoredSettings());
+    setSettingsInitialTab('appearance');
     setIsSettingsModalOpen(true);
+  }, []);
+
+  const handleOpenShortcuts = useCallback(() => {
+    setSettings(loadStoredSettings());
+    setSettingsInitialTab('shortcuts');
+    setIsSettingsModalOpen(true);
+  }, []);
+
+  // 快捷键监听 (Ctrl+? 或 Ctrl+Shift+/ 打开快捷键与使用指南)
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash')))) {
+        e.preventDefault();
+        setSettings(loadStoredSettings());
+        setSettingsInitialTab('shortcuts');
+        setIsSettingsModalOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
   }, []);
 
   const handleSettingsChange = useCallback(
@@ -861,6 +908,7 @@ const MarkdownPluginView: React.FC<{
         enableOkf={enableOkfRendering}
         onToggleOkf={handleToggleOkf}
         onOpenSettings={handleOpenSettings}
+        onOpenShortcuts={handleOpenShortcuts}
       />
 
       {/* Main Body: Outline Sidebar + Canvas */}
@@ -981,6 +1029,7 @@ const MarkdownPluginView: React.FC<{
         onClose={() => setIsSettingsModalOpen(false)}
         settings={settings}
         onSettingsChange={handleSettingsChange}
+        initialTab={settingsInitialTab}
       />
     </main>
   );

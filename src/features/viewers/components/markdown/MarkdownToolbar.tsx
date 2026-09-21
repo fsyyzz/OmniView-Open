@@ -30,6 +30,7 @@ import {
   Sparkles,
   Settings,
   Presentation,
+  Keyboard,
 } from 'lucide-react';
 import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
@@ -87,6 +88,7 @@ interface MarkdownToolbarProps {
   enableOkf?: boolean;
   onToggleOkf?: () => void;
   onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
@@ -141,6 +143,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   enableOkf = true,
   onToggleOkf,
   onOpenSettings,
+  onOpenShortcuts,
 }) => {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [densityMenuOpen, setDensityMenuOpen] = useState(false);
@@ -642,6 +645,18 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                 >
                   <Settings size={14} className="text-cyan-400" />
                   <span>{t('settings', locale)}</span>
+                </button>
+              )}
+              {onOpenShortcuts && (
+                <button
+                  onClick={() => {
+                    onOpenShortcuts();
+                    setMoreMenuOpen(false);
+                  }}
+                  title={locale === 'zh-CN' ? '快捷键与交互指南 (Ctrl+?)' : 'Shortcuts & Guide (Ctrl+?)'}
+                >
+                  <Keyboard size={14} className="text-blue-400" />
+                  <span>{locale === 'zh-CN' ? '快捷键指南' : 'Shortcuts Guide'}</span>
                 </button>
               )}
               {onTogglePresentationMode && (

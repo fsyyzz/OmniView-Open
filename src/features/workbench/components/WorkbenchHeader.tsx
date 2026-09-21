@@ -33,6 +33,7 @@ import {
   GitFork,
   FileText,
   Settings,
+  Keyboard,
 } from 'lucide-react';
 import { getVsCodeApi } from '../../../shared/lib/vscode';
 import { requestPrintHtml } from '../../../shared/lib/printBridge';
@@ -52,6 +53,7 @@ interface WorkbenchHeaderProps {
   zoom: number;
   onZoomChange: (zoom: number) => void;
   onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
@@ -69,6 +71,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
   zoom,
   onZoomChange,
   onOpenSettings,
+  onOpenShortcuts,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
@@ -704,6 +707,18 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             aria-label="工作台偏好设置"
           >
             <Settings className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Keyboard Shortcuts & Help Trigger */}
+        {onOpenShortcuts && (
+          <button
+            onClick={onOpenShortcuts}
+            className="p-1 sm:p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md border border-slate-700 transition shadow-sm"
+            title="快捷键与交互指南 (Ctrl+?)"
+            aria-label="快捷键帮助"
+          >
+            <Keyboard className="w-3.5 h-3.5" />
           </button>
         )}
       </div>

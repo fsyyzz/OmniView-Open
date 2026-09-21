@@ -90,8 +90,26 @@ export default function App() {
     return [loadedFiles[0]?.id || INITIAL_FILES[0].id];
   });
 
-  // 4. 设置模态框显隐状态
+  // 4. 设置模态框显隐状态与初始激活 Tab
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'appearance' | 'editor' | 'diagrams' | 'shortcuts' | 'storage'>('appearance');
+
+  // 全局快捷键监听 (Ctrl+? 或 Ctrl+Shift+/ 触发帮助与快捷键面板)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash')))) {
+        e.preventDefault();
+        setSettingsInitialTab('shortcuts');
+        setIsSettingsModalOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // 同步外观与视口变更
   const handleThemeChange = (newTheme: ThemeId) => {
@@ -576,7 +594,14 @@ flowchart LR
           onDensityChange={handleDensityChange}
           zoom={zoom}
           onZoomChange={handleZoomChange}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenSettings={() => {
+            setSettingsInitialTab('appearance');
+            setIsSettingsModalOpen(true);
+          }}
+          onOpenShortcuts={() => {
+            setSettingsInitialTab('shortcuts');
+            setIsSettingsModalOpen(true);
+          }}
         />
 
         {/* Main Workspace */}
@@ -680,6 +705,7 @@ flowchart LR
               settings={settings}
               onSettingsChange={handleSettingsModalChange}
               onResetWorkspace={handleResetWorkspace}
+              initialTab={settingsInitialTab}
             />
           </React.Suspense>
         )}

@@ -22,6 +22,9 @@ import {
   Globe,
   Sparkles,
   Info,
+  Keyboard,
+  HelpCircle,
+  Search,
 } from 'lucide-react';
 import {
   WorkbenchSettings,
@@ -58,9 +61,10 @@ interface WorkbenchSettingsModalProps {
   settings: WorkbenchSettings;
   onSettingsChange: (newSettings: WorkbenchSettings) => void;
   onResetWorkspace?: () => void;
+  initialTab?: TabKey;
 }
 
-type TabKey = 'appearance' | 'editor' | 'diagrams' | 'storage';
+type TabKey = 'appearance' | 'editor' | 'diagrams' | 'shortcuts' | 'storage';
 
 export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   isOpen,
@@ -68,8 +72,9 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   settings,
   onSettingsChange,
   onResetWorkspace,
+  initialTab = 'appearance',
 }) => {
-  const [activeTab, setActiveTab] = useState<TabKey>('appearance');
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [localSettings, setLocalSettings] = useState<WorkbenchSettings>(settings);
   const [storageStats, setStorageStats] = useState(() => getStorageStats());
   const [copied, setCopied] = useState(false);
@@ -83,11 +88,14 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
       setStorageStats(getStorageStats());
       setStatusMessage(null);
       setThemeInfo(getVsCodeThemeInfo());
     }
-  }, [isOpen]);
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
@@ -244,6 +252,19 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
           >
             <Code2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">图表引擎服务</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('shortcuts')}
+            title="快捷键与帮助"
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
+              activeTab === 'shortcuts'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">快捷键与指南</span>
           </button>
 
           <button
@@ -776,6 +797,139 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>恢复出厂设置并还原演示工作区</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: 快捷键与使用指南 */}
+          {activeTab === 'shortcuts' && (
+            <div className="space-y-4">
+              <div className="p-3.5 bg-slate-800/60 border border-slate-700/80 rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-100 flex items-center gap-2">
+                    <span>快捷键与高效交互清单</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      Ctrl + ?
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    支持在任意界面按下 Ctrl+? (或 Shift+/) 随时呼出全屏快捷键速查面板
+                  </div>
+                </div>
+                <div className="w-9 h-9 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+                  <Keyboard className="w-4 h-4" />
+                </div>
+              </div>
+
+              {/* 核心分类卡片 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* 1. 宿主与视图 */}
+                <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                    <Layout className="w-3.5 h-3.5" />
+                    <span>宿主与全局</span>
+                  </div>
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">侧边打开实时预览</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+Shift+V</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">标准 Markdown 预览</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+K V</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">保存并落盘写回</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+S</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">关闭弹窗 / 退出全屏</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Esc</kbd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Markdown 划选排版 */}
+                <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                    <Type className="w-3.5 h-3.5" />
+                    <span>Markdown 选区排版</span>
+                  </div>
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">粗体 (**text**)</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+B</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">斜体 (*text*)</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+I</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">删除线 (~~text~~)</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+Shift+X</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">行内代码 (`code`)</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+E</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">超链接 / 双链</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+K</kbd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. 浏览与检视 */}
+                <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-purple-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                    <Search className="w-3.5 h-3.5" />
+                    <span>检视与缩放</span>
+                  </div>
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">页面内全文高亮查找</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+F</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">放大 / 缩小比例</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">+ / -</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">重置缩放到 100%</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">0</kbd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">打印 / 导出为 PDF</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-slate-300">Ctrl+P</kbd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. 鼠键协同交互手势 */}
+                <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>鼠键协同手势</span>
+                  </div>
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">双击段落反向定位源码</span>
+                      <span className="font-mono text-[10px] text-amber-300/80">双击文本</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">表格就地修改单元格</span>
+                      <span className="font-mono text-[10px] text-amber-300/80">双击单元格</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">无限画布无级缩放</span>
+                      <span className="font-mono text-[10px] text-amber-300/80">Ctrl + 滚轮</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300">拖动画布平移视口</span>
+                      <span className="font-mono text-[10px] text-amber-300/80">空格 + 拖拽</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "1.0.9",
+  "version": "1.0.10",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -229,6 +229,24 @@
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
         "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+      },
+      {
+        "command": "omniview.openSideBySide",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+      },
+      {
+        "command": "omniview.openSource",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s",
+        "when": "activeCustomEditorId == 'omniview.editor'"
+      },
+      {
+        "command": "omniview.togglePreviewLock",
+        "key": "ctrl+alt+l",
+        "mac": "cmd+alt+l",
+        "when": "activeCustomEditorId == 'omniview.editor'"
       }
     ],
     "menus": {
