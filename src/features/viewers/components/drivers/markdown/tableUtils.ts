@@ -238,6 +238,115 @@ export function tableToCsv(headers: string[], rows: string[][]): string {
 }
 
 /**
+ * 转换表格数据为 TSV (制表符分隔) 文本
+ * 粘贴至 Excel / WPS / Google Sheets 时可直接自动映射为多行多列单元格
+ */
+export function tableToTsv(headers: string[], rows: string[][]): string {
+  const escapeCell = (cell: string) => {
+    const str = (cell || '').replace(/\r?\n/g, ' ').trim();
+    if (str.includes('\t') || str.includes('"')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const headerLine = headers.map(escapeCell).join('\t');
+  const rowLines = rows.map(row => row.map(escapeCell).join('\t'));
+  return [headerLine, ...rowLines].join('\r\n');
+}
+
+/**
+ * 转换表格数据为带完整内联样式的语义化 HTML <table> 文本
+ * 供 Word (Docx) / WPS / 邮件 / 笔记软件识别并直接粘贴为原生富文本表格
+ */
+export function tableToHtml(
+  headers: string[],
+  rows: string[][],
+  aligns?: Array<'left' | 'center' | 'right' | null>
+): string {
+  const escapeHtml = (text: string) => {
+    return (text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  };
+
+  const getAlignStyle = (idx: number) => {
+    const align = aligns?.[idx];
+    if (align === 'center') return 'text-align: center;';
+    if (align === 'right') return 'text-align: right;';
+    return 'text-align: left;';
+  };
+
+  const ths = headers
+    .map(
+      (h, i) =>
+        `<th style="border: 1px solid #d1d5db; padding: 8px 12px; font-weight: 600; background-color: #f3f4f6; color: #111827; ${getAlignStyle(i)}">${escapeHtml(h)}</th>`
+    )
+    .join('');
+
+  const trs = rows
+    .map((row, rowIdx) => {
+      const bg = rowIdx % 2 === 1 ? 'background-color: #f9fafb;' : 'background-color: #ffffff;';
+      const tds = row
+        .map(
+          (cell, i) =>
+            `<td style="border: 1px solid #d1d5db; padding: 8px 12px; color: #374151; ${getAlignStyle(i)}">${escapeHtml(cell)}</td>`
+        )
+        .join('');
+      return `<tr style="${bg}">${tds}</tr>`;
+    })
+    .join('');
+
+  return `<table style="border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; width: 100%; border: 1px solid #d1d5db;"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+/**
+ * 复制表格为复合富文本剪贴板 (text/html + text/plain)
+ * 在 Word (Docx) 中粘贴可成为原生带边框的 Word 表格，在 Excel 中粘贴可成为多单元格网格
+ */
+export async function copyTableToRichClipboard(
+  headers: string[],
+  rows: string[][],
+  aligns?: Array<'left' | 'center' | 'right' | null>
+): Promise<{ success: boolean; mode: 'rich' | 'tsv' | 'fallback' }> {
+  const html = tableToHtml(headers, rows, aligns);
+  const tsv = tableToTsv(headers, rows);
+
+  // 1. 优先使用复合 MIME 写入剪贴板 (text/html + text/plain)
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.clipboard &&
+    typeof (window as any).ClipboardItem !== 'undefined'
+  ) {
+    try {
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([tsv], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new (window as any).ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob,
+        }),
+      ]);
+      return { success: true, mode: 'rich' };
+    } catch {
+      // 降级
+    }
+  }
+
+  // 2. 降级使用 TSV 纯文本 (支持直接粘贴到 Excel 单元格网格)
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(tsv);
+      return { success: true, mode: 'tsv' };
+    } catch {}
+  }
+
+  return { success: false, mode: 'fallback' };
+}
+
+/**
  * 转换表格数据为规整对齐的 Markdown 表格源码
  */
 export function tableToMarkdown(

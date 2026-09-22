@@ -11,6 +11,9 @@ import {
   compareCellValues,
   formatRichCellContent,
   tableToCsv,
+  tableToTsv,
+  tableToHtml,
+  copyTableToRichClipboard,
   tableToMarkdown,
   detectChartableColumns,
   highlightMatches,
@@ -139,6 +142,35 @@ console.log('🧪 开始 Markdown 表格工具链单元测试...');
   assert.ok(hoverBlock, '必须定义悬停展开规则');
   assert.doesNotMatch(hoverBlock[0], /max-height:\s*72px/, '悬停时禁止用 max-height 撑开布局');
   console.log('  ✅ 7. 表格工具栏悬浮定位契约测试通过');
+}
+
+// 8. 富文本表格转换与 Office / Excel 互操作性测试
+{
+  const headers = ['品类', '销售额', '毛利率', '备注'];
+  const rows = [
+    ['电子产品', '¥128,000', '28.5%', '畅销品\t热卖'],
+    ['日用百货', '¥64,500', '15.2%', '库存充足'],
+  ];
+  const aligns = ['left', 'right', 'right', 'center'];
+
+  // TSV 转换测试 (Excel 原生网格粘附)
+  const tsv = tableToTsv(headers, rows);
+  assert(tsv.includes('品类\t销售额\t毛利率\t备注'));
+  assert(tsv.includes('"畅销品 热卖"')); // 制表符替换并转义
+
+  // HTML 转换测试 (Word / Docx 原生带边框表格)
+  const html = tableToHtml(headers, rows, aligns);
+  assert(html.includes('<table style='));
+  assert(html.includes('<th style='));
+  assert(html.includes('text-align: right;'));
+  assert(html.includes('¥128,000'));
+  assert(html.includes('border: 1px solid'));
+
+  // 剪贴板复合复制调用测试
+  const copyRes = await copyTableToRichClipboard(headers, rows, aligns);
+  assert.ok(typeof copyRes.success === 'boolean');
+
+  console.log('  ✅ 8. 富文本 (Word/Docx) 与 TSV (Excel) 互操作转换测试通过');
 }
 
 console.log('🎉 所有 Markdown 表格单元测试全部通过！');

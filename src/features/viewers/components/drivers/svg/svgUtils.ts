@@ -1883,3 +1883,528 @@ export function applyLinePreset(
 
   return updateSvgElement(textWithMarkers, targetIndex, updates);
 }
+
+export interface ConstrainedEndpointResult {
+  x: number;
+  y: number;
+  angleDeg: number;
+  length: number;
+  isSnapped: boolean;
+}
+
+/**
+ * Inkscape 风格角度约束计算器 (Ctrl 15° 步进锁定 / Alt 方向锁定 / Shift 对称伸缩)
+ */
+export function calculateConstrainedLineEndpoint(
+  anchorX: number,
+  anchorY: number,
+  rawTargetX: number,
+  rawTargetY: number,
+  options?: {
+    snap15Deg?: boolean;
+    lockAngleDeg?: number;
+    lockLength?: number;
+  }
+): ConstrainedEndpointResult {
+  const dx = rawTargetX - anchorX;
+  const dy = rawTargetY - anchorY;
+  const rawDist = Math.hypot(dx, dy);
+  const length = options?.lockLength !== undefined ? options.lockLength : Math.max(1, rawDist);
+
+  let angleDeg =
+    options?.lockAngleDeg !== undefined
+      ? options.lockAngleDeg
+      : (((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360);
+
+  let isSnapped = false;
+  if (options?.snap15Deg && options?.lockAngleDeg === undefined) {
+    const snapped = Math.round(angleDeg / 15) * 15;
+    angleDeg = (snapped + 360) % 360;
+    isSnapped = true;
+  }
+
+  const rad = (angleDeg * Math.PI) / 180;
+  const x = anchorX + length * Math.cos(rad);
+  const y = anchorY + length * Math.sin(rad);
+
+  return {
+    x: Math.round(x * 100) / 100,
+    y: Math.round(y * 100) / 100,
+    angleDeg: Math.round(angleDeg * 10) / 10,
+    length: Math.round(length * 10) / 10,
+    isSnapped,
+  };
+}
+
+/**
+ * 二次贝塞尔曲线控制点与弧高计算
+ */
+export function calculateCurveControlPoint(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  curvatureHeight: number
+): { cx: number; cy: number } {
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  if (len < 0.001) return { cx: mx, cy: my };
+
+  // 法向量 (-dy/len, dx/len)
+  const nx = -(y2 - y1) / len;
+  const ny = (x2 - x1) / len;
+
+  return {
+    cx: Math.round((mx + nx * curvatureHeight) * 100) / 100,
+    cy: Math.round((my + ny * curvatureHeight) * 100) / 100,
+  };
+}
+
+/**
+ * 将指定直线或者单段路径转换为带指定弧高 (曲率) 的二次贝塞尔曲线路径
+ */
+export function convertLineToCurve(
+  svgText: string,
+  targetIndex: number,
+  curvatureHeight: number = 30
+): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info) return svgText;
+
+  let x1 = 0;
+  let y1 = 0;
+  let x2 = 0;
+  let y2 = 0;
+
+  if (info.tagName === 'line') {
+    x1 = parseFloat(info.x1 || '0');
+    y1 = parseFloat(info.y1 || '0');
+    x2 = parseFloat(info.x2 || '0');
+    y2 = parseFloat(info.y2 || '0');
+  } else if (info.tagName === 'path' && info.d) {
+    // 尝试从 d 中提取起点和终点
+    const match = info.d.match(/M\s*([\d.-]+)[,\s]+([\d.-]+).*?([-\d.]+)[,\s]+([-\d.]+)\s*$/i);
+    if (match) {
+      x1 = parseFloat(match[1]);
+      y1 = parseFloat(match[2]);
+      x2 = parseFloat(match[3]);
+      y2 = parseFloat(match[4]);
+    } else {
+      return svgText;
+    }
+  } else {
+    return svgText;
+  }
+
+  const { cx, cy } = calculateCurveControlPoint(x1, y1, x2, y2, curvatureHeight);
+  const newD = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+
+  if (info.tagName === 'path') {
+    return updateSvgElement(svgText, targetIndex, { d: newD });
+  }
+
+  // 若为 line，转换为 path 标签
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+      const target = elements[targetIndex];
+      if (target && target.tagName.toLowerCase() === 'line') {
+        const pathEl = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+        for (let i = 0; i < target.attributes.length; i++) {
+          const attr = target.attributes[i];
+          if (!['x1', 'y1', 'x2', 'y2'].includes(attr.name)) {
+            pathEl.setAttribute(attr.name, attr.value);
+          }
+        }
+        pathEl.setAttribute('d', newD);
+        if (!pathEl.getAttribute('fill')) pathEl.setAttribute('fill', 'none');
+        target.parentElement?.replaceChild(pathEl, target);
+        cleanOmniAttributes(doc);
+        return prettifySvg(new XMLSerializer().serializeToString(doc));
+      }
+    } catch {}
+  }
+
+  // Node.js fallback 替换
+  const lineRegex = /<line\b([^>]*)>/gi;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = lineRegex.exec(svgText)) !== null) {
+    if (idx === targetIndex) {
+      let attrs = match[1].replace(/\s*(?:x1|y1|x2|y2)=["'][^"']*["']/gi, '').trim();
+      if (!/fill=/i.test(attrs)) attrs += ' fill="none"';
+      const replacement = `<path d="${newD}" ${attrs}>`;
+      const before = svgText.slice(0, match.index);
+      const after = svgText.slice(match.index + match[0].length);
+      return prettifySvg(before + replacement + after);
+    }
+    idx++;
+  }
+
+  return svgText;
+}
+
+/**
+ * 将二次贝塞尔曲线或折线一键拉直为标准直线
+ */
+export function convertCurveToStraightLine(svgText: string, targetIndex: number): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info || info.tagName !== 'path' || !info.d) return svgText;
+
+  // 提取首尾点
+  const coords: number[] = [];
+  const numRegex = /[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?/g;
+  let numMatch: RegExpExecArray | null;
+  while ((numMatch = numRegex.exec(info.d)) !== null) {
+    coords.push(parseFloat(numMatch[0]));
+  }
+  if (coords.length < 4) return svgText;
+
+  const x1 = coords[0];
+  const y1 = coords[1];
+  const x2 = coords[coords.length - 2];
+  const y2 = coords[coords.length - 1];
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+      const target = elements[targetIndex];
+      if (target && target.tagName.toLowerCase() === 'path') {
+        const lineEl = doc.createElementNS('http://www.w3.org/2000/svg', 'line');
+        for (let i = 0; i < target.attributes.length; i++) {
+          const attr = target.attributes[i];
+          if (attr.name !== 'd') {
+            lineEl.setAttribute(attr.name, attr.value);
+          }
+        }
+        lineEl.setAttribute('x1', String(x1));
+        lineEl.setAttribute('y1', String(y1));
+        lineEl.setAttribute('x2', String(x2));
+        lineEl.setAttribute('y2', String(y2));
+        target.parentElement?.replaceChild(lineEl, target);
+        cleanOmniAttributes(doc);
+        return prettifySvg(new XMLSerializer().serializeToString(doc));
+      }
+    } catch {}
+  }
+
+  // Node fallback: 直接替换 d 为 M x1 y1 L x2 y2
+  return updateSvgElement(svgText, targetIndex, {
+    d: `M ${x1} ${y1} L ${x2} ${y2}`,
+  });
+}
+
+/**
+ * Path 节点与控制手柄结构
+ */
+export interface PathNodeInfo {
+  index: number;
+  type: 'corner' | 'smooth' | 'symmetric';
+  x: number;
+  y: number;
+  command: string; // 'M' | 'L' | 'Q' | 'C' | 'Z'
+  controlPoints?: Array<{ x: number; y: number; index: number }>;
+  handleIn?: { x: number; y: number };
+  handleOut?: { x: number; y: number };
+}
+
+export type SvgPathNode = PathNodeInfo;
+
+/**
+ * 解析 SVG 路径为带坐标和控制点的离散节点
+ */
+export function parseSvgPathNodes(d: string): PathNodeInfo[] {
+  if (!d) return [];
+  const nodes: PathNodeInfo[] = [];
+
+  // 简易但高容错的 Path 命令解析器
+  const cmdRegex = /([a-df-z])([^a-df-z]*)/gi;
+  let match: RegExpExecArray | null;
+  let currentX = 0;
+  let currentY = 0;
+  let nodeIdx = 0;
+
+  while ((match = cmdRegex.exec(d)) !== null) {
+    const cmd = match[1];
+    const upperCmd = cmd.toUpperCase();
+    const isRel = cmd !== upperCmd;
+    const args = match[2]
+      .trim()
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(Number);
+
+    if (upperCmd === 'M' || upperCmd === 'L') {
+      for (let i = 0; i < args.length; i += 2) {
+        if (i + 1 < args.length) {
+          const px = isRel ? currentX + args[i] : args[i];
+          const py = isRel ? currentY + args[i + 1] : args[i + 1];
+          currentX = px;
+          currentY = py;
+          nodes.push({
+            index: nodeIdx++,
+            type: 'corner',
+            x: Math.round(px * 100) / 100,
+            y: Math.round(py * 100) / 100,
+            command: i === 0 && upperCmd === 'M' ? 'M' : 'L',
+          });
+        }
+      }
+    } else if (upperCmd === 'H') {
+      for (let i = 0; i < args.length; i++) {
+        const px = isRel ? currentX + args[i] : args[i];
+        currentX = px;
+        nodes.push({
+          index: nodeIdx++,
+          type: 'corner',
+          x: Math.round(px * 100) / 100,
+          y: Math.round(currentY * 100) / 100,
+          command: 'L',
+        });
+      }
+    } else if (upperCmd === 'V') {
+      for (let i = 0; i < args.length; i++) {
+        const py = isRel ? currentY + args[i] : args[i];
+        currentY = py;
+        nodes.push({
+          index: nodeIdx++,
+          type: 'corner',
+          x: Math.round(currentX * 100) / 100,
+          y: Math.round(py * 100) / 100,
+          command: 'L',
+        });
+      }
+    } else if (upperCmd === 'Q') {
+      // Q cpx cpy x y
+      for (let i = 0; i < args.length; i += 4) {
+        if (i + 3 < args.length) {
+          const cpx = isRel ? currentX + args[i] : args[i];
+          const cpy = isRel ? currentY + args[i + 1] : args[i + 1];
+          const endX = isRel ? currentX + args[i + 2] : args[i + 2];
+          const endY = isRel ? currentY + args[i + 3] : args[i + 3];
+          currentX = endX;
+          currentY = endY;
+          nodes.push({
+            index: nodeIdx++,
+            type: 'smooth',
+            x: Math.round(endX * 100) / 100,
+            y: Math.round(endY * 100) / 100,
+            command: 'Q',
+            controlPoints: [{ x: Math.round(cpx * 100) / 100, y: Math.round(cpy * 100) / 100, index: 0 }],
+            handleIn: { x: Math.round(cpx * 100) / 100, y: Math.round(cpy * 100) / 100 },
+          });
+        }
+      }
+    } else if (upperCmd === 'C') {
+      // C cp1x cp1y cp2x cp2y x y
+      for (let i = 0; i < args.length; i += 6) {
+        if (i + 5 < args.length) {
+          const cp1x = isRel ? currentX + args[i] : args[i];
+          const cp1y = isRel ? currentY + args[i + 1] : args[i + 1];
+          const cp2x = isRel ? currentX + args[i + 2] : args[i + 2];
+          const cp2y = isRel ? currentY + args[i + 3] : args[i + 3];
+          const endX = isRel ? currentX + args[i + 4] : args[i + 4];
+          const endY = isRel ? currentY + args[i + 5] : args[i + 5];
+          currentX = endX;
+          currentY = endY;
+          nodes.push({
+            index: nodeIdx++,
+            type: 'smooth',
+            x: Math.round(endX * 100) / 100,
+            y: Math.round(endY * 100) / 100,
+            command: 'C',
+            controlPoints: [
+              { x: Math.round(cp1x * 100) / 100, y: Math.round(cp1y * 100) / 100, index: 0 },
+              { x: Math.round(cp2x * 100) / 100, y: Math.round(cp2y * 100) / 100, index: 1 },
+            ],
+            handleIn: { x: Math.round(cp1x * 100) / 100, y: Math.round(cp1y * 100) / 100 },
+            handleOut: { x: Math.round(cp2x * 100) / 100, y: Math.round(cp2y * 100) / 100 },
+          });
+        }
+      }
+    }
+  }
+
+  return nodes;
+}
+
+/**
+ * 将 PathNode 列表重新序列化为标准的 SVG d 属性字符串
+ */
+export function serializeSvgPathNodes(nodes: PathNodeInfo[], isClosed: boolean = false): string {
+  if (nodes.length === 0) return '';
+  const parts: string[] = [];
+
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (i === 0) {
+      parts.push(`M ${node.x} ${node.y}`);
+    } else if (node.command === 'Q' && node.controlPoints && node.controlPoints.length > 0) {
+      parts.push(`Q ${node.controlPoints[0].x} ${node.controlPoints[0].y} ${node.x} ${node.y}`);
+    } else if (node.command === 'C' && node.controlPoints && node.controlPoints.length >= 2) {
+      parts.push(
+        `C ${node.controlPoints[0].x} ${node.controlPoints[0].y} ${node.controlPoints[1].x} ${node.controlPoints[1].y} ${node.x} ${node.y}`
+      );
+    } else {
+      parts.push(`L ${node.x} ${node.y}`);
+    }
+  }
+
+  if (isClosed) parts.push('Z');
+  return parts.join(' ');
+}
+
+/**
+ * 更新 Path 的指定节点坐标或控制点坐标
+ */
+export function updateSvgPathNode(
+  svgText: string,
+  targetIndex: number,
+  nodeIndex: number,
+  newX: number,
+  newY: number,
+  controlPointIndex?: number
+): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info || info.tagName !== 'path' || !info.d) return svgText;
+
+  const nodes = parseSvgPathNodes(info.d);
+  if (!nodes[nodeIndex]) return svgText;
+
+  if (controlPointIndex !== undefined && nodes[nodeIndex].controlPoints?.[controlPointIndex]) {
+    nodes[nodeIndex].controlPoints![controlPointIndex].x = Math.round(newX * 100) / 100;
+    nodes[nodeIndex].controlPoints![controlPointIndex].y = Math.round(newY * 100) / 100;
+  } else {
+    nodes[nodeIndex].x = Math.round(newX * 100) / 100;
+    nodes[nodeIndex].y = Math.round(newY * 100) / 100;
+  }
+
+  const isClosed = /z\s*$/i.test(info.d.trim());
+  const newD = serializeSvgPathNodes(nodes, isClosed);
+  return updateSvgElement(svgText, targetIndex, { d: newD });
+}
+
+/**
+ * 在 Path 的指定线段间插入一个新节点 (中点分割)
+ */
+export function insertNodeIntoPath(
+  svgText: string,
+  targetIndex: number,
+  afterNodeIndex: number
+): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info || info.tagName !== 'path' || !info.d) return svgText;
+
+  const nodes = parseSvgPathNodes(info.d);
+  if (afterNodeIndex < 0 || afterNodeIndex >= nodes.length - 1) return svgText;
+
+  const prev = nodes[afterNodeIndex];
+  const next = nodes[afterNodeIndex + 1];
+  const midX = Math.round(((prev.x + next.x) / 2) * 100) / 100;
+  const midY = Math.round(((prev.y + next.y) / 2) * 100) / 100;
+
+  const newNode: PathNodeInfo = {
+    index: afterNodeIndex + 1,
+    type: 'corner',
+    x: midX,
+    y: midY,
+    command: 'L',
+  };
+
+  nodes.splice(afterNodeIndex + 1, 0, newNode);
+  // 重置索引
+  nodes.forEach((n, idx) => (n.index = idx));
+
+  const isClosed = /z\s*$/i.test(info.d.trim());
+  const newD = serializeSvgPathNodes(nodes, isClosed);
+  return updateSvgElement(svgText, targetIndex, { d: newD });
+}
+
+/**
+ * 删除 Path 的指定节点并自愈连接
+ */
+export function deleteNodeFromPath(
+  svgText: string,
+  targetIndex: number,
+  nodeIndex: number
+): string {
+  const info = getSvgElementInfo(svgText, targetIndex);
+  if (!info || info.tagName !== 'path' || !info.d) return svgText;
+
+  const nodes = parseSvgPathNodes(info.d);
+  if (nodes.length <= 2 || nodeIndex < 0 || nodeIndex >= nodes.length) return svgText;
+
+  nodes.splice(nodeIndex, 1);
+  if (nodes.length > 0) {
+    nodes[0].command = 'M';
+  }
+  nodes.forEach((n, idx) => (n.index = idx));
+
+  const isClosed = /z\s*$/i.test(info.d.trim());
+  const newD = serializeSvgPathNodes(nodes, isClosed);
+  return updateSvgElement(svgText, targetIndex, { d: newD });
+}
+
+/**
+ * 向 SVG 画布中插入一条新绘制的直线
+ */
+export function addNewLineToSvg(
+  svgText: string,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  options?: {
+    stroke?: string;
+    strokeWidth?: string;
+    markerEnd?: string;
+  }
+): string {
+  const stroke = options?.stroke || '#3b82f6';
+  const strokeWidth = options?.strokeWidth || '2';
+  const markerEndAttr = options?.markerEnd ? ` marker-end="${options.markerEnd}"` : '';
+
+  const newLineTag = `  <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"${markerEndAttr} />\n`;
+
+  if (svgText.includes('</svg>')) {
+    return svgText.replace('</svg>', `${newLineTag}</svg>`);
+  }
+  return svgText + `\n<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">\n${newLineTag}</svg>`;
+}
+
+/**
+ * 向 SVG 画布中插入一条新绘制的折线或多点路径
+ */
+export function addNewPolylineToSvg(
+  svgText: string,
+  points: Array<{ x: number; y: number }>,
+  options?: {
+    isClosed?: boolean;
+    stroke?: string;
+    strokeWidth?: string;
+    markerEnd?: string;
+  }
+): string {
+  if (points.length < 2) return svgText;
+  const stroke = options?.stroke || '#3b82f6';
+  const strokeWidth = options?.strokeWidth || '2';
+  const markerEndAttr = options?.markerEnd ? ` marker-end="${options.markerEnd}"` : '';
+
+  const d = points
+    .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`)
+    .concat(options?.isClosed ? ['Z'] : [])
+    .join(' ');
+
+  const newPathTag = `  <path d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${markerEndAttr} />\n`;
+
+  if (svgText.includes('</svg>')) {
+    return svgText.replace('</svg>', `${newPathTag}</svg>`);
+  }
+  return svgText + `\n<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">\n${newPathTag}</svg>`;
+}
+

@@ -13,7 +13,9 @@ import { useScrollHeadingSpy } from './hooks/useScrollHeadingSpy';
 import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
 import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
 import { DocStatusBar } from './components/DocStatusBar';
-import { WorkbenchSettingsModal } from '../workbench/components/WorkbenchSettingsModal';
+const WorkbenchSettingsModal = React.lazy(() =>
+  import('../workbench/components/WorkbenchSettingsModal').then(m => ({ default: m.WorkbenchSettingsModal }))
+);
 import { KeyboardShortcutsModal } from './components/HelpShortcutsModal';
 import { ExternalLink, Save, Check, Loader2, Keyboard } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
@@ -1024,13 +1026,17 @@ const MarkdownPluginView: React.FC<{
           <span className="markdown-presentation-hud-hint">{t('presentationHudHint', locale)}</span>
         </div>
       )}
-      <WorkbenchSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        settings={settings}
-        onSettingsChange={handleSettingsChange}
-        initialTab={settingsInitialTab}
-      />
+      {isSettingsModalOpen && (
+        <React.Suspense fallback={null}>
+          <WorkbenchSettingsModal
+            isOpen={isSettingsModalOpen}
+            onClose={() => setIsSettingsModalOpen(false)}
+            settings={settings}
+            onSettingsChange={handleSettingsChange}
+            initialTab={settingsInitialTab}
+          />
+        </React.Suspense>
+      )}
     </main>
   );
 };

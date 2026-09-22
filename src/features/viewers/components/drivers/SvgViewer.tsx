@@ -25,6 +25,13 @@ import {
   CalculatedResizeBBox,
   ElementBBox,
   SvgElementInfo,
+  convertLineToCurve,
+  convertCurveToStraightLine,
+  parseSvgPathNodes,
+  serializeSvgPathNodes,
+  insertNodeIntoPath,
+  deleteNodeFromPath,
+  updateSvgPathNode,
 } from './svg/svgUtils';
 import { SvgCanvas, SvgBgMode } from './svg/SvgCanvas';
 import { SvgCodeEditor } from './svg/SvgCodeEditor';
@@ -65,6 +72,10 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
   });
   const [selectedElementIndex, setSelectedElementIndex] = useState<number | null>(null);
   const [highlightLine, setHighlightLine] = useState<number | null>(null);
+
+  // Inkscape 风格工具箱与 15°角度吸附约束状态
+  const [activeTool, setActiveTool] = useState<'select' | 'node' | 'pen'>('select');
+  const [snap15Deg, setSnap15Deg] = useState<boolean>(true);
 
   // 视图模式：分屏 (split) / 仅画布 (visual) / 仅代码 (code)
   const [viewMode, setViewMode] = useState<SvgViewMode>(() => {
@@ -269,6 +280,88 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
     [code, selectedElementIndex, handleCodeChange]
   );
 
+  // Inkscape: 直线转二次贝塞尔曲线
+  const handleConvertToCurve = useCallback(
+    (curvatureHeight?: number) => {
+      if (selectedElementIndex === null) return;
+      const updatedCode = convertLineToCurve(code, selectedElementIndex, curvatureHeight);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndex, handleCodeChange]
+  );
+
+  // Inkscape: 曲线拉直为直线
+  const handleStraighten = useCallback(() => {
+    if (selectedElementIndex === null) return;
+    const updatedCode = convertCurveToStraightLine(code, selectedElementIndex);
+    handleCodeChange(updatedCode);
+  }, [code, selectedElementIndex, handleCodeChange]);
+
+  // Inkscape: 更新路径节点或控制柄位置 (F2 节点工具)
+  const handleUpdatePathNode = useCallback(
+    (nodeIndex: number, newX: number, newY: number, cpIndex?: number) => {
+      if (selectedElementIndex === null) return;
+      const updatedCode = updateSvgPathNode(code, selectedElementIndex, nodeIndex, newX, newY, cpIndex);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndex, handleCodeChange]
+  );
+
+  // Inkscape: 在两个节点之间插入新节点 (Double-click / Insert Node)
+  const handleInsertPathNode = useCallback(
+    (afterIndex: number) => {
+      if (selectedElementIndex === null) return;
+      const updatedCode = insertNodeIntoPath(code, selectedElementIndex, afterIndex);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndex, handleCodeChange]
+  );
+
+  // Inkscape: 删除选中节点并自动闭合线段
+  const handleDeletePathNode = useCallback(
+    (index: number) => {
+      if (selectedElementIndex === null) return;
+      const updatedCode = deleteNodeFromPath(code, selectedElementIndex, index);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndex, handleCodeChange]
+  );
+
+  // Inkscape: 切换节点类型 (尖锐角 corner -> 平滑 smooth -> 对称 symmetric)
+  const handleTogglePathNodeType = useCallback(
+    (nodeIndex: number) => {
+      if (selectedElementIndex === null || !selectedElementInfo) return;
+      const d = selectedElementInfo.d || '';
+      const nodes = parseSvgPathNodes(d);
+      if (!nodes[nodeIndex]) return;
+      const current = nodes[nodeIndex].type;
+      const nextType: 'corner' | 'smooth' | 'symmetric' =
+        current === 'corner' ? 'smooth' : current === 'smooth' ? 'symmetric' : 'corner';
+      nodes[nodeIndex].type = nextType;
+      const newD = serializeSvgPathNodes(nodes);
+      handleUpdateElement({ d: newD });
+    },
+    [selectedElementIndex, selectedElementInfo, handleUpdateElement]
+  );
+
+  // Inkscape: 钢笔完成绘制折线或多边形 (Pen Tool F6)
+  const handleAddNewPolyline = useCallback(
+    (points: Array<{ x: number; y: number }>) => {
+      if (points.length < 2) return;
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const d = points
+        .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${round2(p.x)} ${round2(p.y)}`)
+        .join(' ');
+      const newElementStr = `  <path d="${d}" stroke="currentColor" stroke-width="2" fill="none" />\n`;
+      const closeTagIdx = code.lastIndexOf('</svg>');
+      if (closeTagIdx !== -1) {
+        const updatedCode = code.slice(0, closeTagIdx) + newElementStr + code.slice(closeTagIdx);
+        handleCodeChange(updatedCode);
+      }
+    },
+    [code, handleCodeChange]
+  );
+
   // 分屏拖拽逻辑
   const handleSplitterMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -410,6 +503,10 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
         onDownloadSvg={handleDownloadSvg}
         inspectorActive={inspectorActive}
         onToggleInspector={handleToggleInspector}
+        activeTool={activeTool}
+        onChangeActiveTool={setActiveTool}
+        snap15Deg={snap15Deg}
+        onToggleSnap15Deg={() => setSnap15Deg(prev => !prev)}
       />
 
       {/* 优化操作浮动提示卡 */}
@@ -500,6 +597,17 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
               onReverseLine={handleReverseLine}
               onConvertToStepLine={handleConvertToStepLine}
               onApplyLinePreset={handleApplyLinePreset}
+              activeTool={activeTool}
+              onChangeActiveTool={setActiveTool}
+              snap15Deg={snap15Deg}
+              onToggleSnap15Deg={() => setSnap15Deg(prev => !prev)}
+              onConvertToCurve={handleConvertToCurve}
+              onStraighten={handleStraighten}
+              onUpdatePathNode={handleUpdatePathNode}
+              onInsertPathNode={handleInsertPathNode}
+              onDeletePathNode={handleDeletePathNode}
+              onTogglePathNodeType={handleTogglePathNodeType}
+              onAddNewPolyline={handleAddNewPolyline}
             />
           </div>
         )}

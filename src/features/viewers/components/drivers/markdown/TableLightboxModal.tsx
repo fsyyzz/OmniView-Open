@@ -23,13 +23,16 @@ import {
   ArrowUpDown,
   Code,
   SlidersHorizontal,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import {
   compareCellValues,
   formatRichCellContent,
   tableToCsv,
+  tableToTsv,
   tableToMarkdown,
+  copyTableToRichClipboard,
   detectChartableColumns,
   parseNumericValue,
   calculateColStats,
@@ -89,7 +92,7 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
   const [density, setDensity] = useState<'compact' | 'standard'>(initialDensity);
   const [showRowNumbers, setShowRowNumbers] = useState<boolean>(initialShowRowNumbers);
   const [viewMode, setViewMode] = useState<'table' | 'chart'>(initialViewMode);
-  const [copiedType, setCopiedType] = useState<'md' | 'csv' | null>(null);
+  const [copiedType, setCopiedType] = useState<'md' | 'csv' | 'rich' | 'tsv' | null>(null);
   const [hoveredColIndex, setHoveredColIndex] = useState<number | null>(null);
   const [colWidths, setColWidths] = useState<Record<number, number>>({});
   const [resizingCol, setResizingCol] = useState<{ index: number; startX: number; startWidth: number } | null>(null);
@@ -215,7 +218,23 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
     }
   };
 
-  // 4. 复制 Markdown
+  // 4. 复制富文本 (直贴 Word / Excel 原生表格)
+  const handleCopyRich = async () => {
+    try {
+      const aligns = header.map((h, i) => align[i] || h.align || null);
+      const res = await copyTableToRichClipboard(headerTexts, rawRowCells, aligns);
+      if (res.success) {
+        setCopiedType('rich');
+        setTimeout(() => setCopiedType(null), 2000);
+      } else {
+        await handleCopyMarkdown();
+      }
+    } catch {
+      await handleCopyMarkdown();
+    }
+  };
+
+  // 5. 复制 Markdown
   const handleCopyMarkdown = async () => {
     let md = rawMarkdown;
     if (!md) {
@@ -407,6 +426,26 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
               <span className="hidden md:inline">{t('tableResetColWidths', locale)}</span>
             </button>
           )}
+
+          {/* 复制富文本 (直贴 Word / Excel 原生表格) */}
+          <button
+            type="button"
+            onClick={handleCopyRich}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs transition"
+            title={t('tableCopyRich', locale)}
+          >
+            {copiedType === 'rich' ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400 hidden sm:inline">{t('copiedRich', locale)}</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Word/Excel</span>
+              </>
+            )}
+          </button>
 
           {/* 复制 Markdown */}
           <button

@@ -21,7 +21,11 @@ import {
   Image as ImageIcon,
   Share2,
   Crosshair,
+  MousePointer,
+  PenTool,
+  GitCommit,
 } from 'lucide-react';
+
 import { SvgStats, exportSvgAsPng } from './svgUtils';
 import { SvgBgMode } from './SvgCanvas';
 import { useContainerWidth } from '../../../hooks/useContainerWidth';
@@ -52,6 +56,10 @@ interface SvgToolbarProps {
   onDownloadSvg: () => void;
   inspectorActive?: boolean;
   onToggleInspector?: () => void;
+  activeTool?: 'select' | 'node' | 'pen';
+  onChangeActiveTool?: (tool: 'select' | 'node' | 'pen') => void;
+  snap15Deg?: boolean;
+  onToggleSnap15Deg?: () => void;
 }
 
 export const SvgToolbar: React.FC<SvgToolbarProps> = ({
@@ -78,6 +86,10 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
   onDownloadSvg,
   inspectorActive = false,
   onToggleInspector,
+  activeTool = 'select',
+  onChangeActiveTool,
+  snap15Deg = false,
+  onToggleSnap15Deg,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
@@ -358,6 +370,77 @@ export const SvgToolbar: React.FC<SvgToolbarProps> = ({
                 {inspectorActive && (
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                 )}
+              </button>
+            )}
+
+            {/* Inkscape 风格工具箱 (选择 / 节点编辑 / 线段钢笔) */}
+            {onChangeActiveTool && (
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                }}
+                className="flex items-center gap-0.5 p-0.5 rounded-md border text-xs"
+              >
+                <button
+                  type="button"
+                  onClick={() => onChangeActiveTool('select')}
+                  style={{
+                    backgroundColor: activeTool === 'select' ? 'var(--ov-surface)' : 'transparent',
+                    color: activeTool === 'select' ? 'var(--ov-accent, #06b6d4)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="p-1 rounded transition flex items-center gap-1 cursor-pointer font-medium hover:text-cyan-300"
+                  title="选择与变换工具 (F1 / S)"
+                >
+                  <MousePointer className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline text-[11px]">选择</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onChangeActiveTool('node')}
+                  style={{
+                    backgroundColor: activeTool === 'node' ? 'var(--ov-surface)' : 'transparent',
+                    color: activeTool === 'node' ? 'var(--ov-accent, #a855f7)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="p-1 rounded transition flex items-center gap-1 cursor-pointer font-medium hover:text-purple-300"
+                  title="节点编辑工具 (F2 / N) - 调整顶点与贝塞尔控制点"
+                >
+                  <GitCommit className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline text-[11px]">节点</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onChangeActiveTool('pen')}
+                  style={{
+                    backgroundColor: activeTool === 'pen' ? 'var(--ov-surface)' : 'transparent',
+                    color: activeTool === 'pen' ? 'var(--ov-accent, #10b981)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="p-1 rounded transition flex items-center gap-1 cursor-pointer font-medium hover:text-emerald-300"
+                  title="线段与折线绘制 (F6 / P) - 点击放置端点，按住 Ctrl 15° 步进锁定"
+                >
+                  <PenTool className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline text-[11px]">钢笔</span>
+                </button>
+              </div>
+            )}
+
+            {/* 15° 角度步进锁定开关 */}
+            {onToggleSnap15Deg && (
+              <button
+                type="button"
+                onClick={onToggleSnap15Deg}
+                style={{
+                  backgroundColor: snap15Deg ? 'rgba(245, 158, 11, 0.2)' : 'var(--ov-surface-header)',
+                  borderColor: snap15Deg ? 'rgba(245, 158, 11, 0.6)' : 'var(--ov-border)',
+                  color: snap15Deg ? '#fcd34d' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-1.5 py-1 rounded text-xs border transition cursor-pointer font-medium"
+                title="15° 步进角度锁定 (或在拖拽时按住 Ctrl / Cmd 键)"
+              >
+                <span className="font-mono text-[10px]">15°</span>
+                <span className="hidden xl:inline text-[11px]">锁定</span>
               </button>
             )}
           </div>

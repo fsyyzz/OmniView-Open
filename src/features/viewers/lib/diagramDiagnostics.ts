@@ -102,8 +102,25 @@ export function analyzeMermaidError(
 
   // 默认兜底诊断
   if (causes.length === 0) {
-    causes.push(isZh ? '图表语法或箭头连接符不符合 Mermaid.js 规范' : 'Diagram syntax or connectors do not conform to Mermaid.js grammar.');
-    causes.push(isZh ? '关键字拼写错误或当前图表类型不支持该语法' : 'Keyword typo or unsupported syntax for the active diagram type.');
+    if (/Failed to fetch dynamically imported module/i.test(rawError)) {
+      causes.push(
+        isZh
+          ? '浏览器加载图表动态模块时网络或本地缓存哈希失步，通常发生于开发服务器重启或热更缓存刷新后'
+          : 'Failed to load diagram dynamic chunk due to cache hash mismatch or network interruption.'
+      );
+      causes.push(
+        isZh
+          ? '部分特定图表（如饼图 pie / 架构图 architecture）通过异步动态分块按需加载'
+          : 'Certain diagram types (such as pie / architecture) are lazily loaded on-demand via dynamic chunks.'
+      );
+      suggestions.push({
+        title: isZh ? '一键重新触发渲染并刷新模块缓存' : 'Retry diagram rendering to reload chunk',
+        description: isZh ? '点击下方“重新渲染”或刷新页面，重新拉取最新预构建资源分块' : 'Click "Re-render" below or refresh the page to reload assets.',
+      });
+    } else {
+      causes.push(isZh ? '图表语法或箭头连接符不符合 Mermaid.js 规范' : 'Diagram syntax or connectors do not conform to Mermaid.js grammar.');
+      causes.push(isZh ? '关键字拼写错误或当前图表类型不支持该语法' : 'Keyword typo or unsupported syntax for the active diagram type.');
+    }
   }
 
   return {

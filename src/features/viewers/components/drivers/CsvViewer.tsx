@@ -34,14 +34,17 @@ import {
 import { Locale, t } from '../../../../shared/lib/i18n';
 import {
   CsvDelimiter,
-  parseCsv,
   serializeCsv,
   exportToJson,
   exportToMarkdown
 } from './csv/csvUtils';
-import { profileAllColumns, ColumnProfile } from './csv/csvProfiling';
+import { copyTableToRichClipboard } from './markdown/tableUtils';
+import { ColumnProfile } from './csv/csvProfiling';
 import { ColumnSparklineMini } from './csv/ColumnSparklineMini';
 import { ColumnProfileModal } from './csv/ColumnProfileModal';
+import { useCsvGrid } from './csv/useCsvGrid';
+import { AddColumnModal } from './csv/AddColumnModal';
+import { CsvPaginationBar } from './csv/CsvPaginationBar';
 
 interface CsvViewerProps {
   content: string;
@@ -56,299 +59,68 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
   locale = 'zh-CN',
   onContentChange,
 }) => {
-  // Parse initial content
-  const initialData = useMemo(() => parseCsv(content), [content]);
-
-  // Working state for headers, rows, and active delimiter
-  const [headers, setHeaders] = useState<string[]>(initialData.headers);
-  const [rows, setRows] = useState<string[][]>(initialData.rows);
-  const [delimiter, setDelimiter] = useState<CsvDelimiter>(initialData.delimiter);
-
-  // Synchronize when external content changes (if not locally dirty)
-  useEffect(() => {
-    const parsed = parseCsv(content);
-    setHeaders(parsed.headers);
-    setRows(parsed.rows);
-    setDelimiter(parsed.delimiter);
-  }, [content]);
-
-  // Mode: 'table' (Grid) vs 'raw' (Source Text)
-  const [viewMode, setViewMode] = useState<'table' | 'raw'>('table');
-  const [rawText, setRawText] = useState(content);
-
-  // Search, Sort & Pagination
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortCol, setSortCol] = useState<number | null>(null);
-  const [sortAsc, setSortAsc] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(20);
-
-  // In-place Cell Editing: { originalRowIdx, colIdx }
-  const [editingCell, setEditingCell] = useState<{ rowIdx: number; colIdx: number } | null>(null);
-  const [editCellValue, setEditCellValue] = useState('');
-  const cellInputRef = useRef<HTMLInputElement>(null);
-
-  // Header Renaming: colIdx
-  const [editingHeaderIdx, setEditingHeaderIdx] = useState<number | null>(null);
-  const [editHeaderValue, setEditHeaderValue] = useState('');
-  const headerInputRef = useRef<HTMLInputElement>(null);
+  const {
+    headers,
+    rows,
+    delimiter,
+    viewMode,
+    setViewMode,
+    rawText,
+    setRawText,
+    searchQuery,
+    setSearchQuery,
+    sortCol,
+    setSortCol,
+    sortAsc,
+    setSortAsc,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    filteredIndexedRows,
+    paginatedIndexedRows,
+    editingCell,
+    editCellValue,
+    setEditCellValue,
+    cellInputRef,
+    editingHeaderIdx,
+    setEditingHeaderIdx,
+    editHeaderValue,
+    setEditHeaderValue,
+    headerInputRef,
+    activeColMenu,
+    setActiveColMenu,
+    columnProfiles,
+    currentSerialized,
+    isDirty,
+    handleSort,
+    handleStartEditCell,
+    handleCommitCellEdit,
+    handleCancelCellEdit,
+    handleStartEditHeader,
+    handleCommitHeaderEdit,
+    handleAddRowAtBottom,
+    handleInsertRowBelow,
+    handleDuplicateRow,
+    handleDeleteRow,
+    handleAddColumn,
+    handleInsertColRight,
+    handleDeleteColumn,
+    handleChangeDelimiter,
+    handleRevert,
+    handleRawTextChange,
+  } = useCsvGrid({ content, onContentChange });
 
   // Active Dropdowns / Modals
-  const [activeColMenu, setActiveColMenu] = useState<number | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showDelimiterMenu, setShowDelimiterMenu] = useState(false);
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [showAddColDialog, setShowAddColDialog] = useState(false);
-  const [newColName, setNewColName] = useState('');
 
   // Header Data Profiling & Sparkline States
   const [showProfiling, setShowProfiling] = useState<boolean>(true);
   const [inspectingProfile, setInspectingProfile] = useState<ColumnProfile | null>(null);
-
-  // Compute Data Profiling for all columns
-  const columnProfiles = useMemo(() => profileAllColumns(headers, rows), [headers, rows]);
-
-  // Check if content was modified compared to initial
-  const currentSerialized = useMemo(() => serializeCsv(headers, rows, delimiter), [headers, rows, delimiter]);
-  const isDirty = currentSerialized.trim() !== content.trim();
-
-  // Commit changes to parent via onContentChange
-  const triggerUpdate = (newHeaders: string[], newRows: string[][], newDelim: CsvDelimiter = delimiter) => {
-    setHeaders(newHeaders);
-    setRows(newRows);
-    setDelimiter(newDelim);
-    const serialized = serializeCsv(newHeaders, newRows, newDelim);
-    setRawText(serialized);
-    if (onContentChange) {
-      onContentChange(serialized);
-    }
-  };
-
-  // Focus input when editing starts
-  useEffect(() => {
-    if (editingCell && cellInputRef.current) {
-      cellInputRef.current.focus();
-      cellInputRef.current.select();
-    }
-  }, [editingCell]);
-
-  useEffect(() => {
-    if (editingHeaderIdx !== null && headerInputRef.current) {
-      headerInputRef.current.focus();
-      headerInputRef.current.select();
-    }
-  }, [editingHeaderIdx]);
-
-  // Filter & Sort Rows with original indices
-  const filteredIndexedRows = useMemo(() => {
-    let indexed = rows.map((r, idx) => ({ row: r, originalIndex: idx }));
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      indexed = indexed.filter(item => item.row.some(cell => (cell || '').toLowerCase().includes(q)));
-    }
-
-    if (sortCol !== null) {
-      indexed.sort((a, b) => {
-        const valA = a.row[sortCol] || '';
-        const valB = b.row[sortCol] || '';
-        const numA = Number(valA.replace(/[^0-9.-]+/g, ''));
-        const numB = Number(valB.replace(/[^0-9.-]+/g, ''));
-        if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
-          return sortAsc ? numA - numB : numB - numA;
-        }
-        return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      });
-    }
-
-    return indexed;
-  }, [rows, searchQuery, sortCol, sortAsc]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredIndexedRows.length / pageSize));
-  const paginatedIndexedRows = filteredIndexedRows.slice((page - 1) * pageSize, page * pageSize);
-
-  // Sorting Handler
-  const handleSort = (idx: number) => {
-    if (sortCol === idx) {
-      if (sortAsc) {
-        setSortAsc(false);
-      } else {
-        setSortCol(null);
-        setSortAsc(true);
-      }
-    } else {
-      setSortCol(idx);
-      setSortAsc(true);
-    }
-  };
-
-  // Cell Editing Handlers
-  const handleStartEditCell = (originalRowIdx: number, colIdx: number, val: string) => {
-    setEditingCell({ rowIdx: originalRowIdx, colIdx });
-    setEditCellValue(val ?? '');
-  };
-
-  const handleCommitCellEdit = (advanceToNext: boolean = false) => {
-    if (!editingCell) return;
-    const { rowIdx, colIdx } = editingCell;
-    const updatedRows = rows.map((r, i) => {
-      if (i !== rowIdx) return r;
-      const copy = [...r];
-      copy[colIdx] = editCellValue;
-      return copy;
-    });
-
-    triggerUpdate(headers, updatedRows);
-
-    if (advanceToNext) {
-      // Tab to next column in same row, or wrap to next row
-      if (colIdx + 1 < headers.length) {
-        const nextVal = updatedRows[rowIdx]?.[colIdx + 1] ?? '';
-        setEditingCell({ rowIdx, colIdx: colIdx + 1 });
-        setEditCellValue(nextVal);
-      } else if (rowIdx + 1 < updatedRows.length) {
-        const nextVal = updatedRows[rowIdx + 1]?.[0] ?? '';
-        setEditingCell({ rowIdx: rowIdx + 1, colIdx: 0 });
-        setEditCellValue(nextVal);
-      } else {
-        setEditingCell(null);
-      }
-    } else {
-      setEditingCell(null);
-    }
-  };
-
-  const handleCancelCellEdit = () => {
-    setEditingCell(null);
-  };
-
-  // Header Editing Handlers
-  const handleStartEditHeader = (colIdx: number) => {
-    setEditingHeaderIdx(colIdx);
-    setEditHeaderValue(headers[colIdx] || '');
-    setActiveColMenu(null);
-  };
-
-  const handleCommitHeaderEdit = () => {
-    if (editingHeaderIdx === null) return;
-    const trimmed = editHeaderValue.trim();
-    if (trimmed) {
-      const updated = [...headers];
-      updated[editingHeaderIdx] = trimmed;
-      triggerUpdate(updated, rows);
-    }
-    setEditingHeaderIdx(null);
-  };
-
-  // Row Manipulation
-  const handleAddRowAtBottom = () => {
-    const emptyRow = new Array(headers.length).fill('');
-    const updated = [...rows, emptyRow];
-    triggerUpdate(headers, updated);
-    // Jump to last page and edit new row's first cell
-    const newTotalPages = Math.ceil(updated.length / pageSize);
-    setPage(newTotalPages);
-    setTimeout(() => {
-      handleStartEditCell(updated.length - 1, 0, '');
-    }, 50);
-  };
-
-  const handleInsertRowBelow = (originalRowIdx: number) => {
-    const emptyRow = new Array(headers.length).fill('');
-    const updated = [...rows];
-    updated.splice(originalRowIdx + 1, 0, emptyRow);
-    triggerUpdate(headers, updated);
-    setTimeout(() => {
-      handleStartEditCell(originalRowIdx + 1, 0, '');
-    }, 50);
-  };
-
-  const handleDuplicateRow = (originalRowIdx: number) => {
-    const targetRow = [...rows[originalRowIdx]];
-    const updated = [...rows];
-    updated.splice(originalRowIdx + 1, 0, targetRow);
-    triggerUpdate(headers, updated);
-  };
-
-  const handleDeleteRow = (originalRowIdx: number) => {
-    const updated = rows.filter((_, i) => i !== originalRowIdx);
-    triggerUpdate(headers, updated);
-    if (editingCell?.rowIdx === originalRowIdx) {
-      setEditingCell(null);
-    }
-  };
-
-  // Column Manipulation
-  const handleAddColumn = (name?: string) => {
-    const colName = (name && name.trim()) || `Col_${headers.length + 1}`;
-    const updatedHeaders = [...headers, colName];
-    const updatedRows = rows.map(r => [...r, '']);
-    triggerUpdate(updatedHeaders, updatedRows);
-    setShowAddColDialog(false);
-    setNewColName('');
-  };
-
-  const handleInsertColRight = (colIdx: number) => {
-    const colName = `Col_${headers.length + 1}`;
-    const updatedHeaders = [...headers];
-    updatedHeaders.splice(colIdx + 1, 0, colName);
-    const updatedRows = rows.map(r => {
-      const copy = [...r];
-      copy.splice(colIdx + 1, 0, '');
-      return copy;
-    });
-    triggerUpdate(updatedHeaders, updatedRows);
-    setActiveColMenu(null);
-  };
-
-  const handleDeleteColumn = (colIdx: number) => {
-    if (headers.length <= 1) {
-      return; // Keep at least one column
-    }
-    const updatedHeaders = headers.filter((_, i) => i !== colIdx);
-    const updatedRows = rows.map(r => r.filter((_, i) => i !== colIdx));
-    triggerUpdate(updatedHeaders, updatedRows);
-    setActiveColMenu(null);
-    if (sortCol === colIdx) {
-      setSortCol(null);
-    }
-  };
-
-  // Delimiter change
-  const handleChangeDelimiter = (newDelim: CsvDelimiter) => {
-    setDelimiter(newDelim);
-    setShowDelimiterMenu(false);
-    const serialized = serializeCsv(headers, rows, newDelim);
-    setRawText(serialized);
-    if (onContentChange) {
-      onContentChange(serialized);
-    }
-  };
-
-  // Revert all edits
-  const handleRevert = () => {
-    const parsed = parseCsv(content);
-    setHeaders(parsed.headers);
-    setRows(parsed.rows);
-    setDelimiter(parsed.delimiter);
-    setRawText(content);
-    setEditingCell(null);
-    setEditingHeaderIdx(null);
-    if (onContentChange) {
-      onContentChange(content);
-    }
-  };
-
-  // Raw Text Mode Synchronization
-  const handleRawTextChange = (text: string) => {
-    setRawText(text);
-    const parsed = parseCsv(text, delimiter);
-    setHeaders(parsed.headers);
-    setRows(parsed.rows);
-    if (onContentChange) {
-      onContentChange(text);
-    }
-  };
 
   // Exports & Clipboard
   const handleDownloadCsv = () => {
@@ -378,6 +150,17 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
     const md = exportToMarkdown(headers, rows);
     await navigator.clipboard.writeText(md);
     setCopiedType('markdown');
+    setTimeout(() => setCopiedType(null), 2000);
+    setShowExportMenu(false);
+  };
+
+  const handleCopyRichTable = async () => {
+    const res = await copyTableToRichClipboard(headers, rows);
+    if (res.success) {
+      setCopiedType('rich');
+    } else {
+      await handleCopyTsv();
+    }
     setTimeout(() => setCopiedType(null), 2000);
     setShowExportMenu(false);
   };
@@ -596,6 +379,13 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                   <span>导出 JSON 数组结构 (.json)</span>
                 </button>
                 <div className="border-t border-slate-800 my-1" />
+                <button
+                  onClick={handleCopyRichTable}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                >
+                  {copiedType === 'rich' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />}
+                  <span>{copiedType === 'rich' ? '富文本表格已复制' : '复制富文本 (直贴 Word/Excel)'}</span>
+                </button>
                 <button
                   onClick={handleCopyMarkdown}
                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
@@ -880,113 +670,28 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
           </div>
 
           {/* Bottom Pagination & Stats Footer Bar */}
-          <div className="csv-pagination-bar flex flex-wrap items-center justify-between px-4 py-2 bg-slate-900 border-t border-slate-800 text-xs text-slate-400 gap-3 shrink-0">
-            <div className="flex items-center gap-3">
-              <span>
-                {locale === 'en-US' ? 'Total' : '数据总量'}: <strong className="text-slate-200">{rows.length}</strong> {locale === 'en-US' ? 'rows' : '行'} × <strong className="text-slate-200">{headers.length}</strong> {locale === 'en-US' ? 'columns' : '列'}
-              </span>
-              {searchQuery && (
-                <>
-                  <span>·</span>
-                  <span>
-                    {locale === 'en-US' ? 'Matched' : '匹配'}: <strong className="text-emerald-400">{filteredIndexedRows.length}</strong> 行
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 mr-2 text-[11px]">
-                <span className="text-slate-500">每页:</span>
-                {[10, 20, 50, 100].map(sz => (
-                  <button
-                    key={sz}
-                    onClick={() => {
-                      setPageSize(sz);
-                      setPage(1);
-                    }}
-                    className={`px-1.5 py-0.5 rounded ${
-                      pageSize === sz ? 'bg-emerald-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {sz}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                className="p-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded transition"
-                title="上一页"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <span className="font-mono text-xs px-1 text-slate-300">
-                {page} / {totalPages}
-              </span>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                className="p-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded transition"
-                title="下一页"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+          <CsvPaginationBar
+            totalRows={rows.length}
+            totalColumns={headers.length}
+            searchQuery={searchQuery}
+            matchedRows={filteredIndexedRows.length}
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            locale={locale}
+          />
         </div>
       )}
 
       {/* Add Column Dialog Modal */}
-      {showAddColDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Columns className="w-4 h-4 text-emerald-400" />
-                <span>追加新数据列</span>
-              </h3>
-              <button
-                onClick={() => setShowAddColDialog(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5">列名 (Column Name):</label>
-              <input
-                type="text"
-                autoFocus
-                value={newColName}
-                onChange={e => setNewColName(e.target.value)}
-                placeholder={`例如: Column_${headers.length + 1}`}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleAddColumn(newColName);
-                  if (e.key === 'Escape') setShowAddColDialog(false);
-                }}
-                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none focus:border-emerald-500"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowAddColDialog(false)}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => handleAddColumn(newColName)}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition"
-              >
-                添加列
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddColumnModal
+        isOpen={showAddColDialog}
+        onClose={() => setShowAddColDialog(false)}
+        onAddColumn={handleAddColumn}
+        defaultIndex={headers.length}
+      />
       {/* Column Data Profile & Statistics Deep-Dive Modal */}
       {inspectingProfile && (
         <ColumnProfileModal

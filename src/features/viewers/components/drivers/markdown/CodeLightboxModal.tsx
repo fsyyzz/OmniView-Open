@@ -230,7 +230,7 @@ export const CodeLightboxModal: React.FC<CodeLightboxModalProps> = ({
 
       {/* 主代码视口 */}
       <div className={`flex-1 overflow-auto p-4 sm:p-6 transition-colors ${
-        bgMode === 'dark' ? 'bg-[#0d1117] text-slate-200' : 'bg-slate-50 text-slate-900'
+        bgMode === 'dark' ? 'bg-[var(--ov-code-bg)] text-slate-200' : 'bg-slate-50 text-slate-900'
       }`}>
         <div className="max-w-6xl mx-auto rounded-xl border border-slate-800/80 shadow-2xl overflow-hidden bg-black/20 flex flex-col min-h-full">
           <div className="flex-1 flex font-mono" style={{ fontSize: `${fontSize}px`, lineHeight: 1.6 }}>

@@ -16,6 +16,7 @@ import {
   Minimize2,
   BarChart3,
   Table as TableIcon,
+  FileSpreadsheet,
   Hash,
   X,
   Code,
@@ -27,7 +28,9 @@ import {
   compareCellValues,
   formatRichCellContent,
   tableToCsv,
+  tableToTsv,
   tableToMarkdown,
+  copyTableToRichClipboard,
   detectChartableColumns,
   parseNumericValue,
   calculateColStats,
@@ -83,7 +86,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
   const [hoveredColIndex, setHoveredColIndex] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [copiedType, setCopiedType] = useState<'md' | 'csv' | null>(null);
+  const [copiedType, setCopiedType] = useState<'md' | 'csv' | 'rich' | 'tsv' | null>(null);
   const [isPinned, setIsPinned] = useState(false);
   const [colWidths, setColWidths] = useState<Record<number, number>>({});
   const resizingRef = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null);
@@ -174,7 +177,22 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     }
   };
 
-  // 4. 复制处理
+  // 4. 复制处理 (支持 Markdown、CSV 与直贴 Word/Excel 的复合富文本表格)
+  const handleCopyRich = async () => {
+    try {
+      const currentRows = processedRows.map(r => r.cells);
+      const res = await copyTableToRichClipboard(headerTexts, currentRows, align);
+      if (res.success) {
+        setCopiedType('rich');
+        setTimeout(() => setCopiedType(null), 2000);
+      } else {
+        await handleCopyMarkdown();
+      }
+    } catch {
+      await handleCopyMarkdown();
+    }
+  };
+
   const handleCopyMarkdown = async () => {
     try {
       const currentRows = processedRows.map(r => r.cells);
@@ -726,6 +744,26 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
               <span className="hidden sm:inline">{t('tableResetColWidths', locale)}</span>
             </button>
           )}
+
+          {/* 复制富文本 (直贴 Word / Excel 原生表格) */}
+          <button
+            type="button"
+            onClick={handleCopyRich}
+            className="ov-table-btn flex items-center gap-1 px-2 py-1 rounded transition-colors text-[11px]"
+            title={t('tableCopyRich', locale)}
+          >
+            {copiedType === 'rich' ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="text-emerald-500 hidden sm:inline">{t('copiedRich', locale)}</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="hidden sm:inline">Word/Excel</span>
+              </>
+            )}
+          </button>
 
           {/* 复制 Markdown */}
           <button

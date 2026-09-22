@@ -19,17 +19,11 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import {
-  parseEpub,
-  generateSampleEpubBytes,
   type ParsedEpubBook,
   type EpubChapter,
   type EpubTocItem,
 } from '../../lib/epubEngine';
 import {
-  loadEpubSettings,
-  saveEpubSettings,
-  loadEpubProgress,
-  saveEpubProgress,
   type EpubReaderSettings,
   type EpubFlowMode,
   type EpubReaderTheme,
@@ -37,6 +31,7 @@ import {
   type EpubContentWidth,
   DEFAULT_EPUB_SETTINGS,
 } from '../../lib/epubSettingsStorage';
+import { useEpubReader } from '../../hooks/useEpubReader';
 import type { ThemeId, DensityMode } from '../../../../shared/types';
 import { t, type Locale } from '../../../../shared/lib/i18n';
 import { EpubToolbar } from './epub/EpubToolbar';
@@ -63,19 +58,41 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   isDarkTheme = true,
   locale = 'zh-CN',
 }) => {
-  // 加载与解析状态
-  const [book, setBook] = useState<ParsedEpubBook | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // 持久化阅读器排版配置
-  const [settings, setSettings] = useState<EpubReaderSettings>(() => loadEpubSettings());
-
-  // 阅读进度核心状态
-  const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0);
-  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
-  const [totalSpreadPages, setTotalSpreadPages] = useState<number>(1);
-  const [flipDirection, setFlipDirection] = useState<'next' | 'prev' | null>(null);
+  const {
+    book,
+    loading,
+    error,
+    loadEpubData,
+    settings,
+    setSettings,
+    updateSetting,
+    currentChapterIndex,
+    setCurrentChapterIndex,
+    currentPageIndex,
+    setCurrentPageIndex,
+    totalSpreadPages,
+    flipDirection,
+    progressRestoredToast,
+    readingProgress,
+    effectiveColumnsCount,
+    columnGapPx,
+    pageStepPx,
+    pageTranslationX,
+    isNarrowViewport,
+    viewportWidth,
+    viewportHeight,
+    isPaginatedMode,
+    currentChapter,
+    totalChapters,
+    goToPrev,
+    goToNext,
+    scrollToChapter,
+    handleContinuousScroll,
+    recalculateSpreadPages,
+    spreadColumnsWrapperRef,
+    scrollContainerRef,
+    continuousScrollContainerRef,
+  } = useEpubReader({ binaryUrl, content, fileName, locale });
 
   // 浮层交互状态
   const [showToc, setShowToc] = useState<boolean>(false);
@@ -83,96 +100,9 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   const [showTypographyMenu, setShowTypographyMenu] = useState<boolean>(false);
   const [tocSearch, setTocSearch] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [isNarrowViewport, setIsNarrowViewport] = useState<boolean>(false);
-  const [viewportWidth, setViewportWidth] = useState<number>(0);
-  const [viewportHeight, setViewportHeight] = useState<number>(0);
-  const [progressRestoredToast, setProgressRestoredToast] = useState<string | null>(null);
-  const [scrollProgressPercent, setScrollProgressPercent] = useState<number>(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const continuousScrollContainerRef = useRef<HTMLDivElement>(null);
-  const spreadColumnsWrapperRef = useRef<HTMLDivElement>(null);
   const typographyMenuRef = useRef<HTMLDivElement>(null);
-  const flipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasRestoredProgressRef = useRef<boolean>(false);
-  const isUserScrollingRef = useRef<boolean>(false);
-  const scrollSpyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 实际生效的多列列数：双叶且宽屏时 2 栏，否则 1 栏
-  const effectiveColumnsCount = settings.flowMode === 'spread' && !isNarrowViewport ? '2' : '1';
-  // 双叶排版列间距 48px，单页排版列间距 32px
-  const columnGapPx = effectiveColumnsCount === '2' ? 48 : 32;
-  // 翻页物理步长：单页跨越宽度 = 视口宽度 + 跨页间距
-  const pageStepPx = viewportWidth > 0 ? viewportWidth + columnGapPx : 0;
-  const pageTranslationX = currentPageIndex * pageStepPx;
-
-  // 书籍标识符，用于进度本地持久化隔离
-  const bookStorageKey = useMemo(() => {
-    if (book?.metadata?.title) {
-      return `${book.metadata.title}_${book.metadata.creator || ''}`;
-    }
-    return fileName || 'default_epub';
-  }, [book, fileName]);
-
-  // 更新设置并立即持久化
-  const updateSetting = useCallback(
-    <K extends keyof EpubReaderSettings>(key: K, value: EpubReaderSettings[K]) => {
-      setSettings(prev => {
-        const next = { ...prev, [key]: value };
-        saveEpubSettings(next);
-        return next;
-      });
-    },
-    []
-  );
-
-  // 解析 EPUB 数据
-  const loadEpubData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      let dataToParse: string | Uint8Array;
-      if (binaryUrl) {
-        dataToParse = binaryUrl;
-      } else if (content && content.length > 50) {
-        dataToParse = content;
-      } else {
-        dataToParse = await generateSampleEpubBytes();
-      }
-      const parsed = await parseEpub(dataToParse);
-      setBook(parsed);
-    } catch (err) {
-      console.error('[EpubViewer] 解析失败:', err);
-      setError(err instanceof Error ? err.message : '解析电子书格式异常');
-    } finally {
-      setLoading(false);
-    }
-  }, [binaryUrl, content]);
-
-  useEffect(() => {
-    loadEpubData();
-  }, [loadEpubData]);
-
-  // 当书籍加载成功后，自动恢复历史阅读进度
-  useEffect(() => {
-    if (!book || book.chapters.length === 0 || hasRestoredProgressRef.current) return;
-    hasRestoredProgressRef.current = true;
-
-    const savedProgress = loadEpubProgress(bookStorageKey);
-    if (savedProgress && (savedProgress.chapterIndex > 0 || savedProgress.pageIndex > 0)) {
-      const targetChap = Math.min(savedProgress.chapterIndex, book.chapters.length - 1);
-      setCurrentChapterIndex(targetChap);
-      setCurrentPageIndex(savedProgress.pageIndex);
-      setProgressRestoredToast(
-        locale === 'zh-CN'
-          ? `已自动恢复至上次阅读进度: 第 ${targetChap + 1} 章 (页码 ${savedProgress.pageIndex + 1})`
-          : `Resumed from previous reading position: Chapter ${targetChap + 1}`
-      );
-      const timer = setTimeout(() => setProgressRestoredToast(null), 3800);
-      return () => clearTimeout(timer);
-    }
-  }, [book, bookStorageKey, locale]);
 
   // 点击外部自动收起排版面板
   useEffect(() => {
@@ -188,254 +118,6 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     window.addEventListener('mousedown', handleGlobalClick);
     return () => window.removeEventListener('mousedown', handleGlobalClick);
   }, [showTypographyMenu]);
-
-  // 当前是否处于分页流式模式 (双叶并排 或 单页流式)
-  const isPaginatedMode = settings.flowMode === 'spread' || settings.flowMode === 'single';
-
-  // 视口宽度监听与流式多列分页总页数计算 (基于 CSS Multi-Column 物理步长)
-  const recalculateSpreadPages = useCallback(() => {
-    if (!isPaginatedMode || !spreadColumnsWrapperRef.current) {
-      setTotalSpreadPages(1);
-      return;
-    }
-    const el = spreadColumnsWrapperRef.current;
-    const clientW = el.clientWidth;
-    const clientH = el.clientHeight;
-    const scrollW = el.scrollWidth;
-
-    if (clientW <= 0) return;
-
-    setViewportWidth(clientW);
-    setViewportHeight(clientH);
-
-    // 检查是否极窄屏幕 (< 640px 强制退化为单列)
-    const narrow = clientW < 640;
-    setIsNarrowViewport(narrow);
-
-    const cols = settings.flowMode === 'spread' && !narrow ? 2 : 1;
-    const gap = cols === 2 ? 48 : 32;
-    const colWidth = cols === 2 ? Math.max(1, (clientW - gap) / 2) : clientW;
-    const colStep = colWidth + gap;
-
-    if (clientW > 0 && scrollW > 0 && colStep > 0) {
-      // CSS Multi-Column 理论几何关系:
-      // scrollW = N * colWidth + (N - 1) * gap = N * colStep - gap
-      // 故 N = (scrollW + gap) / colStep
-      // 减去 4px 弹性容差缓冲以平抑亚像素与浮点舍入误差
-      const rawCols = Math.round((scrollW + gap - 4) / colStep);
-      const computedCols = Math.max(1, rawCols);
-      const pages = cols === 2 ? Math.max(1, Math.ceil(computedCols / 2)) : computedCols;
-
-      setTotalSpreadPages(pages);
-      setCurrentPageIndex(prev => Math.min(prev, Math.max(0, pages - 1)));
-    }
-  }, [isPaginatedMode, settings.flowMode]);
-
-  // 监听多列视口容器真实几何尺寸变动 (包含侧边栏切换、全屏开合、窗口缩放)
-  useEffect(() => {
-    if (!spreadColumnsWrapperRef.current || !isPaginatedMode) return;
-    const el = spreadColumnsWrapperRef.current;
-    const ro = new ResizeObserver(() => {
-      recalculateSpreadPages();
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [recalculateSpreadPages, isPaginatedMode]);
-
-  // 排版变化或窗口大小变动时多阶重算分页
-  useEffect(() => {
-    recalculateSpreadPages();
-    const rafId = requestAnimationFrame(() => {
-      recalculateSpreadPages();
-    });
-    const timer = setTimeout(recalculateSpreadPages, 80);
-    const handleResize = () => {
-      recalculateSpreadPages();
-    };
-    window.addEventListener('resize', handleResize);
-    return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timer);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [
-    recalculateSpreadPages,
-    currentChapterIndex,
-    settings.flowMode,
-    settings.fontSize,
-    settings.lineHeight,
-    settings.contentWidth,
-    settings.fontFamily,
-    settings.textIndent,
-    settings.textAlign,
-  ]);
-
-  // 平滑滚动至指定章节 (连续流式滚动模式专属)
-  const scrollToChapter = useCallback((targetIndex: number, behavior: ScrollBehavior = 'smooth') => {
-    if (!book || book.chapters.length === 0) return;
-    const clamped = Math.max(0, Math.min(book.chapters.length - 1, targetIndex));
-    isUserScrollingRef.current = false;
-    setCurrentChapterIndex(clamped);
-    if (!isPaginatedMode) {
-      const el = document.getElementById(`epub-chapter-node-${clamped}`);
-      if (el) {
-        el.scrollIntoView({ behavior, block: 'start' });
-      }
-    }
-  }, [book, isPaginatedMode]);
-
-  // 连续流式滚动模式下的滚动位置与章节探针监听 (Scroll Spy)
-  const handleContinuousScroll = useCallback(() => {
-    if (isPaginatedMode || !continuousScrollContainerRef.current) return;
-    const container = continuousScrollContainerRef.current;
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const maxScroll = scrollHeight - clientHeight;
-    if (maxScroll > 0) {
-      const pct = Math.min(100, Math.max(0, Math.round((scrollTop / maxScroll) * 100)));
-      setScrollProgressPercent(pct);
-    }
-
-    // 查找当前视口中正在阅读的章节
-    const sectionNodes = container.querySelectorAll<HTMLElement>('.epub-chapter-section');
-    if (sectionNodes.length === 0) return;
-
-    const containerTop = container.getBoundingClientRect().top;
-    let activeIndex = 0;
-
-    for (let i = 0; i < sectionNodes.length; i++) {
-      const node = sectionNodes[i];
-      const rect = node.getBoundingClientRect();
-      const relativeTop = rect.top - containerTop;
-      // 当章节顶部穿过视口阅读线（顶部下方 160px）
-      if (relativeTop <= 160) {
-        activeIndex = i;
-      } else {
-        break;
-      }
-    }
-
-    if (activeIndex !== currentChapterIndex) {
-      isUserScrollingRef.current = true;
-      setCurrentChapterIndex(activeIndex);
-      if (scrollSpyTimerRef.current) {
-        clearTimeout(scrollSpyTimerRef.current);
-      }
-      scrollSpyTimerRef.current = setTimeout(() => {
-        isUserScrollingRef.current = false;
-      }, 200);
-    }
-  }, [isPaginatedMode, currentChapterIndex]);
-
-  // 章节切换
-  useEffect(() => {
-    if (isPaginatedMode) {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-      }
-      setCurrentPageIndex(0);
-      const rafId = requestAnimationFrame(() => {
-        recalculateSpreadPages();
-      });
-      const timer = setTimeout(recalculateSpreadPages, 80);
-      return () => {
-        cancelAnimationFrame(rafId);
-        clearTimeout(timer);
-      };
-    }
-  }, [currentChapterIndex, isPaginatedMode, recalculateSpreadPages]);
-
-  const currentChapter: EpubChapter | undefined = book?.chapters[currentChapterIndex];
-  const totalChapters = book?.chapters.length || 0;
-
-  // 总阅读百分比
-  const readingProgress = useMemo(() => {
-    if (totalChapters <= 0) return 0;
-    if (isPaginatedMode) {
-      const chapterFraction = (currentPageIndex + 1) / Math.max(1, totalSpreadPages);
-      return Math.min(100, Math.round(((currentChapterIndex + chapterFraction) / totalChapters) * 100));
-    }
-    if (scrollProgressPercent > 0) {
-      return scrollProgressPercent;
-    }
-    return Math.min(100, Math.round(((currentChapterIndex + 1) / totalChapters) * 100));
-  }, [totalChapters, isPaginatedMode, currentChapterIndex, currentPageIndex, totalSpreadPages, scrollProgressPercent]);
-
-  // 自动保存阅读进度（带防抖）
-  useEffect(() => {
-    if (!book || book.chapters.length === 0 || loading) return;
-    const timer = setTimeout(() => {
-      saveEpubProgress(bookStorageKey, {
-        chapterIndex: currentChapterIndex,
-        pageIndex: currentPageIndex,
-        progressPercent: readingProgress,
-      });
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [book, bookStorageKey, currentChapterIndex, currentPageIndex, readingProgress, loading]);
-
-  // 触发翻页动效并执行状态转移
-  const triggerFlipTransition = (direction: 'next' | 'prev', callback: () => void) => {
-    if (settings.enableFlipEffect && isPaginatedMode) {
-      if (flipTimerRef.current) {
-        clearTimeout(flipTimerRef.current);
-      }
-      setFlipDirection(direction);
-      flipTimerRef.current = setTimeout(() => {
-        callback();
-        setFlipDirection(null);
-        flipTimerRef.current = null;
-      }, 340);
-    } else {
-      callback();
-    }
-  };
-
-  // 翻到上一页/上一章
-  const goToPrev = useCallback(() => {
-    if (isPaginatedMode) {
-      if (currentPageIndex > 0) {
-        triggerFlipTransition('prev', () => {
-          setCurrentPageIndex(p => Math.max(0, p - 1));
-        });
-      } else if (currentChapterIndex > 0) {
-        triggerFlipTransition('prev', () => {
-          setCurrentChapterIndex(c => c - 1);
-        });
-      }
-    } else {
-      if (currentChapterIndex > 0) {
-        scrollToChapter(currentChapterIndex - 1, 'smooth');
-      }
-    }
-  }, [isPaginatedMode, currentPageIndex, currentChapterIndex, settings.enableFlipEffect, scrollToChapter]);
-
-  // 翻到下一页/下一章
-  const goToNext = useCallback(() => {
-    if (isPaginatedMode) {
-      if (currentPageIndex < totalSpreadPages - 1) {
-        triggerFlipTransition('next', () => {
-          setCurrentPageIndex(p => p + 1);
-        });
-      } else if (book && currentChapterIndex < totalChapters - 1) {
-        triggerFlipTransition('next', () => {
-          setCurrentChapterIndex(c => c + 1);
-        });
-      }
-    } else {
-      if (book && currentChapterIndex < totalChapters - 1) {
-        scrollToChapter(currentChapterIndex + 1, 'smooth');
-      }
-    }
-  }, [
-    isPaginatedMode,
-    currentPageIndex,
-    totalSpreadPages,
-    book,
-    currentChapterIndex,
-    totalChapters,
-    settings.enableFlipEffect,
-    scrollToChapter,
-  ]);
 
   // 键盘快捷键监听 (← / → 翻页/翻章，Space 下一页)
   useEffect(() => {
