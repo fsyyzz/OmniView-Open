@@ -4,7 +4,7 @@
 
 > **OmniView** 是一款面向 VS Code 场景与 Web 现代工作流的高性能、全格式多维文件可视化工作台与插件。基于 React 19、TypeScript、Vite 6 与 Tailwind CSS v4 构建，秉承“**把数据升维为视窗，让排版化繁为简**”的哲学，提供从文档、图表、思维导图、矢量设计、数据网格、版式文档到结构化配置的全景沉浸式渲染能力。
 
-![OmniView Showcase Banner](./docs/assets/omniview-showcase.svg)
+![OmniView Showcase Banner](./docs/assets/omniview-showcase.png)
 
 ---
 

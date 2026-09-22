@@ -4,7 +4,7 @@
 
 > **OmniView** is a high-performance, multi-format visualization workbench and VS Code extension for modern document workflows. Built with React 19, TypeScript, Vite 6, and Tailwind CSS v4, it follows the philosophy of **turning data into immersive windows and simplifying complex layout**—covering documents, diagrams, mind maps, vector design, data grids, paginated readers, and structured configuration files.
 
-![OmniView Showcase Banner](./docs/assets/omniview-showcase.svg)
+![OmniView Showcase Banner](./docs/assets/omniview-showcase.png)
 
 ---
 
