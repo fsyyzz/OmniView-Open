@@ -13,8 +13,10 @@ import {
   Maximize2,
   Code,
   Eye,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
+import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 import { graphvizRenderer, GraphvizEngine } from '../../../lib/graphvizRenderer';
 import { analyzeGraphvizError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
@@ -69,6 +71,8 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isErrorCopied, setIsErrorCopied] = useState<boolean>(false);
+  const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
+  const [isCopyingImage, setIsCopyingImage] = useState<boolean>(false);
   const renderCountRef = useRef(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -122,6 +126,17 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
       URL.revokeObjectURL(url);
     } else {
       onDownloadSvg(svgContent);
+    }
+  };
+
+  const handleCopyImage = async () => {
+    if (!svgContent || isCopyingImage) return;
+    setIsCopyingImage(true);
+    const success = await copySvgOrImageToClipboard(svgContent, false, '#ffffff');
+    setIsCopyingImage(false);
+    if (success) {
+      setIsCopiedImage(true);
+      setTimeout(() => setIsCopiedImage(false), 2000);
     }
   };
 
@@ -203,6 +218,23 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
                 <Maximize2 className="w-3.5 h-3.5" />
               </button>
               <div className="h-3 w-px bg-slate-700 mx-0.5" />
+              {svgContent && (
+                <button
+                  onClick={handleCopyImage}
+                  disabled={isCopyingImage}
+                  className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+                  title={isCopiedImage ? t('imageCopied', locale) : t('copyImage', locale)}
+                  aria-label={t('copyImage', locale)}
+                >
+                  {isCopiedImage ? (
+                    <Check className="w-3.5 h-3.5 text-green-400" />
+                  ) : isCopyingImage ? (
+                    <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                  ) : (
+                    <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleDownload}
                 className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"

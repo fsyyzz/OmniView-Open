@@ -11,9 +11,12 @@ import {
   Code,
   Eye,
   ExternalLink,
+  Image as ImageIcon,
+  RefreshCw,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
-import { getPlantUmlSvgUrl, hasRenderablePlantUmlCode, withPlantUmlCacheBust } from '../../../../../shared/lib/plantuml';
+import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
+import { getPlantUmlSvgUrl, getPlantUmlPngUrl, hasRenderablePlantUmlCode, withPlantUmlCacheBust } from '../../../../../shared/lib/plantuml';
 import { analyzePlantUmlError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill';
@@ -65,14 +68,30 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
 }) => {
   const [hasError, setHasError] = React.useState<boolean>(false);
   const [renderNonce, setRenderNonce] = React.useState(0);
+  const [isCopiedImage, setIsCopiedImage] = React.useState<boolean>(false);
+  const [isCopyingImage, setIsCopyingImage] = React.useState<boolean>(false);
   const activeCode = editedCode !== undefined ? editedCode : code;
   const canRender = hasRenderablePlantUmlCode(activeCode);
   const activeSvgUrl = canRender ? withPlantUmlCacheBust(getPlantUmlSvgUrl(activeCode, undefined, isDarkTheme), renderNonce) : '';
+  const activePngUrl = canRender ? withPlantUmlCacheBust(getPlantUmlPngUrl(activeCode, undefined, isDarkTheme), renderNonce) : '';
 
   React.useEffect(() => {
     setHasError(false);
     setRenderNonce(n => n + 1);
   }, [activeCode, isDarkTheme]);
+
+  const handleCopyImage = async () => {
+    if (!canRender || isCopyingImage) return;
+    setIsCopyingImage(true);
+    // 优先尝试直接请求 PNG URL，如果不可用自动通过 SVG 转 Canvas 栅格化
+    const targetUrl = activePngUrl || activeSvgUrl;
+    const success = await copySvgOrImageToClipboard(targetUrl, true, '#ffffff');
+    setIsCopyingImage(false);
+    if (success) {
+      setIsCopiedImage(true);
+      setTimeout(() => setIsCopiedImage(false), 2000);
+    }
+  };
 
   return (
     <div id={id} className="markdown-diagram markdown-diagram-plantuml group relative">
@@ -158,6 +177,21 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
                 <Maximize2 className="w-3.5 h-3.5" />
               </button>
               <div className="h-3 w-px bg-slate-700 mx-0.5" />
+              <button
+                onClick={handleCopyImage}
+                disabled={isCopyingImage}
+                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+                title={isCopiedImage ? t('imageCopied', locale) : t('copyImage', locale)}
+                aria-label={t('copyImage', locale)}
+              >
+                {isCopiedImage ? (
+                  <Check className="w-3.5 h-3.5 text-green-400" />
+                ) : isCopyingImage ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+                ) : (
+                  <ImageIcon className="w-3.5 h-3.5 text-purple-400" />
+                )}
+              </button>
               <a
                 href={activeSvgUrl}
                 target="_blank"

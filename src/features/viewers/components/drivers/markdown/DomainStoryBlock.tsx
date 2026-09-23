@@ -16,8 +16,11 @@ import {
   PlayCircle,
   FileCode,
   Layers,
+  Image as ImageIcon,
+  RefreshCw,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n.ts';
+import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper.ts';
 import {
   parseDomainStory,
   renderDomainStoryToSvg,
@@ -73,6 +76,8 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
   const [isPlaybackActive, setIsPlaybackActive] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(-1);
   const [exportMenuOpen, setExportMenuOpen] = useState<boolean>(false);
+  const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
+  const [isCopyingImage, setIsCopyingImage] = useState<boolean>(false);
 
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -112,6 +117,17 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
     a.click();
     URL.revokeObjectURL(url);
     setExportMenuOpen(false);
+  };
+
+  const handleCopyImage = async () => {
+    if (!displaySvg || isCopyingImage) return;
+    setIsCopyingImage(true);
+    const success = await copySvgOrImageToClipboard(displaySvg, false, '#ffffff');
+    setIsCopyingImage(false);
+    if (success) {
+      setIsCopiedImage(true);
+      setTimeout(() => setIsCopiedImage(false), 2000);
+    }
   };
 
   const handleDownloadPolyglotSvg = () => {
@@ -251,6 +267,23 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
 
               <div className="h-3 w-px bg-slate-700 mx-0.5" />
 
+              {/* Copy Image Button */}
+              <button
+                onClick={handleCopyImage}
+                disabled={isCopyingImage}
+                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+                title={isCopiedImage ? t('imageCopied', locale) : t('copyImage', locale)}
+                aria-label={t('copyImage', locale)}
+              >
+                {isCopiedImage ? (
+                  <Check className="w-3.5 h-3.5 text-green-400" />
+                ) : isCopyingImage ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-sky-400 animate-spin" />
+                ) : (
+                  <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                )}
+              </button>
+
               {/* Export Menu */}
               <div className="relative">
                 <button
@@ -264,6 +297,14 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
 
                 {exportMenuOpen && (
                   <div className="absolute right-0 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-30 text-xs">
+                    <button
+                      onClick={handleCopyImage}
+                      className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-sky-300 flex items-center gap-2"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{isCopiedImage ? t('imageCopied', locale) : t('copyImage', locale)}</span>
+                    </button>
+                    <div className="border-t border-slate-800 my-1" />
                     <button
                       onClick={handleDownloadPolyglotSvg}
                       className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-sky-300 flex items-center gap-2"

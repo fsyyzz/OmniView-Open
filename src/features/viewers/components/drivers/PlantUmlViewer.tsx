@@ -1,7 +1,7 @@
 /**
- * PlantUML 企业级架构建模与可视化视口驱动
+ * PlantUML 企业级架构建模与可视化视口驱动 (PlantUmlViewer)
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ZoomIn,
   ZoomOut,
@@ -23,7 +23,8 @@ import {
   Search,
   BookOpen,
   HelpCircle,
-  FileCode
+  FileCode,
+  Grid,
 } from 'lucide-react';
 import {
   getPlantUmlSvgUrl,
@@ -35,14 +36,17 @@ import {
   PLANTUML_SERVER_PRESETS,
   PLANTUML_FALLBACK_SERVERS,
 } from '../../../../shared/lib/plantuml';
+import { copySvgOrImageToClipboard } from '../../../../shared/lib/copyImageHelper';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import {
   PLANTUML_THEMES,
-  PLANTUML_SNIPPETS,
   PLANTUML_TEMPLATES,
   applyPlantUmlTheme,
-  detectPlantUmlTheme
+  detectPlantUmlTheme,
 } from './plantuml/plantUmlData';
+import { PlantUmlModelingToolbar } from './plantuml/PlantUmlModelingToolbar';
+import { PlantUmlDiagramTabBar } from './plantuml/PlantUmlDiagramTabBar';
+import { extractPlantUmlBlocks, PlantUmlBlockInfo } from './plantuml/plantUmlBlockParser';
 import { PlantUmlServerModal } from './plantuml/PlantUmlServerModal';
 import { PlantUmlTemplateModal } from './plantuml/PlantUmlTemplateModal';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
@@ -70,6 +74,8 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const [isPanning, setIsPanning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedSvg, setCopiedSvg] = useState(false);
+  const [copiedImage, setCopiedImage] = useState(false);
+  const [isCopyingImage, setIsCopyingImage] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [renderNonce, setRenderNonce] = useState(0);
   const [imgStatus, setImgStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -80,6 +86,10 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
 
+  // Multi-diagram Tab Management
+  const [selectedBlockIndex, setSelectedBlockIndex] = useState<number>(0);
+  const [renderAllMode, setRenderAllMode] = useState<boolean>(false);
+
   const [headerRef, headerWidth] = useContainerWidth<HTMLDivElement>(800);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,14 +98,26 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextExternalSync = useRef(false);
 
-  // 组件卸载时清理防抖定时器
+  // Component unmount cleanup
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
   }, []);
 
-  // 与宿主文档内容同步（修复插件打开后仍停留在空图/白点的问题，并增加本地防抖回声保护）
+  // Parse multi-diagram blocks from current code
+  const diagramBlocks = useMemo(() => {
+    return extractPlantUmlBlocks(localCode);
+  }, [localCode]);
+
+  // Ensure selected block index is within bounds
+  useEffect(() => {
+    if (diagramBlocks.length > 0 && selectedBlockIndex >= diagramBlocks.length) {
+      setSelectedBlockIndex(0);
+    }
+  }, [diagramBlocks.length, selectedBlockIndex]);
+
+  // Sync external content changes
   useEffect(() => {
     if (skipNextExternalSync.current) {
       skipNextExternalSync.current = false;
@@ -107,13 +129,22 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     fallbackTriedRef.current.clear();
   }, [content]);
 
+  // Determine active render code (single selected block vs full document)
+  const activeRenderCode = useMemo(() => {
+    if (renderAllMode || diagramBlocks.length <= 1) {
+      return localCode;
+    }
+    const currentBlock = diagramBlocks[selectedBlockIndex];
+    return currentBlock ? currentBlock.code : localCode;
+  }, [renderAllMode, diagramBlocks, selectedBlockIndex, localCode]);
+
   useEffect(() => {
-    if (!hasRenderablePlantUmlCode(localCode)) {
+    if (!hasRenderablePlantUmlCode(activeRenderCode)) {
       setImgStatus('idle');
       return;
     }
     setImgStatus('loading');
-  }, [localCode, serverUrl, renderNonce]);
+  }, [activeRenderCode, serverUrl, renderNonce]);
 
   // Draggable split ratio via standardized useSplitPane hook
   const {
@@ -130,9 +161,9 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   });
 
   // Derived URLs
-  const canRender = hasRenderablePlantUmlCode(localCode);
-  const svgUrl = canRender ? getPlantUmlSvgUrl(localCode, serverUrl) : '';
-  const pngUrl = canRender ? getPlantUmlPngUrl(localCode, serverUrl) : '';
+  const canRender = hasRenderablePlantUmlCode(activeRenderCode);
+  const svgUrl = canRender ? getPlantUmlSvgUrl(activeRenderCode, serverUrl) : '';
+  const pngUrl = canRender ? getPlantUmlPngUrl(activeRenderCode, serverUrl) : '';
   const displaySvgUrl = withPlantUmlCacheBust(svgUrl, renderNonce);
   const activeThemeId = detectPlantUmlTheme(localCode);
 
@@ -164,6 +195,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     handleRefresh();
   };
 
+  // Insert code snippet at cursor or append
   const handleInsertSnippet = (snippetCode: string) => {
     if (textareaRef.current) {
       const textarea = textareaRef.current;
@@ -180,6 +212,29 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
       }, 30);
     } else {
       handleCodeChange(localCode + '\n' + snippetCode);
+    }
+  };
+
+  // Add new diagram block to file
+  const handleAddNewDiagram = () => {
+    const newBlockIndex = diagramBlocks.length + 1;
+    const newBlockCode = `\n\n@startuml 图表_${newBlockIndex}\ntitle 子架构模块 ${newBlockIndex}\n\nactor "用户" as U\nparticipant "网关" as GW\n\nU -> GW: 请求数据\nGW --> U: 返回结果 (200 OK)\n@enduml\n`;
+    const updated = localCode + newBlockCode;
+    handleCodeChange(updated, true);
+    setSelectedBlockIndex(diagramBlocks.length);
+    setRenderAllMode(false);
+  };
+
+  const handleSelectBlockTab = (idx: number) => {
+    setSelectedBlockIndex(idx);
+    setRenderAllMode(false);
+    handleResetViewport();
+
+    // Scroll textarea to the block if located
+    const block = diagramBlocks[idx];
+    if (block && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(block.fullSourceRange.start, block.fullSourceRange.start);
     }
   };
 
@@ -202,6 +257,33 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     setShowExportMenu(false);
   };
 
+  /**
+   * 一键复制高清位图数据流至系统剪贴板 (直贴 Word / WPS / PPT / 微信 / 飞书)
+   */
+  const handleCopyImageBlob = async () => {
+    if (!canRender) return;
+    setIsCopyingImage(true);
+    try {
+      const success = await copySvgOrImageToClipboard(displaySvgUrl || svgUrl, true, {
+        scale: 3,
+        backgroundColor: '#ffffff',
+      });
+      if (success) {
+        setCopiedImage(true);
+        setTimeout(() => setCopiedImage(false), 2500);
+      } else {
+        // 若因浏览器安全沙箱拦截，降级下载 PNG
+        handleDownloadPng();
+      }
+    } catch (err) {
+      console.error('Failed to copy image to clipboard:', err);
+      handleDownloadPng();
+    } finally {
+      setIsCopyingImage(false);
+      setShowExportMenu(false);
+    }
+  };
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     fallbackTriedRef.current.clear();
@@ -211,7 +293,6 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   };
 
   const handleImageError = () => {
-    // 当前服务失败时，自动轮询备用服务器，避免预览区只剩一个白点
     const normalizedCurrent = serverUrl.replace(/\/$/, '');
     fallbackTriedRef.current.add(normalizedCurrent);
 
@@ -246,7 +327,8 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
       const dlUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = dlUrl;
-      a.download = fileName.replace(/\.[^/.]+$/, '') + '.svg';
+      const currentBlockTitle = diagramBlocks[selectedBlockIndex]?.title || fileName;
+      a.download = `${currentBlockTitle.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5-]/g, '_')}.svg`;
       a.click();
       URL.revokeObjectURL(dlUrl);
     } catch {
@@ -259,7 +341,8 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     if (pngUrl) {
       const a = document.createElement('a');
       a.href = pngUrl;
-      a.download = fileName.replace(/\.[^/.]+$/, '') + '.png';
+      const currentBlockTitle = diagramBlocks[selectedBlockIndex]?.title || fileName;
+      a.download = `${currentBlockTitle.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5-]/g, '_')}.png`;
       a.target = '_blank';
       a.click();
     }
@@ -298,7 +381,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 0.15 : -0.15;
-      setZoom(z => Math.min(3.5, Math.max(0.2, z + delta)));
+      setZoom(z => Math.max(0.2, Math.min(3.5, z + delta)));
     }
   };
 
@@ -309,12 +392,13 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
   const isLocalServer = serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1');
 
-  const showTemplateLibraryText = headerWidth >= 720;
-  const showQuickPresets = headerWidth >= 820;
-  const showThemeText = headerWidth >= 650;
-  const showExportText = headerWidth >= 580;
-  const showEditorText = headerWidth >= 520;
-  const showCopyText = headerWidth >= 460;
+  // Responsive UI break conditions
+  const showTemplateLibraryText = headerWidth > 580;
+  const showThemeText = headerWidth > 720;
+  const showExportText = headerWidth > 640;
+  const showEditorText = headerWidth > 760;
+  const showCopyText = headerWidth > 480;
+  const showQuickPresets = headerWidth > 860;
 
   return (
     <div
@@ -347,13 +431,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
         {/* Center: Template Library Modal Launcher & Quick Presets */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0">
           <button
+            type="button"
             onClick={() => setShowTemplateModal(true)}
             style={{
               backgroundColor: 'var(--ov-surface)',
               borderColor: 'var(--ov-border)',
               color: 'var(--ov-text)',
             }}
-            className={`flex items-center gap-1.5 ${showTemplateLibraryText ? 'px-2.5 py-1' : 'p-1.5'} rounded border text-xs font-medium transition shrink-0 hover:border-[var(--ov-accent)]`}
+            className={`flex items-center gap-1.5 ${showTemplateLibraryText ? 'px-2.5 py-1' : 'p-1.5'} rounded border text-xs font-medium transition shrink-0 hover:border-[var(--ov-accent)] cursor-pointer`}
             title="浏览完整的系统架构、C4 容器、时序图、甘特图等企业级模版"
             aria-label="模板库"
           >
@@ -366,13 +451,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               {PLANTUML_TEMPLATES.slice(0, 3).map((tmpl) => (
                 <button
                   key={tmpl.id}
+                  type="button"
                   onClick={() => handleApplyTemplate(tmpl.code)}
                   style={{
                     backgroundColor: 'var(--ov-surface)',
                     borderColor: 'var(--ov-border)',
                     color: 'var(--ov-text-secondary)',
                   }}
-                  className="px-2 py-0.5 rounded text-[11px] border transition shrink-0 hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
+                  className="px-2 py-0.5 rounded text-[11px] border transition shrink-0 hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)] cursor-pointer"
                 >
                   {tmpl.name}
                 </button>
@@ -386,13 +472,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           {/* Theme Injector Dropdown */}
           <div className="relative">
             <button
+              type="button"
               onClick={() => setShowThemeMenu(!showThemeMenu)}
               style={{
                 backgroundColor: 'var(--ov-surface)',
                 borderColor: 'var(--ov-border)',
                 color: 'var(--ov-text)',
               }}
-              className={`flex items-center gap-1 ${showThemeText ? 'px-2' : 'p-1.5'} py-1 rounded border transition hover:border-[var(--ov-accent)]`}
+              className={`flex items-center gap-1 ${showThemeText ? 'px-2' : 'p-1.5'} py-1 rounded border transition hover:border-[var(--ov-accent)] cursor-pointer`}
               title="切换 PlantUML 官方皮肤主题 (!theme)"
               aria-label="主题"
             >
@@ -430,13 +517,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                   return (
                     <button
                       key={th.id}
+                      type="button"
                       onClick={() => handleSelectTheme(th.themeValue)}
                       style={
                         isActive
                           ? { backgroundColor: 'var(--ov-accent-bg, rgba(99,102,241,0.15))', borderColor: 'var(--ov-accent)', color: 'var(--ov-accent)' }
                           : { color: 'var(--ov-text-secondary)' }
                       }
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition border border-transparent hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition border border-transparent hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] cursor-pointer"
                     >
                       <div>
                         <div className="font-medium text-xs flex items-center gap-1.5">
@@ -463,13 +551,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           {/* Server Config Button */}
           <div className="relative">
             <button
+              type="button"
               onClick={() => setShowServerModal(!showServerModal)}
               style={
                 isLocalServer
                   ? { backgroundColor: 'rgba(16,185,129,0.15)', borderColor: 'rgb(16,185,129)', color: 'rgb(16,185,129)' }
                   : { backgroundColor: 'var(--ov-surface)', borderColor: 'var(--ov-border)', color: 'var(--ov-text)' }
               }
-              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition border hover:border-[var(--ov-accent)]"
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition border hover:border-[var(--ov-accent)] cursor-pointer"
               title="配置 PlantUML 渲染服务器 (支持本地 Docker 容器直连)"
             >
               <Server className="w-3.5 h-3.5" />
@@ -491,13 +580,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={handleRefresh}
             style={{
               backgroundColor: 'var(--ov-surface)',
               borderColor: 'var(--ov-border)',
               color: 'var(--ov-text-secondary)',
             }}
-            className="p-1.5 rounded border transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
+            className="p-1.5 rounded border transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)] cursor-pointer"
             title="重新编译渲染"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -506,13 +596,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           {/* Export Menu */}
           <div className="relative">
             <button
+              type="button"
               onClick={() => setShowExportMenu(!showExportMenu)}
               style={{
                 backgroundColor: 'var(--ov-surface)',
                 borderColor: 'var(--ov-border)',
                 color: 'var(--ov-text)',
               }}
-              className={`flex items-center gap-1 ${showExportText ? 'px-2.5' : 'p-1.5'} py-1 rounded border transition hover:border-[var(--ov-accent)]`}
+              className={`flex items-center gap-1 ${showExportText ? 'px-2.5' : 'p-1.5'} py-1 rounded border transition hover:border-[var(--ov-accent)] cursor-pointer`}
               title="导出与复制矢量资产"
               aria-label="无损导出"
             >
@@ -532,28 +623,60 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 className="absolute right-0 mt-2 w-52 border rounded-xl p-1.5 z-50 text-xs space-y-1"
               >
                 <button
+                  type="button"
+                  onClick={handleCopyImageBlob}
+                  disabled={isCopyingImage}
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2">
+                    {copiedImage ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : isCopyingImage ? (
+                      <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                    ) : (
+                      <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                    )}
+                    <div className="flex flex-col">
+                      <span className="font-medium text-xs">
+                        {copiedImage ? '图片已复制到剪贴板' : '复制图片数据流 (PNG)'}
+                      </span>
+                      <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px]">
+                        写入 image/png 剪贴板，贴入 Word/PPT/微信
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-500/10 text-blue-400 font-semibold shrink-0">
+                    PNG
+                  </span>
+                </button>
+                <div style={{ borderColor: 'var(--ov-border)' }} className="border-t my-1"></div>
+                <button
+                  type="button"
                   onClick={handleDownloadSvg}
                   style={{ color: 'var(--ov-text)' }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-emerald-500" />
                   <span>导出矢量文件 (.svg)</span>
                 </button>
                 <button
+                  type="button"
                   onClick={handleDownloadPng}
                   style={{ color: 'var(--ov-text)' }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] cursor-pointer"
                 >
                   <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
                   <span>导出高清位图 (.png)</span>
                 </button>
                 <button
+                  type="button"
                   onClick={handleCopySvgCode}
                   style={{ color: 'var(--ov-text)' }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] cursor-pointer"
                 >
                   {copiedSvg ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-amber-500" />}
-                  <span>{copiedSvg ? 'SVG 源码已复制' : '复制 SVG 代码 (直贴设计稿)'}</span>
+                  <span>{copiedSvg ? 'SVG 源码已复制' : '复制 SVG 源码 (直贴设计稿/网页)'}</span>
                 </button>
                 <div style={{ borderColor: 'var(--ov-border)' }} className="border-t my-1"></div>
                 <a
@@ -590,12 +713,13 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           )}
 
           <button
+            type="button"
             onClick={handleCopy}
             style={{
               backgroundColor: 'var(--ov-accent)',
               color: '#ffffff',
             }}
-            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5' : 'p-1.5'} py-1 rounded transition shrink-0 hover:opacity-90 shadow-xs`}
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5' : 'p-1.5'} py-1 rounded transition shrink-0 hover:opacity-90 shadow-xs cursor-pointer`}
             title="复制代码"
             aria-label="复制代码"
           >
@@ -604,6 +728,16 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Multi-diagram Tabs Bar (if 2+ @startuml blocks) */}
+      <PlantUmlDiagramTabBar
+        blocks={diagramBlocks}
+        selectedBlockIndex={selectedBlockIndex}
+        onSelectBlock={handleSelectBlockTab}
+        onAddNewDiagram={handleAddNewDiagram}
+        renderAllMode={renderAllMode}
+        onToggleRenderAllMode={() => setRenderAllMode(!renderAllMode)}
+      />
 
       {/* Main Split View: Code Editor vs Vector Canvas (Draggable Splitter) */}
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
@@ -635,45 +769,50 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             <span style={{ color: 'var(--ov-text-muted)' }}>{localCode.split('\n').length} {t('linesUtf8', locale)}</span>
           </div>
 
-          {/* Quick Snippets Insertion Bar */}
-          <div
-            style={{
-              backgroundColor: 'var(--ov-bg)',
-              borderBottomColor: 'var(--ov-border)',
-            }}
-            className="flex items-center gap-1 px-2 py-1 border-b overflow-x-auto no-scrollbar shrink-0"
-          >
-            <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] font-mono px-1 shrink-0">快捷片段:</span>
-            {PLANTUML_SNIPPETS.map((snippet, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleInsertSnippet(snippet.code)}
-                style={{
-                  backgroundColor: 'var(--ov-surface)',
-                  borderColor: 'var(--ov-border)',
-                  color: 'var(--ov-text-secondary)',
-                }}
-                className="px-1.5 py-0.5 rounded text-[10px] font-mono border shrink-0 transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
-                title={snippet.tooltip}
-              >
-                {snippet.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Source Code Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={localCode}
-            onChange={e => handleCodeChange(e.target.value)}
-            spellCheck={false}
-            style={{
-              color: 'var(--ov-text)',
-              backgroundColor: 'transparent',
-            }}
-            className="flex-1 p-4 font-mono text-xs resize-none outline-none leading-relaxed"
-            placeholder="@startuml ... @enduml"
+          {/* PlantUML 交互式图元、连接符与 Sprite 建模工具箱 */}
+          <PlantUmlModelingToolbar
+            onInsertCode={handleInsertSnippet}
+            activeDiagramType={diagramBlocks[selectedBlockIndex]?.diagramType}
           />
+
+          {/* Source Code Textarea with Drag & Drop Insertion */}
+          <div
+            className="flex-1 relative flex flex-col"
+            onDragOver={e => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+            }}
+            onDrop={e => {
+              const snippet = e.dataTransfer.getData('application/x-plantuml-snippet') || e.dataTransfer.getData('text/plain');
+              if (snippet && textareaRef.current) {
+                e.preventDefault();
+                const textarea = textareaRef.current;
+                const dropPos = textarea.selectionStart;
+                const before = localCode.substring(0, dropPos);
+                const after = localCode.substring(dropPos);
+                const prefix = before.length === 0 || before.endsWith('\n') ? '' : '\n';
+                const updated = before + prefix + snippet + after;
+                handleCodeChange(updated);
+                setTimeout(() => {
+                  textarea.focus();
+                  textarea.setSelectionRange(dropPos + prefix.length + snippet.length, dropPos + prefix.length + snippet.length);
+                }, 30);
+              }
+            }}
+          >
+            <textarea
+              ref={textareaRef}
+              value={localCode}
+              onChange={e => handleCodeChange(e.target.value)}
+              spellCheck={false}
+              style={{
+                color: 'var(--ov-text)',
+                backgroundColor: 'transparent',
+              }}
+              className="flex-1 p-4 font-mono text-xs resize-none outline-none leading-relaxed"
+              placeholder="@startuml ... @enduml"
+            />
+          </div>
         </div>
 
         {/* Draggable Splitter Divider */}
@@ -716,7 +855,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
           >
             <div className="flex items-center gap-2">
               <span style={{ color: 'var(--ov-text-muted)' }} className="text-[11px] font-mono truncate">
-                矢量视口 ({Math.round(100 - splitRatio)}%)
+                {renderAllMode ? '全量连续视口' : diagramBlocks[selectedBlockIndex]?.title || '矢量视口'} ({Math.round(100 - splitRatio)}%)
               </span>
 
               {/* Quick Split Ratio Presets */}
@@ -728,25 +867,28 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                 className="hidden sm:flex items-center gap-1 px-1 py-0.5 rounded border text-[10px] font-mono"
               >
                 <button
+                  type="button"
                   onClick={() => setSplitRatio(30)}
                   style={splitRatio === 30 ? { backgroundColor: 'var(--ov-accent)', color: '#ffffff' } : { color: 'var(--ov-text-muted)' }}
-                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
+                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)] cursor-pointer"
                   title="30% 代码 : 70% 预览"
                 >
                   30:70
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSplitRatio(50)}
                   style={splitRatio === 50 ? { backgroundColor: 'var(--ov-accent)', color: '#ffffff' } : { color: 'var(--ov-text-muted)' }}
-                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
+                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)] cursor-pointer"
                   title="50% 代码 : 50% 预览 (平衡)"
                 >
                   50:50
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSplitRatio(70)}
                   style={splitRatio === 70 ? { backgroundColor: 'var(--ov-accent)', color: '#ffffff' } : { color: 'var(--ov-text-muted)' }}
-                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
+                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)] cursor-pointer"
                   title="70% 代码 : 30% 预览"
                 >
                   70:30
@@ -756,15 +898,41 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
             {/* Viewport Navigation & Tools */}
             <div className="flex items-center gap-1.5">
+              {/* Copy Image Button */}
+              <button
+                type="button"
+                onClick={handleCopyImageBlob}
+                disabled={isCopyingImage || !canRender}
+                style={{
+                  backgroundColor: copiedImage ? 'rgba(16,185,129,0.15)' : 'var(--ov-surface)',
+                  borderColor: copiedImage ? 'rgb(16,185,129)' : 'var(--ov-border)',
+                  color: copiedImage ? 'rgb(16,185,129)' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-medium transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)] cursor-pointer"
+                title="一键将高清图片写入系统剪贴板 (可直接贴入 Word / WPS / PPT / 微信 / 飞书)"
+              >
+                {copiedImage ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                ) : isCopyingImage ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                ) : (
+                  <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                )}
+                <span>{copiedImage ? '图片已复制' : '复制图片'}</span>
+              </button>
+
+              <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-3 w-[1px] mx-0.5" />
+
               {/* Hand Tool (Pan Mode) */}
               <button
+                type="button"
                 onClick={() => setPanMode(!panMode)}
                 style={
                   panMode
                     ? { backgroundColor: 'var(--ov-accent)', borderColor: 'var(--ov-accent)', color: '#ffffff' }
                     : { backgroundColor: 'var(--ov-surface)', borderColor: 'var(--ov-border)', color: 'var(--ov-text-secondary)' }
                 }
-                className="p-1 rounded transition border hover:text-[var(--ov-text)]"
+                className="p-1 rounded transition border hover:text-[var(--ov-text)] cursor-pointer"
                 title={panMode ? '抓手平移模式已激活 (拖拽画布平移)' : '开启抓手平移模式 (或按住 Shift 拖动)'}
               >
                 <Hand className="w-3.5 h-3.5" />
@@ -774,26 +942,29 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
               {/* Zoom Controls */}
               <button
+                type="button"
                 onClick={() => setZoom(z => Math.max(0.2, z - 0.15))}
                 style={{ color: 'var(--ov-text-secondary)' }}
-                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
+                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded cursor-pointer"
                 title="缩小 (Ctrl + 滚轮向下)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
               <span className="font-mono text-[var(--ov-accent)] text-xs min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
               <button
+                type="button"
                 onClick={() => setZoom(z => Math.min(3.5, z + 0.15))}
                 style={{ color: 'var(--ov-text-secondary)' }}
-                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
+                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded cursor-pointer"
                 title="放大 (Ctrl + 滚轮向上)"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
               <button
+                type="button"
                 onClick={handleResetViewport}
                 style={{ color: 'var(--ov-text-secondary)' }}
-                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
+                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded cursor-pointer"
                 title="复位视口 (100% 居中)"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -846,7 +1017,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                       type="button"
                       onClick={handleRefresh}
                       style={{ backgroundColor: 'var(--ov-accent)', color: '#ffffff' }}
-                      className="px-3 py-1.5 rounded font-medium hover:opacity-90"
+                      className="px-3 py-1.5 rounded font-medium hover:opacity-90 cursor-pointer"
                     >
                       重新加载
                     </button>
@@ -858,7 +1029,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
                         borderColor: 'var(--ov-border)',
                         color: 'var(--ov-text)',
                       }}
-                      className="px-3 py-1.5 rounded border hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
+                      className="px-3 py-1.5 rounded border hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] cursor-pointer"
                     >
                       配置服务器
                     </button>

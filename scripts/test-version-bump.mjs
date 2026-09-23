@@ -18,7 +18,7 @@ import {
   parseSemVer,
   bumpVersionString,
   runVersionBump,
-} from '../.codex/scripts/bump-version.mjs';
+} from './bump-version.mjs';
 
 console.log('🧪 开始 AI-SE 自动化版本号管理单元测试...');
 

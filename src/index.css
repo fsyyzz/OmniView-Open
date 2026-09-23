@@ -1282,7 +1282,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   border-bottom: 1px solid var(--ov-border);
 }
 
-/* 浮动悬停工具栏 (Floating Overlay Toolbar) - 鼠标移入时纯悬浮显示，不占用垂直文档流，杜绝内容向下抖动/闪现 */
+/* 浮动悬停工具栏 (Floating Overlay Toolbar) - 鼠标移入时纯悬浮显示，不占用垂直文档流，全主题像素级融合 */
 .diagram-header {
   position: absolute;
   top: 0;
@@ -1293,22 +1293,73 @@ body.vscode-high-contrast-light[data-theme="system"] {
   align-items: center;
   justify-content: space-between;
   padding: 6px 14px;
-  background: rgba(15, 23, 42, 0.9);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(51, 65, 85, 0.65);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  background: var(--ov-surface-header, rgba(15, 23, 42, 0.92));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ov-border, rgba(51, 65, 85, 0.65));
+  box-shadow: var(--ov-shadow, 0 4px 14px rgba(0, 0, 0, 0.25));
+  color: var(--ov-text);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-4px);
-  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
 }
 
-[data-theme="light"] .diagram-header,
+[data-theme="light"] .diagram-header {
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom-color: rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
 [data-theme="sepia"] .diagram-header {
-  background: rgba(255, 255, 255, 0.92);
-  border-bottom-color: rgba(203, 213, 225, 0.8);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  background: rgba(244, 236, 216, 0.95);
+  border-bottom-color: rgba(221, 206, 180, 0.9);
+  box-shadow: 0 4px 14px rgba(78, 56, 30, 0.08);
+}
+
+/* 全局图表工具栏内嵌操作容器与按钮的主题自适应 (Theme-Adaptive Toolbar Controls) */
+.diagram-header button {
+  color: var(--ov-text-secondary);
+  transition: all 0.15s ease;
+}
+
+.diagram-header button:hover {
+  color: var(--ov-text);
+  background-color: var(--ov-surface-hover, rgba(125, 125, 125, 0.12));
+}
+
+.diagram-header .bg-slate-900,
+.diagram-header .bg-slate-800 {
+  background-color: var(--ov-surface, #1e293b) !important;
+  border-color: var(--ov-border, #334155) !important;
+  color: var(--ov-text) !important;
+}
+
+.diagram-header .border-slate-700,
+.diagram-header .border-slate-750,
+.diagram-header .border-slate-800 {
+  border-color: var(--ov-border, #334155) !important;
+}
+
+.diagram-header .text-slate-400,
+.diagram-header .text-slate-300 {
+  color: var(--ov-text-muted, #94a3b8) !important;
+}
+
+.diagram-header .text-slate-200,
+.diagram-header .hover\:text-white:hover,
+.diagram-header .hover\:text-slate-200:hover {
+  color: var(--ov-text, #f8fafc) !important;
+}
+
+.diagram-header .hover\:bg-slate-700:hover,
+.diagram-header .hover\:bg-slate-800:hover {
+  background-color: var(--ov-surface-hover, rgba(125, 125, 125, 0.14)) !important;
+}
+
+.diagram-header .bg-slate-700,
+.diagram-header div.h-3.w-px {
+  background-color: var(--ov-border, #334155) !important;
 }
 
 .markdown-diagram:hover .diagram-header {
@@ -1356,6 +1407,34 @@ body.vscode-high-contrast-light[data-theme="system"] {
 /* 灯箱全屏模式下 Graphviz 矢量图随暗色背景自适应 */
 .markdown-lightbox-content svg.graphviz-svg-dark-inverted {
   filter: invert(0.92) hue-rotate(180deg) contrast(1.15);
+}
+
+/* KaTeX 数学公式渲染随系统与多主题字体颜色自动继承 */
+.markdown-diagram-math .katex,
+.markdown-diagram-math .katex-display {
+  color: var(--ov-text) !important;
+}
+
+.markdown-diagram-math .diagram-canvas {
+  color: var(--ov-text) !important;
+}
+
+/* Markdown 图表容器全主题边框与底衬增强 */
+.markdown-diagram {
+  background: var(--ov-surface);
+  border: 1px solid var(--ov-border);
+  box-shadow: var(--ov-shadow);
+}
+
+/* 源码编辑框全主题输入框背景自适应 */
+.markdown-diagram textarea {
+  background-color: var(--ov-code-bg, #0f172a) !important;
+  color: var(--ov-text, #f8fafc) !important;
+  border-color: var(--ov-border, #334155) !important;
+}
+
+.markdown-diagram textarea:focus {
+  border-color: var(--ov-accent, #3b82f6) !important;
 }
 
 /* =========================================================

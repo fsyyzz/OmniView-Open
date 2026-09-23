@@ -15,8 +15,10 @@ import {
   Code,
   Eye,
   PlayCircle,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
+import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 import { analyzeMermaidError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill';
@@ -83,6 +85,8 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   const [isPlaybackActive, setIsPlaybackActive] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(-1);
   const [hoveredNodeInfo, setHoveredNodeInfo] = useState<{ label: string; line: number } | null>(null);
+  const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
+  const [isCopyingImage, setIsCopyingImage] = useState<boolean>(false);
   const renderCountRef = useRef<number>(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -165,6 +169,18 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       URL.revokeObjectURL(url);
     } else {
       onDownloadSvg();
+    }
+  };
+
+  const handleCopyImage = async () => {
+    const targetSvg = displaySvg || liveSvg;
+    if (!targetSvg || isCopyingImage) return;
+    setIsCopyingImage(true);
+    const success = await copySvgOrImageToClipboard(targetSvg, false, '#ffffff');
+    setIsCopyingImage(false);
+    if (success) {
+      setIsCopiedImage(true);
+      setTimeout(() => setIsCopiedImage(false), 2000);
     }
   };
 
@@ -339,14 +355,31 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
               </button>
               <div className="h-3 w-px bg-slate-700 mx-0.5" />
               {liveSvg && (
-                <button
-                  onClick={handleDownload}
-                  className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
-                  title={t('downloadSvg', locale)}
-                  aria-label={t('downloadSvg', locale)}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                </button>
+                <>
+                  <button
+                    onClick={handleCopyImage}
+                    disabled={isCopyingImage}
+                    className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+                    title={isCopiedImage ? t('imageCopied', locale) : t('copyImage', locale)}
+                    aria-label={t('copyImage', locale)}
+                  >
+                    {isCopiedImage ? (
+                      <Check className="w-3.5 h-3.5 text-green-400" />
+                    ) : isCopyingImage ? (
+                      <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                    ) : (
+                      <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
+                    )}
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+                    title={t('downloadSvg', locale)}
+                    aria-label={t('downloadSvg', locale)}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </>
               )}
             </>
           ) : (

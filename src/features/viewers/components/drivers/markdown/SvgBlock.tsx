@@ -12,8 +12,11 @@ import {
   Maximize2,
   Code,
   Eye,
+  Image as ImageIcon,
+  RefreshCw,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n';
+import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 
 import { ExternalBadgePill } from '../../common/ExternalBadgePill';
 
@@ -89,9 +92,22 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
   locale = 'zh-CN',
 }) => {
   const activeCode = editedCode !== undefined ? editedCode : rawCode;
+  const [isCopiedImage, setIsCopiedImage] = React.useState<boolean>(false);
+  const [isCopyingImage, setIsCopyingImage] = React.useState<boolean>(false);
   const sanitizedLiveSvg = useMemo(() => {
     return DOMPurify.sanitize(activeCode, DOMPURIFY_SVG_CONFIG) as string;
   }, [activeCode]);
+
+  const handleCopyImage = async () => {
+    if (!sanitizedLiveSvg || isCopyingImage) return;
+    setIsCopyingImage(true);
+    const success = await copySvgOrImageToClipboard(sanitizedLiveSvg, false, '#ffffff');
+    setIsCopyingImage(false);
+    if (success) {
+      setIsCopiedImage(true);
+      setTimeout(() => setIsCopiedImage(false), 2000);
+    }
+  };
 
   const bgClasses = {
     dark: 'bg-slate-950/70',
@@ -238,6 +254,21 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
           )}
 
           {/* Download & Copy */}
+          <button
+            onClick={handleCopyImage}
+            disabled={isCopyingImage}
+            className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+            title={isCopiedImage ? t('imageCopied', locale) : t('copyImage', locale)}
+            aria-label={t('copyImage', locale)}
+          >
+            {isCopiedImage ? (
+              <Check className="w-3.5 h-3.5 text-green-400" />
+            ) : isCopyingImage ? (
+              <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+            ) : (
+              <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+            )}
+          </button>
           <button
             onClick={onDownloadSvg}
             className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"

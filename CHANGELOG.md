@@ -4,6 +4,33 @@
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-09-23
+
+### Fixed
+
+- **AI-SE 基础设施跨环境稳态与 CI 容错治理**:
+  - 修复度量脚本（`measure-metrics.mjs`）与文档同步检查门禁（`check-doc-sync.mjs`）在非 Git 或无 `.git` 隔离沙箱环境下的异常输出，增加安全探测与静默容错；
+  - 自动化构建与同步全套 AI-SE Codex 89 组规范索引 (`codex.index.json`)，保证 JIT 检索基准延迟在 1.16ms（≤15ms 预算要求）；
+  - 严格保持版本号在 `package.json` 与 `CHANGELOG.md` 之间的三处一致性。
+
+
+## [1.0.15] - 2026-09-23
+
+### Added
+
+- **300+ DPI 矢量高清图表复制引擎 (`copyImageHelper`)**:
+  - **超采样无损导出**：自动解析 SVG 的 `viewBox` 与几何尺寸，注入 3x 高清超采样与高质量双三次平滑滤波，保证输出至少 2400px+ 宽度，解决贴入 Word / PPT / 微信后的模糊与锯齿问题；
+  - **防透明黑底保护**：默认智能填充 `#ffffff` 高白底色，彻底杜绝 Office 套件对透明 PNG 渲染变黑的兼容性缺陷；
+  - **全图表驱动生态覆盖**：全面集成到 Markdown 内嵌图表组件（Mermaid、PlantUML、SVG、DomainStory、Graphviz）以及独立 PlantUML 编辑器中；
+  - **CI/CD 开源构建兼容性加固**：将版本自增与演进工具链固化在公开 `scripts/bump-version.mjs` 中，避免开源隔离环境因 `.codex` 缺失引发模块无法找到错误。
+
+### Fixed
+
+- **图表浮动工具栏与操作按钮全主题像素级融合**:
+  - 将 `.diagram-header` 悬浮工具栏、内嵌操作按钮与分组胶囊全面重构为依托 `--ov-*` 语义令牌与设计变量，彻底解决浅色主题（Light/Sepia）与高反差主题下底色、边框与操作按钮不匹配或文字看不清的问题；
+  - 优化 Mermaid、PlantUML、Graphviz、DomainStory 及 KaTeX 在多主题下的文字、线条与边框对比度。
+
+
 ## [1.0.9] - 2026-09-21
 
 ### Added

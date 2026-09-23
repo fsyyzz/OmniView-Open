@@ -1,5 +1,5 @@
 /**
- * PlantUML 架构驱动企业级模板、主题与快捷代码段
+ * PlantUML 架构驱动企业级模板、主题、快捷代码段与 Sprite 图标库
  */
 
 export interface PlantUmlTemplate {
@@ -294,22 +294,128 @@ end box\n`,
   },
 ];
 
+// 建模工具箱图元定义
+export interface PlantUmlElementItem {
+  name: string;
+  syntax: string;
+  icon: string;
+  code: string;
+}
+
+export const PLANTUML_TOOLBOX_ELEMENTS: PlantUmlElementItem[] = [
+  { name: '参与者 (Participant)', syntax: 'participant "名称" as ID', icon: '👤', code: 'participant "应用服务" as AppSvc\n' },
+  { name: '人员角色 (Actor)', syntax: 'actor "角色名" as User', icon: '🧑', code: 'actor "运维工程师" as Ops\n' },
+  { name: '数据库 (Database)', syntax: 'database "库名" as DB', icon: '🗄️', code: 'database "PostgreSQL 主库" as PG_DB\n' },
+  { name: '消息队列 (Queue)', syntax: 'queue "主题名" as MQ', icon: '📨', code: 'queue "Kafka Event Stream" as Kafka_MQ\n' },
+  { name: '组件实体 (Component)', syntax: '[组件名] as Comp', icon: '📦', code: '[API Gateway 网关] as APIGW\n' },
+  { name: '实体表 (Entity)', syntax: 'entity "表名" as E { ... }', icon: '📑', code: 'entity "orders" as OrderEntity {\n  * id : BIGINT <<PK>>\n  --\n  * user_id : BIGINT\n  amount : DECIMAL(10,2)\n}\n' },
+  { name: '边界分组 (Boundary)', syntax: 'boundary "外部边界" as B', icon: '🌐', code: 'boundary "外部开放接口" as OpenApi\n' },
+  { name: '云服务节点 (Node/Cloud)', syntax: 'node "节点" { ... }', icon: '☁️', code: 'node "K8s 生产集群" {\n  [Core Service] as Svc\n}\n' },
+  { name: '初始/结束状态 (State End)', syntax: '[*] --> StateName', icon: '⭕', code: '[*] --> Initializing\n' },
+];
+
+// 连接符与关系定义
+export interface PlantUmlConnectorItem {
+  name: string;
+  symbol: string;
+  desc: string;
+  code: string;
+}
+
+export const PLANTUML_CONNECTORS: PlantUmlConnectorItem[] = [
+  { name: '同步消息请求', symbol: '->', desc: '实线实心箭头同步阻塞调用', code: 'Client -> Server : 1. 同步请求 /api/v1/resource\n' },
+  { name: '异步返回响应', symbol: '-->', desc: '虚线返回响应或回调', code: 'Server --> Client : 2. 返回 JSON 数据 (200 OK)\n' },
+  { name: '单向异步消息', symbol: '->>', desc: '带空心箭头的单向异步投递', code: 'Producer ->> Consumer : 发布事件 EventMessage\n' },
+  { name: '关联依赖关系', symbol: '..>', desc: '虚线依赖关系', code: 'ServiceA ..> ServiceB : <<依赖>>\n' },
+  { name: '继承/泛化关系', symbol: '--|>', desc: '面向对象继承与泛化', code: 'SubClass --|> BaseClass : extends\n' },
+  { name: '组合包含关系', symbol: '*--', desc: '强聚合组合关系', code: 'Order *-- OrderItem : 包含\n' },
+  { name: '聚合共享关系', symbol: 'o--', desc: '弱聚合关系', code: 'Department o-- Employee : 拥有\n' },
+  { name: '双向双箭通信', symbol: '<->', desc: '全双工双向连接 (WebSocket)', code: 'Client <-> Gateway : WebSocket 全双工通道\n' },
+];
+
+// 云厂商与开源 Sprite 图标库
+export interface PlantUmlSpriteItem {
+  name: string;
+  category: string;
+  iconTag: string;
+  code: string;
+}
+
+export const PLANTUML_SPRITES: PlantUmlSpriteItem[] = [
+  {
+    name: 'AWS S3 存储',
+    category: 'AWS Cloud',
+    iconTag: '<$s3>',
+    code: `!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v18.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Storage/SimpleStorageService.puml
+SimpleStorageService(s3_bucket, "静态文件存储", "us-east-1")\n`,
+  },
+  {
+    name: 'Kubernetes 集群',
+    category: 'DevOps / Cloud',
+    iconTag: '<$k8s>',
+    code: `node "Kubernetes Node" <<K8s>> {
+  [Pod: App Container] as Pod1
+}\n`,
+  },
+  {
+    name: 'PostgreSQL 数据库',
+    category: 'Database',
+    iconTag: '<$postgresql>',
+    code: `database "PostgreSQL 16" as PGDB #LightCyan {
+  folder "schema: public" {
+    [users]
+    [orders]
+  }
+}\n`,
+  },
+  {
+    name: 'Redis 缓存集群',
+    category: 'Database / Cache',
+    iconTag: '<$redis>',
+    code: `database "Redis Cluster" as RedisDB #Pink {\n  [Session Cache]\n  [Token Store]\n}\n`,
+  },
+  {
+    name: 'Kafka 消息总线',
+    category: 'Event Stream',
+    iconTag: '<$kafka>',
+    code: `queue "Kafka Cluster" as KafkaBus #Lavender {\n  [order.events.v1]\n  [payment.notify.v1]\n}\n`,
+  },
+];
+
+// 高亮色彩标签
+export interface PlantUmlColorTag {
+  name: string;
+  tag: string;
+  hex: string;
+  sampleColor: string;
+}
+
+export const PLANTUML_COLOR_TAGS: PlantUmlColorTag[] = [
+  { name: '天青蓝 (SkyBlue)', tag: '#LightSkyBlue', hex: '#LightSkyBlue', sampleColor: '#87cefa' },
+  { name: '薄荷绿 (MintGreen)', tag: '#LightGreen', hex: '#LightGreen', sampleColor: '#90ee90' },
+  { name: '珊瑚粉 (Pink)', tag: '#LightPink', hex: '#LightPink', sampleColor: '#ffb6c1' },
+  { name: '金黄色 (Gold)', tag: '#Gold', hex: '#Gold', sampleColor: '#ffd700' },
+  { name: '青绿湖蓝 (Cyan)', tag: '#LightCyan', hex: '#LightCyan', sampleColor: '#e0ffff' },
+  { name: '薰衣草紫 (Lavender)', tag: '#Lavender', hex: '#Lavender', sampleColor: '#e6e6fa' },
+  { name: '亮橙色 (Orange)', tag: '#Orange', hex: '#Orange', sampleColor: '#ffa500' },
+  { name: '工业深灰 (DarkSlate)', tag: '#DarkSlateGray', hex: '#DarkSlateGray', sampleColor: '#2f4f4f' },
+];
+
 /**
  * 在 PlantUML 源码中应用/替换/移除 !theme 指令
  */
 export function applyPlantUmlTheme(code: string, themeValue: string): string {
   if (!themeValue) {
-    // 移除已有的 !theme 行
     return code.replace(/^[ \t]*!theme\s+[^\r\n]+\r?\n?/m, '');
   }
 
-  // 如果已存在 !theme，则原位替换
   if (/^[ \t]*!theme\s+[^\r\n]+/m.test(code)) {
     return code.replace(/^[ \t]*!theme\s+[^\r\n]+/m, `!theme ${themeValue}`);
   }
 
-  // 否则插入在 @start... 开头行之后
-  const startMatch = code.match(/^[ \t]*@start[a-z]+\b[^\r\n]*\r?\n/m);
+  const startMatch = code.match(/^[ \t]*@start[a-z0-9_-]+\b[^\r\n]*\r?\n/m);
   if (startMatch && startMatch.index !== undefined) {
     const insertPos = startMatch.index + startMatch[0].length;
     return code.slice(0, insertPos) + `!theme ${themeValue}\n` + code.slice(insertPos);
@@ -325,4 +431,3 @@ export function detectPlantUmlTheme(code: string): string {
   const match = code.match(/^[ \t]*!theme\s+([a-zA-Z0-9_-]+)/m);
   return match ? match[1] : '';
 }
-
