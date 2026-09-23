@@ -187,7 +187,7 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
     }
   }, [file.path, onContentChange, vscode]);
 
-  // 快捷键监听 (Ctrl+S / Cmd+S 立即落盘; Ctrl+? / Shift+? 打开快捷键指南)
+  // 快捷键监听 (Ctrl+S / Cmd+S 立即落盘; Ctrl+? 打开指南; Ctrl+A 精准全选正文区)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -200,9 +200,43 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
         setIsShortcutsModalOpen(prev => !prev);
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.isContentEditable ||
+            activeEl.getAttribute('contenteditable') === 'true' ||
+            activeEl.closest('.ov-code-editor, textarea, input, select, [contenteditable="true"], [role="dialog"], .ov-modal-backdrop'))
+        ) {
+          return;
+        }
+        if (document.querySelector('.ov-modal-backdrop, [role="dialog"]')) {
+          return;
+        }
+
+        // 查找正文区域容器 (Markdown / Document Canvas)，避免选中插件顶栏与状态栏
+        const contentCanvas = document.querySelector(
+          '#markdown-viewer-canvas, .markdown-document, .markdown-plugin-scroll > div'
+        ) as HTMLElement | null;
+
+        if (contentCanvas) {
+          e.preventDefault();
+          e.stopPropagation();
+          const sel = window.getSelection();
+          if (sel) {
+            const range = document.createRange();
+            range.selectNodeContents(contentCanvas);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        }
+      }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [handleSaveImmediate]);
 
   // 监听来自 VS Code 宿主的 content-saved 反馈消息

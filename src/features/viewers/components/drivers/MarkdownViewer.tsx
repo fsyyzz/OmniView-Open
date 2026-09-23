@@ -120,7 +120,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     selectedText: '',
   });
 
-  // 监听预览区划选文本事件
+  // 监听预览区划选文本事件 (仅在支持编辑回写时激活气泡格式工具条)
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !onContentChange) return;
@@ -194,33 +194,49 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     container.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('selectionchange', handleSelectionChange);
 
-    // 4. 监听 Ctrl+A / Cmd+A：当焦点位于内容区时，仅精准全选中 Markdown 正文，杜绝外层 Shell / 侧边栏被带入
+    return () => {
+      container.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [onContentChange]);
+
+  // 全局交互：Ctrl+A 精准全选 Markdown 正文区域与 Word/WPS 富文本清洗复制
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // 4. 监听 Ctrl+A / Cmd+A：无论在 Web 独立应用还是 VS Code 插件 Webview 中，均仅精准全选中 Markdown 正文
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
-        const activeEl = document.activeElement;
-        // 如果焦点在输入框、textarea、代码编辑框内，保留原生行为
+        const activeEl = document.activeElement as HTMLElement | null;
+        // 如果焦点在输入框、textarea、代码编辑框或模态弹窗内，保留原生行为
         if (
           activeEl &&
           (activeEl.tagName === 'INPUT' ||
             activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.isContentEditable ||
             activeEl.getAttribute('contenteditable') === 'true' ||
-            activeEl.closest('.ov-code-editor, textarea, input'))
+            activeEl.closest('.ov-code-editor, textarea, input, select, [contenteditable="true"], [role="dialog"], .ov-modal-backdrop'))
         ) {
           return;
         }
 
-        // 检查鼠标或焦点是否属于当前预览容器
-        const sel = window.getSelection();
-        const isTargetInside =
-          (activeEl && container.contains(activeEl)) ||
-          (sel && sel.anchorNode && container.contains(sel.anchorNode));
+        // 如果存在任何模态窗口打开，不进行拦截
+        if (document.querySelector('.ov-modal-backdrop, [role="dialog"]')) {
+          return;
+        }
 
-        if (isTargetInside || document.body === activeEl) {
-          e.preventDefault();
+        // 阻止浏览器或 VS Code 宿主选中整个外层 Webview DOM (顶栏、状态栏、侧边栏)
+        e.preventDefault();
+        e.stopPropagation();
+
+        const sel = window.getSelection();
+        if (sel) {
           const range = document.createRange();
           range.selectNodeContents(container);
-          sel?.removeAllRanges();
-          sel?.addRange(range);
+          sel.removeAllRanges();
+          sel.addRange(range);
         }
       }
     };
@@ -272,16 +288,14 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
     container.addEventListener('copy', handleCopy);
 
     return () => {
-      container.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('selectionchange', handleSelectionChange);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
       container.removeEventListener('copy', handleCopy);
     };
-  }, [onContentChange]);
+  }, []);
 
   // 处理气泡工具条格式应用
   const handleApplyBubbleFormat = (action: MarkdownFormatAction, linkUrl = '') => {

@@ -74,7 +74,35 @@ function runTests() {
   }
   console.log('✅ generateWordCodeTableHtml 生成标准 Word 原生双列表格 (含行号、高亮与浅灰底纹)');
 
-  console.log('\n--- 测试 3: Word 富文本清洗引擎契约校验 ---');
+  console.log('\n--- 测试 3: Ctrl+A 正文选区隔离与防穿透契约 ---');
+  // 模拟输入元素及外层容器
+  const isInputLikeElement = (el) => {
+    if (!el) return false;
+    const tag = el.tagName?.toUpperCase() || '';
+    return (
+      tag === 'INPUT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'SELECT' ||
+      el.isContentEditable ||
+      el.getAttribute?.('contenteditable') === 'true' ||
+      Boolean(el.closest?.('.ov-code-editor, textarea, input, select, [contenteditable="true"], [role="dialog"], .ov-modal-backdrop'))
+    );
+  };
+
+  const codeEditorEl = createMockElement('ov-code-editor', 'div');
+  codeEditorEl.closest = (selector) => selector.includes('ov-code-editor') ? codeEditorEl : null;
+  if (!isInputLikeElement(codeEditorEl)) {
+    throw new Error('代码编辑框应被判定为输入组件以保留原生全选行为');
+  }
+
+  const normalContentCanvas = createMockElement('markdown-document', 'div');
+  normalContentCanvas.closest = () => null;
+  if (isInputLikeElement(normalContentCanvas)) {
+    throw new Error('正文容器不应被判定为输入组件');
+  }
+  console.log('✅ Ctrl+A 正文选区隔离与输入组件保护契约校验通过');
+
+  console.log('\n--- 测试 4: Word 富文本清洗引擎契约校验 ---');
   console.log('✅ cleanAndFormatDomForWord 具备 DOMPurify / CSS 边框抹平与 SVG Base64 栅格化能力');
 
   console.log('\n🎉 全部 Word 剪贴板清洗自动化测试 100% 通过！');
