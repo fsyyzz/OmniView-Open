@@ -211,3 +211,72 @@ export async function copySvgOrImageToClipboard(
     return false;
   }
 }
+
+/**
+ * 将 SVG 源码字符串高保真光栅化为 PNG DataURL (用于嵌入 Word 友好 HTML)
+ */
+export async function convertSvgToDataUrl(
+  svgText: string,
+  options: { scale?: number; backgroundColor?: string } = {}
+): Promise<string | null> {
+  if (!svgText || typeof window === 'undefined') return null;
+  const { scale = 3, backgroundColor = '#ffffff' } = options;
+
+  return new Promise<string | null>((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      const dims = extractSvgDimensions(svgText);
+      const baseW = dims.width || 1200;
+      const baseH = dims.height || 800;
+
+      const minCanvasTargetWidth = 1800;
+      const effectiveScale = Math.max(scale, minCanvasTargetWidth / Math.max(baseW, 100));
+
+      img.onload = () => {
+        try {
+          const naturalW = img.naturalWidth || baseW;
+          const naturalH = img.naturalHeight || baseH;
+
+          const canvas = document.createElement('canvas');
+          const finalW = Math.round(naturalW * effectiveScale);
+          const finalH = Math.round(naturalH * effectiveScale);
+
+          canvas.width = finalW;
+          canvas.height = finalH;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          if (backgroundColor) {
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(0, 0, finalW, finalH);
+          }
+
+          ctx.drawImage(img, 0, 0, finalW, finalH);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+
+      img.onerror = () => resolve(null);
+
+      const preparedSvg = ensureSvgExplicitDimensions(svgText, baseW, baseH);
+      const encoded = encodeURIComponent(preparedSvg)
+        .replace(/'/g, '%27')
+        .replace(/"/g, '%22');
+      img.src = `data:image/svg+xml;charset=utf-8,${encoded}`;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+

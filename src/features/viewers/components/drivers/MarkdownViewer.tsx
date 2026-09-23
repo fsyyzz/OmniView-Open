@@ -31,6 +31,7 @@ import { useMarkdownScrollSync } from '../../hooks/useMarkdownScrollSync';
 import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
 import { getMermaidConfig } from '../../../../shared/lib/mermaidConfig';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
+import { cleanAndFormatDomForWord } from '../../lib/wordClipboardHelper';
 
 export type { RenderedBlock };
 
@@ -193,9 +194,92 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     container.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('selectionchange', handleSelectionChange);
 
+    // 4. 监听 Ctrl+A / Cmd+A：当焦点位于内容区时，仅精准全选中 Markdown 正文，杜绝外层 Shell / 侧边栏被带入
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        const activeEl = document.activeElement;
+        // 如果焦点在输入框、textarea、代码编辑框内，保留原生行为
+        if (
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.getAttribute('contenteditable') === 'true' ||
+            activeEl.closest('.ov-code-editor, textarea, input'))
+        ) {
+          return;
+        }
+
+        // 检查鼠标或焦点是否属于当前预览容器
+        const sel = window.getSelection();
+        const isTargetInside =
+          (activeEl && container.contains(activeEl)) ||
+          (sel && sel.anchorNode && container.contains(sel.anchorNode));
+
+        if (isTargetInside || document.body === activeEl) {
+          e.preventDefault();
+          const range = document.createRange();
+          range.selectNodeContents(container);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }
+    };
+
+    // 5. 监听 copy 事件：富文本剪贴板拦截与清洗流水线 (Word / WPS / Office 深度优化)
+    const handleCopy = async (e: ClipboardEvent) => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+
+      const range = selection.getRangeAt(0);
+      if (!container.contains(range.commonAncestorContainer) && !range.intersectsNode(container)) {
+        return;
+      }
+
+      // 获取纯文本
+      const rawText = selection.toString();
+      if (!rawText) return;
+
+      // 克隆选中的 DOM 片段
+      const fragment = range.cloneContents();
+      const tempWrapper = document.createElement('div');
+      tempWrapper.appendChild(fragment);
+
+      // 执行专用清洗与格式转换 (剥离工具栏、去除冗余边框、将 SVG 栅格化为高质量 Base64 图像)
+      await cleanAndFormatDomForWord(tempWrapper);
+
+      const cleanedHtml = tempWrapper.innerHTML;
+      if (!cleanedHtml) return;
+
+      // 写入富文本 (text/html) 与纯文本 (text/plain)
+      if (e.clipboardData) {
+        e.preventDefault();
+        e.clipboardData.setData('text/html', cleanedHtml);
+        e.clipboardData.setData('text/plain', rawText);
+      } else if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        e.preventDefault();
+        try {
+          const textBlob = new Blob([rawText], { type: 'text/plain' });
+          const htmlBlob = new Blob([cleanedHtml], { type: 'text/html' });
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/plain': textBlob,
+              'text/html': htmlBlob,
+            }),
+          ]);
+        } catch {
+          // 降级回退
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    container.addEventListener('copy', handleCopy);
+
     return () => {
       container.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('selectionchange', handleSelectionChange);
+      window.removeEventListener('keydown', handleKeyDown);
+      container.removeEventListener('copy', handleCopy);
     };
   }, [onContentChange]);
 

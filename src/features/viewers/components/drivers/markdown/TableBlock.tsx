@@ -366,7 +366,8 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                   >
                     <span className={colWidth ? 'truncate' : ''}>{h.text}</span>
                     <span
-                      className={`ov-table-sort-icon inline-flex transition-transform duration-200 ${
+                      data-clipboard-ignore="true"
+                      className={`ov-table-sort-icon ov-clipboard-ignore inline-flex transition-transform duration-200 ${
                         isSorted
                           ? 'opacity-100'
                           : 'opacity-0 group-hover/th:opacity-60'
@@ -388,7 +389,8 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
 
                   {/* 列宽自由拖拽 handle */}
                   <div
-                    className="ov-col-resizer absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center transition-opacity opacity-0 group-hover/th:opacity-100 hover:opacity-100"
+                    data-clipboard-ignore="true"
+                    className="ov-col-resizer ov-clipboard-ignore absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center transition-opacity opacity-0 group-hover/th:opacity-100 hover:opacity-100"
                     onMouseDown={e => handleResizeStart(colIdx, e)}
                     onDoubleClick={e => {
                       e.stopPropagation();
@@ -547,7 +549,8 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     >
       {/* 顶部工具栏：与图表 diagram-header 同一套贴顶悬浮 Overlay */}
       <div
-        className={`ov-table-block-toolbar table-block-toolbar flex flex-wrap items-center justify-between gap-2 text-xs select-none ${
+        data-clipboard-ignore="true"
+        className={`ov-table-block-toolbar ov-clipboard-ignore table-block-toolbar flex flex-wrap items-center justify-between gap-2 text-xs select-none ${
           isToolbarActive ? 'is-active' : ''
         } ${isPinned ? 'is-pinned' : ''}`}
         style={{

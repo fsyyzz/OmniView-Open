@@ -4,7 +4,21 @@
 
 ## [Unreleased]
 
-## [1.0.16] - 2026-09-23
+## [1.0.17] - 2026-09-23
+
+### Added
+
+- **Word / WPS 富文本剪贴板净化引擎 (`wordClipboardHelper.ts`)**:
+  - **剪贴板 HTML/DOM 智能脱敏与净化**：拦截 Markdown 内容区复制事件，深度清洗所有非正文交互 UI（包括悬浮工具条 `.diagram-header`、表格工具条 `.ov-table-block-toolbar`、列宽拖拽条 `.ov-col-resizer`、表头排序按钮与源码跳转链接），防止多余按钮和交互文字混入目标文档；
+  - **容器冗余边框与黑框彻底消除**：抹除 `.lazy-block-wrapper`、`.markdown-diagram`、`.ov-table-block` 的外层 CSS 边框与阴影，将表格自动规整为标准 Word 识别良好的轻量边框（`border-collapse: collapse; border: 1px solid #cbd5e1`）与浅色表头，消除 Word 粘贴多重嵌套框；
+  - **矢量图表全自动光栅化入剪贴板**：针对 Word / WPS / 邮件等富文本软件无法原生渲染内联 `<svg>` 标签的行业痛点，在复制时自动将 Mermaid、PlantUML、Graphviz、SVG、DomainStory 等图表高保真转换为 300+ DPI 极清 Base64 PNG `<img>` 标签，粘贴进 Word 立即呈现图表且清晰不失真、不黑底；
+  - **聚焦精准全选控制 (Ctrl+A / Cmd+A)**：智能绑定快捷键与焦点判别，当用户在 Markdown 渲染画布内触发全选时，仅精准圈选 Markdown 正文内容节点，杜绝外层工作台、侧边栏、Tab 标签与状态栏被误选。
+
+### Fixed
+
+- **交互性辅助元素全选与剪贴板污染问题**:
+  - 为所有浮动悬浮工具栏、表格拖拽列宽条和排序箭头追加 `data-clipboard-ignore="true"` 与 `.ov-clipboard-ignore` 声明，并赋予 `user-select: none !important` 规则，确保文本拖拽划选或系统选区均不会抓取辅助交互 UI。
+
 
 ### Fixed
 
