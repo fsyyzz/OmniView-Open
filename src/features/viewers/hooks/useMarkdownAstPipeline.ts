@@ -15,6 +15,7 @@ import { getPlantUmlSvgUrl } from '../../../shared/lib/plantuml';
 import { type Locale, t } from '../../../shared/lib/i18n';
 import { sanitizeDiagramSvg, sanitizeDiagramHtml } from '../lib/diagramSanitizer';
 import { fastFnv1a } from '../lib/diagramCache';
+import { renderTimeBudgetRegistry } from '../lib/renderTimeBudget';
 
 export interface RenderedBlock {
   id: string;
@@ -300,11 +301,15 @@ export function useMarkdownAstPipeline({
       };
 
       const renderHtmlToken = (token: any, startLine: number, endLine: number) => {
-        currentTokenStartLine = startLine;
+        const startTime = typeof performance !== 'undefined' ? performance.now() : 0;
         const html = marked.parser([token], { renderer: customRenderer });
         const htmlWithMath = renderKatexInHtml(html);
+        const duration = typeof performance !== 'undefined' ? performance.now() - startTime : 0;
+        const blockId = `block-html-${counter++}`;
+        renderTimeBudgetRegistry.recordTime(blockId, 'html', duration, startLine, endLine);
+
         parsedBlocks.push({
-          id: `block-html-${counter++}`,
+          id: blockId,
           type: 'html',
           raw: token.raw,
           startLine,

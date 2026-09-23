@@ -1,24 +1,15 @@
 /**
  * OmniView Markdown 预览区划选悬浮格式工具条 (MarkdownBubbleToolbar)
  * 
- * 遵循标准与交互体验：
- * 1. 当用户在 Markdown 预览容器内划选文字时，自动平滑计算选区视口坐标并浮现在选区上方
- * 2. 提供：加粗 (B)、斜体 (I)、删除线 (S)、行内代码 (`C`)、重点高亮 (H)、插入超链接 (Link)、插入双向链接 (WikiLink)、以及双击定位 (Locate)
- * 3. 采用 --ov-* 语义化设计令牌，保证在多主题及高对比度模式下具有精致毛玻璃质感
- * 4. 支持 ESC 键、点击外部或取消划选时平滑折叠关闭
+ * 遵循可靠回写契约：
+ * 1. 严格收窄高可靠行内动作：加粗 (**B**)、行内代码 (`C`)、插入超链接 (Link) 与双向链接 (WikiLink)
+ * 2. 移除容易跨行改坏文档的歧义块级动作，确保回写的 100% 确定性与安全性
+ * 3. 采用 --ov-* 语义化设计令牌，具备精致毛玻璃质感
  */
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Bold,
-  Italic,
-  Strikethrough,
   Code,
-  Highlighter,
-  Heading1,
-  Heading2,
-  Heading3,
-  Quote,
-  CheckSquare,
   Link,
   BookOpen,
   ExternalLink,
@@ -90,7 +81,7 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
   if (!isOpen || !position) return null;
 
   // 避免工具栏超出视口左右或顶部
-  const toolbarWidth = isLinkInputOpen ? 340 : 450;
+  const toolbarWidth = isLinkInputOpen ? 340 : 260;
   const halfWidth = toolbarWidth / 2;
   const clampedX = Math.max(halfWidth + 12, Math.min(window.innerWidth - halfWidth - 12, position.x));
   const clampedY = Math.max(16, position.y - 10);
@@ -115,7 +106,7 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
       ref={toolbarRef}
       role="toolbar"
       aria-label="Markdown selection format toolbar"
-      className="fixed z-50 flex items-center transition-all duration-150 ease-out shadow-2xl rounded-xl border border-[var(--ov-border)] backdrop-blur-md text-[var(--ov-text-primary)]"
+      className="fixed z-50 flex items-center transition-all duration-150 ease-out shadow-2xl rounded-xl border border-[var(--ov-border)] backdrop-blur-md text-[var(--ov-text-primary)] select-none"
       style={{
         left: `${clampedX}px`,
         top: `${clampedY}px`,
@@ -130,11 +121,11 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
       }}
     >
       {!isLinkInputOpen ? (
-        <div className="flex items-center gap-0.5 select-none">
+        <div className="flex items-center gap-1 select-none">
           {/* 粗体 */}
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[var(--ov-accent)] transition active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[var(--ov-accent)] transition active:scale-95 cursor-pointer"
             onClick={() => handleActionClick('bold')}
             title={`${t('formatBold', locale)} (**text**)`}
             aria-label="Bold"
@@ -142,32 +133,10 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
             <Bold size={15} strokeWidth={2.5} />
           </button>
 
-          {/* 斜体 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[var(--ov-accent)] transition active:scale-95"
-            onClick={() => handleActionClick('italic')}
-            title={`${t('formatItalic', locale)} (*text*)`}
-            aria-label="Italic"
-          >
-            <Italic size={15} />
-          </button>
-
-          {/* 删除线 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[var(--ov-accent)] transition active:scale-95"
-            onClick={() => handleActionClick('strikethrough')}
-            title={`${t('formatStrikethrough', locale)} (~~text~~)`}
-            aria-label="Strikethrough"
-          >
-            <Strikethrough size={15} />
-          </button>
-
           {/* 行内代码 */}
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[var(--ov-accent)] transition active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[var(--ov-accent)] transition active:scale-95 cursor-pointer"
             onClick={() => handleActionClick('code')}
             title={`${t('formatCode', locale)} (\`code\`)`}
             aria-label="Inline Code"
@@ -175,80 +144,10 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
             <Code size={15} />
           </button>
 
-          {/* 高亮标记 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-amber-500 transition active:scale-95"
-            onClick={() => handleActionClick('highlight')}
-            title={`${t('formatHighlight', locale)} (==text==)`}
-            aria-label="Highlight"
-          >
-            <Highlighter size={15} />
-          </button>
-
-          <div className="w-[1px] h-4 bg-[var(--ov-border)] mx-1 opacity-70" />
-
-          {/* 一级标题 H1 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-indigo-400 transition active:scale-95"
-            onClick={() => handleActionClick('h1')}
-            title={`${t('formatH1', locale)} (# title)`}
-            aria-label="Heading 1"
-          >
-            <Heading1 size={15} />
-          </button>
-
-          {/* 二级标题 H2 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-indigo-400 transition active:scale-95"
-            onClick={() => handleActionClick('h2')}
-            title={`${t('formatH2', locale)} (## title)`}
-            aria-label="Heading 2"
-          >
-            <Heading2 size={15} />
-          </button>
-
-          {/* 三级标题 H3 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-indigo-400 transition active:scale-95"
-            onClick={() => handleActionClick('h3')}
-            title={`${t('formatH3', locale)} (### title)`}
-            aria-label="Heading 3"
-          >
-            <Heading3 size={15} />
-          </button>
-
-          {/* 引用块 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-teal-400 transition active:scale-95"
-            onClick={() => handleActionClick('quote')}
-            title={`${t('formatQuote', locale)} (> quote)`}
-            aria-label="Quote"
-          >
-            <Quote size={14} />
-          </button>
-
-          {/* 待办清单 */}
-          <button
-            type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-emerald-400 transition active:scale-95"
-            onClick={() => handleActionClick('todo')}
-            title={`${t('formatTodo', locale)} (- [ ])`}
-            aria-label="Todo"
-          >
-            <CheckSquare size={14} />
-          </button>
-
-          <div className="w-[1px] h-4 bg-[var(--ov-border)] mx-1 opacity-70" />
-
           {/* 超链接 */}
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-sky-400 transition active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-sky-400 transition active:scale-95 cursor-pointer"
             onClick={() => handleActionClick('link')}
             title={`${t('formatLink', locale)} [text](url)`}
             aria-label="Link"
@@ -259,7 +158,7 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
           {/* WikiLink */}
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-violet-400 transition active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-violet-400 transition active:scale-95 cursor-pointer"
             onClick={() => handleActionClick('wikilink')}
             title={`${t('formatWikiLink', locale)} [[Page]]`}
             aria-label="WikiLink"
@@ -270,10 +169,10 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
           {/* 源码定位按钮 (若有定位行号) */}
           {sourceLine && onOpenSourceAtLine && (
             <>
-              <div className="w-[1px] h-4 bg-[var(--ov-border)] mx-1 opacity-70" />
+              <div className="w-[1px] h-4 bg-[var(--ov-border)] mx-0.5 opacity-70" />
               <button
                 type="button"
-                className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-cyan-400 transition active:scale-95 flex items-center gap-1 text-[11px] font-mono font-medium"
+                className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-cyan-400 transition active:scale-95 flex items-center gap-1 text-[11px] font-mono font-medium cursor-pointer"
                 onClick={() => onOpenSourceAtLine(sourceLine)}
                 title={`${t('openSourceAtLine', locale).replace('{line}', String(sourceLine))}`}
                 aria-label="Locate Source Line"
@@ -312,7 +211,7 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
           />
           <button
             type="button"
-            className="p-1 rounded-md bg-[var(--ov-accent)] text-white hover:opacity-90 transition"
+            className="p-1 rounded-md bg-[var(--ov-accent)] text-white hover:opacity-90 transition cursor-pointer"
             onClick={handleConfirmLink}
             title={t('confirm', locale)}
           >
@@ -320,7 +219,7 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
           </button>
           <button
             type="button"
-            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-200 transition"
+            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-slate-200 transition cursor-pointer"
             onClick={() => setIsLinkInputOpen(false)}
             title={t('cancel', locale)}
           >
@@ -329,7 +228,7 @@ export const MarkdownBubbleToolbar: React.FC<MarkdownBubbleToolbarProps> = ({
         </div>
       )}
 
-      {/* 小三角尖角指示箭头 */}
+      {/* 小三角指示箭头 */}
       <div
         className="absolute left-1/2 -bottom-[5px] w-2.5 h-2.5 rotate-45 border-r border-b border-[var(--ov-border)]"
         style={{

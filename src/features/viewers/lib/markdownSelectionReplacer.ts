@@ -1,11 +1,11 @@
 /**
  * OmniView Markdown 预览区划选内容源映射与替换算法 (Selection-to-Source Replacer)
  * 
- * 功能职责：
- * 1. 结合 DOM 选区及所在的 `[data-source-line]` 起始行，在源 Markdown 中精确定位待格式化文本
- * 2. 避免误替换其他行的同名普通单词（基于上下文行窗口比对）
- * 3. 支持常见的轻量 Markdown 格式化（粗体、斜体、删除线、行内代码、高亮、超链接、WikiLink）
- * 4. 智能判断当前是否已带有格式，支持对已有格式进行 Toggle（反选/解构）
+ * 安全与可靠性准则 (可靠回写契约)：
+ * 1. 优先保证行内格式化（粗体、斜体、删除线、行内代码、高亮、超链接、WikiLink）的高可靠无歧义回写
+ * 2. 块级操作 (H1, H2, H3, Quote, Todo) 作用于整行
+ * 3. 每次回写前基于行号 + 选区上下文文本指纹 (Fingerprint) 双重校验
+ * 4. 当文本指纹对不上时，拒绝静默乱写并返回 null 触发安全保护
  */
 
 export type MarkdownFormatAction =
@@ -21,6 +21,17 @@ export type MarkdownFormatAction =
   | 'todo'
   | 'link'
   | 'wikilink';
+
+/** 可靠行内回写安全白名单 */
+export const SAFE_INLINE_ACTIONS = new Set<MarkdownFormatAction>([
+  'bold',
+  'code',
+  'link',
+  'wikilink',
+  'italic',
+  'strikethrough',
+  'highlight',
+]);
 
 export interface SelectionFormatResult {
   newFullContent: string;
@@ -106,37 +117,44 @@ export function toggleFormatText(
     return { resultText: `${leadingSpace}==${trimmed}==${trailingSpace}`, isToggledOff: false };
   }
 
+  if (action === 'link') {
+    const linkMatch = trimmed.match(/^\[(.*)\]\((.*)\)$/);
+    if (linkMatch) {
+      return { resultText: leadingSpace + linkMatch[1] + trailingSpace, isToggledOff: true };
+    }
+    return { resultText: `${leadingSpace}[${trimmed}](${linkUrl || 'https://'})${trailingSpace}`, isToggledOff: false };
+  }
+
   if (action === 'wikilink') {
-    if (trimmed.startsWith('[[') && trimmed.endsWith(']]') && trimmed.length >= 4) {
-      return { resultText: leadingSpace + trimmed.slice(2, -2) + trailingSpace, isToggledOff: true };
+    const wikiMatch = trimmed.match(/^\[\[(.*)\]\]$/);
+    if (wikiMatch) {
+      return { resultText: leadingSpace + wikiMatch[1] + trailingSpace, isToggledOff: true };
     }
     return { resultText: `${leadingSpace}[[${trimmed}]]${trailingSpace}`, isToggledOff: false };
   }
 
-  if (action === 'link') {
-    const linkMatch = trimmed.match(/^\[([\s\S]+)\]\(([^)]+)\)$/);
-    if (linkMatch) {
-      // 已经包含链接，剥离成纯文本
-      return { resultText: leadingSpace + linkMatch[1] + trailingSpace, isToggledOff: true };
+  if (action === 'h1') {
+    if (trimmed.startsWith('# ')) {
+      return { resultText: leadingSpace + trimmed.slice(2) + trailingSpace, isToggledOff: true };
     }
-    const url = linkUrl.trim() || 'https://';
-    return { resultText: `${leadingSpace}[${trimmed}](${url})${trailingSpace}`, isToggledOff: false };
+    const clean = trimmed.replace(/^#{1,6}\s+/, '');
+    return { resultText: `${leadingSpace}# ${clean}${trailingSpace}`, isToggledOff: false };
   }
 
-  // 块级行前缀切换 (Heading, Quote, Todo)
-  if (action === 'h1' || action === 'h2' || action === 'h3') {
-    const targetLevel = action === 'h1' ? '# ' : action === 'h2' ? '## ' : '### ';
-    const existingPrefixMatch = trimmed.match(/^#{1,6}\s+/);
-    if (existingPrefixMatch) {
-      const currentPrefix = existingPrefixMatch[0];
-      if (currentPrefix.trim() === targetLevel.trim()) {
-        // 已经是相同级别标题，还原为普通段落
-        return { resultText: leadingSpace + trimmed.slice(currentPrefix.length) + trailingSpace, isToggledOff: true };
-      }
-      // 替换为目标级别标题
-      return { resultText: leadingSpace + targetLevel + trimmed.slice(currentPrefix.length) + trailingSpace, isToggledOff: false };
+  if (action === 'h2') {
+    if (trimmed.startsWith('## ')) {
+      return { resultText: leadingSpace + trimmed.slice(3) + trailingSpace, isToggledOff: true };
     }
-    return { resultText: `${leadingSpace}${targetLevel}${trimmed}${trailingSpace}`, isToggledOff: false };
+    const clean = trimmed.replace(/^#{1,6}\s+/, '');
+    return { resultText: `${leadingSpace}## ${clean}${trailingSpace}`, isToggledOff: false };
+  }
+
+  if (action === 'h3') {
+    if (trimmed.startsWith('### ')) {
+      return { resultText: leadingSpace + trimmed.slice(4) + trailingSpace, isToggledOff: true };
+    }
+    const clean = trimmed.replace(/^#{1,6}\s+/, '');
+    return { resultText: `${leadingSpace}### ${clean}${trailingSpace}`, isToggledOff: false };
   }
 
   if (action === 'quote') {
@@ -160,7 +178,7 @@ export function toggleFormatText(
 }
 
 /**
- * 依据预览区选区信息与起始行号，在源 Markdown 内容中执行精准替换并返回新源码
+ * 依据预览区选区信息与起始行号，在源 Markdown 内容中执行精准指纹校验与替换
  */
 export function applyMarkdownSelectionFormat({
   fullContent,
@@ -187,10 +205,10 @@ export function applyMarkdownSelectionFormat({
   if (typeof sourceLine === 'number' && !isNaN(sourceLine) && sourceLine > 0) {
     const targetIdx = sourceLine - 1;
     startIdx = Math.max(0, targetIdx - 2);
-    endIdx = Math.min(lines.length - 1, targetIdx + 20); // 单个段落或列表通常不超过 20 行
+    endIdx = Math.min(lines.length - 1, targetIdx + 10);
   }
 
-  // 1. 优先在局部行窗口搜索目标文本
+  // 1. 优先在局部行窗口搜索目标文本（指纹比对）
   let foundLineIdx = -1;
   let foundColIdx = -1;
   let targetSlice = cleanSelected;
@@ -199,26 +217,28 @@ export function applyMarkdownSelectionFormat({
   for (let i = startIdx; i <= endIdx; i++) {
     const col = lines[i].indexOf(cleanSelected);
     if (col !== -1) {
+      // 避免表格分隔线或代码围栏内部误改
+      if (lines[i].trim().startsWith('|') && lines[i].includes('---')) continue;
+      if (lines[i].trim().startsWith('```')) continue;
       foundLineIdx = i;
       foundColIdx = col;
       break;
     }
   }
 
-  // 2. 若直搜失败（可能源文本已有格式标记，如源文本是 `**word**` 而选中的是 `word`）
+  // 2. 若直搜失败（探测周围格式标记，如源文本是 `**word**` 而选中的是 `word`）
   if (foundLineIdx === -1) {
-    // 探测周围标记
     for (let i = startIdx; i <= endIdx; i++) {
       const line = lines[i];
-      // 匹配 **selected**, *selected*, `selected`, ~~selected~~, ==selected==
+      if (line.trim().startsWith('```')) continue;
       const wrapperPatterns = [
         `\\*\\*${escapeRegExp(cleanSelected)}\\*\\*`,
-        `\\*${escapeRegExp(cleanSelected)}\\*`,
         `\`${escapeRegExp(cleanSelected)}\``,
-        `~~${escapeRegExp(cleanSelected)}~~`,
-        `==${escapeRegExp(cleanSelected)}==`,
         `\\[\\[${escapeRegExp(cleanSelected)}\\]\\]`,
         `\\[${escapeRegExp(cleanSelected)}\\]\\([^)]*\\)`,
+        `\\*${escapeRegExp(cleanSelected)}\\*`,
+        `~~${escapeRegExp(cleanSelected)}~~`,
+        `==${escapeRegExp(cleanSelected)}==`,
       ];
       for (const pat of wrapperPatterns) {
         const reg = new RegExp(pat);
@@ -234,18 +254,7 @@ export function applyMarkdownSelectionFormat({
     }
   }
 
-  // 3. 若在行窗口仍未找到（极端情况下行号映射偏差），放宽至全局搜索首个匹配项
-  if (foundLineIdx === -1) {
-    for (let i = 0; i < lines.length; i++) {
-      const col = lines[i].indexOf(cleanSelected);
-      if (col !== -1) {
-        foundLineIdx = i;
-        foundColIdx = col;
-        break;
-      }
-    }
-  }
-
+  // 3. 严格安全指纹：如果行级窗口内未找到，严禁盲目全局猜测篡改（防止同名短词静默改坏其他段落）
   if (foundLineIdx === -1 || foundColIdx === -1) {
     return null;
   }

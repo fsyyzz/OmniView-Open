@@ -11,6 +11,7 @@ import {
 } from '../../lib/markdownAst';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { OutlineDisplayMode, OutlinePosition } from '../../../../shared/types';
+import { renderTimeBudgetRegistry } from '../../lib/renderTimeBudget';
 import {
   PanelLeft,
   PanelRight,
@@ -20,6 +21,7 @@ import {
   ListTree,
   ChevronRight,
   ChevronDown,
+  ZapOff,
 } from 'lucide-react';
 
 interface MarkdownOutlineSidebarProps {
@@ -65,6 +67,14 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
   const [collapsedIndexes, setCollapsedIndexes] = useState<Set<number>>(() => new Set());
   const currentWidthRef = useRef(sidebarWidth);
   currentWidthRef.current = sidebarWidth;
+
+  // 监听慢块指标
+  const [, setBudgetTick] = useState(0);
+  useEffect(() => {
+    return renderTimeBudgetRegistry.subscribe(() => {
+      setBudgetTick(t => t + 1);
+    });
+  }, []);
 
   const outlineTree = useMemo(
     () => buildOutlineTree(filteredHeadings),
@@ -334,11 +344,16 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                 <button
                   type="button"
                   ref={isActive ? activeItemRef : null}
-                  className={`markdown-outline-item markdown-outline-tree-label level-${heading.level} ${isActive ? 'is-active' : ''}`}
+                  className={`markdown-outline-item markdown-outline-tree-label level-${heading.level} ${isActive ? 'is-active' : ''} flex items-center justify-between gap-1`}
                   onClick={() => onJumpToHeading(originalIndex)}
                   title={heading.text}
                 >
-                  {heading.text}
+                  <span className="truncate">{heading.text}</span>
+                  {renderTimeBudgetRegistry.isLineSlow(heading.index + 1) && (
+                    <span className="shrink-0 text-amber-500 text-[10px] flex items-center gap-0.5 px-1 rounded bg-amber-500/10 font-mono" title={locale === 'zh-CN' ? '包含高耗时渲染块 (>800ms)' : 'Contains slow render block (>800ms)'}>
+                      <ZapOff size={9} />
+                    </span>
+                  )}
                 </button>
               </div>
             );
@@ -348,15 +363,21 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
             const originalIndex = resolveOriginalIndex(heading);
             const isActive = originalIndex === activeHeadingIndex;
             const indentClass = heading.level <= 1 ? 'pl-2' : heading.level === 2 ? 'pl-3.5' : heading.level === 3 ? 'pl-5' : 'pl-6';
+            const isSlow = renderTimeBudgetRegistry.isLineSlow(heading.index + 1);
             return (
               <button
                 key={`list-${heading.index}-${heading.text}`}
                 ref={isActive ? activeItemRef : null}
-                className={`markdown-outline-item level-${heading.level} ${indentClass} ${isActive ? 'is-active' : ''}`}
+                className={`markdown-outline-item level-${heading.level} ${indentClass} ${isActive ? 'is-active' : ''} flex items-center justify-between gap-1`}
                 onClick={() => onJumpToHeading(originalIndex)}
                 title={heading.text}
               >
-                {heading.text}
+                <span className="truncate">{heading.text}</span>
+                {isSlow && (
+                  <span className="shrink-0 text-amber-500 text-[10px] flex items-center gap-0.5 px-1 rounded bg-amber-500/10 font-mono" title={locale === 'zh-CN' ? '包含高耗时渲染块 (>800ms)' : 'Contains slow render block (>800ms)'}>
+                    <ZapOff size={9} />
+                  </span>
+                )}
               </button>
             );
           })

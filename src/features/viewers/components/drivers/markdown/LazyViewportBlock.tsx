@@ -5,15 +5,19 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 
-// 全局内存高度缓存池 (按 block id 索引)
+// 全局内存高度缓存池 (按 block id 索引，确保卸载时零抖动)
 const blockHeightCache = new Map<string, number>();
 
 export interface LazyViewportBlockProps {
   children: React.ReactNode;
-  /** 未挂载时的占位高度，减轻滚动跳动 */
+  /** 未挂载或卸载时的占位高度，减轻滚动跳动 */
   minHeight?: number;
-  /** IntersectionObserver rootMargin */
+  /** IntersectionObserver 进入视口的提前量 */
   rootMargin?: string;
+  /** IntersectionObserver 离开视口后允许卸载的保护缓冲边距 (默认 2.5 屏以上距离时允许卸载节约内存) */
+  unmountRootMargin?: string;
+  /** 是否允许离开视口后卸载回占位 (默认 true) */
+  allowUnmount?: boolean;
   /** 强制立即挂载（搜索 / 打印 / 导出） */
   eager?: boolean;
   className?: string;
@@ -29,6 +33,8 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
     children,
     minHeight = 140,
     rootMargin = '600px 0px 600px 0px',
+    unmountRootMargin = '1500px 0px 1500px 0px',
+    allowUnmount = true,
     eager = false,
     className,
     style,
@@ -44,12 +50,14 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
     const [mounted, setMounted] = useState(eager);
 
     useEffect(() => {
-      if (eager) setMounted(true);
+      if (eager) {
+        setMounted(true);
+      }
     }, [eager]);
 
-    // 进入视口 Intersection 监听
+    // 进入与离开视口的动态挂载/卸载监听 (带高度缓存保底，滚动不跳动)
     useEffect(() => {
-      if (mounted) return;
+      if (eager) return;
       const el = ref.current;
       if (!el) return;
       if (typeof IntersectionObserver === 'undefined') {
@@ -59,16 +67,21 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
 
       const observer = new IntersectionObserver(
         entries => {
-          if (entries.some(entry => entry.isIntersecting)) {
-            setMounted(true);
-            observer.disconnect();
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              setMounted(true);
+            } else if (allowUnmount && !eager) {
+              // 离开视口多屏缓冲外，卸载重块子树释放 DOM 与 WASM 资源
+              setMounted(false);
+            }
           }
         },
-        { rootMargin }
+        { rootMargin: mounted ? unmountRootMargin : rootMargin }
       );
+
       observer.observe(el);
       return () => observer.disconnect();
-    }, [mounted, rootMargin]);
+    }, [mounted, rootMargin, unmountRootMargin, allowUnmount, eager]);
 
     // 挂载后通过 ResizeObserver 记录实际高度至缓存池
     useEffect(() => {

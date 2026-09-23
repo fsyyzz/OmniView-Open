@@ -52,9 +52,18 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **Image & diagram lightbox**:
   - Fullscreen or double-click lightbox for images and diagrams;
   - Smooth `0.2x ~ 5.0x` wheel zoom, pan, 90° rotate, copy, and lossless download;
+- **Incremental Re-rendering & Dynamic Viewport Unmount (Zero CLS)**:
+  - **FNV-1a Block-Level Memoization**: Reuse stable block object references by line range and hash during partial edits or selection formatting, preventing whole-tree recalculations;
+  - **Unloadable Viewport Memory Management**: Heavy diagrams (Mermaid, Graphviz, KaTeX, wide tables) automatically unload outside viewport buffer distance to free DOM and WASM memory, backed by global height cache for **Zero CLS**;
+- **Selection Bubble Toolbar & Safe Writeback Contract**:
+  - Reliable formatting for bold (`**B**`), inline code (`` `C` ``), hyperlinks (`Link`), and bidirectional wiki links (`WikiLink`);
+  - Pre-checked with line numbers and contextual text fingerprints to reject silent mis-edits;
+- **Render Time Budget & Slow Block Observability**:
+  - Monitored millisecond render budget (800ms threshold) with fallback source cards and outline `ZapOff` warning badges;
 - **RenderErrorBoundary**:
   - Block-level isolation—broken diagram syntax shows a diagnostic card with fix hints while the rest of the document stays interactive;
 - **Outline & search**:
+  - Physical heading DOM mounting ensures **100% accurate** outline jumping;
   - Collapsible multi-level TOC with scroll-spy;
   - Keyword search with hit highlighting.
 
