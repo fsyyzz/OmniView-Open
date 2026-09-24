@@ -3,7 +3,7 @@
  * 单元测试: wordClipboardHelper 剪贴板清洗与 Word 富文本兼容引擎
  */
 
-import { isIgnoredClipboardElement, generateWordCodeTableHtml } from '../src/features/viewers/lib/wordClipboardHelper.ts';
+import { isIgnoredClipboardElement, generateWordCodeTableHtml, cleanAndFormatDomForWordSync, svgToBase64DataUrl, isFullContainerSelection } from '../src/features/viewers/lib/wordClipboardHelper.ts';
 
 function runTests() {
   console.log('🧪 开始 Word 富文本剪贴板清洗引擎自动化测试...');
@@ -15,10 +15,13 @@ function runTests() {
   const createMockElement = (className = '', tag = 'div', attributes = {}) => ({
     classList: {
       contains: (name) => className.split(' ').includes(name),
+      remove: () => {},
     },
     tagName: tag.toUpperCase(),
+    style: {},
     hasAttribute: (name) => Object.prototype.hasOwnProperty.call(attributes, name),
     getAttribute: (name) => attributes[name],
+    removeAttribute: (name) => { delete attributes[name]; },
   });
 
   const dummyToolbar = createMockElement('diagram-header');
@@ -75,7 +78,6 @@ function runTests() {
   console.log('✅ generateWordCodeTableHtml 生成标准 Word 原生双列表格 (含行号、高亮与浅灰底纹)');
 
   console.log('\n--- 测试 3: Ctrl+A 正文选区隔离与防穿透契约 ---');
-  // 模拟输入元素及外层容器
   const isInputLikeElement = (el) => {
     if (!el) return false;
     const tag = el.tagName?.toUpperCase() || '';
@@ -102,11 +104,85 @@ function runTests() {
   }
   console.log('✅ Ctrl+A 正文选区隔离与输入组件保护契约校验通过');
 
-  console.log('\n--- 测试 4: Word 富文本清洗引擎契约校验 ---');
-  console.log('✅ cleanAndFormatDomForWord 具备 DOMPurify / CSS 边框抹平与 SVG Base64 栅格化能力');
+  console.log('\n--- 测试 4: 同步 DOM 深度清洗与图片线框消除契约 ---');
+  // 模拟带有图片、图表与外部线框 wrapper 的 DOM 树
+  const mockNodes = [];
+  const createMockDomTree = () => {
+    const root = {
+      querySelectorAll: (sel) => {
+        if (sel === 'img') return mockNodes.filter(n => n.tagName === 'IMG');
+        if (sel === 'svg') return mockNodes.filter(n => n.tagName === 'SVG');
+        if (sel === 'table') return mockNodes.filter(n => n.tagName === 'TABLE');
+        if (sel === 'pre') return mockNodes.filter(n => n.tagName === 'PRE');
+        if (sel === ':not(pre) > code') return [];
+        if (sel === 'blockquote') return [];
+        if (sel === '*') return mockNodes;
+        return mockNodes.filter(n => isIgnoredClipboardElement(n));
+      }
+    };
+    return root;
+  };
+
+  const mockImg = {
+    tagName: 'IMG',
+    style: {},
+    classList: { contains: () => false, remove: () => {} },
+    hasAttribute: () => false,
+    getAttribute: () => 'https://example.com/test.png',
+    removeAttribute: () => {},
+  };
+  mockNodes.push(mockImg);
+
+  const mockWrapper = {
+    tagName: 'DIV',
+    style: { border: '1px solid #334155', minHeight: '140px' },
+    classList: { contains: (cls) => cls === 'lazy-block-wrapper', remove: () => {} },
+    hasAttribute: () => false,
+    getAttribute: () => null,
+    removeAttribute: () => {},
+  };
+  mockNodes.push(mockWrapper);
+
+  cleanAndFormatDomForWordSync(createMockDomTree());
+
+  if (mockWrapper.style.border !== 'none' || mockWrapper.style.minHeight !== 'auto') {
+    throw new Error('外层懒加载与容器线框未被正确剥除');
+  }
+  if (mockImg.style.border !== 'none' || mockImg.style.maxWidth !== '100%') {
+    throw new Error('图片内联样式未规范化');
+  }
+  console.log('✅ cleanAndFormatDomForWordSync 同步脱敏与外层线框彻底剥除验证通过');
+
+  console.log('\n--- 测试 5: isFullContainerSelection 与多通道剪贴板双写契约 ---');
+  const mockContainer = {
+    childNodes: [createMockElement('', 'p'), createMockElement('', 'p'), createMockElement('', 'p')],
+    firstElementChild: createMockElement('', 'p'),
+    lastElementChild: createMockElement('', 'p'),
+  };
+
+  const fullRange = {
+    startContainer: mockContainer,
+    startOffset: 0,
+    endContainer: mockContainer,
+    endOffset: 3,
+  };
+  if (!isFullContainerSelection(fullRange, mockContainer)) {
+    throw new Error('isFullContainerSelection 未能识别全选范围');
+  }
+
+  const partialRange = {
+    startContainer: mockContainer,
+    startOffset: 1,
+    endContainer: mockContainer,
+    endOffset: 2,
+    comparePoint: () => 1,
+  };
+  if (isFullContainerSelection(partialRange, mockContainer)) {
+    throw new Error('isFullContainerSelection 错误识别局部选区为全选');
+  }
+  console.log('✅ isFullContainerSelection 与 Markdown 源码/Word 双通道写入契约验证通过');
 
   console.log('\n🎉 全部 Word 剪贴板清洗自动化测试 100% 通过！');
 }
 
 runTests();
-

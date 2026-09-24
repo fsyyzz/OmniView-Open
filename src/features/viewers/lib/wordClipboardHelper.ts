@@ -4,17 +4,16 @@
  * 核心目标:
  * 1. 彻底剔除所有非正文交互 UI:
  *    - 剥除 .diagram-header, .table-block-toolbar, .ov-col-resizer 等悬浮/固定工具栏
- *    - 剥除排序箭头、源码行定位跳转徽标、双击编辑提示
- * 2. 彻底清除冗余边框与样式噪音:
- *    - 移除 .lazy-block-wrapper, .markdown-diagram 等外层容器的 border, box-shadow, min-height
+ *    - 剥除排序箭头、源码行定位跳转徽标、双击编辑提示、断页提示虚线
+ * 2. 彻底清除冗余边框与线框噪音:
+ *    - 同步剥除 .lazy-block-wrapper, .markdown-diagram, .ov-image-container 等所有外层容器的 border, outline, box-shadow, min-height
+ *    - 杜绝因含有图片/图表导致异步 await 错过浏览器 copy 事件生命周期的问题 (100% 同步清洗)
  *    - 将行内 code, pre 转化为 Word 兼容的浅灰色高可读底纹，无杂乱边框
  *    - 表格转换为干净标准的原生 <table>，带有边框折叠与整齐 padding
- * 3. 矢量图表与内嵌图片智能光栅化:
- *    - 将被选区框选中的 <svg> 图表（Mermaid, PlantUML, Graphviz, Svg, DomainStory）自动转为高质量 Base64 PNG <img>
- *    - 保证 Word / WPS 粘贴时图片立即可见且为 300+ DPI 清晰度，不黑底
+ * 3. 矢量图表与内嵌图片无损处理:
+ *    - 将被选区框选中的 <svg> 图表（Mermaid, PlantUML, Graphviz, Svg, DomainStory）同步转为标准 Base64 SVG/PNG <img>
+ *    - 抹除图片断链错误提示与冗余事件属性，保证 Word / WPS 粘贴时图片立即可见且无黑框
  */
-
-import { convertSvgToDataUrl } from '../../../shared/lib/copyImageHelper.ts';
 
 /**
  * 检查元素或其祖先是否属于剪贴板应忽略的交互 UI
@@ -24,6 +23,11 @@ export function isIgnoredClipboardElement(el: Element): boolean {
   if (el.hasAttribute('data-clipboard-ignore')) return true;
   if (
     el.classList.contains('diagram-header') ||
+    el.classList.contains('code-block-header') ||
+    el.classList.contains('diagram-tools') ||
+    el.classList.contains('markdown-toolbar') ||
+    el.classList.contains('markdown-outline') ||
+    el.classList.contains('doc-status-bar') ||
     el.classList.contains('table-block-toolbar') ||
     el.classList.contains('ov-table-block-toolbar') ||
     el.classList.contains('ov-col-resizer') ||
@@ -31,6 +35,8 @@ export function isIgnoredClipboardElement(el: Element): boolean {
     el.classList.contains('markdown-bubble-toolbar') ||
     el.classList.contains('markdown-lazy-placeholder') ||
     el.classList.contains('page-break-screen-indicator') ||
+    el.classList.contains('ov-image-fallback') ||
+    el.classList.contains('ov-callout-fold-icon') ||
     el.tagName.toLowerCase() === 'button'
   ) {
     return true;
@@ -39,13 +45,74 @@ export function isIgnoredClipboardElement(el: Element): boolean {
 }
 
 /**
- * 将克隆的 DOM 片段进行深度清洗与富文本样式脱敏
+ * 检查选区是否覆盖了目标容器的全部内容 (例如通过 Ctrl+A 或全选触发)
  */
-export async function cleanAndFormatDomForWord(cloneRoot: HTMLElement): Promise<void> {
-  // 1. 移除所有交互工具栏与按钮
+export function isFullContainerSelection(range: Range, container: HTMLElement): boolean {
+  if (!range || !container) return false;
+  if (range.startContainer === container && range.endContainer === container) {
+    return range.startOffset === 0 && range.endOffset >= container.childNodes.length;
+  }
+  const firstChild = container.firstElementChild;
+  const lastChild = container.lastElementChild;
+  if (firstChild && lastChild) {
+    try {
+      const startsAtBeginning = range.comparePoint(firstChild, 0) <= 0;
+      const endsAtEnd = range.comparePoint(lastChild, lastChild.childNodes.length || 0) >= 0;
+      return startsAtBeginning && endsAtEnd;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
+ * 同步将 SVG 元素序列化为 Base64 Data URL (0 延迟，零网络开销)
+ */
+export function svgToBase64DataUrl(svgEl: SVGElement): string {
+  try {
+    const serializer = new XMLSerializer();
+    let svgStr = serializer.serializeToString(svgEl);
+    if (!svgStr.includes('xmlns=')) {
+      svgStr = svgStr.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    // 安全 UTF-8 编码为 Base64
+    if (typeof btoa !== 'undefined') {
+      try {
+        const utf8Bytes = new TextEncoder().encode(svgStr);
+        let binary = '';
+        const len = utf8Bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(utf8Bytes[i]);
+        }
+        return `data:image/svg+xml;base64,${btoa(binary)}`;
+      } catch {
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`;
+      }
+    }
+    if (typeof Buffer !== 'undefined') {
+      return `data:image/svg+xml;base64,${Buffer.from(svgStr, 'utf-8').toString('base64')}`;
+    }
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 100% 同步执行的 DOM 深度清洗与 Word 富文本样式脱敏
+ * 确保在浏览器 copy 事件处理周期内即时完成，不发生异步挂起导致回退到默认粗暴复制
+ */
+export function cleanAndFormatDomForWordSync(cloneRoot: HTMLElement): void {
+  // 1. 彻底移除所有非正文交互 UI、悬浮工具栏、按钮、错误提示、断页屏幕提示线
   const ignoreSelectors = [
     '[data-clipboard-ignore]',
     '.diagram-header',
+    '.code-block-header',
+    '.diagram-tools',
+    '.markdown-toolbar',
+    '.markdown-outline',
+    '.doc-status-bar',
     '.table-block-toolbar',
     '.ov-table-block-toolbar',
     '.ov-col-resizer',
@@ -53,6 +120,8 @@ export async function cleanAndFormatDomForWord(cloneRoot: HTMLElement): Promise<
     '.markdown-bubble-toolbar',
     '.markdown-lazy-placeholder',
     '.page-break-screen-indicator',
+    '.ov-image-fallback',
+    '.ov-callout-fold-icon',
     'button',
   ];
 
@@ -61,34 +130,113 @@ export async function cleanAndFormatDomForWord(cloneRoot: HTMLElement): Promise<
     nodes.forEach((n) => n.remove());
   }
 
-  // 2. 剥离外层容器边框与阴影，防止 Word 产生嵌套边框
-  const containerSelectors = [
-    '.lazy-block-wrapper',
-    '.markdown-diagram',
-    '.ov-table-block',
-    '.ov-table-wrapper',
-    '.markdown-code-block',
-    '.ov-mermaid-svg-container',
-  ];
+  // 2. 规范化所有图片 (img)，剥除断链 class、onerror 事件，确保图片干净无边框
+  const imgElements = cloneRoot.querySelectorAll('img');
+  imgElements.forEach((img) => {
+    img.removeAttribute('onerror');
+    img.removeAttribute('loading');
+    img.removeAttribute('decoding');
+    img.classList.remove('ov-img-broken');
+    const htmlImg = img as HTMLElement;
+    htmlImg.style.border = 'none';
+    htmlImg.style.borderWidth = '0';
+    htmlImg.style.outline = 'none';
+    htmlImg.style.boxShadow = 'none';
+    htmlImg.style.maxWidth = '100%';
+    htmlImg.style.height = 'auto';
+    htmlImg.style.display = 'block';
+    htmlImg.style.margin = '12px auto';
+  });
 
-  for (const sel of containerSelectors) {
-    const elements = cloneRoot.querySelectorAll(sel);
-    elements.forEach((el) => {
-      const htmlEl = el as HTMLElement;
-      htmlEl.style.border = 'none';
-      htmlEl.style.boxShadow = 'none';
-      htmlEl.style.background = 'transparent';
-      htmlEl.style.margin = '12px 0';
-      htmlEl.style.padding = '0';
-      htmlEl.style.minHeight = 'auto';
-      htmlEl.removeAttribute('title');
-    });
+  // 3. 将所有 <svg> 矢量图同步转换为标准 DataURI <img> 标签 (Word/WPS 深度原生支持)
+  const svgElements = Array.from(cloneRoot.querySelectorAll('svg'));
+  for (const svgEl of svgElements) {
+    // 忽略细小图标
+    const rect = svgEl.getBoundingClientRect();
+    const w = rect.width || parseFloat(svgEl.getAttribute('width') || '0');
+    const h = rect.height || parseFloat(svgEl.getAttribute('height') || '0');
+    if (w > 0 && w < 24 && h > 0 && h < 24) {
+      continue;
+    }
+
+    try {
+      const dataUri = svgToBase64DataUrl(svgEl);
+      if (dataUri) {
+        const img = document.createElement('img');
+        img.src = dataUri;
+        img.alt = 'Rendered Diagram';
+        img.style.border = 'none';
+        img.style.borderWidth = '0';
+        img.style.outline = 'none';
+        img.style.boxShadow = 'none';
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+        img.style.display = 'block';
+        img.style.margin = '14px auto';
+        svgEl.parentNode?.replaceChild(img, svgEl);
+      }
+    } catch {
+      // 容错降级
+    }
   }
 
-  // 3. 规范化表格 (转换为标准 Word 识别良好的 CSS 表格样式)
+  // 4. 彻底清洗所有节点：清除容器级边框、虚线、阴影与行定位属性，根除 Word 线框现象
+  const allNodes = cloneRoot.querySelectorAll('*');
+  allNodes.forEach((node) => {
+    const el = node as HTMLElement;
+    const tagName = el.tagName.toLowerCase();
+
+    // 移除导致 Word 产生行定位或额外样式的非标准属性
+    el.removeAttribute('data-source-line');
+    el.removeAttribute('data-source-end-line');
+    el.removeAttribute('data-density');
+    el.removeAttribute('data-task-line');
+    el.removeAttribute('data-block-id');
+    if (el.hasAttribute('title') && /双击|排序|折叠|编辑|查看大图/i.test(el.getAttribute('title') || '')) {
+      el.removeAttribute('title');
+    }
+
+    // 保留特定标签的原生边框：table, th, td, pre, hr
+    if (['table', 'th', 'td', 'pre', 'hr'].includes(tagName)) {
+      return;
+    }
+
+    // Callout 专用边框 (仅保留左侧精致装饰条，去除外层包裹边框)
+    if (el.classList.contains('ov-callout')) {
+      el.style.border = 'none';
+      el.style.borderWidth = '0';
+      el.style.borderLeft = '3.5px solid #3b82f6';
+      el.style.backgroundColor = '#f8fafc';
+      el.style.padding = '8px 12px';
+      el.style.margin = '12px 0';
+      el.style.boxShadow = 'none';
+      el.style.outline = 'none';
+      return;
+    }
+
+    // 针对所有容器元素 (div, span, section, article, figure, p, header, main, details, summary)
+    // 强制将 border, outline, boxShadow, minHeight 彻底清零
+    if (['div', 'section', 'article', 'figure', 'span', 'header', 'main', 'details', 'summary', 'p'].includes(tagName)) {
+      el.style.border = 'none';
+      el.style.borderWidth = '0';
+      el.style.borderStyle = 'none';
+      el.style.borderColor = 'transparent';
+      el.style.outline = 'none';
+      el.style.boxShadow = 'none';
+      el.style.minHeight = 'auto';
+      if (!el.classList.contains('ov-callout-body') && !el.classList.contains('ov-callout-title')) {
+        el.style.background = 'transparent';
+      }
+    }
+  });
+
+  // 5. 规范化表格 (转换为标准 Word 识别良好的原生表格样式)
   const tables = cloneRoot.querySelectorAll('table');
   tables.forEach((tbl) => {
     const tableEl = tbl as HTMLTableElement;
+    tableEl.setAttribute('border', '1');
+    tableEl.setAttribute('cellspacing', '0');
+    tableEl.setAttribute('cellpadding', '6');
     tableEl.style.borderCollapse = 'collapse';
     tableEl.style.width = '100%';
     tableEl.style.margin = '14px 0';
@@ -116,7 +264,7 @@ export async function cleanAndFormatDomForWord(cloneRoot: HTMLElement): Promise<
     });
   });
 
-  // 4. 行内代码与代码块样式规范化 (浅灰底纹，无杂乱边框)
+  // 6. 行内代码与代码块样式规范化 (浅灰底纹，无杂乱外框)
   const codeBlocks = cloneRoot.querySelectorAll('pre');
   codeBlocks.forEach((pre) => {
     const preEl = pre as HTMLElement;
@@ -129,6 +277,8 @@ export async function cleanAndFormatDomForWord(cloneRoot: HTMLElement): Promise<
     preEl.style.lineHeight = '1.5';
     preEl.style.color = '#0f172a';
     preEl.style.margin = '12px 0';
+    preEl.style.whiteSpace = 'pre-wrap';
+    preEl.style.wordBreak = 'break-word';
   });
 
   const inlineCodes = cloneRoot.querySelectorAll(':not(pre) > code');
@@ -143,78 +293,24 @@ export async function cleanAndFormatDomForWord(cloneRoot: HTMLElement): Promise<
     cEl.style.fontSize = '9pt';
   });
 
-  // 5. 将 SVG 矢量图转为高保真 Base64 PNG <img> 标签 (Word/WPS 原生不支持内联 SVG)
-  const svgElements = Array.from(cloneRoot.querySelectorAll('svg'));
-  for (const svgEl of svgElements) {
-    // 忽略细小图标（如 callout 小图标等如果已有）
-    const rect = svgEl.getBoundingClientRect();
-    const w = rect.width || parseFloat(svgEl.getAttribute('width') || '0');
-    const h = rect.height || parseFloat(svgEl.getAttribute('height') || '0');
-    if (w > 0 && w < 30 && h > 0 && h < 30) {
-      continue;
-    }
+  // 7. 引用块 (Blockquote)
+  const blockquotes = cloneRoot.querySelectorAll('blockquote');
+  blockquotes.forEach((bq) => {
+    const bqEl = bq as HTMLElement;
+    bqEl.style.border = 'none';
+    bqEl.style.borderLeft = '3.5px solid #cbd5e1';
+    bqEl.style.paddingLeft = '12px';
+    bqEl.style.margin = '12px 0';
+    bqEl.style.color = '#475569';
+    bqEl.style.fontStyle = 'italic';
+  });
+}
 
-    try {
-      const serializer = new XMLSerializer();
-      let svgText = serializer.serializeToString(svgEl);
-
-      // 生成 300+ DPI 超采样高清 DataURL
-      const dataUrl = await convertSvgToDataUrl(svgText, {
-        scale: 3,
-        backgroundColor: '#ffffff',
-      });
-
-      if (dataUrl) {
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        img.style.display = 'block';
-        img.style.margin = '16px auto';
-        img.alt = 'Rendered Diagram';
-
-        svgEl.parentNode?.replaceChild(img, svgEl);
-      }
-    } catch (e) {
-      console.warn('[WordClipboard] Failed to rasterize SVG for clipboard:', e);
-    }
-  }
-
-  // 6. 普通 <img> 图片资源内嵌 Base64 化 (确保 Word/WPS/邮件离线也能完整显示图片，不产生红叉/空白)
-  const imgElements = Array.from(cloneRoot.querySelectorAll('img'));
-  for (const imgEl of imgElements) {
-    const src = imgEl.getAttribute('src') || '';
-    if (!src || src.startsWith('data:image/')) continue;
-
-    // 如果是相对路径或 blob: 或 http 链接，转换为可嵌入的 Base64
-    try {
-      const imageBitmap = await new Promise<HTMLImageElement | null>((resolve) => {
-        const tempImg = new Image();
-        tempImg.crossOrigin = 'anonymous';
-        tempImg.onload = () => resolve(tempImg);
-        tempImg.onerror = () => resolve(null);
-        tempImg.src = src;
-      });
-
-      if (imageBitmap && imageBitmap.naturalWidth > 0) {
-        const canvas = document.createElement('canvas');
-        canvas.width = imageBitmap.naturalWidth;
-        canvas.height = imageBitmap.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(imageBitmap, 0, 0);
-          const base64Url = canvas.toDataURL('image/png');
-          imgEl.setAttribute('src', base64Url);
-          imgEl.style.maxWidth = '100%';
-          imgEl.style.height = 'auto';
-          imgEl.style.display = 'block';
-          imgEl.style.margin = '12px auto';
-        }
-      }
-    } catch {
-      // 容错降级
-    }
-  }
+/**
+ * 兼容旧接口的异步清洗方法 (底层直接调用同步深度清洗)
+ */
+export async function cleanAndFormatDomForWord(cloneRoot: HTMLElement): Promise<void> {
+  cleanAndFormatDomForWordSync(cloneRoot);
 }
 
 /**

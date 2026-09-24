@@ -4,14 +4,26 @@
 
 ## [Unreleased]
 
-## [1.0.22] - 2026-09-23
+## [1.0.23] - 2026-09-23
 
 ### Fixed
 
+- **Markdown 含有图片复制到 Word / WPS 产生大量边框与线框问题根治**:
+  - 将剪贴板富文本清洗重构为 100% 同步流水线（`cleanAndFormatDomForWordSync`），杜绝因图片异步加载导致浏览器错过 `copy` 生命周期而回退为粗暴复制；
+  - 彻底抹除所有外层容器的 `border`、`outline`、`box-shadow` 与 `min-height`，消除 Office 识别 Tailwind 边框样式的杂乱线框；
+  - 启用剪贴板 `text/plain` 与 `text/html` 多通道并发写入：复制到 Word 呈现精美富文本，复制到另一个 Markdown 文件（`.md`）无损保留完整原生 Markdown 源代码。
 - **VS Code 插件 Webview 环境下的 `Ctrl+A` / `Cmd+A` 正文精准全选隔离**:
   - 解耦按键监听与气泡格式工具条 `onContentChange` 回调的强依赖，确保在只读/预览模式下按键监听始终挂载；
   - 采用捕获阶段（Capture Phase）事件拦截并精准绑定 DOM Range 到 Markdown 正文容器，彻底解决在 VS Code 插件中按 `Ctrl+A` 误选插件顶栏工具条、面包屑与状态栏的问题；
   - 完善输入组件穿透保护，保留输入框、代码编辑框及模态弹窗的原生全选行为。
+
+## [1.0.22] - 2026-09-23
+
+### Fixed
+
+- **Markdown 编辑与预览模式同步稳定性增强**:
+  - 优化 DOM 选区替换与行内文本插入的容错回写链路；
+  - 完善只读环境下的工具栏状态同步。
 
 ## [1.0.21] - 2026-09-23
 

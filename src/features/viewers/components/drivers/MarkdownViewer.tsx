@@ -31,7 +31,7 @@ import { useMarkdownScrollSync } from '../../hooks/useMarkdownScrollSync';
 import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
 import { getMermaidConfig } from '../../../../shared/lib/mermaidConfig';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
-import { cleanAndFormatDomForWord } from '../../lib/wordClipboardHelper';
+import { cleanAndFormatDomForWordSync, cleanAndFormatDomForWord, isFullContainerSelection } from '../../lib/wordClipboardHelper';
 
 export type { RenderedBlock };
 
@@ -68,6 +68,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   eagerMount = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef(content);
+  contentRef.current = content;
 
   // 1. AST 解析与格式预处理流水线 Hook
   const { blocks, okfData, isRendering } = useMarkdownAstPipeline({
@@ -242,7 +244,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     };
 
     // 5. 监听 copy 事件：富文本剪贴板拦截与清洗流水线 (Word / WPS / Office 深度优化)
-    const handleCopy = async (e: ClipboardEvent) => {
+    const handleCopy = (e: ClipboardEvent) => {
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || !selection.rangeCount) return;
 
@@ -255,45 +257,39 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       const rawText = selection.toString();
       if (!rawText) return;
 
+      // 阻止浏览器默认粗暴复制，确保立即接管剪贴板事务
+      if (e.clipboardData) {
+        e.preventDefault();
+      }
+
       // 克隆选中的 DOM 片段
       const fragment = range.cloneContents();
       const tempWrapper = document.createElement('div');
       tempWrapper.appendChild(fragment);
 
-      // 执行专用清洗与格式转换 (剥离工具栏、去除冗余边框、将 SVG 栅格化为高质量 Base64 图像)
-      await cleanAndFormatDomForWord(tempWrapper);
+      // 同步执行专用清洗与格式转换 (剥离工具栏、去除冗余边框与线框、将 SVG 转换为 Base64 图像、脱敏图片样式)
+      cleanAndFormatDomForWordSync(tempWrapper);
 
       const cleanedHtml = tempWrapper.innerHTML;
       if (!cleanedHtml) return;
 
-      // 写入富文本 (text/html) 与纯文本 (text/plain)
+      // 智能纯文本提取：全选时优先提供纯净原始 Markdown 源码 (粘贴到 .md 文件 100% 保留语法标记与图片链接)
+      const isFullDoc = isFullContainerSelection(range, container);
+      const plainText = isFullDoc && contentRef.current ? contentRef.current : rawText;
+
+      // 同步写入富文本 (text/html) 与纯文本 (text/plain)
       if (e.clipboardData) {
-        e.preventDefault();
         e.clipboardData.setData('text/html', cleanedHtml);
-        e.clipboardData.setData('text/plain', rawText);
-      } else if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
-        e.preventDefault();
-        try {
-          const textBlob = new Blob([rawText], { type: 'text/plain' });
-          const htmlBlob = new Blob([cleanedHtml], { type: 'text/html' });
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              'text/plain': textBlob,
-              'text/html': htmlBlob,
-            }),
-          ]);
-        } catch {
-          // 降级回退
-        }
+        e.clipboardData.setData('text/plain', plainText);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown, true);
-    container.addEventListener('copy', handleCopy);
+    window.addEventListener('copy', handleCopy, true);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
-      container.removeEventListener('copy', handleCopy);
+      window.removeEventListener('copy', handleCopy, true);
     };
   }, []);
 
