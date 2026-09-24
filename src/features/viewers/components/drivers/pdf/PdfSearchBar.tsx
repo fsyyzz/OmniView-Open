@@ -52,10 +52,24 @@ export const PdfSearchBar: React.FC<PdfSearchBarProps> = ({
   return (
     <div
       id="pdf-search-bar"
-      className="absolute top-14 right-6 z-30 flex items-center gap-1.5 p-1.5 bg-slate-900/95 border border-slate-700/90 rounded-lg shadow-2xl backdrop-blur-md text-xs select-none ring-1 ring-white/10 animate-in fade-in slide-in-from-top-2 duration-150"
+      className="absolute top-14 right-6 z-30 flex items-center gap-1.5 p-1.5 rounded-lg shadow-2xl backdrop-blur-md text-xs select-none transition animate-in fade-in slide-in-from-top-2 duration-150"
+      style={{
+        backgroundColor: 'var(--ov-surface-header)',
+        borderColor: 'var(--ov-border)',
+        borderWidth: 1,
+        borderStyle: 'solid',
+        color: 'var(--ov-text)',
+        boxShadow: 'var(--ov-shadow, 0 10px 25px -5px rgba(0, 0, 0, 0.3))',
+      }}
     >
-      <div className="flex items-center gap-1.5 pl-2 pr-1 bg-slate-950/80 rounded border border-slate-800">
-        <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+      <div
+        className="flex items-center gap-1.5 pl-2 pr-1 rounded border transition"
+        style={{
+          backgroundColor: 'var(--ov-bg)',
+          borderColor: 'var(--ov-border)',
+        }}
+      >
+        <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--ov-text-muted)' }} />
         <input
           ref={inputRef}
           type="text"
@@ -63,12 +77,20 @@ export const PdfSearchBar: React.FC<PdfSearchBarProps> = ({
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="全文搜索... (Enter 下一处)"
-          className="w-48 sm:w-56 bg-transparent text-slate-100 placeholder-slate-500 py-1 text-xs focus:outline-none"
+          className="w-48 sm:w-56 bg-transparent py-1 text-xs focus:outline-none"
+          style={{ color: 'var(--ov-text)' }}
         />
         {isSearching ? (
-          <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin shrink-0" />
+          <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />
         ) : query ? (
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 shrink-0">
+          <span
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 border"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border-subtle)',
+              color: 'var(--ov-text-secondary)',
+            }}
+          >
             {totalMatches > 0 ? `${currentMatchDisplay}/${totalMatches}` : '0 匹配'}
           </span>
         ) : null}
@@ -78,7 +100,8 @@ export const PdfSearchBar: React.FC<PdfSearchBarProps> = ({
         <button
           onClick={onPrevMatch}
           disabled={totalMatches === 0}
-          className="p-1 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:pointer-events-none rounded transition"
+          className="p-1 rounded transition hover:bg-[var(--ov-surface-hover)] disabled:opacity-30 disabled:pointer-events-none"
+          style={{ color: 'var(--ov-text-secondary)' }}
           title="上一处 (Shift+Enter)"
           id="pdf-search-prev-btn"
         >
@@ -87,16 +110,18 @@ export const PdfSearchBar: React.FC<PdfSearchBarProps> = ({
         <button
           onClick={onNextMatch}
           disabled={totalMatches === 0}
-          className="p-1 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:pointer-events-none rounded transition"
+          className="p-1 rounded transition hover:bg-[var(--ov-surface-hover)] disabled:opacity-30 disabled:pointer-events-none"
+          style={{ color: 'var(--ov-text-secondary)' }}
           title="下一处 (Enter)"
           id="pdf-search-next-btn"
         >
           <ChevronDown className="w-4 h-4" />
         </button>
-        <div className="w-px h-3.5 bg-slate-800 mx-0.5" />
+        <div className="w-px h-3.5 mx-0.5" style={{ backgroundColor: 'var(--ov-border)' }} />
         <button
           onClick={onClose}
-          className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition"
+          className="p-1 rounded transition hover:bg-[var(--ov-surface-hover)]"
+          style={{ color: 'var(--ov-text-muted)' }}
           title="关闭搜索 (Esc)"
           id="pdf-search-close-btn"
         >

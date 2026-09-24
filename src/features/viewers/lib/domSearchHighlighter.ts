@@ -152,3 +152,26 @@ export function activateMatch(
     }
   });
 }
+
+export interface TextHighlightSegment {
+  text: string;
+  isMatch: boolean;
+}
+
+/**
+ * 将纯文本根据搜索关键词切分为带高亮命中标记的片段数组
+ */
+export function splitTextForHighlight(text: string, query: string): TextHighlightSegment[] {
+  if (!query || !text) return [{ text, isMatch: false }];
+  const q = query.trim();
+  if (!q) return [{ text, isMatch: false }];
+  const escaped = q.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'i');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return parts
+    .filter((part) => part.length > 0)
+    .map((part) => ({
+      text: part,
+      isMatch: regex.test(part),
+    }));
+}

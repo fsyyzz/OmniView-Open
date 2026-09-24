@@ -8,6 +8,8 @@ import { Copy, Highlighter, Check } from 'lucide-react';
 import { renderPageToCanvas, renderTextLayerToContainer } from '../../../lib/pdfEngine';
 import type { PdfAnnotation } from './PdfAnnotationsView';
 
+export type PdfPaperFilter = 'normal' | 'dark' | 'sepia' | 'grayscale';
+
 interface PdfPageCanvasProps {
   doc: PDFDocumentProxy;
   pageNumber: number;
@@ -19,7 +21,22 @@ interface PdfPageCanvasProps {
   onPageLoaded?: (dimensions: { width: number; height: number }) => void;
   lazyRender?: boolean;
   estimatedDimensions?: { width: number; height: number };
+  paperFilter?: PdfPaperFilter;
 }
+
+const getPaperFilterStyle = (filter: PdfPaperFilter = 'normal'): React.CSSProperties => {
+  switch (filter) {
+    case 'dark':
+      return { filter: 'invert(0.92) hue-rotate(180deg) contrast(0.96)' };
+    case 'sepia':
+      return { filter: 'sepia(0.38) contrast(0.95) brightness(0.96)' };
+    case 'grayscale':
+      return { filter: 'grayscale(0.9) contrast(1.05)' };
+    case 'normal':
+    default:
+      return {};
+  }
+};
 
 export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
   doc,
@@ -32,6 +49,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
   onPageLoaded,
   lazyRender = false,
   estimatedDimensions = { width: 595, height: 842 },
+  paperFilter = 'normal',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
@@ -214,36 +232,66 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
     <div
       ref={wrapperRef}
       onMouseUp={handleMouseUp}
-      className="relative shadow-2xl rounded-sm border border-slate-700/80 bg-white overflow-hidden select-text transition-transform"
+      className="relative shadow-2xl rounded-sm overflow-hidden select-text transition-all duration-150"
       id={`pdf-page-container-${pageNumber}`}
-      style={{ width: `${pageW}px`, height: `${pageH}px` }}
+      style={{
+        width: `${pageW}px`,
+        height: `${pageH}px`,
+        borderColor: 'var(--ov-border)',
+        borderWidth: 1,
+        borderStyle: 'solid',
+        backgroundColor: paperFilter === 'dark' ? '#18181b' : '#ffffff',
+      }}
     >
       {isVisible ? (
         <>
-          {/* 渲染加载中的半透明轻遮罩 */}
-          {isRendering && (
-            <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[0.5px] z-10 pointer-events-none" />
-          )}
+          {/* 真实页面渲染区（应用滤镜模式） */}
+          <div
+            className="absolute inset-0 w-full h-full"
+            style={{
+              backgroundColor: paperFilter === 'dark' ? '#18181b' : '#ffffff',
+              ...getPaperFilterStyle(paperFilter),
+            }}
+          >
+            {/* 渲染加载中的半透明轻遮罩 */}
+            {isRendering && (
+              <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[0.5px] z-10 pointer-events-none" />
+            )}
 
-          {/* 真实 Canvas 图像光栅层 */}
-          <canvas ref={canvasRef} className="block mx-auto" />
+            {/* 真实 Canvas 图像光栅层 */}
+            <canvas ref={canvasRef} className="block mx-auto" />
 
-          {/* PDF.js 文本选择与匹配高亮 DOM 层 */}
-          <div ref={textLayerRef} className="pdf-text-layer" />
+            {/* PDF.js 文本选择与匹配高亮 DOM 层 */}
+            <div ref={textLayerRef} className="pdf-text-layer" />
+          </div>
 
-          {/* 本页批注标签指示器 */}
+          {/* 本页批注标签指示器 (置于滤镜层之上，免受反转变色) */}
           {pageAnnotations.length > 0 && (
-            <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur px-2 py-0.5 rounded-full border border-slate-700 text-[10px] text-slate-300 pointer-events-none">
-              <Highlighter className="w-3 h-3 text-amber-400" />
+            <div
+              className="absolute top-2 right-2 z-20 flex items-center gap-1 backdrop-blur px-2 py-0.5 rounded-full border text-[10px] pointer-events-none shadow-sm"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+            >
+              <Highlighter className="w-3 h-3 text-amber-500" />
               <span>{pageAnnotations.length} 处高亮批注</span>
             </div>
           )}
 
-          {/* 选中文本后弹出的迷你快捷工具栏 */}
+          {/* 选中文本后弹出的迷你快捷工具栏 (置于滤镜层之上) */}
           {selectionPopupPos && (
             <div
-              style={{ left: `${selectionPopupPos.x}px`, top: `${selectionPopupPos.y}px` }}
-              className="absolute z-30 flex items-center gap-1 p-1 bg-slate-900/95 border border-slate-700 rounded-lg shadow-xl backdrop-blur text-xs select-none ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100"
+              style={{
+                left: `${selectionPopupPos.x}px`,
+                top: `${selectionPopupPos.y}px`,
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+                boxShadow: 'var(--ov-shadow, 0 10px 25px -5px rgba(0, 0, 0, 0.3))',
+              }}
+              className="absolute z-30 flex items-center gap-1 p-1 border rounded-lg shadow-xl backdrop-blur text-xs select-none ring-1 ring-[var(--ov-border-subtle)] animate-in fade-in zoom-in-95 duration-100"
               onMouseDown={(e) => e.stopPropagation()}
             >
               {/* 颜色高亮按钮 */}
@@ -263,22 +311,23 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
                 title="粉色高亮"
               />
 
-              <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
+              <div className="w-px h-3.5 mx-0.5" style={{ backgroundColor: 'var(--ov-border)' }} />
 
               {/* 复制按钮 */}
               <button
                 onClick={handleCopyText}
-                className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded text-[11px] transition"
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] transition hover:bg-[var(--ov-surface-hover)]"
+                style={{ color: 'var(--ov-text)' }}
                 title="复制选中文本"
               >
                 {copied ? (
                   <>
-                    <Check className="w-3 h-3 text-emerald-400" />
-                    <span className="text-emerald-400">已复制</span>
+                    <Check className="w-3 h-3 text-emerald-500" />
+                    <span className="text-emerald-500 font-medium">已复制</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3 h-3" />
+                    <Copy className="w-3 h-3 opacity-70" />
                     <span>复制</span>
                   </>
                 )}
@@ -287,10 +336,16 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
           )}
         </>
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/20 text-slate-400 select-none">
-          <div className="flex flex-col items-center gap-2 text-slate-500">
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center select-none"
+          style={{
+            backgroundColor: 'var(--ov-surface)',
+            color: 'var(--ov-text-muted)',
+          }}
+        >
+          <div className="flex flex-col items-center gap-2">
             <div className="w-6 h-6 rounded-full border-2 border-slate-400 border-t-blue-500 animate-spin" />
-            <span className="text-xs font-mono text-slate-500 font-medium">第 {pageNumber} 页</span>
+            <span className="text-xs font-mono font-medium">第 {pageNumber} 页</span>
           </div>
         </div>
       )}

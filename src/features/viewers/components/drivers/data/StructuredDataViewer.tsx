@@ -74,9 +74,25 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   const [topologySvg, setTopologySvg] = useState<string | null>(null);
 
   const [headerRef, headerWidth] = useContainerWidth<HTMLDivElement>(800);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextExternalSync = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Ctrl+F / Cmd+F 快捷聚焦结构感知搜索框
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        if (viewMode === 'tree') {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode]);
 
   // 外部 content 变化且非本地编辑时同步
   useEffect(() => {
@@ -223,7 +239,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   const charCount = localRawText.length;
 
   const showModeLabels = headerWidth >= 780;
-  const showSearch = headerWidth >= 680;
+  const showSearch = headerWidth >= 480 || Boolean(searchQuery);
   const showEditorText = headerWidth >= 620;
   const showConverterText = headerWidth >= 540;
   const showMaskText = headerWidth >= 460;
@@ -335,11 +351,12 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
             <div className="relative flex items-center">
               <Search className="w-3 h-3 text-slate-500 absolute left-2 pointer-events-none" />
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="搜索 Key 或 Value..."
+                placeholder="搜索 Key 或 Value (Ctrl+F)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-32 sm:w-40 pl-6 pr-2 py-0.8 bg-slate-950 border border-slate-800 rounded-md text-[11px] text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition"
+                className="w-32 sm:w-44 pl-6 pr-2 py-0.8 bg-slate-950 border border-slate-800 rounded-md text-[11px] text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition"
               />
             </div>
           )}
@@ -417,7 +434,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
       )}
 
       {/* 主视窗多态渲染区域 */}
-      <div className="flex-1 min-h-0 relative overflow-hidden flex flex-col">
+      <div id="structured-data-body" className="flex-1 min-h-0 relative overflow-hidden flex flex-col">
         {/* 1. 结构折叠树 (Tree) */}
         {viewMode === 'tree' && parseResult.success && (
           <JsonTreeView

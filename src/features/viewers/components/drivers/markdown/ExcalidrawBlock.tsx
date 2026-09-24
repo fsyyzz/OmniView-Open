@@ -15,7 +15,12 @@ import {
   PenTool,
 } from 'lucide-react';
 import { Locale, t } from '../../../../../shared/lib/i18n.ts';
-import { parseExcalidrawJson, renderExcalidrawToSvgString, downloadBlob } from '../excalidraw/excalidrawEngine.ts';
+import {
+  parseExcalidrawJson,
+  renderExcalidrawToSvgString,
+  downloadBlob,
+  embedExcalidrawPayloadInSvg,
+} from '../excalidraw/excalidrawEngine.ts';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill.tsx';
 
 interface ExcalidrawBlockProps {
@@ -88,8 +93,10 @@ export const ExcalidrawBlock: React.FC<ExcalidrawBlockProps> = React.memo(({
 
   const handleDownloadSvg = () => {
     if (!svgContent) return;
-    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
-    downloadBlob(blob, 'excalidraw-sketch.svg');
+    const parsed = parseExcalidrawJson(activeCode);
+    const selfContained = embedExcalidrawPayloadInSvg(svgContent, parsed);
+    const blob = new Blob([selfContained], { type: 'image/svg+xml;charset=utf-8' });
+    downloadBlob(blob, 'excalidraw-sketch.excalidraw.svg');
   };
 
   const adjustZoom = (delta: number) => {

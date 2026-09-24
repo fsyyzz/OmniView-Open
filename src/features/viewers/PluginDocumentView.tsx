@@ -217,10 +217,12 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
           return;
         }
 
-        // 查找正文区域容器 (Markdown / Document Canvas)，避免选中插件顶栏与状态栏
-        const contentCanvas = document.querySelector(
-          '#markdown-viewer-canvas, .markdown-document, .markdown-plugin-scroll > div'
-        ) as HTMLElement | null;
+        // 查找正文区域容器 (Markdown / 结构化数据树 / CSV 表格 / 代码与纯文本画布等)，避免选中插件顶栏与状态栏
+        const contentCanvas = (document.querySelector(
+          '#markdown-viewer-canvas, .markdown-document, #structured-data-body, #csv-table-canvas, #code-viewer-canvas, .markdown-plugin-scroll > div'
+        ) || document.querySelector(
+          '#structured-data-viewer, #code-viewer-container, .notebook-viewer, .typst-viewer-container'
+        )) as HTMLElement | null;
 
         if (contentCanvas) {
           e.preventDefault();

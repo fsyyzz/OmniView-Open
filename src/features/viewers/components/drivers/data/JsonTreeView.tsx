@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { isSensitiveKey, maskSensitiveValue } from './structuredDataUtils';
 import { Locale, t } from '../../../../../shared/lib/i18n';
+import { HighlightedText } from '../../HighlightedText';
 
 interface JsonTreeViewProps {
   data: any;
@@ -73,10 +74,19 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       return <span className="text-slate-500 italic">undefined</span>;
     }
     if (typeof value === 'boolean') {
-      return <span className="text-amber-400 font-semibold">{value ? 'true' : 'false'}</span>;
+      const boolStr = value ? 'true' : 'false';
+      return (
+        <span className="text-amber-400 font-semibold">
+          <HighlightedText text={boolStr} query={searchQuery} />
+        </span>
+      );
     }
     if (typeof value === 'number') {
-      return <span className="text-sky-400 font-mono">{value}</span>;
+      return (
+        <span className="text-sky-400 font-mono">
+          <HighlightedText text={String(value)} query={searchQuery} />
+        </span>
+      );
     }
     if (typeof value === 'string') {
       if (maskSecrets && isSecret && !isHoveredSecret) {
@@ -96,7 +106,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           className="text-emerald-300 break-all"
           onMouseLeave={() => setIsHoveredSecret(false)}
         >
-          &quot;{value}&quot;
+          &quot;<HighlightedText text={value} query={searchQuery} />&quot;
           {isSecret && maskSecrets && isHoveredSecret && (
             <span className="ml-1 text-[10px] text-rose-300 bg-rose-950/60 px-1 py-0.2 rounded border border-rose-800/60">
               [临时明文]
@@ -105,7 +115,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         </span>
       );
     }
-    return <span className="text-slate-300">{String(value)}</span>;
+    return (
+      <span className="text-slate-300">
+        <HighlightedText text={String(value)} query={searchQuery} />
+      </span>
+    );
   };
 
   const childEntries = useMemo(() => {
@@ -154,7 +168,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         {/* 键名 */}
         {keyName && (
           <span className="text-slate-300 font-medium shrink-0 flex items-center gap-1">
-            <span className={isArray ? 'text-indigo-300' : 'text-slate-200'}>{keyName}</span>
+            <span className={isArray ? 'text-indigo-300' : 'text-slate-200'}>
+              <HighlightedText text={keyName} query={searchQuery} />
+            </span>
             <span className="text-slate-500 font-normal">:</span>
           </span>
         )}

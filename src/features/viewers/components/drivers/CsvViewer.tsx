@@ -45,6 +45,7 @@ import { ColumnProfileModal } from './csv/ColumnProfileModal';
 import { useCsvGrid } from './csv/useCsvGrid';
 import { AddColumnModal } from './csv/AddColumnModal';
 import { CsvPaginationBar } from './csv/CsvPaginationBar';
+import { HighlightedText } from '../HighlightedText';
 
 interface CsvViewerProps {
   content: string;
@@ -424,7 +425,7 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
         </div>
       ) : (
         /* Interactive Grid Table Mode */
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div id="csv-table-canvas" className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Table Container */}
           <div className="flex-1 overflow-auto relative">
             <table className="w-full text-left border-collapse text-xs font-sans">
@@ -629,7 +630,13 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                               </div>
                             ) : (
                               <div className="flex items-center justify-between group/cell min-h-[20px]">
-                                <span className="truncate max-w-sm">{cellValue || <span className="text-slate-600 italic">空</span>}</span>
+                                <span className="truncate max-w-sm">
+                                  {cellValue ? (
+                                    <HighlightedText text={cellValue} query={searchQuery} />
+                                  ) : (
+                                    <span className="text-slate-600 italic">空</span>
+                                  )}
+                                </span>
                                 <button
                                   onClick={() => handleStartEditCell(originalIndex, colIdx, cellValue)}
                                   className="opacity-0 group-hover/cell:opacity-100 p-0.5 text-slate-500 hover:text-emerald-400 rounded transition ml-1"

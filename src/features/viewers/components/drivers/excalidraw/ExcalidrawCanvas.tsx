@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Excalidraw, restoreElements, restoreAppState } from '@excalidraw/excalidraw';
+import { Excalidraw, restoreElements, restoreAppState, useHandleLibrary, loadLibraryFromBlob } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import { Locale } from '../../../../../shared/lib/i18n';
 import { ExcalidrawParsedData } from './excalidrawEngine';
@@ -13,6 +13,7 @@ export interface ExcalidrawCanvasProps {
   isViewOnly: boolean;
   onDocChange?: (newJson: string) => void;
   onApiReady?: (api: any) => void;
+  onLibraryLoaded?: (count: number) => void;
 }
 
 export const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({
@@ -24,6 +25,7 @@ export const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({
   isViewOnly,
   onDocChange,
   onApiReady,
+  onLibraryLoaded,
 }) => {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const isInternalChangeRef = useRef<boolean>(false);
@@ -62,6 +64,35 @@ export const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({
       };
     }
   }, []);
+
+  // 本地素材库持久化适配器（支持跨会话记忆与 Excalidraw 官方社区回跳导入）
+  const libraryAdapter = useMemo(
+    () => ({
+      load: async () => {
+        try {
+          const saved = localStorage.getItem('omniview_excalidraw_library');
+          if (saved) return JSON.parse(saved);
+        } catch {
+          // ignore
+        }
+        return null;
+      },
+      save: async (data: any) => {
+        try {
+          localStorage.setItem('omniview_excalidraw_library', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
+      },
+    }),
+    []
+  );
+
+  // 挂载 Excalidraw 官方素材库接收协议 (支持 URL #addLibrary=... 路由及社区素材无缝回写)
+  useHandleLibrary({
+    excalidrawAPI,
+    adapter: libraryAdapter,
+  });
 
   // 绑定 API 回调
   const handleApiRef = useCallback(
@@ -107,6 +138,37 @@ export const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({
       }, 250);
     },
     [onDocChange, isDarkTheme, showGrid]
+  );
+
+  // 支持直接向画布拖入 .excalidrawlib 离线素材文件
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      const files = Array.from(e.dataTransfer?.files || []);
+      const libFile = files.find(
+        (f) => f.name.endsWith('.excalidrawlib') || f.name.endsWith('.json')
+      );
+      if (libFile && excalidrawAPI) {
+        try {
+          e.preventDefault();
+          e.stopPropagation();
+          const items = await loadLibraryFromBlob(libFile, 'published');
+          await excalidrawAPI.updateLibrary({
+            libraryItems: items,
+            merge: true,
+            openLibraryMenu: true,
+            defaultStatus: 'published',
+          });
+          onLibraryLoaded?.(Array.isArray(items) ? items.length : 1);
+        } catch {
+          // 容错处理
+        }
+      }
+    },
+    [excalidrawAPI, onLibraryLoaded]
   );
 
   // 当外部数据变动时（非画布自身触发），调用 updateScene 同步
@@ -158,6 +220,8 @@ export const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({
       className="w-full h-full relative select-none overflow-hidden"
       style={{ minHeight: '380px' }}
       id="omniview-excalidraw-canvas-container"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       <Excalidraw
         excalidrawAPI={handleApiRef}

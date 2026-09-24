@@ -4,7 +4,7 @@
  * 方案 B (全文检索、双页翻书排版、层级大纲书签树) 与
  * 方案 C (TextLayer 选词复制、彩色划词高亮、便签批注导出、高清快照与全屏演示)
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import {
   ChevronLeft,
@@ -29,6 +29,9 @@ import {
   Camera,
   Bookmark,
   Check,
+  Sun,
+  Moon,
+  Palette,
 } from 'lucide-react';
 import {
   loadPdfDocument,
@@ -39,26 +42,78 @@ import {
 } from '../../lib/pdfEngine';
 import { requestPrintImage } from '../../../../shared/lib/printBridge';
 import { getVsCodeApi } from '../../../../shared/lib/vscode';
+import type { ThemeId } from '../../../../shared/types';
+import type { Locale } from '../../../../shared/lib/i18n';
 import { PdfThumbnail } from './pdf/PdfThumbnail';
 import { PdfSearchBar } from './pdf/PdfSearchBar';
 import { PdfOutlineView } from './pdf/PdfOutlineView';
 import { PdfAnnotationsView, type PdfAnnotation } from './pdf/PdfAnnotationsView';
-import { PdfPageCanvas } from './pdf/PdfPageCanvas';
+import { PdfPageCanvas, type PdfPaperFilter } from './pdf/PdfPageCanvas';
 
 interface PdfViewerProps {
   fileName?: string;
   fileSize?: number;
   binaryUrl?: string;
   content?: string;
+  theme?: ThemeId;
+  isDarkTheme?: boolean;
+  locale?: Locale;
 }
 
 type SidebarTab = 'thumbnails' | 'outline' | 'annotations';
 type ViewMode = 'continuous' | 'single' | 'dual';
+type PaperThemeMode = 'auto' | 'normal' | 'dark' | 'sepia' | 'grayscale';
 
 export const PdfViewer: React.FC<PdfViewerProps> = ({
   fileName = 'technical-whitepaper.pdf',
   binaryUrl,
+  content,
+  theme,
+  isDarkTheme,
+  locale = 'zh-CN',
 }) => {
+  // 计算生效的主题体系
+  const effectiveTheme: ThemeId =
+    theme ||
+    (typeof document !== 'undefined'
+      ? (document.documentElement.getAttribute('data-theme') as ThemeId) || 'dark'
+      : 'dark');
+  const isDark =
+    isDarkTheme !== undefined
+      ? isDarkTheme
+      : ['dark', 'midnight', 'cyber', 'nord', 'dracula', 'forest', 'system', 'vscode'].includes(
+          effectiveTheme
+        );
+
+  // 页面阅读/滤镜模式：auto (跟随主题) | normal (原始白纸) | dark (夜间反转) | sepia (暖色羊皮纸) | grayscale (柔和灰阶)
+  const [paperMode, setPaperMode] = useState<PaperThemeMode>(() => {
+    try {
+      const saved = localStorage.getItem('ov_pdf_paper_mode');
+      if (saved && ['auto', 'normal', 'dark', 'sepia', 'grayscale'].includes(saved)) {
+        return saved as PaperThemeMode;
+      }
+    } catch {}
+    return 'auto';
+  });
+  const [showPaperMenu, setShowPaperMenu] = useState(false);
+
+  const handleSelectPaperMode = (mode: PaperThemeMode) => {
+    setPaperMode(mode);
+    setShowPaperMenu(false);
+    try {
+      localStorage.setItem('ov_pdf_paper_mode', mode);
+    } catch {}
+  };
+
+  const effectivePaperFilter: PdfPaperFilter = useMemo(() => {
+    if (paperMode === 'auto') {
+      if (effectiveTheme === 'sepia' || effectiveTheme === 'solarized') return 'sepia';
+      if (isDark) return 'dark';
+      return 'normal';
+    }
+    return paperMode;
+  }, [paperMode, effectiveTheme, isDark]);
+
   // 文档与内核状态
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [rawBytes, setRawBytes] = useState<Uint8Array | null>(null);
@@ -520,7 +575,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     <div
       ref={containerRef}
       id="pdf-viewer-container"
-      className="h-full flex flex-col bg-slate-950 text-slate-200 select-none relative overflow-hidden"
+      data-theme={effectiveTheme}
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full flex flex-col select-none relative overflow-hidden"
     >
       {/* 隐藏的文件输入组件 */}
       <input
@@ -554,44 +614,75 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       )}
 
       {/* 顶部主工具栏 */}
-      <header className="flex flex-wrap items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800 text-xs gap-2 shrink-0 z-20">
+      <header
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          borderBottomWidth: 1,
+          borderBottomStyle: 'solid',
+          color: 'var(--ov-text)',
+        }}
+        className="flex flex-wrap items-center justify-between px-3 py-2 text-xs gap-2 shrink-0 z-20"
+      >
         {/* 左侧：侧栏控制、文件与引擎标识 */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowSidebar((v) => !v)}
-            className={`p-1.5 rounded transition ${
-              showSidebar
-                ? 'bg-blue-600/30 text-blue-400 ring-1 ring-blue-500/40'
-                : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              backgroundColor: showSidebar ? 'var(--ov-surface-hover)' : 'var(--ov-surface)',
+              borderColor: showSidebar ? 'var(--ov-accent)' : 'var(--ov-border)',
+              color: showSidebar ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)]"
             title="折叠/展开侧边导航面板"
             id="pdf-btn-toggle-sidebar"
           >
             <Layers className="w-3.5 h-3.5" />
           </button>
 
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-950/60 rounded border border-slate-800/80">
-            <FileText className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center gap-1.5 px-2 py-1 rounded border"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />
             <span
-              className="font-medium text-slate-200 truncate max-w-[130px] sm:max-w-[200px]"
+              style={{ color: 'var(--ov-text)' }}
+              className="font-medium truncate max-w-[130px] sm:max-w-[200px]"
               title={activeFileName}
             >
               {activeFileName}
             </span>
           </div>
 
-          <span className="text-[11px] text-slate-400 hidden xl:inline px-1.5 py-0.5 bg-blue-950/40 text-blue-300 rounded border border-blue-900/40 font-mono">
+          <span
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border-subtle)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="text-[11px] hidden xl:inline px-1.5 py-0.5 rounded border font-mono"
+          >
             PDF.js Core v4.10
           </span>
         </div>
 
         {/* 中间：翻页、页码跳转与单/双页排版模式 (方案 B) */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded border"
+          >
             <button
               disabled={currentPage <= 1 || isLoading}
               onClick={handlePrevPage}
-              className="p-1 hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none rounded text-slate-300 transition"
+              style={{ color: 'var(--ov-text)' }}
+              className="p-1 hover:bg-[var(--ov-surface-hover)] disabled:opacity-30 disabled:pointer-events-none rounded transition"
               title="上一页"
               id="pdf-btn-prev-page"
             >
@@ -605,17 +696,23 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 onChange={(e) => setPageInput(e.target.value)}
                 onKeyDown={handlePageInputKeyDown}
                 disabled={isLoading}
-                className="w-9 text-center bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-cyan-300 font-bold focus:outline-none focus:border-blue-500"
+                style={{
+                  backgroundColor: 'var(--ov-bg)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-accent)',
+                }}
+                className="w-9 text-center border rounded px-1 py-0.5 font-bold focus:outline-none focus:ring-1 focus:ring-[var(--ov-accent)]"
                 title="输入页码按 Enter 跳转"
               />
-              <span className="text-slate-500">/</span>
-              <span className="text-slate-400">{totalPages}</span>
+              <span style={{ color: 'var(--ov-text-muted)' }}>/</span>
+              <span style={{ color: 'var(--ov-text-secondary)' }}>{totalPages}</span>
             </div>
 
             <button
               disabled={currentPage >= totalPages || isLoading}
               onClick={handleNextPage}
-              className="p-1 hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none rounded text-slate-300 transition"
+              style={{ color: 'var(--ov-text)' }}
+              className="p-1 hover:bg-[var(--ov-surface-hover)] disabled:opacity-30 disabled:pointer-events-none rounded transition"
               title="下一页"
               id="pdf-btn-next-page"
             >
@@ -624,13 +721,23 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           </div>
 
           {/* 方案 B：排版切换（连续流式 / 单页居中 / 双页并排） */}
-          <div className="hidden sm:flex items-center bg-slate-950/60 rounded border border-slate-800/80 p-0.5">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="hidden sm:flex items-center rounded border p-0.5"
+          >
             <button
               onClick={() => handleViewModeChange('continuous')}
+              style={{
+                backgroundColor: viewMode === 'continuous' ? 'var(--ov-surface-hover)' : 'transparent',
+                color: viewMode === 'continuous' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              }}
               className={`px-2 py-1 flex items-center gap-1 rounded transition text-xs ${
                 viewMode === 'continuous'
-                  ? 'bg-blue-600/30 text-blue-300 shadow-sm font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'font-medium shadow-xs'
+                  : 'hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]'
               }`}
               title="连续流式滚动模式（纵向多页连看）"
               id="pdf-btn-mode-continuous"
@@ -640,10 +747,14 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             </button>
             <button
               onClick={() => handleViewModeChange('single')}
+              style={{
+                backgroundColor: viewMode === 'single' ? 'var(--ov-surface-hover)' : 'transparent',
+                color: viewMode === 'single' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              }}
               className={`px-2 py-1 flex items-center gap-1 rounded transition text-xs ${
                 viewMode === 'single'
-                  ? 'bg-blue-600/30 text-blue-300 shadow-sm font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'font-medium shadow-xs'
+                  : 'hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]'
               }`}
               title="单页居中翻页模式"
               id="pdf-btn-mode-single"
@@ -653,10 +764,14 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             </button>
             <button
               onClick={() => handleViewModeChange('dual')}
+              style={{
+                backgroundColor: viewMode === 'dual' ? 'var(--ov-surface-hover)' : 'transparent',
+                color: viewMode === 'dual' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              }}
               className={`px-2 py-1 flex items-center gap-1 rounded transition text-xs ${
                 viewMode === 'dual'
-                  ? 'bg-blue-600/30 text-blue-300 shadow-sm font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'font-medium shadow-xs'
+                  : 'hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]'
               }`}
               title="双页并排阅读（翻书模式）"
               id="pdf-btn-mode-dual"
@@ -667,29 +782,155 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           </div>
         </div>
 
-        {/* 右侧：检索、缩放、快照、全屏、打开与下载 */}
+        {/* 右侧：阅读滤镜、检索、缩放、快照、全屏、打开与下载 */}
         <div className="flex items-center gap-1">
+          {/* 阅读滤镜与模式切换器 */}
+          <div className="relative">
+            <button
+              onClick={() => setShowPaperMenu((v) => !v)}
+              style={{
+                backgroundColor: showPaperMenu || paperMode !== 'auto' ? 'var(--ov-surface-hover)' : 'var(--ov-surface)',
+                borderColor: showPaperMenu || paperMode !== 'auto' ? 'var(--ov-accent)' : 'var(--ov-border)',
+                color: paperMode !== 'auto' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition hover:bg-[var(--ov-surface-hover)]"
+              title={`阅读滤镜: ${
+                paperMode === 'auto'
+                  ? '跟随主题'
+                  : paperMode === 'dark'
+                  ? '夜间反转'
+                  : paperMode === 'sepia'
+                  ? '暖色羊皮纸'
+                  : paperMode === 'grayscale'
+                  ? '柔和灰阶'
+                  : '原始白纸'
+              }`}
+              id="pdf-btn-paper-theme"
+            >
+              {effectivePaperFilter === 'dark' ? (
+                <Moon className="w-3.5 h-3.5 text-indigo-400" />
+              ) : effectivePaperFilter === 'sepia' ? (
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-400 inline-block shrink-0" />
+              ) : effectivePaperFilter === 'grayscale' ? (
+                <span className="w-3.5 h-3.5 rounded-full bg-slate-400 inline-block shrink-0" />
+              ) : (
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+              )}
+              <span className="hidden lg:inline">
+                {paperMode === 'auto'
+                  ? '主题模式'
+                  : paperMode === 'dark'
+                  ? '夜间反转'
+                  : paperMode === 'sepia'
+                  ? '羊皮纸'
+                  : paperMode === 'grayscale'
+                  ? '灰阶'
+                  : '原白纸'}
+              </span>
+            </button>
+
+            {showPaperMenu && (
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                  boxShadow: 'var(--ov-shadow, 0 10px 25px -5px rgba(0, 0, 0, 0.3))',
+                }}
+                className="absolute right-0 top-full mt-1.5 w-44 rounded-lg border shadow-xl p-1 z-30 flex flex-col gap-0.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div
+                  className="px-2 py-1 text-[10px] font-semibold border-b"
+                  style={{ color: 'var(--ov-text-muted)', borderColor: 'var(--ov-border-subtle)' }}
+                >
+                  页面阅读模式 (滤镜)
+                </div>
+                <button
+                  onClick={() => handleSelectPaperMode('auto')}
+                  className="flex items-center justify-between px-2 py-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
+                  style={{ color: paperMode === 'auto' ? 'var(--ov-accent)' : 'var(--ov-text)' }}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5" />
+                    <span>跟随应用主题</span>
+                  </span>
+                  {paperMode === 'auto' && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                </button>
+                <button
+                  onClick={() => handleSelectPaperMode('normal')}
+                  className="flex items-center justify-between px-2 py-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
+                  style={{ color: paperMode === 'normal' ? 'var(--ov-accent)' : 'var(--ov-text)' }}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sun className="w-3.5 h-3.5 text-amber-500" />
+                    <span>原始白纸 (标准)</span>
+                  </span>
+                  {paperMode === 'normal' && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                </button>
+                <button
+                  onClick={() => handleSelectPaperMode('dark')}
+                  className="flex items-center justify-between px-2 py-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
+                  style={{ color: paperMode === 'dark' ? 'var(--ov-accent)' : 'var(--ov-text)' }}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>夜间护眼反转</span>
+                  </span>
+                  {paperMode === 'dark' && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                </button>
+                <button
+                  onClick={() => handleSelectPaperMode('sepia')}
+                  className="flex items-center justify-between px-2 py-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
+                  style={{ color: paperMode === 'sepia' ? 'var(--ov-accent)' : 'var(--ov-text)' }}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3.5 h-3.5 rounded-full bg-amber-400 inline-block shrink-0" />
+                    <span>暖色羊皮纸 (护眼)</span>
+                  </span>
+                  {paperMode === 'sepia' && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                </button>
+                <button
+                  onClick={() => handleSelectPaperMode('grayscale')}
+                  className="flex items-center justify-between px-2 py-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
+                  style={{ color: paperMode === 'grayscale' ? 'var(--ov-accent)' : 'var(--ov-text)' }}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3.5 h-3.5 rounded-full bg-slate-400 inline-block shrink-0" />
+                    <span>柔和灰阶</span>
+                  </span>
+                  {paperMode === 'grayscale' && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* 方案 B：检索激活按钮 */}
           <button
             onClick={() => setIsSearchOpen((v) => !v)}
-            className={`p-1.5 rounded transition ${
-              isSearchOpen
-                ? 'bg-blue-600/30 text-blue-400 ring-1 ring-blue-500/40'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-            }`}
+            style={{
+              backgroundColor: isSearchOpen ? 'var(--ov-surface-hover)' : 'var(--ov-surface)',
+              borderColor: isSearchOpen ? 'var(--ov-accent)' : 'var(--ov-border)',
+              color: isSearchOpen ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)]"
             title="在文档中搜索 (Cmd+F / Ctrl+F)"
             id="pdf-btn-search"
           >
             <Search className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-4 w-px bg-slate-800 mx-0.5" />
+          <div className="h-4 w-px mx-0.5" style={{ backgroundColor: 'var(--ov-border)' }} />
 
           {/* 缩放控制器 */}
           <button
             onClick={handleZoomOut}
             disabled={isLoading || zoom <= 40}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 rounded transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] disabled:opacity-40"
             title="缩小"
           >
             <ZoomOut className="w-3.5 h-3.5" />
@@ -697,7 +938,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
           <button
             onClick={handleResetZoom}
-            className="font-mono text-cyan-400 hover:text-cyan-300 text-[11px] px-1.5 py-1 bg-slate-800 hover:bg-slate-700 rounded min-w-[42px] text-center"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-accent)',
+            }}
+            className="font-mono text-[11px] px-1.5 py-1 rounded border min-w-[42px] text-center transition hover:bg-[var(--ov-surface-hover)]"
             title="重置缩放 100%"
           >
             {zoom}%
@@ -706,7 +952,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           <button
             onClick={handleZoomIn}
             disabled={isLoading || zoom >= 250}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 rounded transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] disabled:opacity-40"
             title="放大"
           >
             <ZoomIn className="w-3.5 h-3.5" />
@@ -714,7 +965,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
           <button
             onClick={handleFitWidth}
-            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[11px] transition hidden md:inline"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="px-2 py-1 rounded border text-[11px] transition hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] hidden md:inline"
             title="适应宽度"
           >
             适宽
@@ -722,7 +978,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
           <button
             onClick={handleFitPage}
-            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[11px] transition hidden lg:inline"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="px-2 py-1 rounded border text-[11px] transition hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] hidden lg:inline"
             title="适应整页"
           >
             适页
@@ -730,18 +991,28 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
           <button
             onClick={handleRotate}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]"
             title="顺时针旋转 90°"
           >
             <RotateCw className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-4 w-px bg-slate-800 mx-0.5" />
+          <div className="h-4 w-px mx-0.5" style={{ backgroundColor: 'var(--ov-border)' }} />
 
           {/* 方案 C：快照导出 */}
           <button
             onClick={handleExportSnapshot}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 rounded transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] hover:text-amber-500"
             title="导出当前页高清快照 (PNG)"
             id="pdf-btn-snapshot"
           >
@@ -751,29 +1022,44 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           {/* 方案 C：全屏演示模式 */}
           <button
             onClick={handleToggleFullscreen}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]"
             title={isFullscreen ? '退出全屏 (Esc)' : '全屏沉浸模式'}
             id="pdf-btn-fullscreen"
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
 
-          <div className="h-4 w-px bg-slate-800 mx-0.5" />
+          <div className="h-4 w-px mx-0.5" style={{ backgroundColor: 'var(--ov-border)' }} />
 
           {/* 本地打开 */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded border transition hover:bg-[var(--ov-surface-hover)]"
             title="打开本地任意外部 PDF 文档"
           >
-            <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+            <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
             <span className="hidden sm:inline">打开</span>
           </button>
 
           {/* 打印 */}
           <button
             onClick={handlePrint}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]"
             title="打印当前页"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -796,15 +1082,30 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       <div className="flex-1 flex overflow-hidden relative">
         {/* 左侧功能侧栏 (包含方案 B 的大纲与方案 C 的批注) */}
         {showSidebar && pdfDoc && (
-          <aside className="w-52 sm:w-60 border-r border-slate-800 bg-slate-900/80 flex flex-col shrink-0 select-none z-10">
+          <aside
+            style={{
+              backgroundColor: 'var(--ov-bg-elevated)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="w-52 sm:w-60 border-r flex flex-col shrink-0 select-none z-10"
+          >
             {/* 侧栏 Tab 切换器 */}
-            <div className="grid grid-cols-3 border-b border-slate-800 p-1 bg-slate-950/40 text-[11px]">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="grid grid-cols-3 border-b p-1 text-[11px]"
+            >
               <button
                 onClick={() => setActiveSidebarTab('thumbnails')}
+                style={{
+                  backgroundColor: activeSidebarTab === 'thumbnails' ? 'var(--ov-surface)' : 'transparent',
+                  color: activeSidebarTab === 'thumbnails' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  borderColor: activeSidebarTab === 'thumbnails' ? 'var(--ov-border)' : 'transparent',
+                }}
                 className={`py-1 rounded flex items-center justify-center gap-1 transition ${
-                  activeSidebarTab === 'thumbnails'
-                    ? 'bg-slate-800 text-blue-300 font-semibold shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                  activeSidebarTab === 'thumbnails' ? 'font-semibold shadow-xs border' : 'hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title="页面缩略图"
               >
@@ -814,10 +1115,13 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
               <button
                 onClick={() => setActiveSidebarTab('outline')}
+                style={{
+                  backgroundColor: activeSidebarTab === 'outline' ? 'var(--ov-surface)' : 'transparent',
+                  color: activeSidebarTab === 'outline' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  borderColor: activeSidebarTab === 'outline' ? 'var(--ov-border)' : 'transparent',
+                }}
                 className={`py-1 rounded flex items-center justify-center gap-1 transition ${
-                  activeSidebarTab === 'outline'
-                    ? 'bg-slate-800 text-blue-300 font-semibold shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                  activeSidebarTab === 'outline' ? 'font-semibold shadow-xs border' : 'hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title="目录大纲"
               >
@@ -827,17 +1131,20 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
               <button
                 onClick={() => setActiveSidebarTab('annotations')}
+                style={{
+                  backgroundColor: activeSidebarTab === 'annotations' ? 'var(--ov-surface)' : 'transparent',
+                  color: activeSidebarTab === 'annotations' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  borderColor: activeSidebarTab === 'annotations' ? 'var(--ov-border)' : 'transparent',
+                }}
                 className={`py-1 rounded flex items-center justify-center gap-1 transition relative ${
-                  activeSidebarTab === 'annotations'
-                    ? 'bg-slate-800 text-blue-300 font-semibold shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                  activeSidebarTab === 'annotations' ? 'font-semibold shadow-xs border' : 'hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title="划词批注"
               >
                 <Highlighter className="w-3 h-3" />
                 <span>批注</span>
                 {annotations.length > 0 && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 )}
               </button>
             </div>
@@ -846,9 +1153,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             <div className="flex-1 overflow-y-auto p-2.5">
               {activeSidebarTab === 'thumbnails' && (
                 <div className="flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                  <div
+                    style={{ color: 'var(--ov-text-secondary)' }}
+                    className="flex items-center justify-between text-[11px] px-1"
+                  >
                     <span>共 {totalPages} 页</span>
-                    <span className="text-[10px] text-slate-500 font-mono">P.{currentPage}</span>
+                    <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] font-mono">P.{currentPage}</span>
                   </div>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
                     <PdfThumbnail
@@ -890,21 +1200,25 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         <main
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-auto p-6 sm:p-10 flex flex-col items-center justify-start bg-slate-950/90 relative"
+          style={{
+            backgroundColor: 'var(--ov-bg)',
+            color: 'var(--ov-text)',
+          }}
+          className="flex-1 overflow-auto p-6 sm:p-10 flex flex-col items-center justify-start relative"
         >
           {isLoading && (
-            <div className="my-auto flex flex-col items-center gap-3 text-slate-400">
+            <div className="my-auto flex flex-col items-center gap-3" style={{ color: 'var(--ov-text-muted)' }}>
               <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-              <div className="text-sm font-medium">正在解析 PDF 二进制结构...</div>
-              <div className="text-xs text-slate-500">Mozilla PDF.js 高精度渲染引擎启动中</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--ov-text)' }}>正在解析 PDF 二进制结构...</div>
+              <div className="text-xs" style={{ color: 'var(--ov-text-muted)' }}>Mozilla PDF.js 高精度渲染引擎启动中</div>
             </div>
           )}
 
           {error && !isLoading && (
-            <div className="my-auto max-w-md p-6 bg-rose-950/30 border border-rose-800/80 rounded-xl text-center space-y-3">
-              <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />
-              <h3 className="text-base font-bold text-rose-200">PDF 文档渲染失败</h3>
-              <p className="text-xs text-rose-300/80 leading-relaxed">{error}</p>
+            <div className="my-auto max-w-md p-6 bg-rose-500/10 border border-rose-500/30 rounded-xl text-center space-y-3">
+              <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto" />
+              <h3 className="text-base font-bold text-rose-600 dark:text-rose-200">PDF 文档渲染失败</h3>
+              <p className="text-xs text-rose-600/80 dark:text-rose-300/80 leading-relaxed">{error}</p>
               <button
                 onClick={() => loadDocument(binaryUrl)}
                 className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-medium transition inline-flex items-center gap-1.5"
@@ -929,13 +1243,21 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                       className="flex flex-col items-center group relative"
                     >
                       {/* 页码与定位标签 */}
-                      <div className="flex items-center gap-2 mb-2 text-[11px] font-mono text-slate-400 bg-slate-900/80 px-2.5 py-0.5 rounded-full border border-slate-800 shadow-sm select-none backdrop-blur-sm transition">
+                      <div
+                        style={{
+                          backgroundColor: 'var(--ov-surface-header)',
+                          borderColor: 'var(--ov-border)',
+                          color: 'var(--ov-text-secondary)',
+                        }}
+                        className="flex items-center gap-2 mb-2 text-[11px] font-mono px-2.5 py-0.5 rounded-full border shadow-sm select-none backdrop-blur-sm transition"
+                      >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
-                            currentPage === pNum ? 'bg-blue-400 animate-pulse ring-2 ring-blue-500/30' : 'bg-slate-500'
+                            currentPage === pNum ? 'bg-blue-500 animate-pulse ring-2 ring-blue-500/30' : 'opacity-40'
                           }`}
+                          style={{ backgroundColor: currentPage === pNum ? undefined : 'var(--ov-text-muted)' }}
                         />
-                        <span className={currentPage === pNum ? 'text-blue-300 font-semibold' : ''}>
+                        <span style={{ color: currentPage === pNum ? 'var(--ov-accent)' : undefined }}>
                           第 {pNum} 页 / 共 {totalPages} 页
                         </span>
                       </div>
@@ -951,6 +1273,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                         onPageLoaded={pNum === 1 ? handlePageLoaded : undefined}
                         lazyRender={true}
                         estimatedDimensions={pageSize}
+                        paperFilter={effectivePaperFilter}
                       />
                     </div>
                   ))}
@@ -974,6 +1297,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                     annotations={annotations}
                     onAddAnnotation={handleAddAnnotation}
                     onPageLoaded={handlePageLoaded}
+                    paperFilter={effectivePaperFilter}
                   />
 
                   {/* 方案 B：双页并排模式下的右侧页 */}
@@ -986,6 +1310,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                       searchQuery={isSearchOpen ? searchQuery : undefined}
                       annotations={annotations}
                       onAddAnnotation={handleAddAnnotation}
+                      paperFilter={effectivePaperFilter}
                     />
                   )}
                 </div>
@@ -996,13 +1321,20 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       </div>
 
       {/* 底部状态信息条 */}
-      <footer className="px-3 py-1 bg-slate-900 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between font-mono shrink-0">
+      <footer
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text-secondary)',
+        }}
+        className="px-3 py-1 border-t text-[11px] flex items-center justify-between font-mono shrink-0"
+      >
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-slate-300">
+          <span className="flex items-center gap-1" style={{ color: 'var(--ov-text)' }}>
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <span>PDF.js v4.10 内核</span>
           </span>
-          <span className="text-slate-600">|</span>
+          <span style={{ color: 'var(--ov-border)' }}>|</span>
           <span>
             {viewMode === 'continuous'
               ? `当前页: ${currentPage} / ${totalPages}`
@@ -1010,14 +1342,18 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               ? `页面: ${leftPageNumber}-${rightPageNumber} / ${totalPages}`
               : `页面: ${currentPage} / ${totalPages}`}
           </span>
-          <span className="text-slate-600 hidden sm:inline">|</span>
+          <span style={{ color: 'var(--ov-border)' }} className="hidden sm:inline">|</span>
           <span className="hidden sm:inline">
             视图: {viewMode === 'continuous' ? '多页流式模式' : viewMode === 'dual' ? '双页翻书模式' : '单页模式'}
           </span>
+          <span style={{ color: 'var(--ov-border)' }} className="hidden sm:inline">|</span>
+          <span className="hidden sm:inline">
+            滤镜: {paperMode === 'auto' ? `跟随主题 (${effectivePaperFilter})` : paperMode}
+          </span>
           {annotations.length > 0 && (
             <>
-              <span className="text-slate-600 hidden md:inline">|</span>
-              <span className="text-amber-400 hidden md:inline">
+              <span style={{ color: 'var(--ov-border)' }} className="hidden md:inline">|</span>
+              <span className="text-amber-500 hidden md:inline">
                 批注: {annotations.length} 条
               </span>
             </>

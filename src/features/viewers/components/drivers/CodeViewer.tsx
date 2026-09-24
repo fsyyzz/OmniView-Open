@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
-import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles, MoreHorizontal } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
+import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles, MoreHorizontal, Search, X, ChevronUp, ChevronDown } from 'lucide-react';
 import Prism from 'prismjs';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../shared/types';
@@ -7,6 +7,7 @@ import { useTextHistory } from '../../hooks/useTextHistory';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { getVsCodeApi } from '../../../../shared/lib/vscode';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
+import { highlightSearchMatches, clearSearchHighlights, activateMatch } from '../../lib/domSearchHighlighter';
 import {
   PANE_SYNC_EVENT,
   decideExternalContentApply,
@@ -114,6 +115,14 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     reset: resetHistory,
   } = useTextHistory(content, { maxDepth: 150, mergeThresholdMs: 600 });
 
+  // 查找与高亮导航状态
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [searchMatchCount, setSearchMatchCount] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const codeBodyRef = useRef<HTMLDivElement>(null);
+
   // Sync external content changes if file changes or loaded externally
   useEffect(() => {
     // 切换文件时，重置编辑内容与撤回历史栈
@@ -150,6 +159,98 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
         clearTimeout(debounceTimerRef.current);
       }
     };
+  }, []);
+
+  // 编辑模式搜索匹配区间计算
+  const editMatches = useMemo(() => {
+    if (!isEditing || !isSearching || !searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    const text = editValue.toLowerCase();
+    const list: Array<{ start: number; end: number }> = [];
+    let pos = 0;
+    while (pos < text.length) {
+      const idx = text.indexOf(q, pos);
+      if (idx === -1) break;
+      list.push({ start: idx, end: idx + q.length });
+      pos = idx + Math.max(1, q.length);
+    }
+    return list;
+  }, [isEditing, isSearching, searchQuery, editValue]);
+
+  useEffect(() => {
+    if (isEditing && isSearching) {
+      setSearchMatchCount(editMatches.length);
+      if (editMatches.length > 0) {
+        setSearchMatchIndex(0);
+        const m = editMatches[0];
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(m.start, m.end);
+        }
+      } else {
+        setSearchMatchIndex(0);
+      }
+    }
+  }, [isEditing, isSearching, editMatches]);
+
+  const handleNextMatch = useCallback(() => {
+    if (searchMatchCount === 0) return;
+    const nextIdx = (searchMatchIndex + 1) % searchMatchCount;
+    setSearchMatchIndex(nextIdx);
+    if (!isEditing) {
+      activateMatch(codeBodyRef.current, nextIdx, true);
+    } else {
+      const m = editMatches[nextIdx];
+      if (m && textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(m.start, m.end);
+      }
+    }
+  }, [searchMatchCount, searchMatchIndex, isEditing, editMatches]);
+
+  const handlePrevMatch = useCallback(() => {
+    if (searchMatchCount === 0) return;
+    const prevIdx = (searchMatchIndex - 1 + searchMatchCount) % searchMatchCount;
+    setSearchMatchIndex(prevIdx);
+    if (!isEditing) {
+      activateMatch(codeBodyRef.current, prevIdx, true);
+    } else {
+      const m = editMatches[prevIdx];
+      if (m && textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(m.start, m.end);
+      }
+    }
+  }, [searchMatchCount, searchMatchIndex, isEditing, editMatches]);
+
+  const handleCloseSearch = useCallback(() => {
+    setIsSearching(false);
+    setSearchQuery('');
+    setSearchMatchCount(0);
+    setSearchMatchIndex(0);
+    if (!isEditing) {
+      clearSearchHighlights(codeBodyRef.current);
+    }
+  }, [isEditing]);
+
+  // 全局 Ctrl+F 快捷激活
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        const activeEl = document.activeElement;
+        // 若焦点在外部独立弹窗则不强行夺焦
+        if (activeEl?.closest('.ov-modal-backdrop, [role="dialog"]')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsSearching(true);
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }, 50);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
   const activeContent = isEditing ? editValue : content;
@@ -386,6 +487,18 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       return;
     }
 
+    // Ctrl+F / Cmd+F: Toggle search
+    if (isModifier && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsSearching(true);
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }, 50);
+      return;
+    }
+
     // Tab key: Insert 2 spaces
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -437,6 +550,23 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     return null;
   }, [activeContent, extension, isEditing]);
 
+  // 只读模式 DOM 精准高亮与激活
+  useEffect(() => {
+    if (isEditing) return;
+    if (!isSearching || !searchQuery.trim()) {
+      clearSearchHighlights(codeBodyRef.current);
+      setSearchMatchCount(0);
+      setSearchMatchIndex(0);
+      return;
+    }
+    const count = highlightSearchMatches(codeBodyRef.current, searchQuery);
+    setSearchMatchCount(count);
+    setSearchMatchIndex(count > 0 ? 0 : 0);
+    if (count > 0) {
+      activateMatch(codeBodyRef.current, 0, true);
+    }
+  }, [isSearching, searchQuery, isEditing, highlightedCode, activeContent]);
+
   // 响应式级别判定 (基于当前容器实际渲染宽度，完全免疫全局窗口视口影响)
   // >= 620: 宽裕态 (全部文字 + 快捷键)
   // 460 ~ 620: 次紧凑态 (主要按钮有文字，次要按钮转为图标，隐藏快捷键)
@@ -451,7 +581,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
   const isExtremelyNarrow = headerWidth < 360;
 
   return (
-    <div id="code-viewer-container" className="h-full flex flex-col bg-slate-950 font-mono text-xs text-slate-300 select-text">
+    <div id="code-viewer-container" className="h-full flex flex-col bg-slate-950 font-mono text-xs text-slate-300 select-text relative">
       {/* Code Header (自适应容器工具栏) */}
       <div
         ref={headerRef}
@@ -601,6 +731,35 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             </button>
           )}
 
+          {/* 查找按钮 (Ctrl+F) */}
+          {!isExtremelyNarrow && (
+            <button
+              id="btn-code-search"
+              onClick={() => {
+                setIsSearching(prev => {
+                  const next = !prev;
+                  if (next) {
+                    setTimeout(() => {
+                      searchInputRef.current?.focus();
+                      searchInputRef.current?.select();
+                    }, 50);
+                  } else {
+                    handleCloseSearch();
+                  }
+                  return next;
+                });
+              }}
+              className={`flex items-center gap-1 ${
+                showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
+              } ${isSearching ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'} rounded transition text-xs cursor-pointer`}
+              title="查找 (Ctrl+F)"
+              aria-label="查找 (Ctrl+F)"
+            >
+              <Search className="w-3.5 h-3.5 text-sky-400" />
+              {showSecondaryBtnText && <span>查找</span>}
+            </button>
+          )}
+
           {/* 复制代码 (次要操作：中等宽度变纯图标，极窄时收入更多菜单) */}
           {!isExtremelyNarrow && (
             <button
@@ -608,7 +767,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               onClick={handleCopy}
               className={`flex items-center gap-1 ${
                 showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
-              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs`}
+              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs cursor-pointer`}
               title={copied ? t('copied', locale) : t('copyCode2', locale)}
               aria-label={copied ? t('copied', locale) : t('copyCode2', locale)}
             >
@@ -633,6 +792,21 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
 
               {isMoreMenuOpen && (
                 <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-md shadow-xl py-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      setIsSearching(true);
+                      setTimeout(() => {
+                        searchInputRef.current?.focus();
+                        searchInputRef.current?.select();
+                      }, 50);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Search className="w-3.5 h-3.5 text-sky-400" />
+                    <span>查找 (Ctrl+F)</span>
+                  </button>
                   {onOpenInEditor && (
                     <button
                       type="button"
@@ -695,9 +869,69 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
         </div>
       </div>
 
+      {/* 浮动查找面板 (Ctrl+F) */}
+      {isSearching && (
+        <div className="absolute top-10 right-4 z-40 bg-slate-900/95 border border-slate-700/80 rounded-lg shadow-xl px-2.5 py-1.5 flex items-center gap-2 text-xs backdrop-blur-xs select-none">
+          <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="搜索文本 (Enter 下一个)..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                  handlePrevMatch();
+                } else {
+                  handleNextMatch();
+                }
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                handleCloseSearch();
+              }
+            }}
+            className="w-36 sm:w-48 bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500 font-sans"
+          />
+          <span className="text-[10px] text-slate-400 shrink-0 min-w-[40px] text-center font-mono">
+            {searchQuery.trim()
+              ? searchMatchCount > 0
+                ? `${searchMatchIndex + 1}/${searchMatchCount}`
+                : '无匹配'
+              : ''}
+          </span>
+          <div className="flex items-center gap-0.5 border-l border-slate-800 pl-1">
+            <button
+              onClick={handlePrevMatch}
+              disabled={searchMatchCount === 0}
+              className="p-1 hover:bg-slate-800 disabled:opacity-30 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+              title="上一个 (Shift+Enter)"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleNextMatch}
+              disabled={searchMatchCount === 0}
+              className="p-1 hover:bg-slate-800 disabled:opacity-30 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+              title="下一个 (Enter)"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleCloseSearch}
+              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-rose-400 cursor-pointer"
+              title="关闭 (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Editor / Readonly View Body */}
       {isEditing ? (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
+        <div id="code-viewer-canvas" className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
           <div className="flex-1 min-h-0 flex overflow-hidden relative">
             {/* Synchronized Line Numbers Gutter */}
             <div
@@ -730,7 +964,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
           </div>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-auto flex">
+        <div id="code-viewer-canvas" ref={codeBodyRef} className="flex-1 min-h-0 overflow-auto flex">
           {/* Readonly Line Numbers */}
           <div className="py-3 pl-2 pr-3 text-right text-slate-600 select-none bg-slate-900/40 border-r border-slate-800/80 font-mono text-xs leading-relaxed shrink-0 min-w-[44px]">
             {lines.map((_, i) => (

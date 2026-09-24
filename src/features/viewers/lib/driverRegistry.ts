@@ -115,7 +115,11 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     name: 'Excalidraw 白板',
     extensions: ['excalidraw'],
     matchFile: (file) =>
-      Boolean(file.name && file.name.toLowerCase().endsWith('.excalidraw.json')),
+      Boolean(
+        file.name &&
+          (file.name.toLowerCase().endsWith('.excalidraw.json') ||
+            file.name.toLowerCase().endsWith('.excalidraw.svg'))
+      ),
     getComponent: createLazyDriver('excalidraw', () => import('../components/drivers/ExcalidrawViewer'), 'ExcalidrawViewer'),
   },
   {

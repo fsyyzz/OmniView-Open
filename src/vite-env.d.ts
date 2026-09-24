@@ -10,6 +10,8 @@ declare module '@excalidraw/excalidraw' {
   export const Excalidraw: React.FC<any>;
   export function restoreElements(elements: any, localElements: any): any;
   export function restoreAppState(appState: any, localAppState: any): any;
+  export function useHandleLibrary(opts: any): void;
+  export function loadLibraryFromBlob(blob: any, defaultStatus?: any): Promise<any>;
 }
 
 declare module '@excalidraw/excalidraw/index.css' {}
