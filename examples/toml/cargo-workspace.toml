@@ -1,0 +1,145 @@
+# ═══════════════════════════════════════════════════════════════
+# Cargo.toml — Rust 工作区多 Crate 项目示例
+# 展示 TOML 全语法特性：点分键名、内联表、数组表、多行文本
+# ═══════════════════════════════════════════════════════════════
+
+[workspace]
+members = ["crates/*", "tools/cli", "tools/bench"]
+resolver = "2"
+
+[workspace.package]
+version = "0.8.3"
+edition = "2024"
+authors = ["OmniView Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/example/omni-engine"
+rust-version = "1.82"
+description = """
+高性能多格式文档解析引擎 —— 
+支持 Markdown、TOML、YAML、JSON、XML 的统一抽象层，
+提供零拷贝流式解析与跨格式无损互转能力。
+"""
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+anyhow = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+tokio = { version = "1.40", features = ["full"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# ─── 核心解析库 Crate ───────────────────────────────────────
+[package]
+name = "omni-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "多格式文档解析引擎核心库"
+keywords = ["parser", "toml", "markdown", "document"]
+categories = ["parser-implementations", "text-processing"]
+readme = "README.md"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["toml", "json", "yaml"]
+toml = ["dep:toml"]
+json = ["dep:serde_json"]
+yaml = ["dep:serde_yaml"]
+xml = ["dep:quick-xml"]
+full = ["toml", "json", "yaml", "xml", "streaming"]
+streaming = []
+
+[dependencies]
+serde.workspace = true
+serde_json = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+serde_yaml = { version = "0.9", optional = true }
+quick-xml = { version = "0.36", features = ["serialize"], optional = true }
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+insta = { version = "1.40", features = ["yaml"] }
+proptest = "1.5"
+tempfile = "3.12"
+
+# ─── 基准测试矩阵 ──────────────────────────────────────────
+
+[[bench]]
+name = "parse_toml"
+harness = false
+path = "benches/parse_toml.rs"
+
+[[bench]]
+name = "parse_json"
+harness = false
+path = "benches/parse_json.rs"
+
+[[bench]]
+name = "cross_convert"
+harness = false
+path = "benches/cross_convert.rs"
+
+# ─── 二进制工具入口 ─────────────────────────────────────────
+
+[[bin]]
+name = "omni"
+path = "src/bin/main.rs"
+required-features = ["full"]
+
+[[bin]]
+name = "omni-fmt"
+path = "src/bin/formatter.rs"
+
+# ─── 示例代码 ───────────────────────────────────────────────
+
+[[example]]
+name = "toml_to_json"
+path = "examples/toml_to_json.rs"
+required-features = ["toml", "json"]
+
+[[example]]
+name = "streaming_parse"
+path = "examples/streaming.rs"
+required-features = ["streaming"]
+
+# ─── 构建与发布配置 ─────────────────────────────────────────
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+debug = true
+
+[profile.bench]
+inherits = "release"
+debug = 2
+
+# ─── Linting 与 Clippy 规则 ────────────────────────────────
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_imports = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "warn"
+clone_on_ref_ptr = "warn"

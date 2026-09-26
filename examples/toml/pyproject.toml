@@ -1,0 +1,163 @@
+# ═══════════════════════════════════════════════════════════════
+# pyproject.toml — Python 现代项目配置示例
+# 展示 PEP 621 元数据、构建系统、工具链配置、依赖分组
+# ═══════════════════════════════════════════════════════════════
+
+[build-system]
+requires = ["hatchling >= 1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omni-parser"
+version = "2.4.0"
+description = "高性能多格式文档解析与跨格式互转 Python SDK"
+readme = "README.md"
+license = "MIT"
+requires-python = ">= 3.11"
+authors = [
+  { name = "OmniView Team", email = "team@omniview.dev" },
+]
+maintainers = [
+  { name = "Core Maintainers", email = "core@omniview.dev" },
+]
+keywords = ["parser", "toml", "yaml", "json", "converter"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+
+dependencies = [
+  "pydantic >= 2.9",
+  "tomli >= 2.0; python_version < '3.11'",
+  "tomli-w >= 1.1",
+  "pyyaml >= 6.0",
+  "orjson >= 3.10",
+  "rich >= 13.9",
+  "click >= 8.1",
+]
+
+[project.optional-dependencies]
+xml = ["lxml >= 5.3", "xmltodict >= 0.14"]
+csv = ["polars >= 1.8"]
+full = ["omni-parser[xml,csv]"]
+dev = [
+  "pytest >= 8.3",
+  "pytest-cov >= 5.0",
+  "pytest-asyncio >= 0.24",
+  "mypy >= 1.11",
+  "ruff >= 0.6",
+  "pre-commit >= 3.8",
+]
+docs = [
+  "mkdocs-material >= 9.5",
+  "mkdocstrings[python] >= 0.26",
+  "mike >= 2.1",
+]
+
+[project.scripts]
+omni = "omni_parser.cli:main"
+omni-fmt = "omni_parser.formatter:main"
+omni-convert = "omni_parser.converter:main"
+
+[project.urls]
+Homepage = "https://omniview.dev"
+Documentation = "https://docs.omniview.dev/sdk/python"
+Repository = "https://github.com/example/omni-parser"
+Issues = "https://github.com/example/omni-parser/issues"
+Changelog = "https://github.com/example/omni-parser/blob/main/CHANGELOG.md"
+
+# ─── Ruff 代码质量 ──────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+fix = true
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "DTZ", "T20", "RUF"]
+ignore = ["S101", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["omni_parser"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# ─── Mypy 静态类型检查 ─────────────────────────────────────
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+allow_untyped_calls = true
+
+# ─── Pytest 测试框架 ───────────────────────────────────────
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "-ra",
+  "--cov=omni_parser",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-fail-under=85",
+]
+markers = [
+  "slow: 标记为慢速测试 (deselect with '-m \"not slow\"')",
+  "integration: 集成测试 (需要外部服务)",
+]
+
+# ─── Coverage 覆盖率 ───────────────────────────────────────
+
+[tool.coverage.run]
+source = ["omni_parser"]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "@overload",
+]
+
+# ─── Hatch 构建配置 ────────────────────────────────────────
+
+[tool.hatch.build.targets.sdist]
+include = ["src/omni_parser"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omni_parser"]
+
+[tool.hatch.envs.default]
+features = ["dev"]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args}"
+lint = "ruff check {args:.}"
+fmt = "ruff format {args:.}"
+typecheck = "mypy src/omni_parser"
+all = ["fmt", "lint", "typecheck", "test"]
