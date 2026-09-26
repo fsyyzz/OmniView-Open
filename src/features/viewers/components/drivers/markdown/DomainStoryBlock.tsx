@@ -26,6 +26,7 @@ import {
   renderDomainStoryToSvg,
   extractDomainStorySteps,
   exportPolyglotSvg,
+  exportDstJson,
   exportEgnJson,
   DomainStoryModel,
 } from '../../../lib/domainStoryEngine.ts';
@@ -137,6 +138,18 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
     const a = document.createElement('a');
     a.href = url;
     a.download = `${model.info?.name || 'domain-story'}.polyglot.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
+  };
+
+  const handleDownloadDstJson = () => {
+    const dst = exportDstJson(model);
+    const blob = new Blob([dst], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${model.info?.name || 'domain-story'}.dst`;
     a.click();
     URL.revokeObjectURL(url);
     setExportMenuOpen(false);
@@ -306,6 +319,13 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
                     </button>
                     <div className="border-t border-slate-800 my-1" />
                     <button
+                      onClick={handleDownloadDstJson}
+                      className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-amber-300 flex items-center gap-2 font-medium"
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{t('exportDst', locale)}</span>
+                    </button>
+                    <button
                       onClick={handleDownloadPolyglotSvg}
                       className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-sky-300 flex items-center gap-2"
                     >
@@ -314,9 +334,9 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
                     </button>
                     <button
                       onClick={handleDownloadEgnJson}
-                      className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-200 flex items-center gap-2"
+                      className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300 flex items-center gap-2"
                     >
-                      <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                      <FileCode className="w-3.5 h-3.5 text-slate-400" />
                       <span>{t('exportEgn', locale)}</span>
                     </button>
                     <button

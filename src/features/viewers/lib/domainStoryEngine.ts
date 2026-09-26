@@ -1,7 +1,7 @@
 /**
  * OmniView 领域故事讲授法核心引擎 (Domain Storytelling Engine)
  * 纯本地优先、零网络依赖、MIT 兼容实现
- * 兼容 egon.io 标准 .egn 格式与 Markdown story/domainstory DSL 语法
+ * 兼容 WPS egon.io 官方标准 .dst (JSON) 格式、.egn 扩展及 Markdown story/domainstory DSL 语法
  * 支持自动拓扑布局、矢量 SVG 渲染、DiagramStepPlayer 逐帧步进播放与 Polyglot SVG 导出
  */
 
@@ -848,9 +848,9 @@ export function extractModelFromPolyglotSvg(svgContent: string): DomainStoryMode
 }
 
 /**
- * 阶段三：导出为标准 .egn JSON 文件字符串
+ * 阶段三：导出为 WPS / egon.io 官方标准 .dst (JSON) 文件字符串
  */
-export function exportEgnJson(model: DomainStoryModel): string {
+export function exportDstJson(model: DomainStoryModel): string {
   return JSON.stringify(
     {
       info: {
@@ -866,4 +866,11 @@ export function exportEgnJson(model: DomainStoryModel): string {
     null,
     2
   );
+}
+
+/**
+ * 阶段三：导出为标准 .dst JSON 文件字符串 (向下兼容 .egn 别名)
+ */
+export function exportEgnJson(model: DomainStoryModel): string {
+  return exportDstJson(model);
 }

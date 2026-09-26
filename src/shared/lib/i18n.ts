@@ -369,7 +369,8 @@ export const TRANSLATIONS = {
     // Domain Storytelling (egon.io)
     domainStoryTitle: '领域故事 (Domain Storytelling)',
     domainStoryPlayback: '故事业务演进流',
-    exportEgn: '导出 .egn (JSON)',
+    exportDst: '导出官方 .dst (JSON)',
+    exportEgn: '导出 .egn (兼容)',
     exportPolyglotSvg: '导出 Polyglot SVG (内嵌元数据)',
     actorsCount: '个参与角色',
     activitiesCount: '个业务活动',
@@ -760,7 +761,8 @@ export const TRANSLATIONS = {
     // Domain Storytelling (egon.io)
     domainStoryTitle: 'Domain Storytelling',
     domainStoryPlayback: 'Domain Story Walkthrough',
-    exportEgn: 'Export .egn (JSON)',
+    exportDst: 'Export Official .dst (JSON)',
+    exportEgn: 'Export .egn (Compatibility)',
     exportPolyglotSvg: 'Export Polyglot SVG (Embedded)',
     actorsCount: 'Actors',
     activitiesCount: 'Activities',

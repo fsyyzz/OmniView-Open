@@ -4,12 +4,12 @@
 
 ---
 
-## 1. 领域故事模型 (`.egn` / `.domainstory`) 直接内联渲染
+## 1. 领域故事模型 (`.dst` / `.domainstory` / `.egn`) 直接内联渲染
 
-读取外挂 `.egn` 业务模型文件，自动解析并在正文直接生成可交互流程图卡片：
+读取外挂 `.dst` 业务模型文件，自动解析并在正文直接生成可交互流程图卡片：
 
 ### A. WikiLink 嵌入语法 (`![[...]]`)
-![[../domainstory/ecommerce-fulfillment.egn]]
+![[../domainstory/ecommerce-fulfillment.dst]]
 
 ---
 
@@ -76,7 +76,7 @@
 
 如果您希望仅保留快捷打开链接，可以使用不带 `!` 前缀的普通跳转链接：
 
-- [[../domainstory/ecommerce-fulfillment.egn|点击在独立工作台中打开领域故事 (.egn)]]
+- [[../domainstory/ecommerce-fulfillment.dst|点击在独立工作台中打开领域故事 (.dst)]]
 - [[../excalidraw/architecture-sketch.excalidraw|点击在独立工作台中打开手绘白板 (.excalidraw)]]
 - [在独立 Viewer 中打开 Mermaid](../mermaid/omniview-render-pipeline.mmd)
 - [在独立 Viewer 中打开 PlantUML](../plantuml/cloud-topology.puml)
@@ -89,7 +89,7 @@
 
 | 格式分类 | 支持的扩展名 | 外挂嵌入语法示例 | 渲染机制与效果 |
 | :--- | :--- | :--- | :--- |
-| **Domain Story** | `.egn`, `.domainstory` | `![[../domainstory/ecommerce-fulfillment.egn]]` | 正文直接解析并渲染为全功能交互领域故事卡片 |
+| **Domain Story** | `.dst`, `.domainstory`, `.egn` | `![[../domainstory/ecommerce-fulfillment.dst]]` | 正文直接解析并渲染为全功能交互领域故事卡片 |
 | **Excalidraw 白板** | `.excalidraw`, `.excalidraw.json` | `![[../excalidraw/architecture-sketch.excalidraw]]` | 正文直接解析 JSON 并绘制内嵌高清手绘 SVG 画布 |
 | **Mermaid 图表** | `.mmd`, `.mermaid` | `![](../mermaid/omniview-render-pipeline.mmd)` | 正文直接解析 `.mmd` 源码并渲染为 Mermaid 流程图卡片 |
 | **PlantUML 架构** | `.puml`, `.plantuml` | `![[../plantuml/cloud-topology.puml]]` | 正文直接解析 `.puml` 并实时渲染为 PlantUML 矢量图 |

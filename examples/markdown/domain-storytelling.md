@@ -56,4 +56,4 @@ title: 跨境电商闪电履约故事
 ## 3. 核心功能说明
 
 - **完全本地优先与安全沙箱**：解析与矢量渲染 100% 在本地内存运行，零外部网络请求。
-- **Polyglot 双向导出**：支持导出为标准 `.egn` (egon.io 官方 JSON 格式) 以及包含结构化源数据的 Polyglot SVG。
+- **Polyglot 双向导出**：支持导出为 WPS egon.io 官方 `.dst` (JSON 格式) 以及包含结构化源数据的 Polyglot SVG。

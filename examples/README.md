@@ -25,14 +25,14 @@
 | **[xml/](./xml/)** | `.xml` | Prism.js Syntax Engine | Maven POM 依赖定义、企业级服务配置 |
 | **[code/](./code/)** | `.ts`, `.tsx`, `.js`, `.txt` | Prism.js Syntax Engine | 响应式状态机、React 组件、纯文本设计规范 |
 | **[markmap/](./markmap/)** | `.markmap`, `.mm`, `.km`, `.mindmap` | Markmap Lib + D3 Tree | 树形大纲思维导图、FreeMind XML、KityMinder JSON、节点折叠 |
-| **[domainstory/](./domainstory/)** | `.egn`, `.domainstory` | Domain Story Engine (egon.io) | 领域故事讲授法、逐帧步进演播、业务活动序号、Polyglot SVG 双向还原 |
+| **[domainstory/](./domainstory/)** | `.dst`, `.domainstory`, `.egn` | Domain Story Engine (WPS egon.io) | 领域故事讲授法、逐帧步进演播、业务活动序号、Polyglot SVG 双向还原 |
 
 ---
 
 ## 🎯 推荐验证路径
 
 1. **白板、数据科学与领域驱动故事**：
-   - 打开 `domainstory/ecommerce-fulfillment.egn` 体验领域故事讲授法图元与逐帧播放；
+   - 打开 `domainstory/ecommerce-fulfillment.dst` 体验领域故事讲授法图元与逐帧播放；
    - 打开 `excalidraw/architecture-sketch.excalidraw` 体验手绘矢量白板与画布交互；
    - 打开 `notebook/deep-learning-analysis.ipynb` 体验交互式数据科学单元格；
    - 打开 `typst/quantum-computing-paper.typ` 体验现代出版级 A4 多页排版。

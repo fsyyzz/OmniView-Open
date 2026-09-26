@@ -75,7 +75,7 @@ title: 会议室预约旅程
       null,
       2
     ),
-    tooltip: '插入标准 egon.io .egn JSON 结构模板',
+    tooltip: '插入官方 egon.io .dst JSON 结构模板',
   },
 ];
 
@@ -95,7 +95,7 @@ activities:
 
 export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
   content,
-  fileName = 'story.egn',
+  fileName = 'story.dst',
   locale = 'zh-CN',
   onContentChange,
   onOpenInEditor,
@@ -121,7 +121,7 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
       onContentChange={onContentChange}
       onOpenInEditor={onOpenInEditor}
       storageKeyPrefix="domainstory"
-      languageLabel="Domain Story (.egn / DSL)"
+      languageLabel="Domain Story (.dst / .domainstory)"
       placeholder={'title: 业务流转\n1. 买家 -> 下单 -> 商城'}
       accentClass="cyan"
       snippets={DOMAIN_STORY_SNIPPETS}

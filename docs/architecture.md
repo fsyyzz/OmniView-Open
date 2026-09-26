@@ -122,7 +122,7 @@ flowchart LR
     Router -->|".mmd / .mermaid"| D_MMD["MermaidViewer"]
     Router -->|".dot / .gv"| D_GV["GraphvizViewer"]
     Router -->|".markmap / .mm"| D_MM["MindmapViewer"]
-    Router -->|".egn / .domainstory"| D_DS["DomainStoryViewer"]
+    Router -->|".dst / .domainstory / .egn"| D_DS["DomainStoryViewer"]
     Router -->|".excalidraw"| D_EXC["ExcalidrawViewer"]
     Router -->|".ipynb"| D_NB["NotebookViewer"]
     Router -->|".typ / .typst"| D_TYP["TypstViewer"]

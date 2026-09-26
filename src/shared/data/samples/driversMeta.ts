@@ -176,10 +176,10 @@ export const SUPPORTED_DRIVERS: ViewerDriver[] = [
   {
     id: 'domainstory',
     name: 'Domain Storytelling Studio',
-    displayName: 'Domain Storytelling (.egn) 领域故事讲授引擎',
-    description: 'DDD 领域驱动设计与业务旅程故事可视化查看器，支持标准 .egn 互通、Markdown DSL 嵌入、交互式逐帧演播与 Polyglot SVG 导出。',
+    displayName: 'Domain Storytelling (.dst / .domainstory) 领域故事讲授引擎',
+    description: 'DDD 领域驱动设计与业务旅程故事可视化查看器，支持 WPS egon.io 官方 .dst 规范、.egn 兼容、Markdown DSL 嵌入、交互式逐帧演播与 Polyglot SVG 导出。',
     iconName: 'GitCommit',
-    supportedExtensions: ['egn', 'domainstory'],
+    supportedExtensions: ['dst', 'domainstory', 'egn'],
     isBuiltin: true,
     version: '1.0.0',
     category: 'core',

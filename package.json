@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "1.2.5",
+  "version": "1.2.6",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -182,6 +182,9 @@
             "filenamePattern": "*.excalidraw"
           },
           {
+            "filenamePattern": "*.dst"
+          },
+          {
             "filenamePattern": "*.egn"
           },
           {
@@ -246,19 +249,19 @@
         "command": "omniview.openSidePreview",
         "key": "ctrl+k v",
         "mac": "cmd+k v",
-        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i"
       },
       {
         "command": "omniview.openSidePreview",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i"
       },
       {
         "command": "omniview.openSideBySide",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
-        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i"
       },
       {
         "command": "omniview.openSource",
@@ -289,7 +292,7 @@
       "editor/title": [
         {
           "command": "omniview.openSidePreview",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i && activeCustomEditorId != 'omniview.editor'",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i && activeCustomEditorId != 'omniview.editor'",
           "group": "navigation"
         },
         {
@@ -306,34 +309,34 @@
       "view/item/context": [
         {
           "command": "omniview.openSidePreview",
-          "when": "view == workbench.explorer.fileView && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "view == workbench.explorer.fileView && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i",
           "group": "inline@1"
         },
         {
           "command": "omniview.openSideBySide",
-          "when": "view == workbench.explorer.fileView && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "view == workbench.explorer.fileView && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i",
           "group": "inline@2"
         }
       ],
       "explorer/context": [
         {
           "command": "omniview.openSidePreview",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i",
           "group": "inline@1"
         },
         {
           "command": "omniview.openSideBySide",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i",
           "group": "inline@2"
         },
         {
           "command": "omniview.openSideBySide",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i",
           "group": "omniview@1"
         },
         {
           "command": "omniview.openSidePreview",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|dst|egn|domainstory)$/i",
           "group": "omniview@2"
         }
       ]

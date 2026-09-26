@@ -1,0 +1,35 @@
+{
+  "version": "egon-1.0",
+  "info": {
+    "title": "跨境电商订单智能履约领域故事",
+    "description": "基于 WPS egon.io 官方 .dst 标准规范的微服务与仓储物流全链路故事模型",
+    "author": ""
+  },
+  "actors": [
+    { "id": "actor-buyer", "name": "在线买家", "type": "person", "x": 120, "y": 140 },
+    { "id": "actor-mall", "name": "电商交易中台", "type": "system", "x": 380, "y": 140 },
+    { "id": "actor-risk", "name": "智能风控服务", "type": "system", "x": 640, "y": 140 },
+    { "id": "actor-wms", "name": "智能仓储WMS", "type": "system", "x": 380, "y": 380 },
+    { "id": "actor-courier", "name": "顺丰速运专员", "type": "person", "x": 640, "y": 380 }
+  ],
+  "workObjects": [
+    { "id": "wo-cart", "name": "结算购物车清单", "type": "document" },
+    { "id": "wo-risk-report", "name": "反欺诈风险分", "type": "data" },
+    { "id": "wo-order", "name": "正式销售订单", "type": "document" },
+    { "id": "wo-shipping-task", "name": "拣货与打包指令", "type": "package" },
+    { "id": "wo-waybill", "name": "电子面单与包裹", "type": "package" }
+  ],
+  "activities": [
+    { "id": "act-1", "number": 1, "from": "actor-buyer", "to": "actor-mall", "label": "提交购物车结算", "workObjectName": "结算购物车清单" },
+    { "id": "act-2", "number": 2, "from": "actor-mall", "to": "actor-risk", "label": "发起欺诈检测", "workObjectName": "结算购物车清单" },
+    { "id": "act-3", "number": 3, "from": "actor-risk", "to": "actor-mall", "label": "核验通过并回传", "workObjectName": "反欺诈风险分" },
+    { "id": "act-4", "number": 4, "from": "actor-mall", "to": "actor-mall", "label": "持久化生成订单", "workObjectName": "正式销售订单" },
+    { "id": "act-5", "number": 5, "from": "actor-mall", "to": "actor-wms", "label": "下发分拣任务", "workObjectName": "拣货与打包指令" },
+    { "id": "act-6", "number": 6, "from": "actor-wms", "to": "actor-courier", "label": "交接出库并寄发", "workObjectName": "电子面单与包裹" },
+    { "id": "act-7", "number": 7, "from": "actor-courier", "to": "actor-buyer", "label": "送达签收短信通知", "workObjectName": "电子面单与包裹" }
+  ],
+  "groups": [
+    { "id": "g-core", "name": "核心交易边界 (Core Trading Domain)", "actors": ["actor-mall", "actor-risk"] },
+    { "id": "g-fulfillment", "name": "供应链与履约边界 (Fulfillment)", "actors": ["actor-wms", "actor-courier"] }
+  ]
+}

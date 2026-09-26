@@ -41,8 +41,8 @@
   - 支持 Excel (`.xlsx`) 多工作表切换、共享字符串池、公式计算值解析与列特征统计画像 (Profiling)。
 - **现代图像工作台 (ImageViewer)**:
   - 10%~3200% 极清矢量缩放、16x 像素十字放大镜取色器 (HEX/RGBA/HSLA)、四态画布底色与 EXIF 深度元数据透视。
-- **DDD 领域故事讲授引擎 (Domain Storytelling .egn)**:
-  - 支持 `.egn` 交互式逐帧演播器 (DiagramStepPlayer) 与 Markdown ````domainstory```` DSL。
+- **DDD 领域故事讲授引擎 (Domain Storytelling .dst)**:
+  - 原生支持 WPS egon.io 官方 `.dst` (JSON) 标准规范，兼容 `.egn` / `.domainstory`、交互式逐帧演播器 (DiagramStepPlayer) 与 Markdown ````domainstory```` DSL。
 
 ## [1.1.0] - 2026-09-24
 
