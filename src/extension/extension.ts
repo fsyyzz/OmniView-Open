@@ -10,7 +10,8 @@ const SUPPORTED_EXTENSIONS = [
   '.dot', '.gv', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif', '.tiff',
   '.pdf', '.epub', '.docx', '.pptx', '.xlsx', '.xls', '.xlsm', '.xltx',
   '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt',
-  '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.dst', '.egn', '.domainstory'
+  '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.dst', '.egn', '.domainstory',
+  '.html', '.htm'
 ];
 
 const BINARY_EXTENSIONS = [
@@ -139,7 +140,7 @@ async function loadReferencedMediaFiles(
 
     // 容错: 若相对路径无后缀但对应同名工程文件
     if (!ext && !existsSync(assetPath)) {
-      for (const candidateExt of ['md', 'dst', 'egn', 'excalidraw', 'puml', 'mmd', 'svg', 'dot', 'markmap', 'png', 'jpg', 'jpeg', 'webp', 'gif']) {
+      for (const candidateExt of ['md', 'dst', 'egn', 'excalidraw', 'puml', 'mmd', 'svg', 'dot', 'markmap', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'html', 'htm']) {
         if (existsSync(`${assetPath}.${candidateExt}`)) {
           assetPath = `${assetPath}.${candidateExt}`;
           ext = candidateExt;

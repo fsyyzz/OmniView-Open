@@ -27,11 +27,11 @@
 
 ## 💡 Why OmniView?
 
-Stop installing a dozen fragmented, heavy extensions that demand subscriptions! OmniView leverages a unified microkernel architecture to deliver **21+ formats out of the box, 100% offline security, pixel-perfect VS Code theme matching, and rock-solid 60 FPS scrolling**.
+Stop installing a dozen fragmented, heavy extensions that demand subscriptions! OmniView leverages a unified microkernel architecture to deliver **22+ formats out of the box, 100% offline security, pixel-perfect VS Code theme matching, and rock-solid 60 FPS scrolling**.
 
 | Dimension / Pain Point | Vanilla VS Code | Fragmented Standalone Extensions | **OmniView** |
 | :--- | :--- | :--- | :--- |
-| **Supported File Formats** | Plaintext & syntax coloring only | Requires 8–12 separate extensions | **21+ formats out of the box** (Cloud-Native, TOML, Office, PDF, EPUB, Typst, Diagrams, Mindmaps, Whiteboards, Data) |
+| **Supported File Formats** | Plaintext & syntax coloring only | Requires 8–12 separate extensions | **22+ formats out of the box** (HTML5, Cloud-Native, TOML, Office, PDF, EPUB, Typst, Diagrams, Mindmaps, Whiteboards, Data) |
 | **Network & Privacy Security** | Offline | Often relies on remote servers or paywalled APIs | **100% pure client-side offline**, zero cloud telemetry, automatic secret masking |
 | **Office Trio (DOCX / PPTX / XLSX)** | Not supported | Heavy external runtimes required | **Pure in-memory OOXML decoding**, multi-sheet tabs, column profiling, and vector slide playback |
 | **Markdown Copy to Word / WPS** | Black boxes, broken images, collapsed styles | Manual image saving and re-inserting | **Proprietary dual-channel clipboard pipeline**, vector diagrams rasterized to 300+ DPI PNGs |
@@ -195,7 +195,13 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
   - Integrated `DiagramStepPlayer` for step-by-step animation, forward/backward navigation, and spotlight focus;
   - Export official `.dst` files and **Polyglot SVG** with embedded domain model for lossless bi-directional extraction.
 
-### 17. Preferences & Workspace Persistence
+### 17. HTML5 Web & Sandbox Studio
+- **Dual-layer isolated sandbox**: Strict `iframe` sandbox without `allow-same-origin` or `allow-top-navigation`, preventing host context escape or style contamination;
+- **Multi-device viewport simulator**: One-click toggle between **Fluid Desktop (100%)**, **iPad Tablet (768px)**, and **iPhone Mobile (375px)** with realistic bezels;
+- **Multi-mode canvas backgrounds**: Seamlessly switch between Pure White, Dark Mode, Transparent Checkerboard, and Host VS Code System theme;
+- **Pure local split-view live edit**: Side-by-side editing with undo/redo history stack and live debounced hot reload.
+
+### 18. Preferences & Workspace Persistence
 - **Central settings hub (`settingsStorage.ts`)**: `v2` keys with seamless legacy migration;
 - **Hard clamps**: zoom (0.5~2.5x), font size (12~22px), and split ratios to keep UI stable;
 - **Workspace lifecycle (`fileStorage.ts`)**: remember sidebar/explorer state, tab order, and last opened file;
@@ -262,6 +268,7 @@ Ready-to-open samples live under [`examples/`](./examples) (see [`examples/READM
 | [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | Broken diagrams, missing images, ultra-wide tables, error isolation |
 | [`domainstory/ecommerce-fulfillment.dst`](./examples/domainstory/ecommerce-fulfillment.dst) | Standalone official WPS egon.io `.dst` e-commerce fulfillment domain story |
 | [`markdown/domain-storytelling.md`](./examples/markdown/domain-storytelling.md) | Markdown embedded Domain Storytelling DSL pipeline case |
+| [`html/interactive-dashboard.html`](./examples/html/interactive-dashboard.html) | HTML5 responsive monitoring dashboard, sandbox script interaction, and multi-device viewports |
 
 ---
 

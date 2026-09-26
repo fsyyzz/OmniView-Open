@@ -377,6 +377,21 @@ export const TRANSLATIONS = {
     workObjectsCount: '个工作对象',
     currentStepBadge: '当前步',
 
+    // HTML5 Studio
+    htmlTitle: 'HTML5 网页与沙箱工作台',
+    htmlDeviceFluid: '响应式桌面 (100%)',
+    htmlDeviceTablet: '平板视口 (768px)',
+    htmlDeviceMobile: '手机视口 (375px)',
+    htmlSandboxActive: '沙箱隔离已激活',
+    htmlSandboxTooltip: '已启用多重 iframe 沙箱隔离，禁止访问宿主与父级上下文',
+    htmlScriptsOn: '运行脚本: 开',
+    htmlScriptsOff: '运行脚本: 关',
+    htmlReload: '刷新预览',
+    htmlBgCheckerboard: '透明网格',
+    htmlBgWhite: '标准浅色底',
+    htmlBgDark: '深色暗底',
+    htmlBgSystem: '跟随系统',
+
     // EPUB Reader
     epubFlowScroll: '连续滚动',
     epubFlowPaginated: '双叶并排 (单/双页分页)',
@@ -768,6 +783,21 @@ export const TRANSLATIONS = {
     activitiesCount: 'Activities',
     workObjectsCount: 'Work Objects',
     currentStepBadge: 'Current Step',
+
+    // HTML5 Studio
+    htmlTitle: 'HTML5 Webpage & Sandbox Studio',
+    htmlDeviceFluid: 'Fluid Desktop (100%)',
+    htmlDeviceTablet: 'Tablet Viewport (768px)',
+    htmlDeviceMobile: 'Mobile Viewport (375px)',
+    htmlSandboxActive: 'Sandbox Active',
+    htmlSandboxTooltip: 'Strict iframe sandbox active, preventing host or parent window access',
+    htmlScriptsOn: 'Scripts: ON',
+    htmlScriptsOff: 'Scripts: OFF',
+    htmlReload: 'Reload Preview',
+    htmlBgCheckerboard: 'Checkerboard',
+    htmlBgWhite: 'Standard White',
+    htmlBgDark: 'Dark Background',
+    htmlBgSystem: 'System Theme',
 
     // EPUB Reader
     epubFlowScroll: 'Continuous Scroll',

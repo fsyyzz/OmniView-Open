@@ -134,6 +134,7 @@ flowchart LR
     Router -->|"Dockerfile*"| D_DF["DockerfileViewer"]
     Router -->|"docker-compose.yml"| D_DC["ComposeViewer"]
     Router -->|"k8s/*.yaml"| D_K8S["K8sViewer"]
+    Router -->|".html / .htm"| D_HTML["HtmlViewer"]
     Router -->|"主流代码格式"| D_CODE["CodeViewer"]
     Router -->|"未知格式 / 损坏"| D_FALLBACK["未知格式自愈与 Hex 转储"]
 ```

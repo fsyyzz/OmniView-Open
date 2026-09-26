@@ -19,7 +19,8 @@ export type DriverId =
   | 'image'
   | 'dockerfile'
   | 'compose'
-  | 'k8s';
+  | 'k8s'
+  | 'html';
 
 export interface CloudNativeDiagnostic {
   level: 'info' | 'warning' | 'error';

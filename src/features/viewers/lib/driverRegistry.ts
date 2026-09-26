@@ -242,6 +242,13 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     supportsSplitView: true,
   },
   {
+    id: 'html',
+    name: 'HTML5 网页与沙箱工作台',
+    extensions: ['html', 'htm'],
+    getComponent: createLazyDriver('html', () => import('../components/drivers/HtmlViewer'), 'HtmlViewer'),
+    supportsSplitView: true,
+  },
+  {
     id: 'code',
     name: '通用代码/文本查看器',
     extensions: [],

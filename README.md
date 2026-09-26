@@ -27,7 +27,7 @@
 
 ## 💡 为什么选择 OmniView？(Why OmniView?)
 
-告别在 VS Code 里安装十几个碎片、臃肿且常弹收费提示的单一插件！OmniView 采用统一微内核设计，实现 **21+ 核心格式统一步调、100% 纯前端离线、像素级宿主主题吸附与 60 FPS 丝滑稳帧**。
+告别在 VS Code 里安装十几个碎片、臃肿且常弹收费提示的单一插件！OmniView 采用统一微内核设计，实现 **22+ 核心格式统一步调、100% 纯前端离线、像素级宿主主题吸附与 60 FPS 丝滑稳帧**。
 
 | 评估维度 / 场景痛点 | 原生 VS Code | 传统独立插件组合 | **OmniView** |
 | :--- | :--- | :--- | :--- |
@@ -216,7 +216,13 @@
   - 最佳实践体检中心：缺少存活/就绪探针 (Probes)、缺少 Resource Limits、Service 悬空断链自动警示与修复建议；
   - 源码分屏协同与精准跳转。
 
-### 18. 全局偏好与工作区持久化体系
+### 18. HTML5 网页与交互沙箱工作台 (HTML5 Web Sandbox Studio)
+- **双层隔离安全沙箱**: 严格配置受控 `iframe` 沙箱，彻底禁用 `allow-same-origin` 与 `allow-top-navigation`，杜绝宿主逃逸与全局样式污染；
+- **多终端视口模拟器**: 一键切换 **响应式桌面 (100%)**、**iPad 平板 (768px)** 与 **iPhone 手机 (375px)**，自动居中拟真排版；
+- **多态画布与底色自适应**: 支持纯白、深色暗黑、透明棋盘格 (Checkerboard) 与宿主系统主题四态底色灵活切换；
+- **纯本地源码分屏协同**: 支持左侧代码编辑（带 Undo/Redo 历史栈与骨架片段库）+ 右侧沙箱实时防抖热预览。
+
+### 19. 全局偏好与工作区持久化体系
 - **集中式配置中枢 (`settingsStorage.ts`)**: 存储键升级为 `v2`，无缝自动向前平滑兼容迁移旧版本配置并安全回写；
 - **严苛边界防护**: 对缩放比例 (0.5~2.5x)、字号 (12~22px) 及分屏比例建立数学截断与钳位容错，避免任何异常值影响交互；
 - **多工作区生命周期持久化 (`fileStorage.ts`)**: 记住侧边栏与资源管理器开关状态、活动标签页顺序与最后打开文件；
@@ -299,6 +305,7 @@ OmniView 在 [`examples/`](./examples) 提供开箱即用的多格式样例（�
 | [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | 语法损坏图表、缺失图片、超宽表格等极限压测与错误边界隔离 |
 | [`domainstory/ecommerce-fulfillment.dst`](./examples/domainstory/ecommerce-fulfillment.dst) | 独立 WPS egon.io 官方 `.dst` 格式跨境电商履约领域故事模型 |
 | [`markdown/domain-storytelling.md`](./examples/markdown/domain-storytelling.md) | Markdown 内嵌 Domain Storytelling DSL 敏捷与协同用例 |
+| [`html/interactive-dashboard.html`](./examples/html/interactive-dashboard.html) | HTML5 响应式监控大屏、沙箱隔离脚本交互与多终端视口示例 |
 
 ---
 

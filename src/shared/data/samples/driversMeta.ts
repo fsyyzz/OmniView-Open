@@ -299,4 +299,18 @@ export const SUPPORTED_DRIVERS: ViewerDriver[] = [
     engine: 'OmniView K8s Gravity Engine + Diagnostics Rulebase',
     license: 'MIT',
   },
+  {
+    id: 'html',
+    name: 'HTML5 Web Sandbox Studio',
+    displayName: 'HTML5 网页与沙箱工作台',
+    description: '安全隔离沙箱运行、多设备视口仿真 (Desktop/Tablet/Mobile)、底色切换与源码分屏实时编辑。',
+    iconName: 'Globe',
+    supportedExtensions: ['html', 'htm'],
+    isBuiltin: true,
+    version: '1.0.0',
+    category: 'core',
+    lazyLoaded: true,
+    engine: 'OmniView Native Web Sandbox Engine',
+    license: 'MIT',
+  },
 ];

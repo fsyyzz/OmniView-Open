@@ -26,6 +26,7 @@
 | **[code/](./code/)** | `.ts`, `.tsx`, `.js`, `.txt` | Prism.js Syntax Engine | 响应式状态机、React 组件、纯文本设计规范 |
 | **[markmap/](./markmap/)** | `.markmap`, `.mm`, `.km`, `.mindmap` | Markmap Lib + D3 Tree | 树形大纲思维导图、FreeMind XML、KityMinder JSON、节点折叠 |
 | **[domainstory/](./domainstory/)** | `.dst`, `.domainstory`, `.egn` | Domain Story Engine (WPS egon.io) | 领域故事讲授法、逐帧步进演播、业务活动序号、Polyglot SVG 双向还原 |
+| **[html/](./html/)** | `.html`, `.htm` | Native Web Sandbox Engine | 严格受控双层 iframe 沙箱、响应式设备仿真 (Desktop/Tablet/Mobile)、分屏编辑 |
 
 ---
 

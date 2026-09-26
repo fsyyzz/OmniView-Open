@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-09-26
+
+### Added
+
+- **HTML5 网页与受控隔离沙箱工作台 (HTML5 Sandbox Studio)**:
+  - **双层安全隔离沙箱 (Dual Sandbox Defense)**：内置受控 `iframe` 沙箱，严格剔除 `allow-same-origin` 与 `allow-top-navigation`，天然免疫 CSRF 与 Cookie/LocalStorage 侧信道泄漏；支持在纯净隔离环境下安全预览第三方网页与报表。
+  - **动态脚本执行闸门 (Script Toggle)**：支持无脚本安全静态检视与交互式全功能模式随心一键切换。
+  - **多端视口仿真 (Multi-Device Emulation)**：支持自适应流式视口 (100%)、平板端标准视口 (768px) 及移动端标准视口 (375px) 像素级拟真仿真。
+  - **专业底色与无级缩放 (Canvas Backgrounds & Zoom)**：提供系统主题、纯白 (Light)、暗黑 (Dark) 及透明棋盘格 (Checkerboard) 四态画布底色；支持 50% ~ 200% 自由缩放与重置。
+  - **三态工作台布局**：支持沉浸式纯预览 (Preview)、分屏对照实时联动 (Split) 及源码模式 (Code)。
+  - **开箱即用骨架片段**：提供 HTML5 基础骨架、Tailwind 快速卡片、Canvas 动画演示等内置骨架片段，支持一键无损插入与清空。
+  - **高保真独立打印**：支持视口内 HTML 单独触发打印排版与 PDF 导出。
+- **扩展与路由生态全链路集成**:
+  - 全局关联 `*.html` 与 `*.htm` 文件，无缝对接 VS Code 资源管理器与自定义编辑器。
+  - 驱动注册表扩充至 22 类核心驱动，驱动元数据与多语言全量覆盖。
+
 ## [1.2.5] - 2026-09-26
 
 ### Added
