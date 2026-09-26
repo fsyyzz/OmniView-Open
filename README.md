@@ -5,14 +5,14 @@
 <p align="left">
   <a href="https://marketplace.visualstudio.com"><img src="https://img.shields.io/visual-studio-marketplace/v/omniview.omniview?style=flat-square&color=blue&logo=visual-studio-code" alt="Marketplace Version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License: MIT" /></a>
-  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-46%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
+  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-80%2B%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Offline-100%25-orange?style=flat-square" alt="100% Offline" /></a>
   <a href="#"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" /></a>
   <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.7+-blue?style=flat-square&logo=typescript" alt="TypeScript" /></a>
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome" /></a>
 </p>
 
-> **OmniView** 是一款面向 VS Code 场景与 Web 现代工作流的高性能、全格式多维文件可视化工作台与插件。基于 React 19、TypeScript、Vite 6 与 Tailwind CSS v4 构建，秉承“**把数据升维为视窗，让排版化繁为简**”的哲学，提供从文档、图表、思维导图、矢量设计、数据网格、版式文档到结构化配置的全景沉浸式渲染能力。
+> **OmniView** 是一款面向 VS Code 场景与 Web 现代工作流的高性能、全格式多维文件可视化工作台与插件。基于 React 19、TypeScript、Vite 6 与 Tailwind CSS v4 构建，秉承“**把数据升维为视窗，让排版化繁为简**”的哲学，提供从文档、图表、思维导图、矢量设计、数据网格、云原生清单到结构化配置的全景沉浸式渲染能力。
 
 <p align="left">
   <a href="https://ais-pre-3kity5ft64rqesjejxmxsu-168296143482.us-east1.run.app"><b>⚡ 在线免安装体验 (Web Live Demo)</b></a> ·
@@ -27,11 +27,11 @@
 
 ## 💡 为什么选择 OmniView？(Why OmniView?)
 
-告别在 VS Code 里安装十几个碎片、臃肿且常弹收费提示的单一插件！OmniView 采用统一微内核设计，实现 **18+ 格式统一步调、100% 纯前端离线、像素级宿主主题吸附与 60 FPS 丝滑稳帧**。
+告别在 VS Code 里安装十几个碎片、臃肿且常弹收费提示的单一插件！OmniView 采用统一微内核设计，实现 **21+ 核心格式统一步调、100% 纯前端离线、像素级宿主主题吸附与 60 FPS 丝滑稳帧**。
 
 | 评估维度 / 场景痛点 | 原生 VS Code | 传统独立插件组合 | **OmniView** |
 | :--- | :--- | :--- | :--- |
-| **支持文件格式** | 仅纯文本/代码着色 | 需碎片化安装 8~12 个扩展 | **18+ 格式开箱即用** (Office/PDF/EPUB/Typst/图表/导图/白板/数据) |
+| **支持文件格式** | 仅纯文本/代码着色 | 需碎片化安装 8~12 个扩展 | **21+ 格式开箱即用** (Cloud-Native/TOML/Office/PDF/EPUB/Typst/图表/导图/白板/数据) |
 | **网络与隐私安全** | 离线 | 多数依赖外部云端或收费 API | **100% 纯前端离线**，零云端调用，企业密钥自动脱敏 |
 | **Office 三件套 (DOCX/PPTX/XLSX)** | 不支持 | 需安装复杂庞大的外部运行时 | **纯端侧 OOXML 解包**，支持 XLSX 标签页与画像、PPTX 矢量放映 |
 | **Markdown 复制到 Word / WPS** | 边框全黑、图片变红叉、排版崩塌 | 需逐张手动导出图片或截图插入 | **独家同步剪贴板双通道清洗**，矢量图自动光栅化为 300+ DPI 极清图 |

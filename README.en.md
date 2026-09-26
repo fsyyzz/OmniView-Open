@@ -5,14 +5,14 @@
 <p align="left">
   <a href="https://marketplace.visualstudio.com"><img src="https://img.shields.io/visual-studio-marketplace/v/omniview.omniview?style=flat-square&color=blue&logo=visual-studio-code" alt="Marketplace Version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License: MIT" /></a>
-  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-46%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
+  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-80%2B%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Offline-100%25-orange?style=flat-square" alt="100% Offline" /></a>
   <a href="#"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" /></a>
   <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.7+-blue?style=flat-square&logo=typescript" alt="TypeScript" /></a>
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome" /></a>
 </p>
 
-> **OmniView** is a high-performance, multi-format visualization workbench and VS Code extension for modern document workflows. Built with React 19, TypeScript, Vite 6, and Tailwind CSS v4, it follows the philosophy of **turning data into immersive windows and simplifying complex layout**—covering documents, diagrams, mind maps, vector design, data grids, paginated readers, and structured configuration files.
+> **OmniView** is a high-performance, multi-format visualization workbench and VS Code extension for modern document workflows. Built with React 19, TypeScript, Vite 6, and Tailwind CSS v4, it follows the philosophy of **turning data into immersive windows and simplifying complex layout**—covering documents, diagrams, mind maps, vector design, data grids, paginated readers, cloud-native manifests, and structured configuration files.
 
 <p align="left">
   <a href="https://ais-pre-3kity5ft64rqesjejxmxsu-168296143482.us-east1.run.app"><b>⚡ Web Live Demo (No Install Needed)</b></a> ·
@@ -27,11 +27,11 @@
 
 ## 💡 Why OmniView?
 
-Stop installing a dozen fragmented, heavy extensions that demand subscriptions! OmniView leverages a unified microkernel architecture to deliver **18+ formats out of the box, 100% offline security, pixel-perfect VS Code theme matching, and rock-solid 60 FPS scrolling**.
+Stop installing a dozen fragmented, heavy extensions that demand subscriptions! OmniView leverages a unified microkernel architecture to deliver **21+ formats out of the box, 100% offline security, pixel-perfect VS Code theme matching, and rock-solid 60 FPS scrolling**.
 
 | Dimension / Pain Point | Vanilla VS Code | Fragmented Standalone Extensions | **OmniView** |
 | :--- | :--- | :--- | :--- |
-| **Supported File Formats** | Plaintext & syntax coloring only | Requires 8–12 separate extensions | **18+ formats out of the box** (Office, PDF, EPUB, Typst, Diagrams, Mindmaps, Whiteboards, Data) |
+| **Supported File Formats** | Plaintext & syntax coloring only | Requires 8–12 separate extensions | **21+ formats out of the box** (Cloud-Native, TOML, Office, PDF, EPUB, Typst, Diagrams, Mindmaps, Whiteboards, Data) |
 | **Network & Privacy Security** | Offline | Often relies on remote servers or paywalled APIs | **100% pure client-side offline**, zero cloud telemetry, automatic secret masking |
 | **Office Trio (DOCX / PPTX / XLSX)** | Not supported | Heavy external runtimes required | **Pure in-memory OOXML decoding**, multi-sheet tabs, column profiling, and vector slide playback |
 | **Markdown Copy to Word / WPS** | Black boxes, broken images, collapsed styles | Manual image saving and re-inserting | **Proprietary dual-channel clipboard pipeline**, vector diagrams rasterized to 300+ DPI PNGs |
