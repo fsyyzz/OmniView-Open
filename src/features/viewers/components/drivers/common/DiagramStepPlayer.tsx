@@ -180,7 +180,7 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
             title={isPlaying ? '暂停 (空格键)' : '开始自动步进演示 (空格键)'}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            <span>{isPlaying ? t('pause', locale) || '暂停' : t('play', locale) || '播放'}</span>
+            <span className="hidden sm:inline">{isPlaying ? t('pause', locale) || '暂停' : t('play', locale) || '播放'}</span>
           </button>
 
           <button

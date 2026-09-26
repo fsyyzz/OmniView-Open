@@ -176,25 +176,25 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
     >
       {/* Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
-        <div className="flex items-center gap-2 font-mono text-slate-300">
-          <span className="flex items-center gap-1.5 font-semibold text-sky-400">
-            <Layers className="w-4 h-4 text-sky-400" />
-            <span>{t('domainStoryTitle', locale)}</span>
+        <div className="flex items-center gap-2 font-mono text-slate-300 min-w-0 flex-1 overflow-hidden">
+          <span className="flex items-center gap-1.5 font-semibold text-sky-400 shrink-0" title={t('domainStoryTitle', locale)}>
+            <Layers className="w-4 h-4 text-sky-400 shrink-0" />
+            <span className="hidden sm:inline">{t('domainStoryTitle', locale)}</span>
           </span>
           {model.info?.name && (
-            <span className="hidden sm:inline-block text-[11px] text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded border border-slate-700/50">
+            <span className="hidden md:inline-block text-[11px] text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded border border-slate-700/50 truncate max-w-[140px]">
               {model.info.name}
             </span>
           )}
-          <span className="text-[10px] text-slate-400">
+          <span className="hidden lg:inline-block text-[10px] text-slate-400 shrink-0">
             ({model.actors.length} {t('actorsCount', locale)} · {model.activities.length} {t('activitiesCount', locale)})
           </span>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* View Mode Switcher */}
-          <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-700">
+          <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-700 shrink-0">
             <button
               onClick={() => onSetViewMode('visual')}
               className={`p-1 rounded flex items-center gap-1 text-[11px] transition ${viewMode === 'visual'
@@ -204,7 +204,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
               title={t('previewTooltip', locale)}
               aria-label={t('preview', locale)}
             >
-              <Eye className="w-3.5 h-3.5" />
+              <Eye className="w-3.5 h-3.5 shrink-0" />
             </button>
             <button
               onClick={() => onSetViewMode('code')}
@@ -215,7 +215,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
               title={t('codeTooltip', locale)}
               aria-label={t('code', locale)}
             >
-              <Code className="w-3.5 h-3.5" />
+              <Code className="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
 
@@ -229,20 +229,21 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
                     setIsPlaybackActive(next);
                     setCurrentStep(next ? 0 : -1);
                   }}
-                  className={`p-1 rounded transition flex items-center gap-1 px-1.5 font-sans text-[11px] ${isPlaybackActive
+                  className={`p-1 rounded transition flex items-center gap-1 px-1.5 font-sans text-[11px] shrink-0 ${isPlaybackActive
                       ? 'bg-sky-500 text-white shadow-sm ring-1 ring-sky-300'
                       : 'bg-slate-800 hover:bg-slate-700 text-sky-400'
                     }`}
                   title={t('stepPlaybackTooltip', locale)}
+                  aria-label={t('stepPlayback', locale)}
                 >
-                  <PlayCircle className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{t('stepPlayback', locale)}</span>
-                  <span className="text-[10px] opacity-80">({steps.length})</span>
+                  <PlayCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden md:inline">{t('stepPlayback', locale)}</span>
+                  <span className="text-[10px] opacity-80 shrink-0">({steps.length})</span>
                 </button>
               )}
 
               {/* Zoom Controls */}
-              <div className="flex items-center bg-slate-900 rounded border border-slate-700">
+              <div className="flex items-center bg-slate-900 rounded border border-slate-700 shrink-0">
                 <button
                   onClick={() => onZoomChange(-0.15)}
                   className="p-1 text-slate-300 hover:text-white rounded-l hover:bg-slate-800 transition"
@@ -253,7 +254,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
                 </button>
                 <button
                   onClick={onResetZoom}
-                  className="px-1 text-[10px] font-mono text-slate-300 hover:text-white transition"
+                  className="px-1 text-[10px] font-mono text-slate-300 hover:text-white transition hidden sm:inline-block"
                   title={t('zoomReset', locale)}
                 >
                   {Math.round(zoom * 100)}%
@@ -271,20 +272,20 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
               {/* Lightbox Button */}
               <button
                 onClick={() => onOpenLightbox(displaySvg)}
-                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition shrink-0"
                 title={t('fullScreen', locale)}
                 aria-label={t('fullScreen', locale)}
               >
                 <Maximize2 className="w-3.5 h-3.5" />
               </button>
 
-              <div className="h-3 w-px bg-slate-700 mx-0.5" />
+              <div className="h-3 w-px bg-slate-700 mx-0.5 shrink-0 hidden sm:block" />
 
               {/* Copy Image Button */}
               <button
                 onClick={handleCopyImage}
                 disabled={isCopyingImage}
-                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
+                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition shrink-0"
                 title={isCopiedImage ? t('imageCopied', locale) : t('copyImage', locale)}
                 aria-label={t('copyImage', locale)}
               >

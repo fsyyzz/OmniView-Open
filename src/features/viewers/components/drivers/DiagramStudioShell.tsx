@@ -340,9 +340,11 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
         className="flex items-center justify-between gap-2 px-3 py-1.5 border-b text-xs shrink-0 select-none min-w-0"
       >
         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden mr-2">
-          <span className={`font-semibold ${accentText} truncate shrink-0`}>{title}</span>
-          <span style={{ color: 'var(--ov-border)' }} className="shrink-0">|</span>
-          <span style={{ color: 'var(--ov-text-secondary)' }} className="font-mono truncate" title={fileName}>{fileName}</span>
+          <span className={`font-semibold ${accentText} truncate shrink-0`} title={title}>
+            {headerWidth < 600 ? '领域故事' : title}
+          </span>
+          <span style={{ color: 'var(--ov-border)' }} className="shrink-0 hidden sm:inline">|</span>
+          <span style={{ color: 'var(--ov-text-secondary)' }} className="font-mono truncate hidden sm:inline" title={fileName}>{fileName}</span>
           {showStatusBadge && (
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
