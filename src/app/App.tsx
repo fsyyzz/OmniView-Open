@@ -9,7 +9,7 @@ import { EditorWorkspace } from '../features/workbench/components/EditorWorkspac
 import { getVsCodeApi, VsCodeApi } from '../shared/lib/vscode';
 import { PluginDocumentView } from '../features/viewers/PluginDocumentView';
 import { RenderErrorBoundary } from '../features/viewers/components/common/RenderErrorBoundary';
-import { loadStoredSettings, saveStoredSettings } from '../shared/lib/settingsStorage';
+import { loadStoredSettings, saveStoredSettings, DEFAULT_SETTINGS } from '../shared/lib/settingsStorage';
 import { loadStoredFiles, saveStoredFiles, resetStoredFiles } from '../shared/lib/fileStorage';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../shared/lib/nativeTheme';
 
@@ -230,9 +230,24 @@ export default function App() {
       if (msgType === 'host-configuration' && event.data.settings) {
         // 接收来自 VS Code 宿主工作区/用户 settings.json 广播的 omniview 配置
         const hostSettings = event.data.settings;
+        // 对于 UI 布局偏好（大纲位置/宽度/展开态/显示模式），本地 localStorage 已持久化的值
+        // 优先于 host 默认值，避免用户在 Webview 中调整后被 host 初始握手或 onDidChangeConfiguration 覆盖回默认值。
+        // 根因：save-configuration 异步写回 VS Code settings.json 存在时差，host 推送可能携带旧默认值。
+        const localSettings = loadStoredSettings();
+        const UI_LAYOUT_KEYS: (keyof WorkbenchSettings)[] = [
+          'outlinePosition', 'outlineWidth', 'outlineOpen', 'outlineDisplayMode',
+          'viewMode', 'contentWidth', 'fontSize', 'zoom',
+        ];
+        const safeHostSettings = { ...hostSettings };
+        for (const key of UI_LAYOUT_KEYS) {
+          if (key in safeHostSettings && localSettings[key] !== undefined && localSettings[key] !== DEFAULT_SETTINGS[key]) {
+            // 本地已有用户自定义值且与默认值不同，保留本地值，不被 host 默认值覆盖
+            (safeHostSettings as Record<string, unknown>)[key] = localSettings[key];
+          }
+        }
         setSettings((prev) => {
-          const merged = { ...prev, ...hostSettings };
-          saveStoredSettings(hostSettings);
+          const merged = { ...prev, ...safeHostSettings };
+          saveStoredSettings(safeHostSettings);
           return merged;
         });
         if (hostSettings.theme) {

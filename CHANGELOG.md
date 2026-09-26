@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [1.2.10] - 2026-09-26
+
+### Fixed
+
+- **Markdown 大纲导航栏位置持久化修复 (Outline Position Persistence Fix)**:
+  - 修复用户在 Markdown 文档中调整大纲导航栏位置（左侧/右侧/浮动）后，切换或打开新文件时设置被恢复为默认值的问题。
+  - 根因：VS Code 宿主在每次打开文件时通过 `host-configuration` 握手推送全量配置（含默认值），`App.tsx` 中 `saveStoredSettings(hostSettings)` 无条件将 host 默认值覆盖了 localStorage 中用户刚显式保存的自定义值。
+  - 修复方案：在 `host-configuration` 合并策略中，对 UI 布局偏好类配置（`outlinePosition`、`outlineWidth`、`outlineOpen`、`outlineDisplayMode`、`viewMode`、`contentWidth`、`fontSize`、`zoom`）引入「本地用户自定义优先」保护——若 localStorage 中已存在与默认值不同的用户自定义值，则保留本地值，不被 host 默认值覆盖。
+
 ## [1.2.9] - 2026-09-26
 
 ### Fixed
