@@ -11,7 +11,6 @@ import { exportToWordDocument, exportToPortableHtml, buildPortableHtml } from '.
 import { requestPrintHtml } from '../../shared/lib/printBridge';
 import { useScrollHeadingSpy } from './hooks/useScrollHeadingSpy';
 import { useContainerWidth } from './hooks/useContainerWidth';
-import { driverSupportsSplitView, driverSupportsSourceEdit } from './lib/driverRegistry';
 import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
 import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
 import { DocStatusBar } from './components/DocStatusBar';
@@ -19,7 +18,7 @@ const WorkbenchSettingsModal = React.lazy(() =>
   import('../workbench/components/WorkbenchSettingsModal').then(m => ({ default: m.WorkbenchSettingsModal }))
 );
 import { KeyboardShortcutsModal } from './components/HelpShortcutsModal';
-import { ExternalLink, Save, Check, Loader2, Keyboard, Eye, Split, Code2, Settings } from 'lucide-react';
+import { ExternalLink, Save, Check, Loader2, Keyboard, Settings } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
@@ -160,20 +159,8 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const initialContentRef = useRef(file.content);
   const latestContentRef = useRef(file.content);
-
-  const supportsSplit = driverSupportsSplitView(file);
-  const supportsSource = driverSupportsSourceEdit(file);
-  const showViewModes = supportsSplit || supportsSource;
-
-  // 针对图片等纯二进制只读驱动，强制保持 preview 模式，避免多余的协同或源码编辑状态残留
-  useEffect(() => {
-    if (!showViewModes && viewMode !== 'preview') {
-      setViewMode('preview');
-    }
-  }, [showViewModes, viewMode]);
 
   const [settings, setSettings] = useState<WorkbenchSettings>(() => {
     const stored = loadStoredSettings();
@@ -362,75 +349,6 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
           </div>
         </div>
 
-        {/* 中间：视图模式切换（仅在支持分屏或源码的文件格式下展示，图片等二进制查看器直接隐藏） */}
-        {showViewModes && (
-          <div
-            className="flex items-center p-0.5 rounded-lg border shadow-xs shrink-0 mx-1"
-            style={{
-              background: 'var(--ov-surface)',
-              borderColor: 'var(--ov-border)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setViewMode('preview')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer shrink-0 ${
-                viewMode === 'preview'
-                  ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
-                  : 'hover:bg-[var(--ov-surface-hover)]'
-              }`}
-              style={{
-                color: viewMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
-              }}
-              title="图形化渲染视图 (Preview)"
-              aria-label="渲染视图"
-            >
-              <Eye size={13} className="shrink-0" />
-              {(isWideMode || (isMediumMode && viewMode === 'preview')) && <span>渲染视图</span>}
-            </button>
-
-            {supportsSplit && (
-              <button
-                type="button"
-                onClick={() => setViewMode('split')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer shrink-0 ${
-                  viewMode === 'split'
-                    ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
-                    : 'hover:bg-[var(--ov-surface-hover)]'
-                }`}
-                style={{
-                  color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
-                }}
-                title="并排分屏协同 (图形渲染 + 实时源码编辑)"
-                aria-label="并排协同"
-              >
-                <Split size={13} className="shrink-0" />
-                {(isWideMode || (isMediumMode && viewMode === 'split')) && <span>并排协同</span>}
-              </button>
-            )}
-
-            {supportsSource && (
-              <button
-                type="button"
-                onClick={() => setViewMode('source')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer shrink-0 ${
-                  viewMode === 'source'
-                    ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
-                    : 'hover:bg-[var(--ov-surface-hover)]'
-                }`}
-                style={{
-                  color: viewMode === 'source' ? '#ffffff' : 'var(--ov-text-secondary)',
-                }}
-                title="纯源码编辑模式 (Source)"
-                aria-label="源码编辑"
-              >
-                <Code2 size={13} className="shrink-0" />
-                {(isWideMode || (isMediumMode && viewMode === 'source')) && <span>源码编辑</span>}
-              </button>
-            )}
-          </div>
-        )}
-
         {/* 右侧：操作按钮与设置入口 (随宽度自适应文字或纯精致图标) */}
         <div className="flex items-center gap-1.5 shrink-0">
           {vscode && isDirty && (
@@ -506,7 +424,7 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
         <ViewerRenderer
           file={{ ...file, content: currentContent }}
           files={[{ ...file, content: currentContent }]}
-          mode={viewMode}
+          mode="preview"
           theme={theme}
           density={density}
           onContentChange={persistContent}

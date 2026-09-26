@@ -273,7 +273,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
 
     return (
       <div className="h-full w-full flex-1 min-h-0 flex flex-col overflow-hidden" data-theme={theme} style={zoomStyle}>
-        <TargetDriverComponent {...universalDriverProps} />
+        <TargetDriverComponent key={file.path || file.name || file.id} {...universalDriverProps} />
       </div>
     );
   };

@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-09-26
+
+### Fixed
+
+- **视图模式与工作台顶栏去重治理 (View Mode Duplication Fix)**:
+  - **彻底清除外壳与驱动内部模式重复渲染**：分析并排查非 Markdown 格式（Compose、Dockerfile、K8s、HTML、SVG、Typst、Mermaid、PlantUML、Graphviz、白板等）在 VS Code 插件视图外壳 (`NonMarkdownPluginView`) 与独立工作台顶栏 (`WorkbenchHeader`) 中频繁重复出现两排「渲染视图/并排协同/源码编辑」切换条的架构根因。
+  - **职责边界清晰划分**：所有具备自包含工作台（Studio Shell）的非 Markdown 驱动，三态模式切换与分屏参数完全由其内部自包含掌控；外壳只呈现文档元数据与宿主操作，`WorkbenchHeader` 模式组精准限定于 Markdown 文档，彻底杜绝按钮重复出现与内外层状态脱节。
+  - **驱动生命周期隔离**：在 `ViewerRenderer` 中为目标驱动组件引入基于文件路径/标识的精准 `key`，杜绝切换文档时驱动内部模式与编辑态产生串扰残留。
+
 ## [1.2.8] - 2026-09-26
 
 ### Improved

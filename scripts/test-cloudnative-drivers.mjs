@@ -205,10 +205,9 @@ const dockerfileViewerSrc = fs.readFileSync(path.join(rootDir, 'src/features/vie
 const composeViewerSrc = fs.readFileSync(path.join(rootDir, 'src/features/viewers/components/drivers/ComposeViewer.tsx'), 'utf-8');
 const k8sViewerSrc = fs.readFileSync(path.join(rootDir, 'src/features/viewers/components/drivers/K8sViewer.tsx'), 'utf-8');
 
-// 6.1 三态模式切换断言 (preview / split / source)
-assert.ok(pluginDocViewSrc.includes("setViewMode('preview')"), 'PluginDocumentView 应支持 preview 切换');
-assert.ok(pluginDocViewSrc.includes("setViewMode('split')"), 'PluginDocumentView 应支持 split 切换');
-assert.ok(pluginDocViewSrc.includes("setViewMode('source')"), 'PluginDocumentView 应支持 source 切换');
+// 6.1 三态模式切换断言 (非 Markdown 统一由驱动自身内置 Studio 工具条自包含掌控，外壳杜绝重复渲染)
+assert.ok(!pluginDocViewSrc.includes("showViewModes"), 'PluginDocumentView (NonMarkdown) 不应冗余包含外层 showViewModes 胶囊 (防止与各驱动内部工具条出现两次重复)');
+assert.ok(pluginDocViewSrc.includes("setViewMode"), 'MarkdownPluginView 仍应保留受控 viewMode 切换通道');
 
 assert.ok(dockerfileViewerSrc.includes("setCurrentMode('preview')"), 'DockerfileViewer 应支持内部 preview 切换');
 assert.ok(dockerfileViewerSrc.includes("setCurrentMode('split')"), 'DockerfileViewer 应支持内部 split 切换');
