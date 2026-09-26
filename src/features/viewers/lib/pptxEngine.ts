@@ -732,7 +732,7 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <dc:title>OmniView PowerPoint 架构演示文稿</dc:title>
-  <dc:creator>周赞</dc:creator>
+  <dc:creator>OmniView Architecture Team</dc:creator>
   <dc:description>OmniView 纯离线 PPTX 矢量幻灯片渲染引擎演示</dc:description>
 </cp:coreProperties>`
   );

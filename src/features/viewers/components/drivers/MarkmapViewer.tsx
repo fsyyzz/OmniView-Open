@@ -400,26 +400,36 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
   return (
     <div
       ref={containerRef}
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
       className={`h-full w-full flex flex-col overflow-hidden select-none relative ${
-        isDarkTheme ? 'markmap-dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
+        isDarkTheme ? 'markmap-dark' : ''
       }`}
       data-theme={theme}
     >
       {/* Top Interactive Header */}
       {!embedded && (
         <div
-          className={`h-11 px-3 border-b flex items-center justify-between shrink-0 z-10 backdrop-blur transition-colors ${
-          isDarkTheme
-            ? 'bg-slate-900/90 border-slate-800 text-slate-200'
-            : 'bg-white/90 border-slate-200 text-slate-800'
-        }`}
-      >
+          style={{
+            backgroundColor: 'var(--ov-surface-header)',
+            borderBottomColor: 'var(--ov-border)',
+            color: 'var(--ov-text)',
+          }}
+          className="h-11 px-3 border-b flex items-center justify-between shrink-0 z-10 backdrop-blur transition-colors"
+        >
         {/* Left: Brand Badge & Node Metrics */}
         <div className="flex items-center gap-2.5 min-w-0">
           {onSwitchToDocumentView && (
             <button
               onClick={onSwitchToDocumentView}
-              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition mr-1 font-medium"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="flex items-center gap-1.5 px-2 py-1 rounded border text-xs transition mr-1 font-medium hover:border-[var(--ov-accent)]"
               title={t('switchToDocView', locale)}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -427,12 +437,19 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
             </button>
           )}
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-semibold text-xs shrink-0">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-accent)',
+            }}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border font-semibold text-xs shrink-0"
+          >
             <Network className="w-3.5 h-3.5" />
             <span>{t('mindmapPanorama', locale)}</span>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 text-[11px] font-mono opacity-70">
+          <div className="hidden md:flex items-center gap-2 text-[11px] font-mono" style={{ color: 'var(--ov-text-secondary)' }}>
             <span>
               {metrics.totalNodes} {t('mindmapNodes', locale)}
             </span>
@@ -444,28 +461,30 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
 
           {/* Quick Search Input */}
           <div className="relative flex items-center ml-2">
-            <Search className="w-3 h-3 absolute left-2 text-slate-400 pointer-events-none" />
+            <Search className="w-3 h-3 absolute left-2 pointer-events-none" style={{ color: 'var(--ov-text-muted)' }} />
             <input
               type="text"
               value={searchQuery}
               onChange={e => handleSearch(e.target.value)}
               placeholder={t('mindmapSearch', locale)}
-              className={`h-7 pl-7 pr-6 text-xs rounded-md border transition outline-none w-36 sm:w-48 ${
-                isDarkTheme
-                  ? 'bg-slate-800/80 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-indigo-500'
-                  : 'bg-slate-100 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-indigo-600'
-              }`}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="h-7 pl-7 pr-6 text-xs rounded-md border transition outline-none w-36 sm:w-48 focus:border-[var(--ov-accent)]"
             />
             {searchQuery && (
               <button
                 onClick={() => handleSearch('')}
-                className="absolute right-1.5 p-0.5 text-slate-400 hover:text-slate-200"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="absolute right-1.5 p-0.5 hover:text-[var(--ov-text)]"
               >
                 <X className="w-3 h-3" />
               </button>
             )}
             {matchCount !== null && (
-              <span className="ml-1.5 text-[10px] font-mono text-indigo-400 font-medium">
+              <span className="ml-1.5 text-[10px] font-mono font-medium" style={{ color: 'var(--ov-accent)' }}>
                 {matchCount > 0 ? `${matchCount} 匹配` : t('mindmapNoMatches', locale)}
               </span>
             )}
@@ -475,10 +494,17 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
         {/* Right: Actions & Controls */}
         <div className="flex items-center gap-1 sm:gap-1.5">
           {/* Fold / Unfold buttons */}
-          <div className="flex items-center bg-slate-800/50 rounded border border-slate-750 p-0.5">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center rounded border p-0.5"
+          >
             <button
               onClick={handleExpandAll}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-300 hover:text-white hover:bg-slate-700 transition"
+              style={{ color: 'var(--ov-text-secondary)' }}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs transition hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
               title={t('mindmapExpandAll', locale)}
             >
               <UnfoldHorizontal className="w-3.5 h-3.5 text-indigo-400" />
@@ -486,7 +512,8 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
             </button>
             <button
               onClick={handleCollapseAll}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-300 hover:text-white hover:bg-slate-700 transition"
+              style={{ color: 'var(--ov-text-secondary)' }}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs transition hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
               title={t('mindmapCollapseAll', locale)}
             >
               <FoldHorizontal className="w-3.5 h-3.5 text-indigo-400" />
@@ -495,17 +522,25 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
           </div>
 
           {/* Zoom controls */}
-          <div className="flex items-center bg-slate-800/50 rounded border border-slate-750 p-0.5">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center rounded border p-0.5"
+          >
             <button
               onClick={handleZoomOut}
-              className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition"
+              style={{ color: 'var(--ov-text-secondary)' }}
+              className="p-1 rounded transition hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
               title="缩小"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleFit}
-              className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-700 transition text-xs font-mono font-medium"
+              style={{ color: 'var(--ov-text-secondary)' }}
+              className="px-1.5 py-0.5 rounded transition text-xs font-mono font-medium hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
               title={t('mindmapFit', locale)}
             >
               <Maximize2 className="w-3.5 h-3.5 inline mr-1" />
@@ -513,7 +548,8 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
             </button>
             <button
               onClick={handleZoomIn}
-              className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition"
+              style={{ color: 'var(--ov-text-secondary)' }}
+              className="p-1 rounded transition hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
               title="放大"
             >
               <ZoomIn className="w-3.5 h-3.5" />
@@ -524,7 +560,11 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
           <div className="relative" ref={exportMenuRef}>
             <button
               onClick={() => setExportMenuOpen(prev => !prev)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-sm transition"
+              style={{
+                backgroundColor: 'var(--ov-accent, #6366f1)',
+                color: '#ffffff',
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium shadow-sm transition hover:opacity-90 cursor-pointer"
               title="导出思维导图"
             >
               <Download className="w-3.5 h-3.5" />
@@ -534,11 +574,12 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
 
             {exportMenuOpen && (
               <div
-                className={`absolute right-0 mt-1 w-44 rounded-lg shadow-xl border p-1 z-30 text-xs backdrop-blur ${
-                  isDarkTheme
-                    ? 'bg-slate-900/95 border-slate-800 text-slate-200'
-                    : 'bg-white/95 border-slate-200 text-slate-800'
-                }`}
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="absolute right-0 mt-1 w-44 rounded-lg shadow-xl border p-1 z-30 text-xs backdrop-blur"
               >
                 <button
                   onClick={handleExportSvg}

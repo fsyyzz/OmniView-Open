@@ -2,8 +2,6 @@
  * OmniView 表格全屏沉浸灯箱视口 (TableLightboxModal)
  * 采用 React Portal 脱离父级容器渲染至 document.body，彻底解决 CSS Containment/Transform 导致的局部受限问题
  * 提供全尺寸视口、吸顶多列排序、即时全文检索高亮、列宽拖拽、多格式导出、图表模式切换与快捷键支持
- * 
- * 作者: 周赞
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';

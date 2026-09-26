@@ -2,9 +2,50 @@
 
 **中文** | [English](./README.en.md)
 
+<p align="left">
+  <a href="https://marketplace.visualstudio.com"><img src="https://img.shields.io/visual-studio-marketplace/v/omniview.omniview?style=flat-square&color=blue&logo=visual-studio-code" alt="Marketplace Version" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License: MIT" /></a>
+  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-46%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Offline-100%25-orange?style=flat-square" alt="100% Offline" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.7+-blue?style=flat-square&logo=typescript" alt="TypeScript" /></a>
+  <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome" /></a>
+</p>
+
 > **OmniView** 是一款面向 VS Code 场景与 Web 现代工作流的高性能、全格式多维文件可视化工作台与插件。基于 React 19、TypeScript、Vite 6 与 Tailwind CSS v4 构建，秉承“**把数据升维为视窗，让排版化繁为简**”的哲学，提供从文档、图表、思维导图、矢量设计、数据网格、版式文档到结构化配置的全景沉浸式渲染能力。
 
+<p align="left">
+  <a href="https://ais-pre-3kity5ft64rqesjejxmxsu-168296143482.us-east1.run.app"><b>⚡ 在线免安装体验 (Web Live Demo)</b></a> ·
+  <a href="https://github.com/your-org/omniview/releases"><b>📦 离线 VSIX 下载</b></a> ·
+  <a href="./docs/architecture.md"><b>📖 系统架构设计文档</b></a> ·
+  <a href="https://github.com/your-org/omniview/issues"><b>💡 反馈与新格式提案</b></a>
+</p>
+
 ![OmniView Showcase Banner](./docs/assets/omniview-showcase.png)
+
+---
+
+## 💡 为什么选择 OmniView？(Why OmniView?)
+
+告别在 VS Code 里安装十几个碎片、臃肿且常弹收费提示的单一插件！OmniView 采用统一微内核设计，实现 **18+ 格式统一步调、100% 纯前端离线、像素级宿主主题吸附与 60 FPS 丝滑稳帧**。
+
+| 评估维度 / 场景痛点 | 原生 VS Code | 传统独立插件组合 | **OmniView** |
+| :--- | :--- | :--- | :--- |
+| **支持文件格式** | 仅纯文本/代码着色 | 需碎片化安装 8~12 个扩展 | **18+ 格式开箱即用** (Office/PDF/EPUB/Typst/图表/导图/白板/数据) |
+| **网络与隐私安全** | 离线 | 多数依赖外部云端或收费 API | **100% 纯前端离线**，零云端调用，企业密钥自动脱敏 |
+| **Office 三件套 (DOCX/PPTX/XLSX)** | 不支持 | 需安装复杂庞大的外部运行时 | **纯端侧 OOXML 解包**，支持 XLSX 标签页与画像、PPTX 矢量放映 |
+| **Markdown 复制到 Word / WPS** | 边框全黑、图片变红叉、排版崩塌 | 需逐张手动导出图片或截图插入 | **独家同步剪贴板双通道清洗**，矢量图自动光栅化为 300+ DPI 极清图 |
+| **主题与视觉融合** | 原生跟随 | 各插件 UI 风格迥异割裂 | **100% 自动吸附 `--ov-*` 与 VS Code 宿主设计令牌** |
+| **超长文档内存与流畅度** | 优秀 | 复杂图表容易引起卡顿与布局抖动 | **可卸载懒视口 (`LazyViewportBlock`) 与 FNV-1a 增量脏复用** |
+
+### 🎯 三大高频工程师痛点击穿
+
+1. 📋 **“写完技术文档，复制到 Word 向领导/客户汇报时格式不再崩塌”**  
+   独家剪贴板清洗流水线，过滤交互悬浮条与 Tailwind 冗余边框，代码转为标准 Word 原生双列表格，Mermaid/PlantUML/Graphviz 图表自动转换为内联 300+ DPI 极清 PNG。
+2. 🚀 **“在编辑器内轻盈秒开 DOCX 需求文档、PPTX 幻灯片与 XLSX 报表”**  
+   基于纯前端离线解包管道，XLSX 支持多工作表切换、列画像统计 (Profiling) 与迷你图；PPTX 矢量画布自适应 16:9 / 4:3 沉浸放映。
+3. 🌲 **“数百行微服务配置与长 JSON 终于不用肉眼逐层排查”**  
+   一键将 JSON/YAML/XML 升维为交互式思维导图与云原生服务依赖拓扑图，带密钥自动脱敏遮罩与 JSONPath 快速提取。
 
 ---
 
@@ -200,7 +241,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-1.0.8.vsix --force
+code --install-extension omniview-1.0.28.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

@@ -2,7 +2,7 @@
  * OmniView Markdown 驱动渲染器 (重构解耦版，支持多语言与纯图标提示)
  * 基于 useMarkdownAstPipeline / useMarkdownScrollSync / useDiagramBlockStates 三大 Hook 组合编排
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import mermaid from 'mermaid';
 import katex from 'katex';
 import { RefreshCw } from 'lucide-react';
@@ -32,6 +32,8 @@ import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
 import { getMermaidConfig } from '../../../../shared/lib/mermaidConfig';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
 import { cleanAndFormatDomForWordSync, cleanAndFormatDomForWord, isFullContainerSelection } from '../../lib/wordClipboardHelper';
+import { mermaidRenderCache, graphvizRenderCache } from '../../lib/diagramCache';
+import { graphvizRenderer } from '../../lib/graphvizRenderer';
 
 export type { RenderedBlock };
 
@@ -202,6 +204,67 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     };
   }, [onContentChange]);
 
+  // 全局 eagerMount 状态管理：支持搜索、打印、全选及空闲预热
+  const [forceEagerAll, setForceEagerAll] = React.useState(false);
+  const effectiveEagerMount = eagerMount || forceEagerAll;
+
+  // 构造快速索引 Map 便于剪贴板离屏块自愈
+  const blocksMap = useMemo(() => new Map(blocks.map(b => [b.id, b])), [blocks]);
+  const blocksMapRef = useRef(blocksMap);
+  blocksMapRef.current = blocksMap;
+  const isDarkThemeRef = useRef(isDarkTheme);
+  isDarkThemeRef.current = isDarkTheme;
+
+  // 离屏图表后台空闲预热编译与挂载
+  useEffect(() => {
+    // 1. 在空闲时渐进式预热挂载所有离屏重块
+    const idleTimer = (window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 150)))(() => {
+      setForceEagerAll(true);
+    });
+
+    // 2. 在后台并发预热编译离屏 Mermaid 与 Graphviz 图表
+    const mermaidBlocks = blocks.filter(b => b.type === 'mermaid');
+    const graphvizBlocks = blocks.filter(b => b.type === 'graphviz');
+
+    const compileTimer = setTimeout(async () => {
+      for (const b of mermaidBlocks) {
+        const cacheKey = mermaidRenderCache.makeKey('mermaid', b.raw, isDarkTheme ? 'dark' : 'light');
+        if (!mermaidRenderCache.get(cacheKey) && !b.svgContent) {
+          try {
+            mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
+            const uniqueId = `mermaid-prewarm-${Math.random().toString(36).substr(2, 9)}`;
+            const { svg } = await mermaid.render(uniqueId, b.raw);
+            mermaidRenderCache.set(cacheKey, svg);
+            b.svgContent = svg;
+          } catch {
+            // 容错降级
+          }
+        }
+      }
+
+      for (const b of graphvizBlocks) {
+        if (!graphvizRenderCache.get(b.raw) && !b.svgContent) {
+          try {
+            const svg = await graphvizRenderer.render(b.raw);
+            graphvizRenderCache.set(b.raw, svg);
+            b.svgContent = svg;
+          } catch {
+            // 容错降级
+          }
+        }
+      }
+    }, 80);
+
+    return () => {
+      clearTimeout(compileTimer);
+      if (window.cancelIdleCallback) {
+        window.cancelIdleCallback(idleTimer as any);
+      } else {
+        clearTimeout(idleTimer as any);
+      }
+    };
+  }, [blocks, isDarkTheme]);
+
   // 全局交互：Ctrl+A 精准全选 Markdown 正文区域与 Word/WPS 富文本清洗复制
   useEffect(() => {
     const container = containerRef.current;
@@ -232,6 +295,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         // 阻止浏览器或 VS Code 宿主选中整个外层 Webview DOM (顶栏、状态栏、侧边栏)
         e.preventDefault();
         e.stopPropagation();
+
+        // 立即唤醒所有离屏块挂载 (Eager Mount)
+        setForceEagerAll(true);
 
         const sel = window.getSelection();
         if (sel) {
@@ -267,8 +333,11 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       const tempWrapper = document.createElement('div');
       tempWrapper.appendChild(fragment);
 
-      // 同步执行专用清洗与格式转换 (剥离工具栏、去除冗余边框与线框、将 SVG 转换为 Base64 图像、脱敏图片样式)
-      cleanAndFormatDomForWordSync(tempWrapper);
+      // 同步执行专用清洗与格式转换 (包含离屏图表/表格/公式自愈与 Base64 转换)
+      cleanAndFormatDomForWordSync(tempWrapper, blocksMapRef.current, {
+        isDarkTheme: isDarkThemeRef.current,
+        containerElement: container,
+      });
 
       const cleanedHtml = tempWrapper.innerHTML;
       if (!cleanedHtml) return;
@@ -440,7 +509,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={120}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -466,7 +536,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={160}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -498,7 +569,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -552,7 +624,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={100}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -598,7 +671,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -641,7 +715,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={180}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -685,7 +760,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -727,7 +803,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={200}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -769,7 +846,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={320}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}
@@ -810,7 +888,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return (
             <LazyViewportBlock
               key={block.id}
-              eager={eagerMount}
+              id={block.id}
+              eager={effectiveEagerMount}
               minHeight={360}
               data-source-line={block.startLine}
               data-source-end-line={block.endLine}

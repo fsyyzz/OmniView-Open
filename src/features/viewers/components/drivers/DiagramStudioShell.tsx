@@ -321,15 +321,28 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   const showStatusBadge = headerWidth >= 420;
 
   return (
-    <div id="diagram-studio-shell" className="h-full min-h-0 flex flex-col bg-slate-950 text-slate-200" data-file={fileName}>
+    <div
+      id="diagram-studio-shell"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full min-h-0 flex flex-col"
+      data-file={fileName}
+    >
       <header
         ref={headerRef}
-        className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none min-w-0"
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between gap-2 px-3 py-1.5 border-b text-xs shrink-0 select-none min-w-0"
       >
         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden mr-2">
           <span className={`font-semibold ${accentText} truncate shrink-0`}>{title}</span>
-          <span className="text-slate-600 shrink-0">|</span>
-          <span className="text-slate-400 font-mono truncate" title={fileName}>{fileName}</span>
+          <span style={{ color: 'var(--ov-border)' }} className="shrink-0">|</span>
+          <span style={{ color: 'var(--ov-text-secondary)' }} className="font-mono truncate" title={fileName}>{fileName}</span>
           {showStatusBadge && (
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
@@ -342,13 +355,21 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 gap-0.5">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center border rounded-lg p-0.5 gap-0.5"
+          >
             <button
               type="button"
               onClick={() => persistMode('preview')}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
-                viewMode === 'preview' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'preview' ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                color: viewMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition hover:text-[var(--ov-text)]`}
               title="全屏高清渲染预览 (方案A默认推荐模式)"
               aria-label="全屏预览"
             >
@@ -358,9 +379,11 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             <button
               type="button"
               onClick={() => persistMode('split')}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
-                viewMode === 'split' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'split' ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition hover:text-[var(--ov-text)]`}
               title="内置简易编辑分屏"
               aria-label="内置分屏"
             >
@@ -370,9 +393,11 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             <button
               type="button"
               onClick={() => persistMode('editor')}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
-                viewMode === 'editor' ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'editor' ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                color: viewMode === 'editor' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition hover:text-[var(--ov-text)]`}
               title="仅查看内置源码"
               aria-label="内置源码"
             >
@@ -382,15 +407,23 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
           </div>
 
           {viewMode === 'split' && showRatios && (
-            <div className="flex items-center gap-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[10px] font-mono">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="flex items-center gap-1 px-1 py-0.5 rounded border text-[10px] font-mono"
+            >
               {[30, 50, 70].map(ratio => (
                 <button
                   key={ratio}
                   type="button"
                   onClick={() => persistSplit(ratio)}
-                  className={`px-1.5 py-0.5 rounded transition ${
-                    splitRatio === ratio ? `${accentBtn} text-white font-medium` : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  style={{
+                    backgroundColor: splitRatio === ratio ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                    color: splitRatio === ratio ? '#ffffff' : 'var(--ov-text-secondary)',
+                  }}
+                  className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
                 >
                   {ratio}:{100 - ratio}
                 </button>
@@ -402,7 +435,12 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             <button
               type="button"
               onClick={handleResetTemplate}
-              className={`flex items-center gap-1 ${showTemplateText ? 'px-2 py-1' : 'p-1.5'} bg-slate-800 hover:bg-slate-750 text-slate-300 rounded border border-slate-700 transition`}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1 ${showTemplateText ? 'px-2 py-1' : 'p-1.5'} rounded border transition hover:border-[var(--ov-accent)]`}
               title="重置为标准模板"
               aria-label="模板"
             >
@@ -416,7 +454,12 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
               type="button"
               id="btn-diagram-open-in-native-editor"
               onClick={onOpenInEditor}
-              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5 py-1' : 'p-1.5'} text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 transition text-xs font-medium cursor-pointer`}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5 py-1' : 'p-1.5'} rounded border transition text-xs font-medium cursor-pointer hover:border-sky-500 hover:text-sky-400`}
               title="在 VS Code 原生文本编辑器中并排编辑"
               aria-label="在编辑器中打开"
             >
@@ -428,7 +471,12 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
           <button
             type="button"
             onClick={handleCopy}
-            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5 py-1' : 'p-1.5'} rounded border transition shrink-0 font-medium ${accentSoft}`}
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5 py-1' : 'p-1.5'} rounded border transition shrink-0 font-medium hover:border-[var(--ov-accent)]`}
             title="复制源码"
             aria-label="复制源码"
           >
@@ -443,10 +491,21 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
 
         {(viewMode === 'split' || viewMode === 'editor') && (
           <div
-            style={{ width: viewMode === 'editor' ? '100%' : `${splitRatio}%` }}
-            className="flex flex-col bg-slate-900/40 min-w-0 h-full border-r border-slate-800/80"
+            style={{
+              width: viewMode === 'editor' ? '100%' : `${splitRatio}%`,
+              backgroundColor: 'var(--ov-surface)',
+              borderRightColor: 'var(--ov-border)',
+            }}
+            className="flex flex-col min-w-0 h-full border-r"
           >
-            <div className="px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px] text-slate-400 font-mono flex items-center justify-between shrink-0">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderBottomColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="px-3 py-1.5 border-b text-[11px] font-mono flex items-center justify-between shrink-0"
+            >
               <span className={`truncate flex items-center gap-1.5 ${accentText} font-semibold`}>
                 <FileCode className="w-3.5 h-3.5" />
                 {languageLabel} ({lineCount} 行 · {charCount} 字符)
@@ -456,8 +515,9 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
                   type="button"
                   onClick={handleUndo}
                   disabled={!canUndo}
+                  style={{ color: canUndo ? 'var(--ov-text)' : 'var(--ov-text-muted)' }}
                   className={`p-1 rounded transition ${
-                    canUndo ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 cursor-not-allowed'
+                    canUndo ? 'hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]' : 'cursor-not-allowed opacity-40'
                   }`}
                   title="撤销 (Ctrl+Z)"
                   aria-label="撤销"
@@ -468,28 +528,40 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
                   type="button"
                   onClick={handleRedo}
                   disabled={!canRedo}
+                  style={{ color: canRedo ? 'var(--ov-text)' : 'var(--ov-text-muted)' }}
                   className={`p-1 rounded transition ${
-                    canRedo ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 cursor-not-allowed'
+                    canRedo ? 'hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]' : 'cursor-not-allowed opacity-40'
                   }`}
                   title="重做 (Ctrl+Y / Ctrl+Shift+Z)"
                   aria-label="重做"
                 >
                   <Redo2 className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-slate-600">|</span>
-                <span className="text-slate-500 hidden sm:inline">Tab 缩进 / Shift+Tab 反缩进</span>
+                <span style={{ color: 'var(--ov-border)' }}>|</span>
+                <span style={{ color: 'var(--ov-text-muted)' }} className="hidden sm:inline">Tab 缩进 / Shift+Tab 反缩进</span>
               </div>
             </div>
 
             {snippets.length > 0 && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-slate-950/90 border-b border-slate-800 overflow-x-auto no-scrollbar shrink-0">
-                <span className="text-[10px] text-slate-500 font-mono px-1 shrink-0">片段:</span>
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderBottomColor: 'var(--ov-border)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 border-b overflow-x-auto no-scrollbar shrink-0"
+              >
+                <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] font-mono px-1 shrink-0">片段:</span>
                 {snippets.map((snippet, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => handleInsertSnippet(snippet.code)}
-                    className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded text-[10px] font-mono border border-slate-800 shrink-0 transition"
+                    style={{
+                      backgroundColor: 'var(--ov-surface-header)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text-secondary)',
+                    }}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-mono border shrink-0 transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                     title={snippet.tooltip}
                   >
                     {snippet.label}
@@ -504,7 +576,11 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
               onChange={e => handleCodeChange(e.target.value)}
               onKeyDown={handleKeyDown}
               spellCheck={false}
-              className="flex-1 p-3.5 bg-transparent font-mono text-xs text-slate-200 resize-none outline-none leading-relaxed selection:bg-cyan-600 selection:text-white"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--ov-text)',
+              }}
+              className="flex-1 p-3.5 font-mono text-xs resize-none outline-none leading-relaxed selection:bg-[var(--ov-accent)] selection:text-white"
               placeholder={placeholder}
             />
           </div>
@@ -518,18 +594,23 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             }}
             onDoubleClick={() => persistSplit(50)}
             title="拖拽调节分屏比例 | 双击复位 50%"
-            className={`relative z-20 w-2 shrink-0 flex items-center justify-center cursor-col-resize select-none transition-colors border-x border-slate-800/80 group ${
-              isDragging ? `${accentBtn} shadow-md` : 'bg-slate-900 hover:bg-cyan-600/80'
-            }`}
+            style={{
+              backgroundColor: isDragging ? 'var(--ov-accent)' : 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="relative z-20 w-2 shrink-0 flex items-center justify-center cursor-col-resize select-none transition-colors border-x group"
           >
-            <div className="h-10 w-1 rounded-full bg-slate-600 group-hover:bg-cyan-200 transition-colors" />
+            <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-10 w-1 rounded-full group-hover:bg-[var(--ov-accent)] transition-colors" />
           </div>
         )}
 
         {(viewMode === 'split' || viewMode === 'preview') && (
           <div
-            style={{ width: viewMode === 'preview' ? '100%' : `${100 - splitRatio}%` }}
-            className="flex flex-col bg-slate-950 min-w-0 h-full overflow-hidden"
+            style={{
+              width: viewMode === 'preview' ? '100%' : `${100 - splitRatio}%`,
+              backgroundColor: 'var(--ov-bg)',
+            }}
+            className="flex flex-col min-w-0 h-full overflow-hidden"
           >
             {renderPreview(localCode)}
           </div>

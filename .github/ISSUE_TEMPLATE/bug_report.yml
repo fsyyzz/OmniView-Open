@@ -1,0 +1,61 @@
+name: 🐞 Bug 报告 / Bug Report
+description: 提交在使用 OmniView 过程中遇到的渲染错误、异常崩溃或兼容性问题
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢您提交 Bug 报告！为了帮助我们快速定位并修复问题，请尽量详细填写以下信息。
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 运行环境 / Environment
+      description: 您当前是在什么环境中遇到该问题的？
+      options:
+        - VS Code Extension (Webview 模式)
+        - Web 独立工作台 (Browser 模式)
+        - Docker 集中渲染容器
+    validations:
+      required: true
+  - type: input
+    id: file_format
+    attributes:
+      label: 涉及的文件格式 / File Format
+      description: 例如：.md, .docx, .puml, .svg, .xlsx, .pdf, .typ 等
+      placeholder: ".docx"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 现象描述 / Description
+      description: 请详细描述出现的 Bug 现象以及预期的正常效果。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤 / Steps to Reproduce
+      description: 请列出能够稳定复现该问题的具体步骤。
+      placeholder: |
+        1. 打开 sample.md 文件
+        2. 滚动至包含复杂公式的段落
+        3. 发现公式渲染报错
+    validations:
+      required: true
+  - type: textarea
+    id: sample_data
+    attributes:
+      label: 脱敏示例数据或代码片段 / Sample Code (Optional)
+      description: 如有能够复现问题的脱敏最小示例，请在此粘贴。
+      render: markdown
+  - type: checkboxes
+    id: checklists
+    attributes:
+      label: 确认检查项 / Checklists
+      options:
+        - label: 我已确认示例数据中不包含任何企业私密 Token、密码或敏感数据
+          required: true
+        - label: 我已检索过既有 Issue，确认该问题尚未被报告
+          required: false

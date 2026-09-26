@@ -3,6 +3,8 @@
  * 支持将 SVG 字符串、外部 SVG URL 或 HTML 渲染节点高保真转为 300+ DPI 超高清 PNG Blob 并写入系统剪贴板
  */
 
+import { solidifySvgString } from './svgSolidifier';
+
 export interface CopyImageOptions {
   scale?: number; // 超采样倍率 (默认 3x，对于打印/Word 级输出达到 300DPI 极清水平)
   backgroundColor?: string; // 背景色 (默认纯白 #ffffff，确保 Office 贴图不黑底)
@@ -128,7 +130,18 @@ export async function copySvgOrImageToClipboard(
       svgRawText = svgCodeOrUrl;
     }
 
-    // 2. 超高清栅格化
+    // 2. 深度图元固化与高保真样式内联 (彻底解决 Mermaid 复制图片线条和文字丢失问题)
+    if (svgRawText) {
+      const isDarkBg = Boolean(
+        backgroundColor &&
+          (backgroundColor.startsWith('#1') ||
+            backgroundColor.startsWith('#0') ||
+            backgroundColor === 'black')
+      );
+      svgRawText = solidifySvgString(svgRawText, { isDarkTheme: isDarkBg });
+    }
+
+    // 3. 超高清栅格化
     const blob = await new Promise<Blob | null>((resolve) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -224,10 +237,18 @@ export async function convertSvgToDataUrl(
 
   return new Promise<string | null>((resolve) => {
     try {
+      const isDarkBg = Boolean(
+        backgroundColor &&
+          (backgroundColor.startsWith('#1') ||
+            backgroundColor.startsWith('#0') ||
+            backgroundColor === 'black')
+      );
+      const safeSvg = solidifySvgString(svgText, { isDarkTheme: isDarkBg });
+
       const img = new Image();
       img.crossOrigin = 'anonymous';
 
-      const dims = extractSvgDimensions(svgText);
+      const dims = extractSvgDimensions(safeSvg);
       const baseW = dims.width || 1200;
       const baseH = dims.height || 800;
 
@@ -269,7 +290,7 @@ export async function convertSvgToDataUrl(
 
       img.onerror = () => resolve(null);
 
-      const preparedSvg = ensureSvgExplicitDimensions(svgText, baseW, baseH);
+      const preparedSvg = ensureSvgExplicitDimensions(safeSvg, baseW, baseH);
       const encoded = encodeURIComponent(preparedSvg)
         .replace(/'/g, '%27')
         .replace(/"/g, '%22');

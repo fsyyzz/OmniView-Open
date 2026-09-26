@@ -296,13 +296,31 @@ export const JsonTreeView: React.FC<JsonTreeViewProps> = ({
   }, []);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-slate-950 overflow-hidden relative">
+    <div
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="flex-1 min-h-0 flex flex-col overflow-hidden relative"
+    >
       {/* 顶部树控制条 */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-xs shrink-0 select-none">
+      <div
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between px-3 py-1.5 border-b text-xs shrink-0 select-none"
+      >
         <div className="flex items-center gap-2">
           <button
             onClick={handleExpandAll}
-            className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] transition hover:border-[var(--ov-accent)]"
             title="全部展开"
           >
             <ChevronsUpDown className="w-3 h-3" />
@@ -310,7 +328,12 @@ export const JsonTreeView: React.FC<JsonTreeViewProps> = ({
           </button>
           <button
             onClick={handleCollapseAll}
-            className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition"
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] transition hover:border-[var(--ov-accent)]"
             title="全部折叠"
           >
             <ChevronsDownUp className="w-3 h-3" />

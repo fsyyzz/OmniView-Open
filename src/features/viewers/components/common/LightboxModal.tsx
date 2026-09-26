@@ -2,8 +2,6 @@
  * OmniView 全屏交互式图表与图片灯箱组件 (LightboxModal)
  * 支持智能快速铺满、视口自适应、1:1/宽/高快速对齐、无级平滑缩放、鼠标拖拽平移、90°旋转、
  * 复制内容、高分辨率下载、背景对比度切换与快捷键导航 (Portal 渲染至 document.body)
- * 
- * 作者: 周赞
  */
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';

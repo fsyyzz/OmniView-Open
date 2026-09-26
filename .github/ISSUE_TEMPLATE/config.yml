@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 社区讨论与头脑风暴 / GitHub Discussions
+    url: https://github.com/your-org/omniview/discussions
+    about: 欢迎前往 GitHub Discussions 进行交流、提问或展示您的创意
+  - name: 🔒 安全漏洞私密披露 / Security Report
+    url: https://github.com/your-org/omniview/security/advisories/new
+    about: 如发现潜在安全漏洞，请通过 GitHub 私密通报或查阅 SECURITY.md 流程处理

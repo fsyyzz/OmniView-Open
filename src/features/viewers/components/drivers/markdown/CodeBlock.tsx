@@ -60,7 +60,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
 
   return (
     <>
-      <div id={id} className="markdown-code-block group relative">
+      <div id={id} className="markdown-code-block group relative" data-lang={lang}>
         {/* Code Card Header */}
         <div className="code-block-header flex items-center justify-between px-4 py-2 bg-slate-800/80 border-b border-slate-800 text-xs select-none">
           <div className="flex items-center gap-2">
@@ -158,7 +158,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
 
         {/* Code Body */}
         {!isCollapsed && (
-          <div className="code-block-body overflow-x-auto flex bg-[var(--ov-code-bg)] text-xs leading-relaxed">
+          <div className="code-block-body overflow-x-auto flex bg-[var(--ov-code-bg)] text-xs leading-relaxed" data-lang={lang}>
             <div
               className="code-line-gutter py-3.5 pl-3.5 pr-2.5 text-right select-none bg-[var(--ov-surface-header)]/60 text-[var(--ov-text-muted)] border-r border-[var(--ov-border)] font-mono shrink-0 min-w-[44px]"
               aria-hidden="true"

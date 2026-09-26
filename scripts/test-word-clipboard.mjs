@@ -3,7 +3,7 @@
  * 单元测试: wordClipboardHelper 剪贴板清洗与 Word 富文本兼容引擎
  */
 
-import { isIgnoredClipboardElement, generateWordCodeTableHtml, cleanAndFormatDomForWordSync, svgToBase64DataUrl, isFullContainerSelection } from '../src/features/viewers/lib/wordClipboardHelper.ts';
+import { isIgnoredClipboardElement, generateWordCodeTableHtml, cleanAndFormatDomForWordSync, resolveUnmountedLazyBlocks, svgToBase64DataUrl, isFullContainerSelection, inlinePrismStyles, balanceMultilineSpans, convertCodeBlocksToWordTables } from '../src/features/viewers/lib/wordClipboardHelper.ts';
 
 function runTests() {
   console.log('🧪 开始 Word 富文本剪贴板清洗引擎自动化测试...');
@@ -182,7 +182,182 @@ function runTests() {
   }
   console.log('✅ isFullContainerSelection 与 Markdown 源码/Word 双通道写入契约验证通过');
 
-  console.log('\n🎉 全部 Word 剪贴板清洗自动化测试 100% 通过！');
+  console.log('\n--- 测试 6: Ctrl+A 全选代码块规整转换为 Word 2 列表格与行号防断裂契约 ---');
+  // 1. 验证 inlinePrismStyles 语法行内颜色注入
+  const prismTestHtml = '<span class="token keyword">const</span> message = <span class="token string">"hello world"</span>;';
+  const inlinedPrism = inlinePrismStyles(prismTestHtml);
+  if (!inlinedPrism.includes('style="color:') || !inlinedPrism.includes('#d73a49') || !inlinedPrism.includes('#032f62')) {
+    throw new Error('inlinePrismStyles 未能成功注入 Word 专用的前景色高亮样式');
+  }
+
+  // 2. 验证 balanceMultilineSpans 跨行标签闭合与平衡
+  const multilineHtml = [
+    '<span class="token comment" style="color: #6a737d;">/* 这是一个跨行注释',
+    ' * 第二行注释',
+    ' */</span>',
+  ];
+  const balanced = balanceMultilineSpans(multilineHtml);
+  if (!balanced[0].endsWith('</span>') || !balanced[1].startsWith('<span') || !balanced[1].endsWith('</span>')) {
+    throw new Error('balanceMultilineSpans 未能正确闭合并恢复跨行 span 标签');
+  }
+
+  // 3. 验证 generateWordCodeTableHtml 包含 data-word-code-table 属性与语言徽标
+  const generatedTable = generateWordCodeTableHtml('const x = 10;\nreturn x;', '<span class="token keyword">const</span> x = 10;\n<span class="token keyword">return</span> x;', 'ts');
+  if (!generatedTable.includes('data-word-code-table="true"') || !generatedTable.includes('TS</div>') || !generatedTable.includes('>1</td>')) {
+    throw new Error('generateWordCodeTableHtml 缺失 data-word-code-table 或语言标记或行号');
+  }
+
+  // 4. 验证 DOM 转换器可将 .markdown-code-block 替换为双列表格
+  let replacedWith = null;
+  const mockCodeElement = {
+    className: 'language-python',
+    textContent: 'def hello():\n    print("hi")',
+    innerHTML: '<span class="token keyword">def</span> hello():\n    print(<span class="token string">"hi"</span>)',
+  };
+  const mockCodeBlockNode = {
+    tagName: 'DIV',
+    classList: { contains: (c) => c === 'markdown-code-block' },
+    getAttribute: (attr) => attr === 'data-lang' ? 'python' : null,
+    querySelector: (sel) => {
+      if (sel.includes('code')) return mockCodeElement;
+      return null;
+    },
+    parentNode: {
+      replaceChild: (newChild, oldChild) => {
+        replacedWith = newChild;
+      }
+    },
+    ownerDocument: {
+      createElement: () => ({
+        set innerHTML(val) { this._html = val; },
+        get firstElementChild() {
+          return { tagName: 'DIV', _html: this._html, getAttribute: () => 'true' };
+        }
+      })
+    }
+  };
+
+  const mockCodeTree = {
+    querySelectorAll: (sel) => {
+      if (sel === '.markdown-code-block') return [mockCodeBlockNode];
+      if (sel === '.code-block-body') return [];
+      if (sel === '.code-line-gutter') return [];
+      return [];
+    }
+  };
+
+  convertCodeBlocksToWordTables(mockCodeTree);
+  if (!replacedWith || !replacedWith._html.includes('data-word-code-table')) {
+    throw new Error('convertCodeBlocksToWordTables 未能将代码块替换为 Word 代码表格');
+  }
+
+  console.log('✅ Ctrl+A 全选与代码块转换为 Word 2 列表格与防断裂契约校验通过');
+
+  console.log('\n--- 测试 7: 离屏未挂载图表 (Mermaid, PlantUML, SVG, Graphviz 等) 在 Ctrl+A / 剪贴板清洗中的自愈回填契约 ---');
+  const mockBlocksMap = new Map();
+  mockBlocksMap.set('block-mermaid-1', {
+    id: 'block-mermaid-1',
+    type: 'mermaid',
+    raw: 'graph TD; A-->B;',
+    svgContent: '<svg class="mermaid-diagram"><text>Flowchart</text></svg>',
+  });
+  mockBlocksMap.set('block-svg-2', {
+    id: 'block-svg-2',
+    type: 'svg',
+    raw: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>',
+    svgContent: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>',
+  });
+  mockBlocksMap.set('block-plantuml-3', {
+    id: 'block-plantuml-3',
+    type: 'plantuml',
+    raw: '@startuml\nAlice -> Bob: hello\n@enduml',
+  });
+  mockBlocksMap.set('block-graphviz-4', {
+    id: 'block-graphviz-4',
+    type: 'graphviz',
+    raw: 'digraph G { a -> b; }',
+    svgContent: '<svg class="graphviz"><text>Graphviz</text></svg>',
+  });
+
+  let lazyReplacedMermaid = null;
+  let lazyReplacedPlantUml = null;
+
+  const mockPlaceholderMermaid = {
+    tagName: 'DIV',
+    classList: { contains: (c) => c === 'markdown-lazy-placeholder' },
+    getAttribute: (attr) => attr === 'data-block-id' ? 'block-mermaid-1' : null,
+  };
+  const mockLazyWrapperMermaid = {
+    id: 'block-mermaid-1',
+    tagName: 'DIV',
+    classList: { contains: (c) => c === 'lazy-block-wrapper' },
+    getAttribute: (attr) => {
+      if (attr === 'data-block-id') return 'block-mermaid-1';
+      if (attr === 'data-lazy-mounted') return '0';
+      return null;
+    },
+    querySelector: (sel) => sel.includes('markdown-lazy-placeholder') ? mockPlaceholderMermaid : null,
+    closest: () => mockLazyWrapperMermaid,
+    parentNode: {
+      replaceChild: (newChild) => {
+        lazyReplacedMermaid = newChild;
+      }
+    },
+    ownerDocument: {
+      createElement: () => ({
+        set innerHTML(val) { this._html = val; },
+        get firstElementChild() {
+          return { tagName: 'DIV', _html: this._html };
+        }
+      })
+    }
+  };
+
+  const mockPlaceholderPlantUml = {
+    tagName: 'DIV',
+    classList: { contains: (c) => c === 'markdown-lazy-placeholder' },
+    getAttribute: (attr) => attr === 'data-block-id' ? 'block-plantuml-3' : null,
+  };
+  const mockLazyWrapperPlantUml = {
+    id: 'block-plantuml-3',
+    tagName: 'DIV',
+    classList: { contains: (c) => c === 'lazy-block-wrapper' },
+    getAttribute: (attr) => {
+      if (attr === 'data-block-id') return 'block-plantuml-3';
+      if (attr === 'data-lazy-mounted') return '0';
+      return null;
+    },
+    querySelector: (sel) => sel.includes('markdown-lazy-placeholder') ? mockPlaceholderPlantUml : null,
+    closest: () => mockLazyWrapperPlantUml,
+    parentNode: {
+      replaceChild: (newChild) => {
+        lazyReplacedPlantUml = newChild;
+      }
+    },
+    ownerDocument: mockLazyWrapperMermaid.ownerDocument,
+  };
+
+  const mockLazyDom = {
+    querySelectorAll: (sel) => {
+      if (sel.includes('lazy-block-wrapper')) {
+        return [mockLazyWrapperMermaid, mockLazyWrapperPlantUml];
+      }
+      return [];
+    }
+  };
+
+  resolveUnmountedLazyBlocks(mockLazyDom, mockBlocksMap);
+
+  if (!lazyReplacedMermaid || !lazyReplacedMermaid._html.includes('class="mermaid-diagram"')) {
+    throw new Error('resolveUnmountedLazyBlocks 未能将未挂载的 Mermaid 离屏图表回填为真实 SVG 节点');
+  }
+  if (!lazyReplacedPlantUml || !lazyReplacedPlantUml._html.includes('plantuml.com') || !lazyReplacedPlantUml._html.includes('<img')) {
+    throw new Error('resolveUnmountedLazyBlocks 未能将未挂载的 PlantUML 离屏图表回填为标准图片');
+  }
+
+  console.log('✅ 离屏未挂载图表 (Mermaid, PlantUML, SVG, Graphviz 等) 深度自愈回填验证通过');
+
+  console.log('\n🎉 全部 7 组 Word 剪贴板清洗自动化测试 100% 通过！');
 }
 
 runTests();

@@ -46,6 +46,7 @@ import {
   Globe,
   FileUp,
   Package,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Locale } from '../../../../shared/lib/i18n';
 import { ThemeId } from '../../../../shared/types';
@@ -778,153 +779,257 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
 
   const isZh = locale === 'zh-CN';
 
+  // 视口容器与工具栏宽度响应式监听 (解决 VS Code 分屏/侧边栏等小尺寸场景下的自适应折叠)
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarWidth, setToolbarWidth] = useState<number>(1000);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const overflowMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!toolbarRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setToolbarWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(toolbarRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (overflowMenuRef.current && !overflowMenuRef.current.contains(e.target as Node)) {
+        setShowOverflowMenu(false);
+      }
+    };
+    if (showOverflowMenu) {
+      document.addEventListener('mousedown', handleOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showOverflowMenu]);
+
+  // 尺寸断点
+  const showModeLabels = toolbarWidth >= 860;
+  const showBadge = toolbarWidth >= 700;
+  const showStats = toolbarWidth >= 960;
+  const showExtraCanvasTools = toolbarWidth >= 680;
+  const showSlideFull = toolbarWidth >= 880;
+  const showSlideBtn = toolbarWidth >= 620;
+  const showMermaidBtn = toolbarWidth >= 740;
+  const showMaterialsBtn = toolbarWidth >= 800;
+  const showTemplatesBtn = toolbarWidth >= 620;
+  const showExportLabel = toolbarWidth >= 520;
+  const showOverflowBtn = toolbarWidth < 800;
+
   return (
-    <div id="excalidraw-viewer-container" className="h-full w-full flex flex-col bg-slate-950 text-slate-200 select-none overflow-hidden">
+    <div
+      id="excalidraw-viewer-container"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full w-full flex flex-col select-none overflow-hidden"
+    >
       {/* 顶部工具栏 */}
-      <div className="flex-shrink-0 h-11 px-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-2 z-20">
+      <div
+        ref={toolbarRef}
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex-shrink-0 h-11 px-2.5 sm:px-3 border-b flex items-center justify-between gap-1.5 sm:gap-2 z-20 min-w-0"
+      >
         {/* 左侧：文件名、白板标签与模式切换 */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 font-medium text-xs text-slate-200">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <span className="truncate max-w-[130px] sm:max-w-xs">{fileName}</span>
-            <span className="text-[10px] text-amber-300 font-mono px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 hidden xs:inline-block">
-              Excalidraw 2.0
-            </span>
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 font-medium text-xs shrink-0" style={{ color: 'var(--ov-text)' }}>
+            <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+            <span className={`truncate ${toolbarWidth < 500 ? 'max-w-[70px]' : 'max-w-[130px] sm:max-w-xs'}`}>{fileName}</span>
+            {showBadge && (
+              <span
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-accent)',
+                }}
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded border inline-block"
+              >
+                Excalidraw 2.0
+              </span>
+            )}
           </div>
 
-          <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
+          <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-4 w-px mx-0.5 sm:mx-1 hidden xs:block" />
 
           {/* 模式切换 (白板工作室 / 双向分屏 / 只读演示 / JSON 源码) */}
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center p-0.5 rounded-lg border shrink-0"
+          >
             <button
               onClick={() => setViewMode('canvas')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition ${
-                viewMode === 'canvas'
-                  ? 'bg-amber-600 text-white shadow-sm font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'canvas' ? 'var(--ov-accent, #d97706)' : 'transparent',
+                color: viewMode === 'canvas' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-xs transition hover:text-[var(--ov-text)]`}
               title={isZh ? '全屏交互白板工作室' : 'Full Whiteboard Canvas'}
             >
               <PenTool className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isZh ? '交互白板' : 'Canvas'}</span>
+              {showModeLabels && <span>{isZh ? '交互白板' : 'Canvas'}</span>}
             </button>
             <button
               onClick={() => setViewMode('split')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition ${
-                viewMode === 'split'
-                  ? 'bg-amber-600 text-white shadow-sm font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'split' ? 'var(--ov-accent, #d97706)' : 'transparent',
+                color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-xs transition hover:text-[var(--ov-text)]`}
               title={isZh ? '双向分屏模式 (左侧 JSON 源码 / 右侧即时白板)' : 'Bidirectional Split View'}
             >
               <Columns className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isZh ? '双向分屏' : 'Split'}</span>
+              {showModeLabels && <span>{isZh ? '双向分屏' : 'Split'}</span>}
             </button>
             <button
               onClick={() => setViewMode('preview')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition ${
-                viewMode === 'preview'
-                  ? 'bg-amber-600 text-white shadow-sm font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'preview' ? 'var(--ov-accent, #d97706)' : 'transparent',
+                color: viewMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-xs transition hover:text-[var(--ov-text)]`}
               title={isZh ? '只读矢量展示与平移缩放' : 'Read-only Presentation'}
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isZh ? '只读演示' : 'Preview'}</span>
+              {showModeLabels && <span>{isZh ? '只读演示' : 'Preview'}</span>}
             </button>
             <button
               onClick={() => setViewMode('code')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition ${
-                viewMode === 'code'
-                  ? 'bg-amber-600 text-white shadow-sm font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'code' ? 'var(--ov-accent, #d97706)' : 'transparent',
+                color: viewMode === 'code' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-xs transition hover:text-[var(--ov-text)]`}
               title={isZh ? 'JSON 源码编辑模式' : 'JSON Source Code'}
             >
               <FileCode className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isZh ? '源码' : 'Source'}</span>
+              {showModeLabels && <span>{isZh ? '源码' : 'Source'}</span>}
             </button>
           </div>
 
           {/* 图元统计 */}
-          <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-slate-400 ml-1.5">
-            <span>{isZh ? '图元:' : 'Elements:'} <strong className="text-amber-400 font-normal">{parsedData?.elements?.length ?? 0}</strong></span>
-            {parsedData?.files && Object.keys(parsedData.files).length > 0 && (
-              <span>· {isZh ? '资源:' : 'Files:'} <strong className="text-cyan-400 font-normal">{Object.keys(parsedData.files).length}</strong></span>
-            )}
-          </div>
+          {showStats && (
+            <div className="flex items-center gap-2 text-[11px] font-mono ml-1.5 shrink-0" style={{ color: 'var(--ov-text-secondary)' }}>
+              <span>{isZh ? '图元:' : 'Elements:'} <strong className="text-amber-400 font-normal">{parsedData?.elements?.length ?? 0}</strong></span>
+              {parsedData?.files && Object.keys(parsedData.files).length > 0 && (
+                <span>· {isZh ? '资源:' : 'Files:'} <strong className="text-cyan-400 font-normal">{Object.keys(parsedData.files).length}</strong></span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 右侧：画布快捷工具与导出菜单 */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* 白板通用功能：居中、网格、禅模式、锁定 */}
           {viewMode !== 'code' && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleCenterView}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text-secondary)',
+                }}
+                className="p-1.5 rounded border transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                 title={isZh ? '视口自适应居中全部图元' : 'Fit to Content'}
                 aria-label="居中视口"
               >
                 <Focus className="w-3.5 h-3.5" />
               </button>
 
-              <button
-                onClick={() => setShowGrid(!showGrid)}
-                className={`p-1.5 rounded border border-slate-700/60 transition ${
-                  showGrid ? 'bg-amber-600/30 text-amber-300 border-amber-500/50' : 'bg-slate-800 text-slate-400'
-                }`}
-                title={isZh ? '开启/关闭绘图网格' : 'Toggle Grid'}
-                aria-label="网格模式"
-              >
-                <Grid className="w-3.5 h-3.5" />
-              </button>
+              {showExtraCanvasTools && (
+                <>
+                  <button
+                    onClick={() => setShowGrid(!showGrid)}
+                    style={{
+                      backgroundColor: showGrid ? 'rgba(217, 119, 6, 0.2)' : 'var(--ov-surface)',
+                      borderColor: showGrid ? 'var(--ov-accent, #d97706)' : 'var(--ov-border)',
+                      color: showGrid ? 'var(--ov-accent, #fbbf24)' : 'var(--ov-text-secondary)',
+                    }}
+                    className="p-1.5 rounded border transition hover:text-[var(--ov-text)]"
+                    title={isZh ? '开启/关闭绘图网格' : 'Toggle Grid'}
+                    aria-label="网格模式"
+                  >
+                    <Grid className="w-3.5 h-3.5" />
+                  </button>
 
-              <button
-                onClick={() => setIsZenMode(!isZenMode)}
-                className={`p-1.5 rounded border border-slate-700/60 transition ${
-                  isZenMode ? 'bg-amber-600/30 text-amber-300 border-amber-500/50' : 'bg-slate-800 text-slate-400'
-                }`}
-                title={isZh ? '专注/禅模式 (隐藏冗余界面)' : 'Zen Mode'}
-                aria-label="禅模式"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-              </button>
+                  <button
+                    onClick={() => setIsZenMode(!isZenMode)}
+                    style={{
+                      backgroundColor: isZenMode ? 'rgba(217, 119, 6, 0.2)' : 'var(--ov-surface)',
+                      borderColor: isZenMode ? 'var(--ov-accent, #d97706)' : 'var(--ov-border)',
+                      color: isZenMode ? 'var(--ov-accent, #fbbf24)' : 'var(--ov-text-secondary)',
+                    }}
+                    className="p-1.5 rounded border transition hover:text-[var(--ov-text)]"
+                    title={isZh ? '专注/禅模式 (隐藏冗余界面)' : 'Zen Mode'}
+                    aria-label="禅模式"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </button>
 
-              <button
-                onClick={() => setIsViewOnly(!isViewOnly)}
-                className={`p-1.5 rounded border border-slate-700/60 transition ${
-                  isViewOnly ? 'bg-blue-600/30 text-blue-300 border-blue-500/50' : 'bg-slate-800 text-slate-400'
-                }`}
-                title={isZh ? (isViewOnly ? '已只读锁定 (点击解锁编辑)' : '点击锁定为只读') : (isViewOnly ? 'Locked (Click to edit)' : 'Click to lock')}
-                aria-label="只读锁定"
-              >
-                {isViewOnly ? <Lock className="w-3.5 h-3.5 text-blue-400" /> : <Unlock className="w-3.5 h-3.5" />}
-              </button>
+                  <button
+                    onClick={() => setIsViewOnly(!isViewOnly)}
+                    style={{
+                      backgroundColor: isViewOnly ? 'rgba(59, 130, 246, 0.2)' : 'var(--ov-surface)',
+                      borderColor: isViewOnly ? '#3b82f6' : 'var(--ov-border)',
+                      color: isViewOnly ? '#60a5fa' : 'var(--ov-text-secondary)',
+                    }}
+                    className="p-1.5 rounded border transition hover:text-[var(--ov-text)]"
+                    title={isZh ? (isViewOnly ? '已只读锁定 (点击解锁编辑)' : '点击锁定为只读') : (isViewOnly ? 'Locked (Click to edit)' : 'Click to lock')}
+                    aria-label="只读锁定"
+                  >
+                    {isViewOnly ? <Lock className="w-3.5 h-3.5 text-blue-400" /> : <Unlock className="w-3.5 h-3.5" />}
+                  </button>
+                </>
+              )}
             </div>
           )}
 
           {/* 处于预览模式下的专属缩放控制器 */}
           {viewMode === 'preview' && (
-            <div className="flex items-center gap-1 border-l border-slate-800 pl-1.5">
+            <div className="flex items-center gap-1 border-l pl-1 sm:pl-1.5" style={{ borderColor: 'var(--ov-border)' }}>
               <button
                 onClick={() => setScale(s => Math.max(0.2, Number((s - 0.1).toFixed(2))))}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text-secondary)',
+                }}
+                className="p-1.5 rounded border transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                 title={isZh ? '缩小' : 'Zoom Out'}
                 aria-label="缩小"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
-              <span
-                onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); }}
-                className="font-mono text-amber-400 min-w-[42px] text-center font-semibold cursor-pointer hover:underline text-[11px]"
-                title="点击重置 100%"
-              >
-                {Math.round(scale * 100)}%
-              </span>
+              {toolbarWidth >= 500 && (
+                <span
+                  onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); }}
+                  className="font-mono text-amber-400 min-w-[36px] text-center font-semibold cursor-pointer hover:underline text-[11px]"
+                  title="点击重置 100%"
+                >
+                  {Math.round(scale * 100)}%
+                </span>
+              )}
               <button
                 onClick={() => setScale(s => Math.min(4, Number((s + 0.1).toFixed(2))))}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text-secondary)',
+                }}
+                className="p-1.5 rounded border transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                 title={isZh ? '放大' : 'Zoom In'}
                 aria-label="放大"
               >
@@ -932,7 +1037,12 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
               </button>
               <button
                 onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); }}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text-secondary)',
+                }}
+                className="p-1.5 rounded border transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                 title={isZh ? '重置视角' : 'Reset View'}
                 aria-label="重置视角"
               >
@@ -945,112 +1055,145 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
           {viewMode === 'code' && (
             <button
               onClick={handlePrettifyJson}
-              className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700/60 text-xs transition"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded border text-xs transition hover:border-[var(--ov-accent)]"
               title="格式化 JSON 源码"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>{isZh ? '美化 JSON' : 'Prettify'}</span>
+              {toolbarWidth >= 600 && <span>{isZh ? '美化 JSON' : 'Prettify'}</span>}
             </button>
           )}
 
-          <div className="h-4 w-px bg-slate-800 mx-0.5" />
-
           {/* 幻灯片演播导览模式 (Prezi 式 Frame 运镜) */}
-          <button
-            onClick={() => {
-              const next = !isSlideMode;
-              setIsSlideMode(next);
-              if (next && frames.length > 0) {
-                navigateToFrame(0);
-              }
-            }}
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded border text-xs transition ${
-              isSlideMode
-                ? 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-sm font-medium'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700/60'
-            }`}
-            title={isZh ? '启动 Prezi 式 Frame 画框运镜导览演播' : 'Slide Presentation Mode'}
-            aria-label="幻灯片演播"
-          >
-            <Play className="w-3.5 h-3.5 text-purple-400" />
-            <span className="hidden sm:inline">{isZh ? '演播' : 'Slides'}</span>
-            {frames.length > 0 && (
-              <span className="px-1 py-0.2 text-[10px] rounded bg-purple-500/20 text-purple-300 font-mono">
-                {frames.length}
-              </span>
-            )}
-          </button>
+          {showSlideBtn && (
+            <button
+              onClick={() => {
+                const next = !isSlideMode;
+                setIsSlideMode(next);
+                if (next && frames.length > 0) {
+                  navigateToFrame(0);
+                }
+              }}
+              style={{
+                backgroundColor: isSlideMode ? 'rgba(147, 51, 234, 0.2)' : 'var(--ov-surface)',
+                borderColor: isSlideMode ? 'rgba(147, 51, 234, 0.5)' : 'var(--ov-border)',
+                color: isSlideMode ? '#c084fc' : 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1.5 ${showSlideFull ? 'px-2.5' : 'p-1.5'} py-1 rounded border text-xs transition hover:border-purple-500`}
+              title={isZh ? '启动 Prezi 式 Frame 画框运镜导览演播' : 'Slide Presentation Mode'}
+              aria-label="幻灯片演播"
+            >
+              <Play className="w-3.5 h-3.5 text-purple-400" />
+              {showSlideFull && <span>{isZh ? '演播' : 'Slides'}</span>}
+              {frames.length > 0 && (
+                <span className="px-1 py-0.2 text-[10px] rounded bg-purple-500/20 text-purple-300 font-mono">
+                  {frames.length}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Mermaid 转译导入按钮 */}
-          <button
-            onClick={() => setShowMermaidModal(true)}
-            className="flex items-center gap-1.5 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 text-xs transition"
-            title={isZh ? 'Mermaid 代码一键转手绘白板图' : 'Import Mermaid'}
-            aria-label="导入 Mermaid"
-          >
-            <GitFork className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden md:inline">{isZh ? 'Mermaid' : 'Mermaid'}</span>
-          </button>
+          {showMermaidBtn && (
+            <button
+              onClick={() => setShowMermaidModal(true)}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1.5 ${toolbarWidth >= 860 ? 'px-2.5' : 'p-1.5'} py-1 rounded border text-xs transition hover:border-emerald-500 hover:text-emerald-400`}
+              title={isZh ? 'Mermaid 代码一键转手绘白板图' : 'Import Mermaid'}
+              aria-label="导入 Mermaid"
+            >
+              <GitFork className="w-3.5 h-3.5 text-emerald-400" />
+              {toolbarWidth >= 860 && <span>Mermaid</span>}
+            </button>
+          )}
 
           {/* 素材与物料中心按钮 */}
-          <button
-            onClick={() => setShowStencilsDrawer(true)}
-            className="flex items-center gap-1.5 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 text-xs transition group"
-            title={isZh ? '素材与物料中心 (包含 Excalidraw 官方社区素材库、预置物料包与离线导入)' : 'Materials & Stencils Hub'}
-            aria-label="素材中心"
-          >
-            <Layers className="w-3.5 h-3.5 text-cyan-400 group-hover:text-cyan-300 transition" />
-            <span className="hidden md:inline">{isZh ? '素材中心' : 'Materials'}</span>
-            <span className="text-[10px] px-1 py-0.2 bg-cyan-950 text-cyan-300 rounded font-mono border border-cyan-800/60">
-              {EXCALIDRAW_STENCILS.length + customStencils.length}
-            </span>
-          </button>
-
-          {/* 拓扑连线健康状态指示 */}
-          {arrowStats.danglingCount > 0 && (
-            <span
-              className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-amber-500/10 text-amber-300 border border-amber-500/20"
-              title={isZh ? `检测到 ${arrowStats.danglingCount} 处未吸附端点的箭头连线` : `${arrowStats.danglingCount} dangling arrows`}
+          {showMaterialsBtn && (
+            <button
+              onClick={() => setShowStencilsDrawer(true)}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1.5 ${toolbarWidth >= 900 ? 'px-2.5' : 'p-1.5'} py-1 rounded border text-xs transition group hover:border-cyan-500`}
+              title={isZh ? '素材与物料中心 (包含 Excalidraw 官方社区素材库、预置物料包与离线导入)' : 'Materials & Stencils Hub'}
+              aria-label="素材中心"
             >
-              <AlertCircle className="w-3 h-3 text-amber-400" />
-              <span>{arrowStats.danglingCount} 处悬空连线</span>
-            </span>
+              <Layers className="w-3.5 h-3.5 text-cyan-400 group-hover:text-cyan-300 transition" />
+              {toolbarWidth >= 900 && <span>{isZh ? '素材中心' : 'Materials'}</span>}
+              <span
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-accent)',
+                }}
+                className="text-[10px] px-1 py-0.2 rounded font-mono border"
+              >
+                {EXCALIDRAW_STENCILS.length + customStencils.length}
+              </span>
+            </button>
           )}
 
           {/* 预置模板库按钮 */}
-          <button
-            onClick={() => setShowTemplatesModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-amber-500/30 text-xs transition"
-            title={isZh ? '选择架构图/流程图/思维导图预置模板' : 'Whiteboard Starter Templates'}
-            aria-label="预置模板"
-          >
-            <LayoutTemplate className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">{isZh ? '预置模板' : 'Templates'}</span>
-          </button>
+          {showTemplatesBtn && (
+            <button
+              onClick={() => setShowTemplatesModal(true)}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1.5 ${toolbarWidth >= 860 ? 'px-2.5' : 'p-1.5'} py-1 rounded border text-xs transition hover:border-amber-500 hover:text-amber-400`}
+              title={isZh ? '选择架构图/流程图/思维导图预置模板' : 'Whiteboard Starter Templates'}
+              aria-label="预置模板"
+            >
+              <LayoutTemplate className="w-3.5 h-3.5 text-amber-400" />
+              {toolbarWidth >= 860 && <span>{isZh ? '预置模板' : 'Templates'}</span>}
+            </button>
+          )}
 
           {/* 统一导出与复制菜单 */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-md transition shadow-sm font-medium text-xs"
+              className={`flex items-center gap-1.5 ${showExportLabel ? 'px-2.5 sm:px-3' : 'p-1.5'} py-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-md transition shadow-sm font-medium text-xs cursor-pointer`}
               title="导出手绘白板图与文件"
               aria-label="导出"
             >
               {copiedAction ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Share2 className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">
-                {copiedAction ? `${isZh ? '已复制' : 'Copied'}: ${copiedAction}` : (isZh ? '导出 / 分享' : 'Export')}
-              </span>
+              {showExportLabel && (
+                <span>
+                  {copiedAction ? `${isZh ? '已复制' : 'Copied'}: ${copiedAction}` : (isZh ? '导出 / 分享' : 'Export')}
+                </span>
+              )}
               <ChevronDown className="w-3 h-3 opacity-70" />
             </button>
 
             {showExportMenu && (
-              <div className="absolute right-0 mt-1.5 w-60 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
-                <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="absolute right-0 mt-1.5 w-60 border rounded-lg shadow-2xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 backdrop-blur"
+              >
+                <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider border-b" style={{ color: 'var(--ov-text-secondary)', borderColor: 'var(--ov-border)' }}>
                   {isZh ? '图形与文件导出' : 'File Export'}
                 </div>
                 <button
                   onClick={handleExportSelfContainedSvgFile}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left group"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left group"
                 >
                   <Download className="w-4 h-4 text-emerald-400" />
                   <div className="flex-1">
@@ -1060,69 +1203,205 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
                         {isZh ? '自包含' : 'Polyglot'}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-400 leading-tight">
+                    <div className="text-[10px] leading-tight" style={{ color: 'var(--ov-text-secondary)' }}>
                       {isZh ? '矢量图内嵌工程数据，支持拖入再编辑' : 'Self-contained editable SVG'}
                     </div>
                   </div>
                 </button>
                 <button
                   onClick={handleExportSvgFile}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
                 >
                   <Download className="w-4 h-4 text-amber-400" />
                   <div className="flex-1">
                     <div className="font-medium">{isZh ? '导出为 .SVG 矢量图' : 'Export as .SVG'}</div>
-                    <div className="text-[10px] text-slate-400">{isZh ? '标准 SVG 矢量图形文件' : 'Standard vector format'}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--ov-text-secondary)' }}>{isZh ? '标准 SVG 矢量图形文件' : 'Standard vector format'}</div>
                   </div>
                 </button>
                 <button
                   onClick={handleExportPngFile}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
                 >
                   <Download className="w-4 h-4 text-cyan-400" />
                   <div className="flex-1">
                     <div className="font-medium">{isZh ? '导出为 .PNG 高清位图' : 'Export as .PNG'}</div>
-                    <div className="text-[10px] text-slate-400">{isZh ? '2x 视网膜清晰度' : 'Retina raster image'}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--ov-text-secondary)' }}>{isZh ? '2x 视网膜清晰度' : 'Retina raster image'}</div>
                   </div>
                 </button>
                 <button
                   onClick={handleExportExcalidrawFile}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
                 >
                   <Download className="w-4 h-4 text-orange-400" />
                   <div className="flex-1">
                     <div className="font-medium">{isZh ? '导出为 .excalidraw 原生文件' : 'Export .excalidraw file'}</div>
-                    <div className="text-[10px] text-slate-400">{isZh ? '直接兼容官方 Web 客户端' : 'Compatible with excalidraw.com'}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--ov-text-secondary)' }}>{isZh ? '直接兼容官方 Web 客户端' : 'Compatible with excalidraw.com'}</div>
                   </div>
                 </button>
 
-                <div className="my-1 border-t border-slate-800" />
-                <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <div className="my-1 border-t" style={{ borderColor: 'var(--ov-border)' }} />
+                <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--ov-text-secondary)' }}>
                   {isZh ? '快速复制至剪贴板' : 'Clipboard'}
                 </div>
                 <button
                   onClick={() => triggerCopyFeedback('SVG XML', handleCopySvgXml)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
                 >
                   <Copy className="w-4 h-4 text-amber-400" />
                   <div className="flex-1">
                     <div className="font-medium">{isZh ? '复制 SVG 代码' : 'Copy SVG XML'}</div>
-                    <div className="text-[10px] text-slate-400">{isZh ? '用于插入网页或 Markdown' : 'Paste into HTML/Markdown'}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--ov-text-secondary)' }}>{isZh ? '用于插入网页或 Markdown' : 'Paste into HTML/Markdown'}</div>
                   </div>
                 </button>
                 <button
                   onClick={() => triggerCopyFeedback('JSON', handleCopyJson)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-slate-800 transition text-left"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
                 >
                   <Copy className="w-4 h-4 text-blue-400" />
                   <div className="flex-1">
                     <div className="font-medium">{isZh ? '复制 Excalidraw JSON' : 'Copy Document JSON'}</div>
-                    <div className="text-[10px] text-slate-400">{isZh ? '完整图元数据树' : 'Raw elements data'}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--ov-text-secondary)' }}>{isZh ? '完整图元数据树' : 'Raw elements data'}</div>
                   </div>
                 </button>
               </div>
             )}
           </div>
+
+          {/* 小尺寸折叠溢出更多菜单 (...) */}
+          {showOverflowBtn && (
+            <div className="relative" ref={overflowMenuRef}>
+              <button
+                onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+                style={{
+                  backgroundColor: showOverflowMenu ? 'var(--ov-surface-header)' : 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="p-1.5 rounded border transition hover:border-[var(--ov-accent)]"
+                title={isZh ? '更多工具与扩展功能' : 'More Whiteboard Tools'}
+                aria-label="更多工具"
+              >
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </button>
+
+              {showOverflowMenu && (
+                <div
+                  style={{
+                    backgroundColor: 'var(--ov-surface-header)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="absolute right-0 mt-1.5 w-52 border rounded-lg shadow-2xl py-1 z-50 text-xs animate-in fade-in zoom-in-95 backdrop-blur"
+                >
+                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider border-b" style={{ color: 'var(--ov-text-secondary)', borderColor: 'var(--ov-border)' }}>
+                    {isZh ? '快捷操作与扩展工具' : 'Extended Tools'}
+                  </div>
+
+                  {!showSlideBtn && (
+                    <button
+                      onClick={() => {
+                        const next = !isSlideMode;
+                        setIsSlideMode(next);
+                        if (next && frames.length > 0) navigateToFrame(0);
+                        setShowOverflowMenu(false);
+                      }}
+                      style={{ color: 'var(--ov-text)' }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
+                    >
+                      <Play className="w-3.5 h-3.5 text-purple-400" />
+                      <span>{isZh ? '幻灯片演播导览' : 'Slide Presentation'}</span>
+                    </button>
+                  )}
+
+                  {!showTemplatesBtn && (
+                    <button
+                      onClick={() => {
+                        setShowTemplatesModal(true);
+                        setShowOverflowMenu(false);
+                      }}
+                      style={{ color: 'var(--ov-text)' }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
+                    >
+                      <LayoutTemplate className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{isZh ? '预置模板库' : 'Starter Templates'}</span>
+                    </button>
+                  )}
+
+                  {!showMermaidBtn && (
+                    <button
+                      onClick={() => {
+                        setShowMermaidModal(true);
+                        setShowOverflowMenu(false);
+                      }}
+                      style={{ color: 'var(--ov-text)' }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
+                    >
+                      <GitFork className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{isZh ? 'Mermaid 转手绘图' : 'Import Mermaid'}</span>
+                    </button>
+                  )}
+
+                  {!showMaterialsBtn && (
+                    <button
+                      onClick={() => {
+                        setShowStencilsDrawer(true);
+                        setShowOverflowMenu(false);
+                      }}
+                      style={{ color: 'var(--ov-text)' }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
+                    >
+                      <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>{isZh ? '素材物料中心' : 'Materials & Stencils'}</span>
+                    </button>
+                  )}
+
+                  {!showExtraCanvasTools && viewMode !== 'code' && (
+                    <>
+                      <div className="my-1 border-t" style={{ borderColor: 'var(--ov-border)' }} />
+                      <button
+                        onClick={() => {
+                          setShowGrid(!showGrid);
+                          setShowOverflowMenu(false);
+                        }}
+                        style={{ color: 'var(--ov-text)' }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
+                      >
+                        <Grid className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{showGrid ? (isZh ? '隐藏网格' : 'Hide Grid') : (isZh ? '开启网格' : 'Show Grid')}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsZenMode(!isZenMode);
+                          setShowOverflowMenu(false);
+                        }}
+                        style={{ color: 'var(--ov-text)' }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isZenMode ? (isZh ? '退出禅模式' : 'Exit Zen') : (isZh ? '进入禅模式' : 'Zen Mode')}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsViewOnly(!isViewOnly);
+                          setShowOverflowMenu(false);
+                        }}
+                        style={{ color: 'var(--ov-text)' }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition text-left"
+                      >
+                        {isViewOnly ? <Lock className="w-3.5 h-3.5 text-blue-400" /> : <Unlock className="w-3.5 h-3.5" />}
+                        <span>{isViewOnly ? (isZh ? '解除只读锁定' : 'Unlock') : (isZh ? '只读锁定' : 'Lock')}</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1131,11 +1410,22 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
         {/* 左侧：JSON 源码编辑器（分屏或源码全屏模式） */}
         {(viewMode === 'split' || viewMode === 'code') && (
           <div
-            className={`flex flex-col border-r border-slate-800 bg-slate-950 min-h-0 ${
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderRightColor: 'var(--ov-border)',
+            }}
+            className={`flex flex-col border-r min-h-0 ${
               viewMode === 'split' ? 'w-full md:w-2/5 lg:w-1/3' : 'w-full'
             }`}
           >
-            <div className="flex-shrink-0 px-3 py-1.5 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderBottomColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="flex-shrink-0 px-3 py-1.5 border-b flex items-center justify-between text-[11px] font-mono"
+            >
               <span className="flex items-center gap-1.5">
                 <FileCode className="w-3.5 h-3.5 text-amber-400" />
                 <span>Excalidraw JSON 数据源</span>
@@ -1148,7 +1438,12 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
                 onChange={e => handleSourceChange(e.target.value)}
                 placeholder="在此粘贴或编辑 Excalidraw JSON 结构..."
                 spellCheck={false}
-                className="w-full h-full bg-slate-900/80 text-amber-100/90 font-mono text-xs p-3 rounded-lg border border-slate-800 outline-none focus:border-amber-500/60 resize-none leading-relaxed transition shadow-inner"
+                style={{
+                  backgroundColor: 'var(--ov-bg)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="w-full h-full font-mono text-xs p-3 rounded-lg border outline-none focus:border-amber-500/60 resize-none leading-relaxed transition shadow-inner"
               />
             </div>
             {!parsedData.isValid && (

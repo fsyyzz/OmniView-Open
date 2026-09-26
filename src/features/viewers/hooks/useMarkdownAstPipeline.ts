@@ -183,12 +183,47 @@ export function useMarkdownAstPipeline({
         return `<div class="ov-table-wrapper" data-source-line="${currentTokenStartLine}">${rendered}</div>`;
       };
       customRenderer.image = function (hrefOrToken: any, title?: any, text?: any) {
-        const href = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.href : hrefOrToken;
+        const rawHref = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.href : hrefOrToken;
         const alt = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.text : text;
         const imgTitle = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.title : title;
         const safeAlt = (alt || '').replace(/"/g, '&quot;');
         const safeTitle = (imgTitle || '').replace(/"/g, '&quot;');
-        return `<span class="ov-image-container"><img src="${href}" alt="${safeAlt}" title="${safeTitle}" loading="lazy" onerror="this.classList.add('ov-img-broken');this.insertAdjacentHTML('afterend','<span class=\\'ov-image-fallback\\'>⚠️ ${t('imageNotFound', locale)}: <code>${href}</code></span>');this.style.display='none';" /></span>`;
+
+        let resolvedHref = rawHref || '';
+        // 尝试从工作区内存文件池中匹配本地相对图片资源
+        if (
+          rawHref &&
+          filesRef.current &&
+          filesRef.current.length > 0 &&
+          !rawHref.startsWith('http://') &&
+          !rawHref.startsWith('https://') &&
+          !rawHref.startsWith('data:')
+        ) {
+          const cleanSrc = decodeURIComponent(rawHref.trim().split(/[?#]/, 1)[0]).replace(/\\/g, '/').replace(/^\/+/, '');
+          const relativeSrc = cleanSrc.replace(/^(\.\.\/|\.\/)+/g, '');
+          const matchedFile = filesRef.current.find(
+            (f) =>
+              f.name === cleanSrc ||
+              f.name.toLowerCase() === cleanSrc.toLowerCase() ||
+              (f.path && f.path.replace(/^\//, '') === cleanSrc) ||
+              (f.path && f.path.replace(/\\/g, '/').endsWith(`/${relativeSrc}`)) ||
+              f.name === relativeSrc ||
+              f.name.toLowerCase() === relativeSrc.toLowerCase()
+          );
+
+          if (matchedFile) {
+            if (matchedFile.content.startsWith('data:image/')) {
+              resolvedHref = matchedFile.content;
+            } else if (matchedFile.extension.toLowerCase() === 'svg') {
+              resolvedHref = `data:image/svg+xml;utf8,${encodeURIComponent(matchedFile.content)}`;
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(matchedFile.extension.toLowerCase())) {
+              const mime = matchedFile.extension.toLowerCase() === 'jpg' ? 'jpeg' : matchedFile.extension.toLowerCase();
+              resolvedHref = `data:image/${mime};base64,${matchedFile.content}`;
+            }
+          }
+        }
+
+        return `<span class="ov-image-container"><img src="${resolvedHref}" alt="${safeAlt}" title="${safeTitle}" decoding="async" onerror="this.classList.add('ov-img-broken');this.insertAdjacentHTML('afterend','<span class=\\'ov-image-fallback\\'>⚠️ ${t('imageNotFound', locale)}: <code>${rawHref}</code></span>');this.style.display='none';" /></span>`;
       };
 
       customRenderer.heading = function (headerOrToken: any, depth?: any) {

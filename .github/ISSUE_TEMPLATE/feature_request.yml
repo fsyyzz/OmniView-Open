@@ -1,0 +1,41 @@
+name: 💡 需求或新格式提案 / Feature Request
+description: 建议为 OmniView 增加新文件格式驱动、新图表支持或改善交互体验
+title: "[Feature]: "
+labels: ["enhancement", "proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎向 OmniView 提出新特性与新格式渲染提案！
+  - type: dropdown
+    id: category
+    attributes:
+      label: 需求类别 / Category
+      options:
+        - 新增文件格式驱动 (New Viewer Driver)
+        - Markdown 增强流水线功能 (Markdown Pipeline)
+        - 矢量图表与思维导图支持 (Diagrams & Mindmaps)
+        - 导出、剪贴板与打印能力 (Export & Clipboard)
+        - 交互体验与全主题适配 (UI & Themes)
+        - 其他改进 (Others)
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 解决的痛点场景 / Pain Point & User Story
+      description: 当前缺少什么功能？它在日常开发或文档编写中带来了哪些不便？
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: 建议的技术方案或交互设想 / Proposed Solution
+      description: 您期望 OmniView 如何呈现或实现该功能？
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案或参考开源实现 / Alternatives Considered (Optional)
+      description: 是否有相关的优秀开源库、WASM 方案或规范参考？

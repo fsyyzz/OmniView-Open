@@ -1,8 +1,6 @@
 /**
  * XLSX 解析与工作簿提取引擎自动化测试套件 (test-xlsx-engine.mjs)
  * 验证 OOXML 解包、多工作表解析、共享字符串池、单元格坐标计算、公式提取与多格式导出
- * 
- * 作者: 周赞
  */
 import assert from 'node:assert/strict';
 import {
@@ -109,8 +107,8 @@ async function testSampleXlsxGenerationAndParsing() {
 
   // 验证元数据
   assert.equal(workbook.metadata.title, 'OmniView 业务数据总览与预算报表');
-  assert.equal(workbook.metadata.creator, '周赞');
-  assert.equal(workbook.metadata.lastModifiedBy, '周赞');
+  assert.equal(workbook.metadata.creator, 'OmniView Architecture Team');
+  assert.equal(workbook.metadata.lastModifiedBy, 'OmniView Architecture Team');
   assert.equal(workbook.metadata.totalSheets, 2);
   console.log('  ✓ 示例工作簿生成与 OOXML 解包解析通过');
 }

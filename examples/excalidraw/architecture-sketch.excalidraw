@@ -1,7 +1,7 @@
 {
   "type": "excalidraw",
   "version": 2,
-  "source": "https://omniview.dev",
+  "source": "omniview",
   "elements": [
     {
       "id": "card-client",
@@ -18,14 +18,12 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
       "roundness": {
         "type": 3
       },
       "seed": 101,
-      "version": 2,
-      "versionNonce": 832882311,
+      "version": 1,
+      "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
         {
@@ -33,47 +31,24 @@
           "type": "arrow"
         }
       ],
-      "updated": 1789603431237,
-      "link": null,
-      "locked": false,
-      "index": "a0"
+      "updated": 1
     },
     {
       "id": "text-client-title",
       "type": "text",
       "x": 80,
       "y": 85,
-      "width": 100,
-      "height": 60,
-      "angle": 0,
-      "strokeColor": "#2b8a3e",
-      "backgroundColor": "transparent",
-      "fillStyle": "hachure",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 102,
-      "version": 2,
-      "versionNonce": 1020660073,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
       "text": "OmniView Webview Host\n(React 19 + Vite)",
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "index": "a1",
-      "containerId": null,
-      "originalText": "OmniView Webview Host\n(React 19 + Vite)",
-      "autoResize": true,
-      "lineHeight": 1.875
+      "strokeColor": "#2b8a3e",
+      "seed": 102,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
     },
     {
       "id": "card-engine",
@@ -90,14 +65,12 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
       "roundness": {
         "type": 3
       },
       "seed": 103,
-      "version": 2,
-      "versionNonce": 712531367,
+      "version": 1,
+      "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
         {
@@ -109,47 +82,24 @@
           "type": "arrow"
         }
       ],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
-      "index": "a2"
+      "updated": 1
     },
     {
       "id": "text-engine-title",
       "type": "text",
       "x": 380,
       "y": 85,
-      "width": 100,
-      "height": 60,
-      "angle": 0,
-      "strokeColor": "#d9480f",
-      "backgroundColor": "transparent",
-      "fillStyle": "hachure",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 104,
-      "version": 2,
-      "versionNonce": 503510089,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
       "text": "Excalidraw Engine\n(@excalidraw/utils)",
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "index": "a3",
-      "containerId": null,
-      "originalText": "Excalidraw Engine\n(@excalidraw/utils)",
-      "autoResize": true,
-      "lineHeight": 1.875
+      "strokeColor": "#d9480f",
+      "seed": 104,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
     },
     {
       "id": "card-output",
@@ -166,14 +116,12 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
       "roundness": {
         "type": 3
       },
       "seed": 105,
-      "version": 2,
-      "versionNonce": 1863061703,
+      "version": 1,
+      "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
         {
@@ -181,47 +129,24 @@
           "type": "arrow"
         }
       ],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
-      "index": "a4"
+      "updated": 1
     },
     {
       "id": "text-output-title",
       "type": "text",
       "x": 700,
       "y": 85,
-      "width": 100,
-      "height": 60,
-      "angle": 0,
-      "strokeColor": "#1864ab",
-      "backgroundColor": "transparent",
-      "fillStyle": "hachure",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 106,
-      "version": 2,
-      "versionNonce": 1678738217,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
       "text": "Interactive SVG / PNG\n(DOMPurify Sanitized)",
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "index": "a5",
-      "containerId": null,
-      "originalText": "Interactive SVG / PNG\n(DOMPurify Sanitized)",
-      "autoResize": true,
-      "lineHeight": 1.875
+      "strokeColor": "#1864ab",
+      "seed": 106,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
     },
     {
       "id": "arrow-1",
@@ -232,23 +157,10 @@
       "height": 0,
       "angle": 0,
       "strokeColor": "#495057",
-      "backgroundColor": "transparent",
-      "fillStyle": "hachure",
       "strokeWidth": 2,
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 107,
-      "version": 2,
-      "versionNonce": 1224499175,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
       "points": [
         [
           0,
@@ -270,9 +182,11 @@
         "gap": 1
       },
       "endArrowhead": "arrow",
-      "index": "a6",
-      "lastCommittedPoint": null,
-      "startArrowhead": null
+      "seed": 107,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
     },
     {
       "id": "arrow-2",
@@ -283,23 +197,10 @@
       "height": 0,
       "angle": 0,
       "strokeColor": "#495057",
-      "backgroundColor": "transparent",
-      "fillStyle": "hachure",
       "strokeWidth": 2,
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 108,
-      "version": 2,
-      "versionNonce": 459748873,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
       "points": [
         [
           0,
@@ -321,51 +222,31 @@
         "gap": 1
       },
       "endArrowhead": "arrow",
-      "index": "a7",
-      "lastCommittedPoint": null,
-      "startArrowhead": null
+      "seed": 108,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
     },
     {
       "id": "note-phase1",
       "type": "text",
       "x": 60,
       "y": 220,
-      "width": 100,
-      "height": 60,
-      "angle": 0,
-      "strokeColor": "#862e9c",
-      "backgroundColor": "transparent",
-      "fillStyle": "hachure",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 109,
-      "version": 2,
-      "versionNonce": 441830151,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1789603431238,
-      "link": null,
-      "locked": false,
       "text": "✨ Phase 1: 高保真只读渲染 + 视口缩放平移 + SVG/PNG/JSON 导出 + 双向分屏源码联动",
       "fontSize": 14,
       "fontFamily": 1,
-      "index": "a8",
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "originalText": "✨ Phase 1: 高保真只读渲染 + 视口缩放平移 + SVG/PNG/JSON 导出 + 双向分屏源码联动",
-      "autoResize": true,
-      "lineHeight": 4.285714285714286
+      "strokeColor": "#862e9c",
+      "seed": 109,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "updated": 1
     }
   ],
   "appState": {
     "viewBackgroundColor": "#ffffff",
-    "gridSize": 20
+    "exportWithDarkMode": false
   },
   "files": {}
 }

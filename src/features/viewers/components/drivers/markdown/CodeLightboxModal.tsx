@@ -1,8 +1,6 @@
 /**
  * OmniView 全屏交互式代码块检视器 (CodeLightboxModal)
  * 提供沉浸式全屏代码审查、行号高亮、自动换行切换、字号缩放、关键词高亮搜索与一键下载 (Portal 渲染)
- * 
- * 作者: 周赞
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';

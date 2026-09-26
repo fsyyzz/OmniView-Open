@@ -2,8 +2,6 @@
  * OmniView WikiLink 悬浮预览浮窗 (WikiLinkPreviewPopover)
  * 当用户鼠标悬浮在 [[Page]] 或内部文档链接上时，展示目标文件或标题的摘要、大纲与元信息
  * 支持点击直达目标文件或锚点，并在鼠标移出后平滑关闭
- * 
- * 作者: 周赞
  */
 import React, { useEffect, useState, useRef } from 'react';
 import { FileText, Hash, ExternalLink, CornerDownRight, ArrowRight } from 'lucide-react';

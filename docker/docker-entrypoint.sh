@@ -3,7 +3,6 @@ set -e
 
 echo "========================================================"
 echo " Starting OmniView All-in-One Rendering Container"
-echo " Author: 周赞"
 echo "========================================================"
 
 PLANTUML_INTERNAL_PORT=${PLANTUML_INTERNAL_PORT:-8081}

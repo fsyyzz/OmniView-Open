@@ -12,13 +12,13 @@ export interface LazyViewportBlockProps {
   children: React.ReactNode;
   /** 未挂载或卸载时的占位高度，减轻滚动跳动 */
   minHeight?: number;
-  /** IntersectionObserver 进入视口的提前量 */
+  /** IntersectionObserver 进入视口的提前量 (默认提前 1500px 开始挂载渲染) */
   rootMargin?: string;
-  /** IntersectionObserver 离开视口后允许卸载的保护缓冲边距 (默认 2.5 屏以上距离时允许卸载节约内存) */
+  /** IntersectionObserver 离开视口后允许卸载的保护缓冲边距 (默认不卸载以保证 Ctrl+A 全选与剪贴板复制完整性) */
   unmountRootMargin?: string;
-  /** 是否允许离开视口后卸载回占位 (默认 true) */
+  /** 是否允许离开视口后卸载回占位 (默认 false，避免破坏 Ctrl+A 全选与剪贴板复制) */
   allowUnmount?: boolean;
-  /** 强制立即挂载（搜索 / 打印 / 导出） */
+  /** 强制立即挂载（搜索 / 打印 / 导出 / 全选） */
   eager?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -32,9 +32,9 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
   ({
     children,
     minHeight = 140,
-    rootMargin = '600px 0px 600px 0px',
-    unmountRootMargin = '1500px 0px 1500px 0px',
-    allowUnmount = true,
+    rootMargin = '1500px 0px 1500px 0px',
+    unmountRootMargin = '2500px 0px 2500px 0px',
+    allowUnmount = false,
     eager = false,
     className,
     style,
@@ -105,6 +105,7 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
       <div
         ref={ref}
         id={id}
+        data-block-id={id}
         className={['lazy-block-wrapper', className].filter(Boolean).join(' ')}
         title={title}
         data-source-line={dataSourceLine}
@@ -120,6 +121,7 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
         ) : (
           <div
             className="markdown-lazy-placeholder"
+            data-block-id={id}
             aria-hidden
             style={{ minHeight: effectiveMinHeight }}
           />

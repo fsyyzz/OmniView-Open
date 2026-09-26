@@ -196,26 +196,46 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
   };
 
   return (
-    <div id="csv-smart-grid-container" className="h-full flex flex-col bg-slate-950 text-slate-200 select-none">
+    <div
+      id="csv-smart-grid-container"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full flex flex-col select-none"
+    >
       {/* Top Primary Navigation & Status Bar */}
-      <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs gap-2 shrink-0">
+      <div
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex flex-wrap items-center justify-between px-3 py-1.5 border-b text-xs gap-2 shrink-0"
+      >
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 text-emerald-400 font-semibold shrink-0">
+          <div className="flex items-center gap-1.5 font-semibold shrink-0" style={{ color: 'var(--ov-accent, #10b981)' }}>
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">CSV 智能编辑网格</span>
           </div>
 
-          <span className="text-slate-600 hidden sm:inline">|</span>
+          <span style={{ color: 'var(--ov-border)' }} className="hidden sm:inline">|</span>
 
           {/* View Mode Toggle: Grid vs Raw Text */}
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 font-medium">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center p-0.5 rounded-lg border font-medium"
+          >
             <button
               onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs transition ${
-                viewMode === 'table'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'table' ? 'var(--ov-accent, #10b981)' : 'transparent',
+                color: viewMode === 'table' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs transition hover:text-[var(--ov-text)]"
               title="表格网格"
               aria-label="表格网格"
             >
@@ -227,11 +247,11 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                 setRawText(serializeCsv(headers, rows, delimiter));
                 setViewMode('raw');
               }}
-              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs transition ${
-                viewMode === 'raw'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'raw' ? 'var(--ov-accent, #10b981)' : 'transparent',
+                color: viewMode === 'raw' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs transition hover:text-[var(--ov-text)]"
               title="源码编辑"
               aria-label="源码编辑"
             >
@@ -243,7 +263,10 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
           {/* Search Box (Table mode) */}
           {viewMode === 'table' && (
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search
+                style={{ color: 'var(--ov-text-muted)' }}
+                className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2"
+              />
               <input
                 type="text"
                 value={searchQuery}
@@ -252,7 +275,12 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                   setPage(1);
                 }}
                 placeholder={t('csvSearch', locale)}
-                className="pl-8 pr-3 py-1 bg-slate-950 border border-slate-800 rounded-md text-slate-200 text-xs w-36 sm:w-48 focus:w-60 focus:border-emerald-500 transition-all outline-none"
+                style={{
+                  backgroundColor: 'var(--ov-bg)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="pl-8 pr-3 py-1 border rounded-md text-xs w-36 sm:w-48 focus:w-60 focus:border-[var(--ov-accent)] transition-all outline-none"
               />
             </div>
           )}
@@ -265,7 +293,12 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
               </span>
               <button
                 onClick={handleRevert}
-                className="flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 text-[11px] transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                 title="撤销当前未保存的修改，恢复原始文件状态"
               >
                 <RotateCcw className="w-3 h-3 text-amber-400" />
@@ -283,21 +316,33 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
               {/* Data Profiling / Sparkline Toggle Button */}
               <button
                 onClick={() => setShowProfiling(!showProfiling)}
-                className={`flex items-center gap-1 px-2 py-1 rounded border text-xs transition ${
-                  showProfiling
-                    ? 'bg-emerald-600/30 border-emerald-500/60 text-emerald-300 shadow-sm'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-slate-700'
-                }`}
+                style={{
+                  backgroundColor: showProfiling
+                    ? 'rgba(16, 185, 129, 0.2)'
+                    : 'var(--ov-surface)',
+                  borderColor: showProfiling
+                    ? 'var(--ov-accent, #10b981)'
+                    : 'var(--ov-border)',
+                  color: showProfiling
+                    ? 'var(--ov-accent, #10b981)'
+                    : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded border text-xs transition hover:text-[var(--ov-text)]"
                 title={t('csvProfilingTooltip', locale)}
                 aria-label={t('csvProfiling', locale)}
               >
-                <Activity className={`w-3.5 h-3.5 ${showProfiling ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <Activity className={`w-3.5 h-3.5 ${showProfiling ? 'text-emerald-400' : ''}`} />
                 <span className="hidden sm:inline">{t('csvProfiling', locale)}</span>
               </button>
 
               <button
                 onClick={handleAddRowAtBottom}
-                className="flex items-center gap-1 px-2 py-1 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 rounded border border-emerald-700/60 text-xs transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded border text-xs transition hover:border-emerald-500 hover:text-emerald-400"
                 title="在表格底部追加新空白行"
                 aria-label="加行"
               >
@@ -306,7 +351,12 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
               </button>
               <button
                 onClick={() => setShowAddColDialog(true)}
-                className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 text-xs transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded border text-xs transition hover:border-blue-500 hover:text-blue-400"
                 title="在右侧追加新列"
                 aria-label="加列"
               >
@@ -320,27 +370,44 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowDelimiterMenu(!showDelimiterMenu)}
-              className="csv-dropdown-trigger flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 text-xs transition"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="csv-dropdown-trigger flex items-center gap-1 px-2 py-1 rounded border text-xs transition hover:text-[var(--ov-text)]"
               title="切换分隔符"
             >
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] font-mono" style={{ color: 'var(--ov-text-muted)' }}>
                 分隔: <strong className="text-emerald-400">{delimiter === '\t' ? '\\t' : delimiter}</strong>
               </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 opacity-70" />
             </button>
 
             {showDelimiterMenu && (
-              <div className="csv-dropdown-menu absolute right-0 mt-1.5 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-0.5">
-                <div className="px-2 py-1 text-[10px] text-slate-500 font-mono border-b border-slate-800">
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="csv-dropdown-menu absolute right-0 mt-1.5 w-40 border rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-0.5 backdrop-blur"
+              >
+                <div
+                  style={{ color: 'var(--ov-text-muted)', borderColor: 'var(--ov-border)' }}
+                  className="px-2 py-1 text-[10px] font-mono border-b"
+                >
                   选择列分隔符 (Delimiter)
                 </div>
                 {(Object.keys(delimiterLabelMap) as CsvDelimiter[]).map(d => (
                   <button
                     key={d}
                     onClick={() => handleChangeDelimiter(d)}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition ${
-                      delimiter === d ? 'bg-emerald-600/30 text-emerald-200 font-medium' : 'text-slate-300 hover:bg-slate-800'
-                    }`}
+                    style={{
+                      backgroundColor: delimiter === d ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                      color: delimiter === d ? 'var(--ov-accent, #10b981)' : 'var(--ov-text)',
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
                   >
                     <span>{delimiterLabelMap[d]}</span>
                     {delimiter === d && <Check className="w-3.5 h-3.5 text-emerald-400" />}
@@ -354,49 +421,66 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="csv-dropdown-trigger flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 text-xs transition"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="csv-dropdown-trigger flex items-center gap-1 px-2.5 py-1 rounded border text-xs transition hover:border-cyan-500 hover:text-cyan-400"
               title="导出与复制"
               aria-label="导出与复制"
             >
               <Download className="w-3.5 h-3.5 text-cyan-400" />
               <span className="hidden sm:inline">导出/复制</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 opacity-70" />
             </button>
 
             {showExportMenu && (
-              <div className="csv-dropdown-menu absolute right-0 mt-1.5 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-1">
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="csv-dropdown-menu absolute right-0 mt-1.5 w-52 border rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-1 backdrop-blur"
+              >
                 <button
                   onClick={handleDownloadCsv}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded-lg transition"
                 >
                   <Download className="w-3.5 h-3.5 text-emerald-400" />
                   <span>导出 CSV / TSV 文件</span>
                 </button>
                 <button
                   onClick={handleDownloadJson}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded-lg transition"
                 >
                   <FileText className="w-3.5 h-3.5 text-blue-400" />
                   <span>导出 JSON 数组结构 (.json)</span>
                 </button>
-                <div className="border-t border-slate-800 my-1" />
+                <div className="border-t my-1" style={{ borderColor: 'var(--ov-border)' }} />
                 <button
                   onClick={handleCopyRichTable}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded-lg transition"
                 >
                   {copiedType === 'rich' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />}
                   <span>{copiedType === 'rich' ? '富文本表格已复制' : '复制富文本 (直贴 Word/Excel)'}</span>
                 </button>
                 <button
                   onClick={handleCopyMarkdown}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded-lg transition"
                 >
                   {copiedType === 'markdown' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-amber-400" />}
                   <span>{copiedType === 'markdown' ? 'Markdown 表格已复制' : '复制为 Markdown 表格'}</span>
                 </button>
                 <button
                   onClick={handleCopyTsv}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded-lg transition"
                 >
                   {copiedType === 'tsv' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-purple-400" />}
                   <span>{copiedType === 'tsv' ? 'TSV 数据已复制' : '复制 TSV (直贴 Excel / 表格)'}</span>
@@ -410,8 +494,17 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
       {/* Main Viewport Content */}
       {viewMode === 'raw' ? (
         /* Raw Source Textarea Mode */
-        <div className="flex-1 flex flex-col bg-slate-950 p-2 overflow-hidden">
-          <div className="text-[11px] text-slate-500 font-mono px-2 py-1 flex items-center justify-between border-b border-slate-800">
+        <div
+          style={{
+            backgroundColor: 'var(--ov-bg)',
+            color: 'var(--ov-text)',
+          }}
+          className="flex-1 flex flex-col p-2 overflow-hidden"
+        >
+          <div
+            style={{ color: 'var(--ov-text-muted)', borderColor: 'var(--ov-border)' }}
+            className="text-[11px] font-mono px-2 py-1 flex items-center justify-between border-b"
+          >
             <span>原始 CSV 文本编辑器（直接编辑文本将自动同步至数据网格）</span>
             <span>{rawText.split('\n').length} 行 · UTF-8</span>
           </div>
@@ -419,7 +512,10 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
             value={rawText}
             onChange={e => handleRawTextChange(e.target.value)}
             spellCheck={false}
-            className="flex-1 w-full p-4 bg-transparent font-mono text-xs text-emerald-200 resize-none outline-none leading-relaxed selection:bg-emerald-600 selection:text-white"
+            style={{
+              color: 'var(--ov-text)',
+            }}
+            className="flex-1 w-full p-4 bg-transparent font-mono text-xs resize-none outline-none leading-relaxed selection:bg-emerald-600 selection:text-white"
             placeholder="Header1,Header2,Header3..."
           />
         </div>
@@ -430,10 +526,24 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
           <div className="flex-1 overflow-auto relative">
             <table className="w-full text-left border-collapse text-xs font-sans">
               {/* Sticky Table Header */}
-              <thead className="sticky top-0 bg-slate-900 border-b border-slate-800 z-20 shadow-sm">
+              <thead
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderBottomColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="sticky top-0 border-b z-20 shadow-sm"
+              >
                 <tr>
                   {/* Row Number & Action Column */}
-                  <th className="p-2.5 text-slate-500 font-mono w-14 text-center border-r border-slate-800 bg-slate-900/95 sticky left-0 z-30 select-none">
+                  <th
+                    style={{
+                      backgroundColor: 'var(--ov-surface-header)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text-muted)',
+                    }}
+                    className="p-2.5 font-mono w-14 text-center border-r sticky left-0 z-30 select-none"
+                  >
                     #
                   </th>
 
@@ -445,7 +555,12 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                     return (
                       <th
                         key={colIdx}
-                        className="p-2 font-semibold text-slate-300 border-r border-slate-800 bg-slate-900/95 transition select-none group min-w-[120px]"
+                        style={{
+                          backgroundColor: 'var(--ov-surface-header)',
+                          borderColor: 'var(--ov-border)',
+                          color: 'var(--ov-text)',
+                        }}
+                        className="p-2 font-semibold border-r transition select-none group min-w-[120px]"
                       >
                         {isEditingHeader ? (
                           <div className="flex items-center gap-1">
@@ -459,11 +574,20 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                                 if (e.key === 'Enter') handleCommitHeaderEdit();
                                 if (e.key === 'Escape') setEditingHeaderIdx(null);
                               }}
-                              className="w-full px-2 py-0.5 bg-slate-950 border border-emerald-500 rounded text-xs text-white outline-none"
+                              style={{
+                                backgroundColor: 'var(--ov-bg)',
+                                borderColor: 'var(--ov-accent)',
+                                color: 'var(--ov-text)',
+                              }}
+                              className="w-full px-2 py-0.5 border rounded text-xs outline-none"
                             />
                             <button
                               onClick={handleCommitHeaderEdit}
-                              className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-500"
+                              style={{
+                                backgroundColor: 'var(--ov-accent, #10b981)',
+                                color: '#ffffff',
+                              }}
+                              className="p-1 rounded hover:opacity-90"
                             >
                               <Check className="w-3 h-3" />
                             </button>
@@ -485,7 +609,10 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                                   <ArrowDown className="w-3 h-3 text-emerald-400 shrink-0" />
                                 )
                               ) : (
-                                <ArrowUpDown className="w-3 h-3 text-slate-600 group-hover:text-slate-400 shrink-0 transition" />
+                                <ArrowUpDown
+                                  style={{ color: 'var(--ov-text-muted)' }}
+                                  className="w-3 h-3 group-hover:opacity-100 opacity-60 shrink-0 transition"
+                                />
                               )}
                             </div>
 
@@ -496,24 +623,34 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                                   e.stopPropagation();
                                   setActiveColMenu(activeColMenu === colIdx ? null : colIdx);
                                 }}
-                                className="csv-dropdown-trigger p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded opacity-0 group-hover:opacity-100 transition"
+                                style={{ color: 'var(--ov-text-muted)' }}
+                                className="csv-dropdown-trigger p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] hover:text-[var(--ov-text)] rounded opacity-0 group-hover:opacity-100 transition"
                                 title="列操作菜单"
                               >
                                 <MoreVertical className="w-3 h-3" />
                               </button>
 
                               {activeColMenu === colIdx && (
-                                <div className="csv-dropdown-menu absolute right-0 mt-1 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 z-50 text-xs space-y-0.5">
+                                <div
+                                  style={{
+                                    backgroundColor: 'var(--ov-surface-header)',
+                                    borderColor: 'var(--ov-border)',
+                                    color: 'var(--ov-text)',
+                                  }}
+                                  className="csv-dropdown-menu absolute right-0 mt-1 w-36 border rounded-xl shadow-2xl p-1 z-50 text-xs space-y-0.5 backdrop-blur"
+                                >
                                   <button
                                     onClick={() => handleStartEditHeader(colIdx)}
-                                    className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-slate-200 hover:bg-slate-800 rounded-lg"
+                                    style={{ color: 'var(--ov-text)' }}
+                                    className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded-lg"
                                   >
                                     <Edit2 className="w-3 h-3 text-emerald-400" />
                                     <span>重命名列</span>
                                   </button>
                                   <button
                                     onClick={() => handleInsertColRight(colIdx)}
-                                    className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-slate-200 hover:bg-slate-800 rounded-lg"
+                                    style={{ color: 'var(--ov-text)' }}
+                                    className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded-lg"
                                   >
                                     <Plus className="w-3 h-3 text-blue-400" />
                                     <span>在右侧插入列</span>
@@ -521,7 +658,7 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                                   {headers.length > 1 && (
                                     <button
                                       onClick={() => handleDeleteColumn(colIdx)}
-                                      className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-red-400 hover:bg-red-950/40 rounded-lg"
+                                      className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-red-400 hover:bg-red-500/10 rounded-lg"
                                     >
                                       <Trash2 className="w-3 h-3 text-red-400" />
                                       <span>删除此列</span>
@@ -535,7 +672,10 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
 
                         {/* Column Sparkline & Data Profile Card Mini */}
                         {showProfiling && columnProfiles[colIdx] && (
-                          <div className="mt-1.5 pt-1 border-t border-slate-800/60">
+                          <div
+                            style={{ borderColor: 'var(--ov-border)' }}
+                            className="mt-1.5 pt-1 border-t opacity-90"
+                          >
                             <ColumnSparklineMini
                               profile={columnProfiles[colIdx]}
                               onClickInspect={profile => setInspectingProfile(profile)}
@@ -549,35 +689,56 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
               </thead>
 
               {/* Table Data Rows */}
-              <tbody className="divide-y divide-slate-850">
+              <tbody
+                style={{
+                  borderColor: 'var(--ov-border)',
+                }}
+                className="divide-y"
+              >
                 {paginatedIndexedRows.map(({ row, originalIndex }, pageRowIdx) => {
                   const displayRowNumber = (page - 1) * pageSize + pageRowIdx + 1;
 
                   return (
-                    <tr key={originalIndex} className="hover:bg-slate-900/60 transition group">
+                    <tr
+                      key={originalIndex}
+                      style={{
+                        borderColor: 'var(--ov-border)',
+                      }}
+                      className="hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.06))] transition group"
+                    >
                       {/* Row Index & Hover Row Action Controls */}
-                      <td className="p-1.5 text-slate-500 font-mono text-center border-r border-slate-800/80 bg-slate-950/60 sticky left-0 z-10 text-[11px] group-hover:bg-slate-900/90 transition">
+                      <td
+                        style={{
+                          backgroundColor: 'var(--ov-surface)',
+                          borderColor: 'var(--ov-border)',
+                          color: 'var(--ov-text-muted)',
+                        }}
+                        className="p-1.5 font-mono text-center border-r sticky left-0 z-10 text-[11px] group-hover:opacity-100 transition"
+                      >
                         <div className="flex items-center justify-center relative">
                           <span className="group-hover:hidden">{displayRowNumber}</span>
                           {/* Hover Action Buttons */}
                           <div className="hidden group-hover:flex items-center gap-0.5 justify-center">
                             <button
                               onClick={() => handleInsertRowBelow(originalIndex)}
-                              className="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded"
+                              style={{ color: 'var(--ov-text-muted)' }}
+                              className="p-1 hover:text-emerald-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
                               title="在下方插入新行"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
                             <button
                               onClick={() => handleDuplicateRow(originalIndex)}
-                              className="p-1 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded"
+                              style={{ color: 'var(--ov-text-muted)' }}
+                              className="p-1 hover:text-blue-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
                               title="复制此行"
                             >
                               <Copy className="w-3 h-3" />
                             </button>
                             <button
                               onClick={() => handleDeleteRow(originalIndex)}
-                              className="p-1 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded"
+                              style={{ color: 'var(--ov-text-muted)' }}
+                              className="p-1 hover:text-red-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
                               title="删除此行"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -596,8 +757,14 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                           <td
                             key={colIdx}
                             onDoubleClick={() => handleStartEditCell(originalIndex, colIdx, cellValue)}
-                            className={`p-2 border-r border-slate-800/40 text-slate-300 relative transition ${
-                              isEditingThisCell ? 'bg-slate-900 p-1' : 'hover:bg-slate-800/40 cursor-text'
+                            style={{
+                              borderColor: 'var(--ov-border)',
+                              color: 'var(--ov-text)',
+                            }}
+                            className={`p-2 border-r relative transition ${
+                              isEditingThisCell
+                                ? 'p-1 bg-[var(--ov-surface)]'
+                                : 'hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.06))] cursor-text'
                             }`}
                           >
                             {isEditingThisCell ? (
@@ -618,11 +785,20 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                                       handleCancelCellEdit();
                                     }
                                   }}
-                                  className="w-full px-2 py-1 bg-slate-950 border border-emerald-500 rounded text-xs text-white outline-none selection:bg-emerald-600"
+                                  style={{
+                                    backgroundColor: 'var(--ov-bg)',
+                                    borderColor: 'var(--ov-accent)',
+                                    color: 'var(--ov-text)',
+                                  }}
+                                  className="w-full px-2 py-1 border rounded text-xs outline-none"
                                 />
                                 <button
                                   onClick={() => handleCommitCellEdit(false)}
-                                  className="p-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded"
+                                  style={{
+                                    backgroundColor: 'var(--ov-accent, #10b981)',
+                                    color: '#ffffff',
+                                  }}
+                                  className="p-1 rounded hover:opacity-90"
                                   title="确认修改 (Enter)"
                                 >
                                   <CornerDownLeft className="w-3 h-3" />
@@ -634,12 +810,13 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                                   {cellValue ? (
                                     <HighlightedText text={cellValue} query={searchQuery} />
                                   ) : (
-                                    <span className="text-slate-600 italic">空</span>
+                                    <span style={{ color: 'var(--ov-text-muted)' }} className="italic">空</span>
                                   )}
                                 </span>
                                 <button
                                   onClick={() => handleStartEditCell(originalIndex, colIdx, cellValue)}
-                                  className="opacity-0 group-hover/cell:opacity-100 p-0.5 text-slate-500 hover:text-emerald-400 rounded transition ml-1"
+                                  style={{ color: 'var(--ov-text-muted)' }}
+                                  className="opacity-0 group-hover/cell:opacity-100 p-0.5 hover:text-[var(--ov-accent)] rounded transition ml-1"
                                   title="双击或点击编辑单元格"
                                 >
                                   <Edit2 className="w-3 h-3" />
@@ -656,14 +833,23 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                 {/* Empty State */}
                 {paginatedIndexedRows.length === 0 && (
                   <tr>
-                    <td colSpan={headers.length + 1} className="text-center py-16 text-slate-500">
+                    <td
+                      colSpan={headers.length + 1}
+                      style={{ color: 'var(--ov-text-muted)' }}
+                      className="text-center py-16"
+                    >
                       <div className="flex flex-col items-center justify-center gap-2">
-                        <FileSpreadsheet className="w-8 h-8 text-slate-600" />
+                        <FileSpreadsheet className="w-8 h-8 opacity-40" />
                         <span>{t('csvNoData', locale)}</span>
                         {searchQuery && (
                           <button
                             onClick={() => setSearchQuery('')}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs"
+                            style={{
+                              backgroundColor: 'var(--ov-surface)',
+                              borderColor: 'var(--ov-border)',
+                              color: 'var(--ov-text)',
+                            }}
+                            className="px-2.5 py-1 rounded text-xs border hover:border-[var(--ov-accent)]"
                           >
                             清除搜索条件
                           </button>

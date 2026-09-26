@@ -2,8 +2,6 @@
  * OmniView 原生专业 Excel (.xlsx / .xls) 纯前端离线工作簿工作台 (XlsxViewer)
  * 基于 OOXML 架构与 JSZip 离线解包管道
  * 支持多工作表 (Multi-Sheet Tabs)、公式/计算值检视、数据搜索与排序列、列特征画像 (Profiling) 及 CSV/JSON/Markdown 导出
- * 
- * 作者: 周赞
  */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {

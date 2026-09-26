@@ -195,7 +195,14 @@ export const TypstViewer: React.FC<TypstViewerProps> = ({
   };
 
   return (
-    <div id="typst-viewer-container" className="flex-1 flex flex-col min-h-0 bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div
+      id="typst-viewer-container"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="flex-1 flex flex-col min-h-0 overflow-hidden font-sans"
+    >
       {/* 顶部工具栏 */}
       <TypstToolbar
         studioMode={studioMode}

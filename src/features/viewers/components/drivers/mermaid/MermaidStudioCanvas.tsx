@@ -30,6 +30,8 @@ import {
 } from '../../../lib/diagramPlaybackEngine';
 import { getMermaidConfig } from '../../../../../shared/lib/mermaidConfig';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
+import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
+import { solidifySvgString } from '../../../../../shared/lib/svgSolidifier';
 
 interface MermaidStudioCanvasProps {
   code: string;
@@ -61,6 +63,7 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
   const [compileError, setCompileError] = useState<string | null>(null);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
   const [isPngExporting, setIsPngExporting] = useState<boolean>(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
 
@@ -270,13 +273,29 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // 导出高清 PNG
+  // 复制高清图片到剪贴板 (PNG)
+  const handleCopyImage = async () => {
+    if (!svgContent || isCopiedImage) return;
+    const isDark = document.documentElement.getAttribute('data-theme')?.includes('dark') ?? true;
+    const success = await copySvgOrImageToClipboard(svgContent, false, {
+      backgroundColor: isDark ? '#1e1e1e' : '#ffffff',
+      scale: 3,
+    });
+    if (success) {
+      setIsCopiedImage(true);
+      setTimeout(() => setIsCopiedImage(false), 1600);
+    }
+  };
+
+  // 导出高清 PNG (固化图元与样式)
   const handleExportPng = () => {
     if (!svgContent) return;
     setIsPngExporting(true);
 
     try {
-      const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+      const isDark = document.documentElement.getAttribute('data-theme')?.includes('dark') ?? true;
+      const safeSvg = solidifySvgString(svgContent, { isDarkTheme: isDark });
+      const svgBlob = new Blob([safeSvg], { type: 'image/svg+xml;charset=utf-8' });
       const blobUrl = URL.createObjectURL(svgBlob);
       const img = new Image();
 
@@ -289,7 +308,6 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
 
         if (ctx) {
           // 填充浅色/深色背景
-          const isDark = document.documentElement.getAttribute('data-theme')?.includes('dark') ?? true;
           ctx.fillStyle = isDark ? '#1e1e1e' : '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -482,6 +500,16 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
             title="复制 SVG 矢量源码"
           >
             {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Copy Image PNG */}
+          <button
+            onClick={handleCopyImage}
+            style={{ color: isCopiedImage ? '#4ade80' : 'var(--ov-text-secondary)' }}
+            className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded transition"
+            title="复制高清图片 (PNG)"
+          >
+            {isCopiedImage ? <Check className="w-3.5 h-3.5" /> : <ImageIcon className="w-3.5 h-3.5" />}
           </button>
 
           {/* Download SVG */}

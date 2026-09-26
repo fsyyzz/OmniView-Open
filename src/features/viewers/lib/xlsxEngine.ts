@@ -2,8 +2,6 @@
  * OmniView 原生 Excel (.xlsx / .xls) 纯前端离线解析与工作簿提取引擎 (xlsxEngine)
  * 基于 OOXML (Open Packaging Conventions) 标准与 JSZip 离线解包管道
  * 支持多工作表 (Worksheets)、共享字符串池 (SharedStrings)、公式计算值、单元格坐标对齐与多格式导出
- * 
- * 作者: 周赞
  */
 import JSZip from 'jszip';
 
@@ -573,8 +571,8 @@ export async function generateSampleXlsxZip(): Promise<JSZip> {
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
   <dc:title>OmniView 业务数据总览与预算报表</dc:title>
-  <dc:creator>周赞</dc:creator>
-  <cp:lastModifiedBy>周赞</cp:lastModifiedBy>
+  <dc:creator>OmniView Architecture Team</dc:creator>
+  <cp:lastModifiedBy>OmniView Architecture Team</cp:lastModifiedBy>
   <dcterms:created xsi:type="dcterms:W3CDTF" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">2026-09-17T12:00:00Z</dcterms:created>
   <dcterms:modified xsi:type="dcterms:W3CDTF" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">2026-09-17T12:00:00Z</dcterms:modified>
 </cp:coreProperties>`
@@ -635,7 +633,7 @@ export async function generateSampleXlsxZip(): Promise<JSZip> {
     'Office 三剑客解析组件', '离线组件库', '650000', '880000', '1050000', '1350000', '3930000', '52.1%', '超额达成',
     // Sheet 2 Strings
     '部门与支出项目', '负责人', '年度规划预算 (¥)', '实际已执行支出 (¥)', '剩余可用预算 (¥)', '预算执行率', '风险预警',
-    'AI 核心架构组', '周赞', '5000000', '3200000', '1800000', '64.0%', '正常',
+    'AI 核心架构组', '赵工', '5000000', '3200000', '1800000', '64.0%', '正常',
     '前端体验与渲染组', '李工', '3500000', '2450000', '1050000', '70.0%', '正常',
     '云原生基础设施组', '王工', '4000000', '3100000', '900000', '77.5%', '关注',
     '质量工程与对抗测试组', '张工', '2000000', '1300000', '700000', '65.0%', '正常'

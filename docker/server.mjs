@@ -4,7 +4,6 @@
  * 1. 托管 OmniView Web 纯静态 SPA 工作台
  * 2. 智能反向代理 /plantuml/* 到内部 PlantUML 渲染服务
  * 3. 提供 /api/health 健康探针
- * 作者: 周赞
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -139,8 +138,7 @@ const server = http.createServer((req, res) => {
       JSON.stringify({
         status: 'UP',
         service: 'OmniView Unified Rendering Hub',
-        version: '0.11.9',
-        author: '周赞',
+        version: '1.0.28',
         timestamp: new Date().toISOString(),
         features: {
           webWorkbench: true,
@@ -163,7 +161,6 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
   console.log(`🚀 OmniView 集中渲染应用已就绪!`);
-  console.log(`   - 作者: 周赞`);
   console.log(`   - 监听端口: http://0.0.0.0:${PORT}`);
   console.log(`   - Web 工作台: http://localhost:${PORT}/`);
   console.log(`   - PlantUML 离线渲染入口: http://localhost:${PORT}/plantuml/`);

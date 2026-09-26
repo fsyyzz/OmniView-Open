@@ -1,8 +1,6 @@
 /**
  * OmniView 原生图像引擎与像素级分析工具集 (imageEngine)
  * 提供 EXIF 解析、色彩空间换算 (RGBA/HEX/HSLA)、像素采样取色、直方图主色调提取与无损转换
- * 
- * 作者: 周赞
  */
 
 export interface ImageMetadata {

@@ -246,33 +246,58 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   const showCopyText = headerWidth >= 400;
 
   return (
-    <div id="structured-data-viewer" className="h-full w-full flex flex-col bg-slate-950 font-sans text-xs text-slate-300 select-text overflow-hidden">
+    <div
+      id="structured-data-viewer"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full w-full flex flex-col font-sans text-xs select-text overflow-hidden"
+    >
       {/* 顶部主工作台控制工具栏 */}
       <div
         ref={headerRef}
-        className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none gap-2 min-w-0"
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between px-3 py-1.5 border-b text-xs shrink-0 select-none gap-2 min-w-0"
       >
         {/* 左侧：文件基本元信息与视图模式切换器 */}
         <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1 mr-1">
           <div className="flex items-center gap-1.5 mr-1 shrink-0 min-w-0">
             <FileCode className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-            <span className="font-semibold text-slate-200 truncate max-w-[120px] sm:max-w-[180px]" title={fileName}>{fileName}</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 font-mono uppercase shrink-0">
+            <span className="font-semibold truncate max-w-[120px] sm:max-w-[180px]" style={{ color: 'var(--ov-text)' }} title={fileName}>{fileName}</span>
+            <span
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-accent)',
+              }}
+              className="text-[10px] px-1.5 py-0.2 rounded border font-mono uppercase shrink-0"
+            >
               {extension}
             </span>
           </div>
 
-          <div className="h-4 w-px bg-slate-800 shrink-0" />
+          <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-4 w-px shrink-0" />
 
           {/* 核心多态视图切换选项卡 */}
-          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 shrink-0 gap-0.5">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center p-0.5 rounded-lg border shrink-0 gap-0.5"
+          >
             <button
               onClick={() => setViewMode('tree')}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
-                viewMode === 'tree'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'tree' ? 'var(--ov-accent, #6366f1)' : 'transparent',
+                color: viewMode === 'tree' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer hover:text-[var(--ov-text)]`}
               title="交互式可折叠结构树"
               aria-label="结构树 (Tree)"
             >
@@ -282,11 +307,11 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
 
             <button
               onClick={() => setViewMode('mindmap')}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
-                viewMode === 'mindmap'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'mindmap' ? 'var(--ov-accent, #6366f1)' : 'transparent',
+                color: viewMode === 'mindmap' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer hover:text-[var(--ov-text)]`}
               title="无损投影为交互式全景思维导图"
               aria-label="思维导图 (Mindmap)"
             >
@@ -298,11 +323,11 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
             {arrayDetection.detected && (
               <button
                 onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
-                  viewMode === 'table'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
-                }`}
+                style={{
+                  backgroundColor: viewMode === 'table' ? 'var(--ov-accent, #6366f1)' : 'transparent',
+                  color: viewMode === 'table' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer hover:text-[var(--ov-text)]`}
                 title={`检测到数组结构 (${arrayDetection.rows.length} 项)，一键切换数据表格与图表`}
                 aria-label={`数据表格 (${arrayDetection.rows.length})`}
               >
@@ -315,11 +340,11 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
             {topologyMermaid && (
               <button
                 onClick={() => setViewMode('topology')}
-                className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
-                  viewMode === 'topology'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
-                }`}
+                style={{
+                  backgroundColor: viewMode === 'topology' ? 'var(--ov-accent, #6366f1)' : 'transparent',
+                  color: viewMode === 'topology' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer hover:text-[var(--ov-text)]`}
                 title="检测到声明式微服务配置，自动生成依赖与网络架构拓扑图"
                 aria-label="服务拓扑 (Topology)"
               >
@@ -330,11 +355,11 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
 
             <button
               onClick={() => setViewMode('code')}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
-                viewMode === 'code'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'code' ? 'var(--ov-accent, #6366f1)' : 'transparent',
+                color: viewMode === 'code' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2 sm:px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer hover:text-[var(--ov-text)]`}
               title="原始文本高亮与编辑"
               aria-label="代码文本 (Code)"
             >
@@ -349,14 +374,19 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           {/* 结构感知检索框 (仅树模式展示) */}
           {showSearch && viewMode === 'tree' && (
             <div className="relative flex items-center">
-              <Search className="w-3 h-3 text-slate-500 absolute left-2 pointer-events-none" />
+              <Search className="w-3 h-3 absolute left-2 pointer-events-none" style={{ color: 'var(--ov-text-muted)' }} />
               <input
                 ref={searchInputRef}
                 type="text"
                 placeholder="搜索 Key 或 Value (Ctrl+F)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-32 sm:w-44 pl-6 pr-2 py-0.8 bg-slate-950 border border-slate-800 rounded-md text-[11px] text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="w-32 sm:w-44 pl-6 pr-2 py-0.8 border rounded-md text-[11px] outline-none transition focus:border-[var(--ov-accent)]"
               />
             </div>
           )}
@@ -364,15 +394,16 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           {/* 敏感信息脱敏防护开关 (Secret Masking) */}
           <button
             onClick={() => setMaskSecrets(!maskSecrets)}
-            className={`flex items-center gap-1 ${showMaskText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer border ${
-              maskSecrets
-                ? 'bg-rose-950/50 text-rose-300 border-rose-800/70 hover:bg-rose-900/60'
-                : 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:text-slate-200 hover:bg-slate-850'
-            }`}
+            style={{
+              backgroundColor: maskSecrets ? 'rgba(225, 29, 72, 0.15)' : 'var(--ov-surface)',
+              borderColor: maskSecrets ? 'rgba(225, 29, 72, 0.4)' : 'var(--ov-border)',
+              color: maskSecrets ? '#f43f5e' : 'var(--ov-text-secondary)',
+            }}
+            className={`flex items-center gap-1 ${showMaskText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md text-[11px] font-medium transition cursor-pointer border hover:text-[var(--ov-text)]`}
             title={maskSecrets ? '敏感密钥保护中 (已遮罩密码/Token)，点击解除' : '已显示明文，点击开启敏感信息遮罩'}
             aria-label={maskSecrets ? '脱敏防护' : '明文模式'}
           >
-            {maskSecrets ? <Shield className="w-3 h-3 text-rose-400" /> : <ShieldAlert className="w-3 h-3 text-slate-400" />}
+            {maskSecrets ? <Shield className="w-3 h-3 text-rose-400" /> : <ShieldAlert className="w-3 h-3" />}
             {showMaskText && <span>{maskSecrets ? '脱敏防护' : '明文模式'}</span>}
           </button>
 
@@ -380,7 +411,12 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           {parseResult.success && (
             <button
               onClick={() => setIsConverterOpen(true)}
-              className={`flex items-center gap-1 ${showConverterText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-800/60 text-[11px] font-medium transition cursor-pointer`}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1 ${showConverterText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md border text-[11px] font-medium transition cursor-pointer hover:border-[var(--ov-accent)] hover:text-[var(--ov-accent)]`}
               title="JSON ⇄ YAML ⇄ TOML ⇄ XML 实时本地转换"
               aria-label="格式互转"
             >
@@ -392,7 +428,12 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
           {/* 一键复制源码 */}
           <button
             onClick={handleCopySource}
-            className={`flex items-center gap-1 ${showCopyText ? 'px-2' : 'p-1.5'} py-1 rounded-md bg-slate-800 hover:bg-slate-750 text-slate-300 text-[11px] transition cursor-pointer`}
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2' : 'p-1.5'} py-1 rounded-md border text-[11px] transition cursor-pointer hover:border-[var(--ov-accent)]`}
             title="复制原始源码"
             aria-label="复制"
           >
@@ -406,7 +447,12 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
               type="button"
               id="btn-open-in-native-editor"
               onClick={onOpenInEditor}
-              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-medium transition cursor-pointer`}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5' : 'p-1.5'} py-1 rounded-md border text-[11px] font-medium transition cursor-pointer hover:border-sky-500 hover:text-sky-400`}
               title="在 VS Code 原生文本编辑器中并排编辑"
               aria-label="在编辑器中打开"
             >

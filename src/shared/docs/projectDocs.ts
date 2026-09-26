@@ -63,26 +63,50 @@ flowchart TB
 
 ---
 
-## 三、五大核心驱动与渲染流水线架构
+## 三、统一微内核多格式驱动与渲染流水线架构 (18+ 驱动生态)
 
 OmniViewer 采用微内核设计，文件进入系统后经由扩展名路由分发至专属 Driver 沙箱进行解析渲染：
 
 \`\`\`mermaid
 flowchart LR
     UserFile["📄 用户打开目标文件"] --> Detector{"扩展名路由匹配"}
-    Detector -->|".md / .markdown"| DrvMD["📝 Markdown 驱动<br/>(GFM + Mermaid + PlantUML)"]
+    Detector -->|".md / .markdown"| DrvMD["📝 Markdown 驱动<br/>(GFM + KaTeX + 表格 + 图表)"]
     Detector -->|".puml / .plantuml"| DrvPUML["🌐 PlantUML 驱动<br/>(双栏编写 + 毫秒级预览)"]
-    Detector -->|".svg"| DrvSVG["🎨 SVG 矢量驱动<br/>(平移缩放 + DOM 树分析)"]
-    Detector -->|".pdf"| DrvPDF["📖 PDF 专业驱动<br/>(多页连续 + 视口自适应)"]
-    Detector -->|".csv / .tsv"| DrvCSV["📊 表格智能网格<br/>(虚拟滚动 + 排序检索)"]
+    Detector -->|".svg"| DrvSVG["🎨 SVG 矢量驱动<br/>(SVG Studio + 图元微调)"]
+    Detector -->|".pdf"| DrvPDF["📖 PDF 专业驱动<br/>(流式/翻页 + 划词批注)"]
+    Detector -->|".csv / .tsv"| DrvCSV["📊 表格智能网格<br/>(虚拟滚动 + 统计画像)"]
+    Detector -->|".mmd / .mermaid"| DrvMMD["📊 Mermaid 驱动<br/>(流程/时序/甘特/状态机)"]
+    Detector -->|".dot / .gv"| DrvGV["🔀 Graphviz 驱动<br/>(WASM 多布局 + 拓扑渲染)"]
+    Detector -->|".markmap / .mm"| DrvMM["🧠 思维导图驱动<br/>(双向分屏 + 节点展开)"]
+    Detector -->|".egn / .domainstory"| DrvDS["👥 领域故事驱动<br/>(业务建模 + 逐帧演播)"]
+    Detector -->|".excalidraw"| DrvEXC["✏️ Excalidraw 白板<br/>(手绘白板 + 双向分屏)"]
+    Detector -->|".ipynb"| DrvNB["📓 Notebook 驱动<br/>(单元格渲染 + ANSI 高亮)"]
+    Detector -->|".typ / .typst"| DrvTYP["📑 Typst 现代排版<br/>(端侧 AST + A4 2.0 出版)"]
+    Detector -->|".json / .yaml / .xml"| DrvDATA["🌲 结构化数据驱动<br/>(树/导图/表格/脱敏)"]
+    Detector -->|".docx"| DrvDOCX["📄 Word 拟真排版<br/>(OOXML 离线解包 + A4)"]
+    Detector -->|".pptx"| DrvPPTX["📽️ PPTX 幻灯片<br/>(矢量画布 + 沉浸放映)"]
+    Detector -->|".xlsx / .xls"| DrvXLSX["📗 Excel 工作簿<br/>(多工作表 + 迷你走势)"]
+    Detector -->|".png / .jpg / .webp"| DrvIMG["🖼️ 现代图像工作台<br/>(3200% 缩放 + 16x 取色)"]
 
     DrvMD --> WebviewStage["🖥️ VS Code Webview 隔离沙箱"]
     DrvPUML --> WebviewStage
     DrvSVG --> WebviewStage
     DrvPDF --> WebviewStage
     DrvCSV --> WebviewStage
+    DrvMMD --> WebviewStage
+    DrvGV --> WebviewStage
+    DrvMM --> WebviewStage
+    DrvDS --> WebviewStage
+    DrvEXC --> WebviewStage
+    DrvNB --> WebviewStage
+    DrvTYP --> WebviewStage
+    DrvDATA --> WebviewStage
+    DrvDOCX --> WebviewStage
+    DrvPPTX --> WebviewStage
+    DrvXLSX --> WebviewStage
+    DrvIMG --> WebviewStage
 
-    WebviewStage --> Actions["⚡ 导出 SVG / 无损打印 / 代码联动"]
+    WebviewStage --> Actions["⚡ 导出 SVG / 无损打印 / 代码联动 / 剪贴板清洗"]
 \`\`\`
 
 ---
@@ -90,14 +114,15 @@ flowchart LR
 ## 四、产品功能性需求规格 (Functional Requirements)
 
 ### FR-01: Markdown 核心扩展渲染器 (Markdown Driver)
-* **FR-01.1 (GFM 标准)**：完全支持 GitHub Flavored Markdown，包括代码高亮、表格、任务清单复选框、删除线、引用块等。
-* **FR-01.2 (Mermaid 异步图表)**：自动捕获 \`\`\`mermaid 代码块，动态调起 Mermaid 10+ 渲染引擎，支持 flowchart、sequenceDiagram、classDiagram、gantt 等，图表支持点击放大与复制 SVG。
-* **FR-01.3 (PlantUML 动态编译)**：自动捕获 \`\`\`plantuml 代码块，通过轻量级 Deflate 编码转换为矢量 SVG 并渲染，语法错误时提供优雅告警卡片。
-* **FR-01.4 (矢量 SVG 混排)**：原生支持 Markdown 中直接内联 \`<svg>\` 标签以及外链 SVG 图像。
+* **FR-01.1 (GFM 标准与块级解耦)**：完全支持 GitHub Flavored Markdown，包括代码高亮、表格、任务清单复选框、删除线、引用块等。
+* **FR-01.2 (嵌入式图表混排)**：自动捕获 \`\`\`mermaid、\`\`\`plantuml、\`\`\`dot、\`\`\`svg、\`\`\`domainstory 代码块，动态调起对应专用引擎矢量渲染并支持双击全屏沉浸灯箱。
+* **FR-01.3 (KaTeX 数学公式)**：原生支持行内 \`$ ... $\` 与块级 \`$$ ... $$\` 复杂学术公式混排与矢量导出。
+* **FR-01.4 (Word/WPS 剪贴板清洗)**：拦截复制事件，自动去除外层边框与交互手柄，将图表自动光栅化为 300+ DPI Base64 PNG，双通道兼容写入。
+* **FR-01.5 (性能预算与慢块监控)**：对单块耗时超 800ms 的复杂渲染块在大纲树展示告警徽章，保障长文档流畅操作。
 
 ### FR-02: SVG 矢量设计与交互式工作台 (SVG Studio Driver)
-* **FR-02.1 (多级交互视口)**：支持鼠标滚轮或手势以 10% ~ 500% 平滑平移缩放，提供“自适应画布 (Fit)”与“1:1 还原”快捷指令。
-* **FR-02.2 (背景模式切换)**：支持暗色棋盘格 (Dark Checkerboard)、亮色棋盘格 (Light Checkerboard) 与纯色底板切换，适应透明矢量图检查。
+* **FR-02.1 (多级交互视口)**：支持鼠标滚轮或手势以 10% ~ 3200% 平滑平移缩放，提供“自适应画布 (Fit)”与“1:1 还原”快捷指令。
+* **FR-02.2 (背景模式切换)**：支持暗色棋盘格 (Dark Checkerboard)、亮色棋盘格 (Light Checkerboard) 与纯色底板切换。
 * **FR-02.3 (元数据检查器)**：提取并展示 viewBox 尺寸、DOM 节点总数、图元图层数量与文件尺寸。
 * **FR-02.4 (双向代码对比与编辑)**：支持在图形视图、代码视图与双栏分屏视图之间秒级切换，支持可拖拽分屏中线与比例持久化。
 * **FR-02.5 (图元多级微调与层级)**：支持在画布中点选图元，实时微调其坐标、尺寸、填充色、描边宽度、圆角与透明度，支持图层置顶/置底与反向定位源码行号。
@@ -121,9 +146,21 @@ flowchart LR
 * **FR-05.3 (数学公式与学术大纲)**：集成 KaTeX 渲染行内 \`$ ... $\` 与块级公式，实时提取文档目录大纲 (TOC) 并支持平滑点击跳转。
 * **FR-05.4 (快捷片段与高精度导出)**：提供物理分页、学术公式、代码块等快捷插入片段，支持连续/单页/双页多重视图切换、单页 SVG 导出与无损 A4 打印。
 
-### FR-06: 智能表格数据网格 (CSV Driver)
-* **FR-06.1 (高亮网格化展示)**：解析逗号与制表符分隔文本，自适应列宽。
+### FR-06: 智能表格数据网格 (CSV/TSV Driver)
+* **FR-06.1 (高亮网格化展示)**：RFC 4180 标准解析逗号与制表符分隔文本，列宽自由拖拽与持久化。
 * **FR-06.2 (排序与全局检索)**：支持任意列的数字/字典升降序排列，输入关键词即时过滤。
+* **FR-06.3 (数据统计画像 Profiling)**：自动分析列数据分布、空值率、最大值/最小值与唯一值计数。
+
+### FR-07: Office 三件套纯前端离线工作台 (DOCX / PPTX / XLSX)
+* **FR-07.1 (Word DOCX 拟真排版)**：基于 OOXML 解包，支持 A4 纸张拟真、复杂表格单元格合并、嵌入图片与暗色反转。
+* **FR-07.2 (PowerPoint PPTX 演播工作台)**：纯离线解包矢量形状，支持 16:9 / 4:3 画布自适应、全屏放映与演讲者备注。
+* **FR-07.3 (Excel XLSX 多工作表工作簿)**：支持多工作表标签页毫秒级切换、共享字符串池、公式计算值解析与多格式导出。
+
+### FR-08: 现代多媒体与学术工作台 (EPUB / Notebook / Excalidraw / Image)
+* **FR-08.1 (EPUB 流式电子书)**：双叶并排跨页、单页流式、连续滚动三重形态，3D 翻书动效，阅读进度断点续读。
+* **FR-08.2 (Jupyter Notebook)**：离线解析 \`.ipynb\` v4，支持 Markdown 单元格混排、代码单元格高亮与 ANSI 异常栈解析。
+* **FR-08.3 (Excalidraw 白板)**：手绘白板工作室，图元自由绘制、双向分屏编辑与矢量无损导出。
+* **FR-08.4 (现代图像工作台)**：10%~3200% 极清矢量缩放、16x 十字放大镜取色器 (HEX/RGBA/HSLA) 与 EXIF 深度元数据透视。
 
 ---
 
@@ -205,12 +242,14 @@ flowchart TB
 
         subgraph DriverBus ["Driver Micro-Kernel (驱动微内核总线)"]
             DrvMD2["Markdown Driver<br/>Marked GFM 引擎"]
-            DrvMM2["Mindmap Driver<br/>Markmap 深度引擎 (.markmap, .mm, .mindmap, .km)"]
-            DrvSVG2["SVG Driver<br/>平移缩放与 AST 分析器"]
+            DrvMM2["Mindmap Driver<br/>Markmap 深度引擎"]
+            DrvSVG2["SVG Driver<br/>SVG Studio 交互微调"]
             DrvPDF2["PDF Driver<br/>Mozilla PDF.js 核心"]
-            DrvTYP2["Typst Driver<br/>纯端侧 AST 与 A4 2.0 排版引擎"]
+            DrvTYP2["Typst Driver<br/>纯端侧 AST 与 A4 2.0 排版"]
             DrvPUML2["PlantUML Driver<br/>Deflate 实时编译与私有节点"]
-            DrvCSV2["CSV Grid Driver<br/>高容量虚拟化表格"]
+            DrvCSV2["CSV Grid Driver<br/>高容量虚拟化表格与画像"]
+            DrvOffice2["Office Drivers<br/>DOCX / PPTX / XLSX 纯离线工作台"]
+            DrvApp2["Media & Data Drivers<br/>EPUB / Notebook / Excalidraw / Image / JSON"]
         end
 
         subgraph SubEngines ["动态按需异步子引擎 (Lazy-Loaded)"]

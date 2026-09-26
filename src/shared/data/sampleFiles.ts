@@ -2867,7 +2867,7 @@ Our empirical results demonstrate that 2D square lattice layouts can achieve arb
       info: {
         title: '跨境电商订单智能履约领域故事',
         description: '基于 egon.io 标准规范的微服务与仓储物流全链路故事模型',
-        author: '周赞'
+        author: 'OmniView Architecture Team'
       },
       actors: [
         { id: 'actor-buyer', name: '在线买家', type: 'person', x: 120, y: 140 },

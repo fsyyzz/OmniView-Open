@@ -326,17 +326,31 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
           <span className="font-semibold text-emerald-400 shrink-0">Graphviz</span>
           
           {/* 布局引擎选择器 */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-750 px-1.5 py-0.5 rounded text-[11px] shrink-0">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center gap-1 border px-1.5 py-0.5 rounded text-[11px] shrink-0"
+          >
             <Layers className="w-3 h-3 text-emerald-400" />
             <select
               value={engine}
               onChange={e => setEngine(e.target.value as GraphvizEngine)}
-              className="bg-transparent text-slate-300 font-mono text-[11px] outline-none cursor-pointer"
+              style={{ color: 'var(--ov-text)' }}
+              className="bg-transparent font-mono text-[11px] outline-none cursor-pointer"
               title="切换 Graphviz 布局计算引擎"
               aria-label="布局引擎"
             >
               {GRAPHVIZ_ENGINES.map(eng => (
-                <option key={eng.id} value={eng.id} className="bg-slate-900 text-slate-200">
+                <option
+                  key={eng.id}
+                  value={eng.id}
+                  style={{
+                    backgroundColor: 'var(--ov-surface-header)',
+                    color: 'var(--ov-text)',
+                  }}
+                >
                   {eng.label}
                 </option>
               ))}

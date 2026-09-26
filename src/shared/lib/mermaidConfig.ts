@@ -11,7 +11,7 @@ export function getMermaidConfig(isDark: boolean): MermaidConfig {
     fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     theme: isDark ? 'dark' : 'default',
     flowchart: {
-      htmlLabels: true,
+      htmlLabels: false,
       curve: 'basis',
       padding: 15,
       useMaxWidth: true,

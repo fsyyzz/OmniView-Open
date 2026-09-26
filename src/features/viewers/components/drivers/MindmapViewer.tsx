@@ -347,30 +347,53 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   return (
     <div
       id="mindmap-studio-container"
-      className="h-full w-full flex flex-col bg-slate-950 text-slate-200 select-none relative overflow-hidden"
+      style={{
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+      className="h-full w-full flex flex-col select-none relative overflow-hidden"
     >
       {/* 顶部主工作栏 */}
       <header
         ref={headerRef}
-        className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 gap-2 z-20 min-w-0"
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderBottomColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between px-3 py-1.5 border-b text-xs shrink-0 gap-2 z-20 min-w-0"
       >
         {/* 左侧：文件标识与同步状态 */}
         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden mr-2">
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 font-mono text-[11px] font-semibold shrink-0">
-            <GitFork className="w-3.5 h-3.5 text-cyan-400" />
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-accent)',
+            }}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded border font-mono text-[11px] font-semibold shrink-0"
+          >
+            <GitFork className="w-3.5 h-3.5" />
             <span>MINDMAP STUDIO</span>
           </div>
 
-          <span className="font-medium text-slate-200 truncate" title={fileName}>
+          <span className="font-medium truncate" style={{ color: 'var(--ov-text)' }} title={fileName}>
             {fileName}
           </span>
 
-          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono shrink-0">
+          <span
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="text-[10px] uppercase px-1.5 py-0.5 rounded border font-mono shrink-0"
+          >
             {extension}
           </span>
 
           {/* 实时同步状态指示灯 */}
-          <div className="flex items-center gap-1 text-[11px] font-mono text-slate-400 shrink-0" title={isSynced ? '已实时同步' : '编辑中...'}>
+          <div className="flex items-center gap-1 text-[11px] font-mono shrink-0" style={{ color: 'var(--ov-text-secondary)' }} title={isSynced ? '已实时同步' : '编辑中...'}>
             <span
               className={`w-2 h-2 rounded-full transition-colors shrink-0 ${
                 isSynced ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-amber-400 animate-pulse'
@@ -382,15 +405,23 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
 
         {/* 中间：视图模式切换与分屏预设比例 */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-md border border-slate-800 text-[11px] gap-0.5">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center p-0.5 rounded-md border text-[11px] gap-0.5"
+          >
             <button
               onClick={() => {
                 setViewMode('mindmap');
                 saveStoredSettings({ mindmapViewMode: 'mindmap' });
               }}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
-                viewMode === 'mindmap' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'mindmap' ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                color: viewMode === 'mindmap' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition hover:text-[var(--ov-text)]`}
               title="全屏交互式思维导图 (方案A默认推荐模式)"
               aria-label="全屏导图"
             >
@@ -403,9 +434,11 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                 setViewMode('split');
                 saveStoredSettings({ mindmapViewMode: 'split' });
               }}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
-                viewMode === 'split' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'split' ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition hover:text-[var(--ov-text)]`}
               title="内置分屏双向编辑与实时预览"
               aria-label="内置分屏"
             >
@@ -418,9 +451,11 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                 setViewMode('editor');
                 saveStoredSettings({ mindmapViewMode: 'editor' });
               }}
-              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition ${
-                viewMode === 'editor' ? 'bg-cyan-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                backgroundColor: viewMode === 'editor' ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                color: viewMode === 'editor' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showModeLabels ? 'px-2' : 'p-1.5'} py-1 rounded transition hover:text-[var(--ov-text)]`}
               title="仅查看内置源码"
               aria-label="内置源码"
             >
@@ -431,15 +466,23 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
 
           {/* 分屏模式下的比例快捷按钮 */}
           {viewMode === 'split' && showRatios && (
-            <div className="flex items-center gap-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800 text-[10px] font-mono">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="flex items-center gap-1 px-1 py-0.5 rounded border text-[10px] font-mono"
+            >
               <button
                 onClick={() => {
                   setSplitRatio(30);
                   saveStoredSettings({ mindmapSplitRatio: 30 });
                 }}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  splitRatio === 30 ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-                }`}
+                style={{
+                  backgroundColor: splitRatio === 30 ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                  color: splitRatio === 30 ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
                 title="30% 源码 : 70% 导图"
               >
                 30:70
@@ -449,9 +492,11 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                   setSplitRatio(50);
                   saveStoredSettings({ mindmapSplitRatio: 50 });
                 }}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  splitRatio === 50 ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-                }`}
+                style={{
+                  backgroundColor: splitRatio === 50 ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                  color: splitRatio === 50 ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
                 title="50% 对等分屏"
               >
                 50:50
@@ -461,9 +506,11 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
                   setSplitRatio(70);
                   saveStoredSettings({ mindmapSplitRatio: 70 });
                 }}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  splitRatio === 70 ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-                }`}
+                style={{
+                  backgroundColor: splitRatio === 70 ? 'var(--ov-accent, #06b6d4)' : 'transparent',
+                  color: splitRatio === 70 ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="px-1.5 py-0.5 rounded transition hover:text-[var(--ov-text)]"
                 title="70% 源码 : 30% 导图"
               >
                 70:30
@@ -477,7 +524,12 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
               type="button"
               id="btn-mindmap-open-in-native-editor"
               onClick={onOpenInEditor}
-              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5 py-1' : 'p-1.5'} text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-750 rounded border border-slate-700 transition text-xs font-medium cursor-pointer`}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className={`flex items-center gap-1 ${showEditorText ? 'px-2.5 py-1' : 'p-1.5'} rounded border transition text-xs font-medium cursor-pointer hover:border-sky-500 hover:text-sky-400`}
               title="在 VS Code 原生编辑器中并排编辑"
               aria-label="在编辑器中打开"
             >
@@ -488,7 +540,12 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
 
           <button
             onClick={handleResetTemplate}
-            className={`flex items-center gap-1 ${showTemplateText ? 'px-2 py-1' : 'p-1.5'} bg-slate-800 hover:bg-slate-750 text-slate-300 rounded border border-slate-700 transition`}
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className={`flex items-center gap-1 ${showTemplateText ? 'px-2 py-1' : 'p-1.5'} rounded border transition hover:border-[var(--ov-accent)]`}
             title="重置为经典多级导图模板"
             aria-label="标准模板"
           >
@@ -498,7 +555,12 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
 
           <button
             onClick={handleCopy}
-            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5 py-1' : 'p-1.5'} bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 rounded border border-cyan-500/40 transition shrink-0 font-medium`}
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className={`flex items-center gap-1 ${showCopyText ? 'px-2.5 py-1' : 'p-1.5'} rounded border transition shrink-0 font-medium hover:border-[var(--ov-accent)]`}
             title="复制思维导图 Markdown 源码"
             aria-label="复制源码"
           >
@@ -516,26 +578,48 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
         {/* 左侧：思维导图 DSL 源代码编辑器 */}
         {(viewMode === 'split' || viewMode === 'editor') && (
           <div
-            style={{ width: viewMode === 'editor' ? '100%' : `${splitRatio}%` }}
-            className="flex flex-col bg-slate-900/40 min-w-0 h-full border-r border-slate-800/80"
+            style={{
+              width: viewMode === 'editor' ? '100%' : `${splitRatio}%`,
+              backgroundColor: 'var(--ov-surface)',
+              borderRightColor: 'var(--ov-border)',
+            }}
+            className="flex flex-col min-w-0 h-full border-r"
           >
             {/* 编辑器状态标题栏 */}
-            <div className="px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px] text-slate-400 font-mono flex items-center justify-between shrink-0 select-none">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderBottomColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="px-3 py-1.5 border-b text-[11px] font-mono flex items-center justify-between shrink-0 select-none"
+            >
               <span className="truncate flex items-center gap-1.5 text-cyan-400 font-semibold">
                 <FileCode className="w-3.5 h-3.5" />
                 导图结构编辑 ({lineCount} 行 · {charCount} 字符)
               </span>
-              <span className="text-slate-500 hidden sm:inline">按 Tab 缩进 / Shift+Tab 反缩进</span>
+              <span style={{ color: 'var(--ov-text-muted)' }} className="hidden sm:inline">按 Tab 缩进 / Shift+Tab 反缩进</span>
             </div>
 
             {/* 快捷语法片段注入栏 */}
-            <div className="flex items-center gap-1 px-2 py-1 bg-slate-950/90 border-b border-slate-800 overflow-x-auto no-scrollbar shrink-0 select-none">
-              <span className="text-[10px] text-slate-500 font-mono px-1 shrink-0">快捷结构:</span>
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderBottomColor: 'var(--ov-border)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 border-b overflow-x-auto no-scrollbar shrink-0 select-none"
+            >
+              <span style={{ color: 'var(--ov-text-muted)' }} className="text-[10px] font-mono px-1 shrink-0">快捷结构:</span>
               {MINDMAP_SNIPPETS.map((snippet, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleInsertSnippet(snippet.code)}
-                  className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-cyan-300 rounded text-[10px] font-mono border border-slate-800 shrink-0 transition"
+                  style={{
+                    backgroundColor: 'var(--ov-surface-header)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text-secondary)',
+                  }}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono border shrink-0 transition hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
                   title={snippet.tooltip}
                 >
                   {snippet.label}
@@ -550,7 +634,11 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
               onChange={e => handleCodeChange(e.target.value)}
               onKeyDown={handleKeyDown}
               spellCheck={false}
-              className="flex-1 p-3.5 bg-transparent font-mono text-xs text-slate-200 resize-none outline-none leading-relaxed selection:bg-cyan-600 selection:text-white"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--ov-text)',
+              }}
+              className="flex-1 p-3.5 font-mono text-xs resize-none outline-none leading-relaxed selection:bg-[var(--ov-accent)] selection:text-white"
               placeholder="# 根主题&#10;## 分支主题 1&#10;  - 详细内容项&#10;## 分支主题 2"
             />
           </div>
@@ -562,23 +650,24 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
             onMouseDown={handleSplitterMouseDown}
             onDoubleClick={() => setSplitRatio(50)}
             title="左右按住拖拽调节代码与导图分割比例 | 双击快速复位为 50%"
-            className={`relative z-20 w-2 shrink-0 flex items-center justify-center cursor-col-resize select-none transition-colors border-x border-slate-800/80 group ${
-              isDragging ? 'bg-cyan-600 shadow-md shadow-cyan-500/50' : 'bg-slate-900 hover:bg-cyan-600/80'
-            }`}
+            style={{
+              backgroundColor: isDragging ? 'var(--ov-accent)' : 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="relative z-20 w-2 shrink-0 flex items-center justify-center cursor-col-resize select-none transition-colors border-x group"
           >
-            <div className="h-10 w-1 rounded-full bg-slate-600 group-hover:bg-cyan-200 transition-colors flex flex-col items-center justify-center gap-0.5">
-              <span className="w-0.5 h-0.5 rounded-full bg-slate-400 group-hover:bg-white" />
-              <span className="w-0.5 h-0.5 rounded-full bg-slate-400 group-hover:bg-white" />
-              <span className="w-0.5 h-0.5 rounded-full bg-slate-400 group-hover:bg-white" />
-            </div>
+            <div style={{ backgroundColor: 'var(--ov-border)' }} className="h-10 w-1 rounded-full group-hover:bg-[var(--ov-accent)] transition-colors flex flex-col items-center justify-center gap-0.5" />
           </div>
         )}
 
         {/* 右侧：交互式实时矢量思维导图视口 */}
         {(viewMode === 'split' || viewMode === 'mindmap') && (
           <div
-            style={{ width: viewMode === 'mindmap' ? '100%' : `${100 - splitRatio}%` }}
-            className="flex flex-col bg-slate-950 min-w-0 h-full overflow-hidden"
+            style={{
+              width: viewMode === 'mindmap' ? '100%' : `${100 - splitRatio}%`,
+              backgroundColor: 'var(--ov-bg)',
+            }}
+            className="flex flex-col min-w-0 h-full overflow-hidden"
           >
             <MarkmapViewer
               content={localCode}

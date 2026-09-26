@@ -1,8 +1,6 @@
 /**
  * OmniView 原生现代图像工作台与像素检视器 (ImageViewer)
  * 支持 10%~3200% 极清矢量缩放、16x 像素十字放大镜取色器 (HEX/RGBA/HSLA)、四态画布底色、90° 旋转/镜像翻转与 EXIF 深度解析
- * 
- * 作者: 周赞
  */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {

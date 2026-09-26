@@ -36,7 +36,7 @@ async function runTests() {
   assert.strictEqual(parsed.metadata.slideCount, 3, '应当解析出 3 张幻灯片');
   assert.strictEqual(parsed.metadata.aspectRatio, '16:9', '幻灯片比例应当为 16:9');
   assert.strictEqual(parsed.metadata.title, 'OmniView PowerPoint 架构演示文稿');
-  assert.strictEqual(parsed.metadata.creator, '周赞');
+  assert.strictEqual(parsed.metadata.creator, 'OmniView Architecture Team');
   console.log(`✅ 元数据解析正确: 《${parsed.metadata.title}》 比例: ${parsed.metadata.aspectRatio} 总页数: ${parsed.metadata.slideCount}`);
 
   // --- 测试 4: 幻灯片元素与段落文本提取 ---

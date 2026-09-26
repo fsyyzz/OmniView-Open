@@ -1,8 +1,6 @@
 /**
  * 现代图像引擎与像素级分析工具集单元测试 (test-image-engine.mjs)
  * 验证色彩空间换算 (RGBA/HEX/HSLA)、GCD 纵横比提取、文件大小格式化与 EXIF 容错解析
- * 
- * 作者: 周赞
  */
 import assert from 'node:assert/strict';
 import {

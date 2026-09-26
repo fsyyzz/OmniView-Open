@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+## [1.0.28] - 2026-09-25
+
+### Added
+
+- **核心系统架构与设计文档深化**:
+  - 全新输出 `docs/design/viewer-drivers.md`、`docs/design/markdown-pipeline.md` 与 `docs/design/persistence-storage.md` 深度技术规范；
+  - 重构主文档 `docs/architecture.md`，补全 VS Code Webview 双向类型化 IPC 时序、18+ 驱动统一微内核调度与纵深安全防御矩阵。
+- **中英文 README 深度包装与对比矩阵**:
+  - 引入全套权威 Shields.io 徽章矩阵与免安装 Web 在线 Demo 直达；
+  - 增加“为什么选择 OmniView”竞品与场景对比矩阵，直击“Markdown 复制到 Word 格式不乱”、“编辑器内秒开 Office 三件套”、“长配置一键思维导图与服务拓扑”三大工程师刚需痛点。
+
+### Changed
+
+- **工程拓扑治理与无用资源清理**:
+  - 移除了历史冗余与未引用的孤儿文件（如旧锁文件、历史数据填充脚本与废弃生命周期库）；
+  - 全量 46 组自动化测试套件与 TypeScript 严格模式 100% 绿灯验证。
+
 ## [1.0.27] - 2026-09-24
 
 ### Added
