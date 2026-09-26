@@ -25,6 +25,7 @@ import {
   Keyboard,
   HelpCircle,
   Search,
+  ExternalLink,
 } from 'lucide-react';
 import {
   WorkbenchSettings,
@@ -35,6 +36,7 @@ import {
   ContentWidthMode,
   ViewMode,
   OutlinePosition,
+  OutlineDisplayMode,
 } from '../../../shared/types';
 import {
   loadStoredSettings,
@@ -185,6 +187,15 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
     }
   };
 
+  const handleOpenVsCodeSettings = () => {
+    const vsApi = getVsCodeApi();
+    if (vsApi) {
+      vsApi.postMessage({ type: 'open-vscode-settings' });
+    } else {
+      setStatusMessage({ type: 'error', text: '当前处于独立网页预览模式，仅 VS Code 宿主环境支持唤起原生配置面板' });
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in-50 duration-150">
       <div
@@ -200,17 +211,32 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
               <Settings className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">工作台偏好与持久化配置中心</h2>
-              <p className="text-[11px] text-slate-400">所有选项均实时持久化存储于本地环境</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-white">工作台偏好与持久化配置中心</h2>
+                <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  VS Code 双向就绪
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">所有选项均实时持久化存储并与 VS Code 宿主配置双向同步</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition"
-            title="关闭设置"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenVsCodeSettings}
+              className="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5 transition"
+              title="在 VS Code 原生设置面板中打开 omniview 配置"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden sm:inline">VS Code 设置</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition"
+              title="关闭设置"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -552,6 +578,28 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
 
               {/* 开关选项 */}
               <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                <div className="p-2 rounded-lg bg-slate-850 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-slate-200">
+                        默认渲染视口缩放比例: <span className="text-blue-400 font-mono">{Math.round((localSettings.zoom || 1.0) * 100)}%</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400">调整图表与富文本视口默认渲染初始比例 (50% ~ 200%)</div>
+                    </div>
+                    <div className="flex items-center gap-2 w-48">
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={2.0}
+                        step={0.1}
+                        value={localSettings.zoom || 1.0}
+                        onChange={(e) => updateSetting('zoom', Number(Number(e.target.value).toFixed(1)))}
+                        className="w-full accent-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <label className="flex items-center justify-between cursor-pointer p-2 rounded-lg bg-slate-850 hover:bg-slate-800 transition">
                   <div>
                     <div className="font-medium text-slate-200">默认展开大纲目录抽屉 (Outline)</div>
@@ -588,6 +636,34 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           }`}
                         >
                           {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-lg bg-slate-850 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-slate-200">文档大纲展示形态 (Outline Display Mode)</div>
+                      <div className="text-[10px] text-slate-400">支持树形分级折叠或紧凑扁平缩进列表</div>
+                    </div>
+                    <div className="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+                      {[
+                        { id: 'tree', label: '折叠树形' },
+                        { id: 'list', label: '扁平列表' },
+                      ].map((mode) => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => updateSetting('outlineDisplayMode', mode.id as OutlineDisplayMode)}
+                          className={`px-2.5 py-1 rounded text-xs transition ${
+                            (localSettings.outlineDisplayMode || 'tree') === mode.id
+                              ? 'bg-blue-600 text-white font-medium shadow-xs'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {mode.label}
                         </button>
                       ))}
                     </div>
@@ -655,6 +731,19 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                     type="checkbox"
                     checked={localSettings.enableDoubleClickEdit ?? false}
                     onChange={(e) => updateSetting('enableDoubleClickEdit', e.target.checked)}
+                    className="w-4 h-4 rounded accent-blue-600"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer p-2 rounded-lg bg-slate-850 hover:bg-slate-800 transition">
+                  <div>
+                    <div className="font-medium text-slate-200">离屏复杂元素懒卸载性能优化 (Lazy Viewport Unmount)</div>
+                    <div className="text-[10px] text-slate-400">超长文档中的离屏大型图表与代码块自动占位卸载，避免高内存开销并确保 60 FPS 滚动</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={localSettings.enableLazyBlockUnmount ?? true}
+                    onChange={(e) => updateSetting('enableLazyBlockUnmount', e.target.checked)}
                     className="w-4 h-4 rounded accent-blue-600"
                   />
                 </label>
@@ -739,6 +828,35 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
           {/* TAB 4: 存储与备份 */}
           {activeTab === 'storage' && (
             <div className="space-y-4">
+              {/* VS Code 原生设置双向集成卡片 */}
+              <div className="p-3.5 bg-blue-950/20 border border-blue-500/30 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-blue-400 font-medium">
+                    <Sparkles className="w-4 h-4" />
+                    <span>VS Code 原生设置双向集成 (Two-Way Sync)</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    19 项配置双向就绪
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  OmniView 采用统一配置中心模型：在当前弹窗修改的任何偏好均会自动写回 VS Code 全局设置 (<code className="text-blue-300 font-mono">omniview.*</code>)；同样地，在 VS Code 设置面板或 <code className="text-blue-300 font-mono">settings.json</code> 中的任何改动也会通过双向通道即时热重载到工作台。
+                </p>
+                <div className="pt-1 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    配置命名空间: omniview.* (19 项属性已完全对齐)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleOpenVsCodeSettings}
+                    className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center gap-1.5 transition shadow-xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>在 VS Code 原生设置中配置</span>
+                  </button>
+                </div>
+              </div>
+
               {/* 存储统计卡片 */}
               <div className="p-3.5 bg-slate-850 rounded-xl border border-slate-800 flex items-center justify-between">
                 <div>
@@ -937,8 +1055,13 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
 
         {/* Footer */}
         <div className="h-12 px-5 border-t border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/60">
-          <div className="text-[10px] text-slate-500 font-mono">
-            Key: <span className="text-slate-400">omniview:workbench:settings:v2</span>
+          <div className="flex items-center gap-2 text-[10px] text-slate-400">
+            <span className="font-mono text-slate-500">Key: omniview:workbench:settings:v2</span>
+            <span>·</span>
+            <span className="text-emerald-400/90 flex items-center gap-1">
+              <Check className="w-3 h-3" />
+              已与 VS Code 宿主双向同步
+            </span>
           </div>
           <button
             onClick={onClose}

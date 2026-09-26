@@ -223,8 +223,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           <button type="button" onClick={() => onFindText(false)} title={t('nextMatch', locale)}>↓</button>
         </div>
 
-        <div className="markdown-toolbar-title hidden lg:flex items-center gap-1.5" title={filePath}>
-          <span className="font-semibold text-slate-200 truncate max-w-[180px]">{fileName}</span>
+        <div className="markdown-toolbar-title items-center gap-1.5" title={filePath}>
+          <span className="font-semibold truncate max-w-[180px]">{fileName}</span>
           <span className="text-[11px] opacity-60 font-mono">({headingsCount} {t('sectionsCount', locale)})</span>
         </div>
       </div>

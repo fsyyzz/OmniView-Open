@@ -98,7 +98,7 @@ console.log('✅ Jupyter Notebook、Typst 与 Excalidraw 驱动路由测试通�
 
 // 6. 源码与结构化文本路由至 code 驱动
 console.log('--- 测试 6: 代码高亮与工程配置文件路由 ---');
-const codeExtensions = ['ts', 'tsx', 'js', 'jsx', 'json', 'py', 'java', 'go', 'rs', 'html', 'css', 'yaml', 'yml'];
+const codeExtensions = ['ts', 'tsx', 'js', 'jsx', 'json', 'py', 'java', 'go', 'rs', 'html', 'css', 'yaml', 'yml', 'toml', 'xml'];
 for (const ext of codeExtensions) {
   assert.strictEqual(
     getDriverIdForFile(mockFile(`test.${ext}`, ext)),
@@ -106,12 +106,14 @@ for (const ext of codeExtensions) {
     `扩展名 .${ext} 应正确分配至 code 驱动`
   );
 }
+assert.strictEqual(getDriverIdForFile(mockFile('Cargo.toml', 'toml')), 'code', 'Cargo.toml 应正确路由至 code 驱动');
+assert.strictEqual(getDriverIdForFile(mockFile('pyproject.toml', 'toml')), 'code', 'pyproject.toml 应正确路由至 code 驱动');
 console.log('✅ 常见代码格式驱动分配测试通过');
 
 // 7. 异常边界与未知扩展名安全降级
 console.log('--- 测试 7: 无扩展名文件与未知格式安全降级 ---');
 assert.strictEqual(getDriverIdForFile(mockFile('LICENSE', '')), 'code', '无扩展名协议文件应降级至 code 驱动');
-assert.strictEqual(getDriverIdForFile(mockFile('Dockerfile', '')), 'code', 'Dockerfile 应降级至 code 驱动');
+assert.strictEqual(getDriverIdForFile(mockFile('Dockerfile', '')), 'dockerfile', 'Dockerfile 应精准分配至 dockerfile 专属驱动');
 assert.strictEqual(getDriverIdForFile(mockFile('Makefile', '')), 'code', 'Makefile 应降级至 code 驱动');
 assert.strictEqual(getDriverIdForFile(mockFile('unknown.xyz', 'xyz')), 'code', '未知后缀应安全降级至 code 驱动');
 assert.strictEqual(getDriverIdForFile(mockFile('binary.dat', 'dat')), 'code', '二进制后缀应安全降级至 code 驱动');

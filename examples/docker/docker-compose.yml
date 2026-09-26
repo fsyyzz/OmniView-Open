@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  gateway:
+    image: nginx:alpine
+    container_name: omniview-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api-server
+      - web-client
+    networks:
+      - frontend-net
+      - backend-net
+    restart: always
+
+  web-client:
+    image: omniview/web:latest
+    container_name: omniview-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - API_BASE_URL=http://api-server:8080
+    networks:
+      - frontend-net
+    restart: unless-stopped
+
+  api-server:
+    image: omniview/backend:v1.2.0
+    container_name: omniview-api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_HOST=postgres-db
+      - DB_PASSWORD=my_super_secret_password_123!
+      - REDIS_URL=redis://redis-cache:6379
+      - JWT_SECRET=sk_live_abcdef1234567890
+    depends_on:
+      - postgres-db
+      - redis-cache
+    networks:
+      - backend-net
+    restart: on-failure
+
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: omniview-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=omniview
+      - POSTGRES_USER=omni_admin
+      - POSTGRES_PASSWORD=db_root_secure_token_998
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    restart: always
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: omniview-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - backend-net
+    restart: always
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge

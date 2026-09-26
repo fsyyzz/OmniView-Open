@@ -45,23 +45,49 @@ assert.strictEqual(yamlRes.data.services.web.image, 'nginx:alpine');
 assert.strictEqual(yamlRes.data.services.web.depends_on[0], 'api');
 console.log('✅ YAML 解析测试通过');
 
-// 3. TOML 解析
-console.log('--- 测试 3: TOML 解析 ---');
+// 3. TOML 解析 (含多级节名、内联表、行内注释与数组表)
+console.log('--- 测试 3: TOML 解析与高级语法支持 ---');
 const sampleToml = `
+# 顶层注释
+title = "OmniView Engine" # 行内注释
+
 [package]
 name = "omniview-core"
 version = "1.0.0"
 rust-edition = "2024"
+active = true
+workers = 8
+
+[package.metadata.docs]
+readme = true
 
 [dependencies]
-serde = "1.0"
+serde = { version = "1.0", features = ["derive", "alloc"] }
 tokio = "1.28"
+
+[[servers]]
+name = "alpha"
+port = 8001
+
+[[servers]]
+name = "beta"
+port = 8002
 `;
 const tomlRes = parseStructuredData(sampleToml, 'toml');
 assert.strictEqual(tomlRes.success, true);
+assert.strictEqual(tomlRes.data.title, 'OmniView Engine');
 assert.strictEqual(tomlRes.data.package.name, 'omniview-core');
+assert.strictEqual(tomlRes.data.package.active, true);
+assert.strictEqual(tomlRes.data.package.workers, 8);
+assert.strictEqual(tomlRes.data.package.metadata.docs.readme, true);
 assert.strictEqual(tomlRes.data.dependencies.tokio, '1.28');
-console.log('✅ TOML 解析测试通过');
+assert.strictEqual(tomlRes.data.dependencies.serde.version, '1.0');
+assert.deepStrictEqual(tomlRes.data.dependencies.serde.features, ['derive', 'alloc']);
+assert.strictEqual(Array.isArray(tomlRes.data.servers), true);
+assert.strictEqual(tomlRes.data.servers.length, 2);
+assert.strictEqual(tomlRes.data.servers[0].port, 8001);
+assert.strictEqual(tomlRes.data.servers[1].name, 'beta');
+console.log('✅ TOML 解析与高级语法测试通过');
 
 // 4. 跨格式互转 (JSON ⇄ YAML ⇄ TOML ⇄ XML)
 console.log('--- 测试 4: 跨格式实时互转 ---');
@@ -81,7 +107,13 @@ assert.match(convertedJson, /"port": 3000/);
 
 const convertedXml = convertStructuredData(rawData, 'xml');
 assert.match(convertedXml, /<host>0\.0\.0\.0<\/host>/);
-console.log('✅ 跨格式互转测试通过');
+
+const convertedToml = convertStructuredData(rawData, 'toml');
+assert.match(convertedToml, /\[server\]/);
+assert.match(convertedToml, /host = "0\.0\.0\.0"/);
+assert.match(convertedToml, /port = 3000/);
+assert.match(convertedToml, /secure = true/);
+console.log('✅ 跨格式互转测试通过 (JSON/YAML/TOML/XML)');
 
 // 5. 数组对象下钻探测 (Table 视图激活)
 console.log('--- 测试 5: 数组对象探测 (Table 投影) ---');

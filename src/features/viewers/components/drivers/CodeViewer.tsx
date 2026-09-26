@@ -581,38 +581,52 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
   const isExtremelyNarrow = headerWidth < 360;
 
   return (
-    <div id="code-viewer-container" className="h-full flex flex-col bg-slate-950 font-mono text-xs text-slate-300 select-text relative">
+    <div
+      id="code-viewer-container"
+      className="h-full flex flex-col font-mono text-xs select-text relative transition-colors"
+      style={{
+        background: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
+    >
       {/* Code Header (自适应容器工具栏) */}
       <div
         ref={headerRef}
-        className="flex items-center justify-between px-2.5 sm:px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none min-w-0"
+        className="flex items-center justify-between px-2.5 sm:px-3 py-1.5 border-b text-xs shrink-0 select-none min-w-0 transition-colors"
+        style={{
+          background: 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
       >
         {/* 左侧元信息 */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-2 overflow-hidden">
-          <FileCode className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <span className="font-semibold text-slate-200 truncate" title={fileName}>
+          <FileCode className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--ov-accent)' }} />
+          <span className="font-semibold truncate" style={{ color: 'var(--ov-text)' }} title={fileName}>
             {fileName}
           </span>
           {showExtensionBadge && (
             <>
-              <span className="text-slate-600 shrink-0">|</span>
-              <span className="text-slate-400 uppercase text-[11px] font-sans shrink-0">{extension}</span>
+              <span style={{ color: 'var(--ov-border)' }} className="shrink-0">|</span>
+              <span className="uppercase text-[11px] font-sans shrink-0" style={{ color: 'var(--ov-text-secondary)' }}>
+                {extension}
+              </span>
             </>
           )}
           {showLinesCount && (
             <>
-              <span className="text-slate-600 shrink-0">|</span>
-              <span className="text-slate-400 font-sans shrink-0">
+              <span style={{ color: 'var(--ov-border)' }} className="shrink-0">|</span>
+              <span className="font-sans shrink-0" style={{ color: 'var(--ov-text-secondary)' }}>
                 {lines.length} {t('linesCodeCount', locale)}
               </span>
             </>
           )}
           {onContentChange && (
             <>
-              <span className="text-slate-600 shrink-0">|</span>
+              <span style={{ color: 'var(--ov-border)' }} className="shrink-0">|</span>
               {isSaved ? (
                 <span
-                  className="flex items-center gap-1 text-emerald-400 text-[11px] font-sans shrink-0"
+                  className="flex items-center gap-1 text-emerald-500 dark:text-emerald-400 text-[11px] font-sans shrink-0"
                   title={t('saved', locale)}
                 >
                   <CheckCircle2 className="w-3 h-3 shrink-0" />
@@ -620,10 +634,10 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                 </span>
               ) : (
                 <span
-                  className="flex items-center gap-1 text-amber-400 text-[11px] font-sans shrink-0"
+                  className="flex items-center gap-1 text-amber-500 dark:text-amber-400 text-[11px] font-sans shrink-0"
                   title={t('unsavedChanges', locale)}
                 >
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
                   {showStatusText && <span>{t('unsavedChanges', locale)}</span>}
                 </span>
               )}
@@ -635,17 +649,18 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
         <div className="flex items-center gap-1 shrink-0 relative">
           {/* Undo / Redo History Controls */}
           {onContentChange && isEditing && !isExtremelyNarrow && (
-            <div className="flex items-center gap-0.5 pr-1 mr-0.5 border-r border-slate-800">
+            <div className="flex items-center gap-0.5 pr-1 mr-0.5 border-r" style={{ borderColor: 'var(--ov-border)' }}>
               <button
                 id="btn-code-undo"
                 onClick={handleUndo}
                 disabled={!canUndo}
                 title={t('undoTooltip', locale)}
-                className={`p-1 rounded transition text-xs flex items-center ${
-                  canUndo
-                    ? 'text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer'
-                    : 'text-slate-600 cursor-not-allowed opacity-40'
-                }`}
+                className="p-1 rounded transition text-xs flex items-center cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                style={{
+                  color: canUndo ? 'var(--ov-text)' : 'var(--ov-text-muted)',
+                  opacity: canUndo ? 1 : 0.4,
+                  cursor: canUndo ? 'pointer' : 'not-allowed',
+                }}
                 aria-label={t('undo', locale)}
               >
                 <Undo2 className="w-3.5 h-3.5" />
@@ -655,11 +670,12 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                 onClick={handleRedo}
                 disabled={!canRedo}
                 title={t('redoTooltip', locale)}
-                className={`p-1 rounded transition text-xs flex items-center ${
-                  canRedo
-                    ? 'text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer'
-                    : 'text-slate-600 cursor-not-allowed opacity-40'
-                }`}
+                className="p-1 rounded transition text-xs flex items-center cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                style={{
+                  color: canRedo ? 'var(--ov-text)' : 'var(--ov-text-muted)',
+                  opacity: canRedo ? 1 : 0.4,
+                  cursor: canRedo ? 'pointer' : 'not-allowed',
+                }}
                 aria-label={t('redo', locale)}
               >
                 <Redo2 className="w-3.5 h-3.5" />
@@ -675,17 +691,25 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               title={t('saveShortcutTooltip', locale)}
               className={`flex items-center gap-1 ${
                 showPrimaryBtnText ? 'px-2.5 py-1' : 'p-1.5'
-              } rounded text-xs transition font-medium ${
-                !isSaved
-                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-500/20'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
+              } rounded text-xs transition font-medium cursor-pointer border`}
+              style={{
+                background: !isSaved ? 'var(--ov-accent)' : 'var(--ov-surface)',
+                borderColor: !isSaved ? 'var(--ov-accent)' : 'var(--ov-border)',
+                color: !isSaved ? '#ffffff' : 'var(--ov-text)',
+              }}
               aria-label={t('saveChanges', locale)}
             >
               <Save className="w-3.5 h-3.5" />
               {showPrimaryBtnText && <span>{t('saveChanges', locale)}</span>}
               {showShortcuts && (
-                <kbd className="ml-1 text-[10px] text-slate-300 bg-slate-900/60 px-1 py-0.2 rounded border border-slate-700">
+                <kbd
+                  className="ml-1 text-[10px] px-1 py-0.2 rounded border"
+                  style={{
+                    background: 'var(--ov-code-bg)',
+                    borderColor: 'var(--ov-border)',
+                    color: !isSaved ? '#ffffff' : 'var(--ov-text-secondary)',
+                  }}
+                >
                   ⌘S
                 </kbd>
               )}
@@ -698,23 +722,27 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               id="btn-code-toggle-edit"
               onClick={() => {
                 if (isEditing) {
-                  // flush edits when switching to readonly
                   handleSave();
                 }
                 setIsEditing(!isEditing);
               }}
               className={`flex items-center gap-1 ${
                 showPrimaryBtnText ? 'px-2 py-1' : 'p-1.5'
-              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs`}
+              } rounded transition text-xs cursor-pointer border hover:bg-[var(--ov-surface-hover)]`}
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
               title={isEditing ? t('viewReadonly', locale) : t('editSource', locale)}
               aria-label={isEditing ? t('viewReadonly', locale) : t('editSource', locale)}
             >
-              {isEditing ? <Eye className="w-3.5 h-3.5 text-slate-300" /> : <Edit3 className="w-3.5 h-3.5 text-blue-400" />}
+              {isEditing ? <Eye className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5 text-blue-500" />}
               {showPrimaryBtnText && <span>{isEditing ? t('viewReadonly', locale) : t('editSource', locale)}</span>}
             </button>
           )}
 
-          {/* 在编辑器中打开 (次要操作：中等宽度变纯图标，极窄时收入更多菜单) */}
+          {/* 在编辑器中打开 */}
           {onOpenInEditor && !isExtremelyNarrow && (
             <button
               type="button"
@@ -722,11 +750,16 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               onClick={onOpenInEditor}
               className={`flex items-center gap-1 ${
                 showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
-              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs cursor-pointer`}
+              } rounded transition text-xs cursor-pointer border hover:bg-[var(--ov-surface-hover)]`}
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
               title={t('openInEditor', locale) || '在编辑器中打开'}
               aria-label={t('openInEditor', locale) || '在编辑器中打开'}
             >
-              <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+              <ExternalLink className="w-3.5 h-3.5 text-sky-500" />
               {showSecondaryBtnText && <span>{t('openInEditor', locale) || '在编辑器中打开'}</span>}
             </button>
           )}
@@ -751,27 +784,37 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               }}
               className={`flex items-center gap-1 ${
                 showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
-              } ${isSearching ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'} rounded transition text-xs cursor-pointer`}
+              } rounded transition text-xs cursor-pointer border`}
+              style={{
+                background: isSearching ? 'rgba(59, 130, 246, 0.15)' : 'var(--ov-surface)',
+                borderColor: isSearching ? 'var(--ov-accent)' : 'var(--ov-border)',
+                color: isSearching ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              }}
               title="查找 (Ctrl+F)"
               aria-label="查找 (Ctrl+F)"
             >
-              <Search className="w-3.5 h-3.5 text-sky-400" />
+              <Search className="w-3.5 h-3.5" />
               {showSecondaryBtnText && <span>查找</span>}
             </button>
           )}
 
-          {/* 复制代码 (次要操作：中等宽度变纯图标，极窄时收入更多菜单) */}
+          {/* 复制代码 */}
           {!isExtremelyNarrow && (
             <button
               id="btn-code-copy"
               onClick={handleCopy}
               className={`flex items-center gap-1 ${
                 showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
-              } bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs cursor-pointer`}
+              } rounded transition text-xs cursor-pointer border hover:bg-[var(--ov-surface-hover)]`}
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
               title={copied ? t('copied', locale) : t('copyCode2', locale)}
               aria-label={copied ? t('copied', locale) : t('copyCode2', locale)}
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               {showSecondaryBtnText && <span>{copied ? t('copied', locale) : t('copyCode2', locale)}</span>}
             </button>
           )}
@@ -783,7 +826,12 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                 type="button"
                 id="btn-code-more-menu"
                 onClick={() => setIsMoreMenuOpen(prev => !prev)}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition text-xs cursor-pointer"
+                className="p-1.5 rounded transition text-xs cursor-pointer border hover:bg-[var(--ov-surface-hover)]"
+                style={{
+                  background: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
                 title="更多操作"
                 aria-label="更多操作"
               >
@@ -791,7 +839,13 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               </button>
 
               {isMoreMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-md shadow-xl py-1 text-xs">
+                <div
+                  className="absolute right-0 top-full mt-1 z-50 min-w-[140px] rounded-md shadow-xl py-1 text-xs border"
+                  style={{
+                    background: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -802,9 +856,10 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                         searchInputRef.current?.select();
                       }, 50);
                     }}
-                    className="w-full text-left px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                    style={{ color: 'var(--ov-text)' }}
                   >
-                    <Search className="w-3.5 h-3.5 text-sky-400" />
+                    <Search className="w-3.5 h-3.5 text-sky-500" />
                     <span>查找 (Ctrl+F)</span>
                   </button>
                   {onOpenInEditor && (
@@ -814,9 +869,10 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                         setIsMoreMenuOpen(false);
                         onOpenInEditor();
                       }}
-                      className="w-full text-left px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                      style={{ color: 'var(--ov-text)' }}
                     >
-                      <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                      <ExternalLink className="w-3.5 h-3.5 text-sky-500" />
                       <span>{t('openInEditor', locale) || '在编辑器中打开'}</span>
                     </button>
                   )}
@@ -826,23 +882,27 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                       setIsMoreMenuOpen(false);
                       handleCopy();
                     }}
-                    className="w-full text-left px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                    style={{ color: 'var(--ov-text)' }}
                   >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copied ? t('copied', locale) : t('copyCode2', locale)}</span>
                   </button>
                   {onContentChange && isEditing && (
                     <>
-                      <div className="border-t border-slate-800 my-1" />
+                      <div className="border-t my-1" style={{ borderColor: 'var(--ov-border)' }} />
                       <button
                         type="button"
                         disabled={!canUndo}
                         onClick={() => {
                           handleUndo();
                         }}
-                        className={`w-full text-left px-3 py-1.5 flex items-center gap-2 ${
-                          canUndo ? 'text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer' : 'text-slate-600 opacity-40 cursor-not-allowed'
-                        }`}
+                        className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-[var(--ov-surface-hover)]"
+                        style={{
+                          color: canUndo ? 'var(--ov-text)' : 'var(--ov-text-muted)',
+                          opacity: canUndo ? 1 : 0.4,
+                          cursor: canUndo ? 'pointer' : 'not-allowed',
+                        }}
                       >
                         <Undo2 className="w-3.5 h-3.5" />
                         <span>{t('undo', locale)}</span>
@@ -853,9 +913,12 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                         onClick={() => {
                           handleRedo();
                         }}
-                        className={`w-full text-left px-3 py-1.5 flex items-center gap-2 ${
-                          canRedo ? 'text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer' : 'text-slate-600 opacity-40 cursor-not-allowed'
-                        }`}
+                        className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-[var(--ov-surface-hover)]"
+                        style={{
+                          color: canRedo ? 'var(--ov-text)' : 'var(--ov-text-muted)',
+                          opacity: canRedo ? 1 : 0.4,
+                          cursor: canRedo ? 'pointer' : 'not-allowed',
+                        }}
                       >
                         <Redo2 className="w-3.5 h-3.5" />
                         <span>{t('redo', locale)}</span>
@@ -871,8 +934,15 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
 
       {/* 浮动查找面板 (Ctrl+F) */}
       {isSearching && (
-        <div className="absolute top-10 right-4 z-40 bg-slate-900/95 border border-slate-700/80 rounded-lg shadow-xl px-2.5 py-1.5 flex items-center gap-2 text-xs backdrop-blur-xs select-none">
-          <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <div
+          className="absolute top-10 right-4 z-40 rounded-lg shadow-xl px-2.5 py-1.5 flex items-center gap-2 text-xs border select-none"
+          style={{
+            background: 'var(--ov-surface)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text)',
+          }}
+        >
+          <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--ov-text-muted)' }} />
           <input
             ref={searchInputRef}
             type="text"
@@ -892,20 +962,26 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                 handleCloseSearch();
               }
             }}
-            className="w-36 sm:w-48 bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500 font-sans"
+            className="w-36 sm:w-48 border rounded px-2 py-0.5 text-[11px] focus:outline-hidden font-sans"
+            style={{
+              background: 'var(--ov-code-bg)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
           />
-          <span className="text-[10px] text-slate-400 shrink-0 min-w-[40px] text-center font-mono">
+          <span className="text-[10px] shrink-0 min-w-[40px] text-center font-mono" style={{ color: 'var(--ov-text-secondary)' }}>
             {searchQuery.trim()
               ? searchMatchCount > 0
                 ? `${searchMatchIndex + 1}/${searchMatchCount}`
                 : '无匹配'
               : ''}
           </span>
-          <div className="flex items-center gap-0.5 border-l border-slate-800 pl-1">
+          <div className="flex items-center gap-0.5 border-l pl-1" style={{ borderColor: 'var(--ov-border)' }}>
             <button
               onClick={handlePrevMatch}
               disabled={searchMatchCount === 0}
-              className="p-1 hover:bg-slate-800 disabled:opacity-30 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+              className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="上一个 (Shift+Enter)"
             >
               <ChevronUp className="w-3.5 h-3.5" />
@@ -913,14 +989,16 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             <button
               onClick={handleNextMatch}
               disabled={searchMatchCount === 0}
-              className="p-1 hover:bg-slate-800 disabled:opacity-30 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+              className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="下一个 (Enter)"
             >
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleCloseSearch}
-              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-rose-400 cursor-pointer"
+              className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="关闭 (Esc)"
             >
               <X className="w-3.5 h-3.5" />
@@ -936,7 +1014,12 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             {/* Synchronized Line Numbers Gutter */}
             <div
               ref={lineGutterRef}
-              className="py-3 pl-2 pr-3 text-right text-slate-600 select-none bg-slate-900/60 border-r border-slate-800 font-mono text-xs leading-relaxed shrink-0 min-w-[44px] overflow-hidden"
+              className="py-3 pl-2 pr-3 text-right select-none border-r font-mono text-xs leading-relaxed shrink-0 min-w-[44px] overflow-hidden"
+              style={{
+                background: 'var(--ov-code-bg)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-muted)',
+              }}
             >
               {lines.map((_, i) => (
                 <div key={i} className="leading-relaxed">
@@ -958,7 +1041,11 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               onKeyDown={handleKeyDown}
               spellCheck={false}
               autoFocus
-              className="flex-1 w-full p-3 bg-slate-950 text-slate-100 font-mono text-xs leading-relaxed resize-none outline-none border-0 overflow-y-auto selection:bg-blue-600 selection:text-white"
+              className="flex-1 w-full p-3 font-mono text-xs leading-relaxed resize-none outline-none border-0 overflow-y-auto selection:bg-blue-600 selection:text-white"
+              style={{
+                background: 'var(--ov-bg)',
+                color: 'var(--ov-text)',
+              }}
               placeholder="在此输入或编辑内容..."
             />
           </div>
@@ -966,7 +1053,14 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       ) : (
         <div id="code-viewer-canvas" ref={codeBodyRef} className="flex-1 min-h-0 overflow-auto flex">
           {/* Readonly Line Numbers */}
-          <div className="py-3 pl-2 pr-3 text-right text-slate-600 select-none bg-slate-900/40 border-r border-slate-800/80 font-mono text-xs leading-relaxed shrink-0 min-w-[44px]">
+          <div
+            className="py-3 pl-2 pr-3 text-right select-none border-r font-mono text-xs leading-relaxed shrink-0 min-w-[44px]"
+            style={{
+              background: 'var(--ov-code-bg)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-muted)',
+            }}
+          >
             {lines.map((_, i) => (
               <div key={i} className="leading-relaxed">
                 {i + 1}
@@ -981,7 +1075,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                 <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
               </pre>
             ) : (
-              <pre className="leading-relaxed font-mono m-0 p-0 bg-transparent text-slate-200">
+              <pre className="leading-relaxed font-mono m-0 p-0 bg-transparent" style={{ color: 'var(--ov-text)' }}>
                 <code>{activeContent}</code>
               </pre>
             )}

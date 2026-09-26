@@ -381,6 +381,18 @@ body.vscode-high-contrast-light[data-theme="system"] {
   white-space: nowrap;
 }
 
+@container md-toolbar (max-width: 899px) {
+  .markdown-toolbar-title {
+    display: none !important;
+  }
+}
+
+@container md-toolbar (min-width: 900px) {
+  .markdown-toolbar-title {
+    display: flex !important;
+  }
+}
+
 .markdown-toolbar-actions {
   display: flex;
   align-items: center;
@@ -428,27 +440,56 @@ body.vscode-high-contrast-light[data-theme="system"] {
   color: #ffffff !important;
 }
 
-/* 工具栏较窄时：视图模式仅保留图标，文字靠 title/aria-label 提示 */
-@container md-toolbar (max-width: 1080px) {
-  .markdown-view-mode-label {
-    display: none;
-  }
-
-  .markdown-view-mode-btn {
-    padding: 4px 6px;
-    gap: 0;
-  }
-}
-
-@container md-toolbar (min-width: 1081px) {
+/* 工具栏自适应阶梯策略：宽屏全显，中屏激活态展文字，窄屏纯精致图标 */
+@container md-toolbar (min-width: 860px) {
   .markdown-view-mode-btn {
     padding: 4px 10px;
     gap: 6px;
   }
 }
 
+@container md-toolbar (max-width: 859px) and (min-width: 520px) {
+  .markdown-view-mode-btn .markdown-view-mode-label {
+    display: none;
+  }
+
+  .markdown-view-mode-btn.is-active .markdown-view-mode-label {
+    display: inline-block;
+    margin-left: 4px;
+  }
+
+  .markdown-view-mode-btn {
+    padding: 4px 7px;
+    gap: 0;
+  }
+
+  .markdown-view-mode-btn.is-active {
+    padding: 4px 9px;
+    gap: 4px;
+  }
+
+  .markdown-search-box input {
+    width: 90px;
+  }
+}
+
+@container md-toolbar (max-width: 519px) {
+  .markdown-view-mode-btn .markdown-view-mode-label {
+    display: none !important;
+  }
+
+  .markdown-view-mode-btn {
+    padding: 4px 6px;
+    gap: 0;
+  }
+
+  .markdown-search-box input {
+    width: 65px;
+  }
+}
+
 .markdown-search-box { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 5px 0 8px; border: 1px solid var(--ov-border); border-radius: 5px; background: var(--ov-bg-elevated); color: var(--ov-text-muted); }
-.markdown-search-box input { width: 130px; border: 0; outline: 0; background: transparent; color: var(--ov-text); font-size: 12px; }
+.markdown-search-box input { width: 120px; border: 0; outline: 0; background: transparent; color: var(--ov-text); font-size: 12px; transition: width 0.2s ease; }
 .markdown-search-box input::placeholder { color: var(--ov-text-muted); }
 .markdown-search-box button { border: 0; background: transparent; color: var(--ov-text-muted); cursor: pointer; }
 .markdown-search-box button:hover { color: var(--ov-text); }

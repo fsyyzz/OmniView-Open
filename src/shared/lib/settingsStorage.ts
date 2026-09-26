@@ -44,6 +44,7 @@ export const DEFAULT_SETTINGS: WorkbenchSettings = {
 
   // 6. 渲染与知识库偏好
   enableOkfRendering: true,
+  enableLazyBlockUnmount: true,
 };
 
 export function loadStoredSettings(): WorkbenchSettings {
@@ -187,6 +188,9 @@ export function loadStoredSettings(): WorkbenchSettings {
       enableOkfRendering: parsed.enableOkfRendering !== undefined
         ? Boolean(parsed.enableOkfRendering)
         : DEFAULT_SETTINGS.enableOkfRendering ?? true,
+      enableLazyBlockUnmount: parsed.enableLazyBlockUnmount !== undefined
+        ? Boolean(parsed.enableLazyBlockUnmount)
+        : DEFAULT_SETTINGS.enableLazyBlockUnmount ?? true,
     };
 
     if (isMigratedFromLegacy) {

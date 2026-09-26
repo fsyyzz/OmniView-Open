@@ -1,4 +1,33 @@
-export type DriverId = 'markdown' | 'svg' | 'pdf' | 'plantuml' | 'csv' | 'code' | 'mindmap' | 'mermaid' | 'graphviz' | 'notebook' | 'typst' | 'excalidraw' | 'domainstory' | 'epub' | 'docx' | 'pptx' | 'xlsx' | 'image';
+export type DriverId =
+  | 'markdown'
+  | 'svg'
+  | 'pdf'
+  | 'plantuml'
+  | 'csv'
+  | 'code'
+  | 'mindmap'
+  | 'mermaid'
+  | 'graphviz'
+  | 'notebook'
+  | 'typst'
+  | 'excalidraw'
+  | 'domainstory'
+  | 'epub'
+  | 'docx'
+  | 'pptx'
+  | 'xlsx'
+  | 'image'
+  | 'dockerfile'
+  | 'compose'
+  | 'k8s';
+
+export interface CloudNativeDiagnostic {
+  level: 'info' | 'warning' | 'error';
+  message: string;
+  line?: number;
+  ruleId?: string;
+  suggestion?: string;
+}
 
 export interface FileItem {
   id: string;
@@ -221,4 +250,6 @@ export interface WorkbenchSettings {
 
   // 6. 渲染与知识库偏好
   enableOkfRendering?: boolean;
+  /** 是否开启复杂大图表/长公式的离屏视口懒卸载性能优化 (默认开启) */
+  enableLazyBlockUnmount?: boolean;
 }

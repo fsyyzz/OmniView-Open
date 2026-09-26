@@ -164,151 +164,355 @@ function domNodeToObject(node: Element): any {
 }
 
 /**
- * 健壮轻量 TOML 解析器 (支持 [section], [[tables]], key = value, 数字/布尔/字符串)
+ * 剥除行内注释（跳过引号内部的 # 字符）
+ */
+function stripTomlComment(line: string): string {
+  let inDoubleQuote = false;
+  let inSingleQuote = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inDoubleQuote) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+
+    if (char === '#' && !inDoubleQuote && !inSingleQuote) {
+      return line.slice(0, i).trimEnd();
+    }
+  }
+
+  return line;
+}
+
+/**
+ * 拆分 TOML 点分键（例如 'package.metadata.docs' -> ['package', 'metadata', 'docs']）
+ */
+function parseDottedKey(keyStr: string): string[] {
+  const parts: string[] = [];
+  let cur = '';
+  let inQuote = false;
+  let quoteChar = '';
+
+  for (let i = 0; i < keyStr.length; i++) {
+    const char = keyStr[i];
+    if ((char === '"' || char === "'") && (!inQuote || quoteChar === char)) {
+      if (inQuote) {
+        inQuote = false;
+        quoteChar = '';
+      } else {
+        inQuote = true;
+        quoteChar = char;
+      }
+      continue;
+    }
+    if (char === '.' && !inQuote) {
+      if (cur.trim()) parts.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += char;
+  }
+  if (cur.trim()) parts.push(cur.trim());
+  return parts;
+}
+
+/**
+ * 递归创建或获取嵌套对象
+ */
+function resolveNestedPath(root: Record<string, any>, keyParts: string[]): Record<string, any> {
+  let cur = root;
+  for (let i = 0; i < keyParts.length; i++) {
+    const part = keyParts[i];
+    if (cur[part] === undefined || cur[part] === null || typeof cur[part] !== 'object' || Array.isArray(cur[part])) {
+      cur[part] = {};
+    }
+    cur = cur[part];
+  }
+  return cur;
+}
+
+/**
+ * 顶层逗号分割器（忽略方括号、花括号、引号内的逗号）
+ */
+function splitByCommaTopLevel(str: string): string[] {
+  const result: string[] = [];
+  let cur = '';
+  let inDouble = false;
+  let inSingle = false;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (char === '"' && !inSingle) inDouble = !inDouble;
+    else if (char === "'" && !inDouble) inSingle = !inSingle;
+    else if (!inDouble && !inSingle) {
+      if (char === '[') bracketDepth++;
+      else if (char === ']') bracketDepth--;
+      else if (char === '{') braceDepth++;
+      else if (char === '}') braceDepth--;
+      else if (char === ',' && bracketDepth === 0 && braceDepth === 0) {
+        if (cur.trim()) result.push(cur.trim());
+        cur = '';
+        continue;
+      }
+    }
+    cur += char;
+  }
+  if (cur.trim()) result.push(cur.trim());
+  return result;
+}
+
+/**
+ * 智能解析 TOML 值（支持字符串、多行文本、布尔、数字、数组、内联表）
+ */
+function parseTomlValue(valStr: string): any {
+  const str = valStr.trim();
+  if (!str) return '';
+
+  if (str === 'true') return true;
+  if (str === 'false') return false;
+  if (str === 'inf' || str === '+inf') return Infinity;
+  if (str === '-inf') return -Infinity;
+  if (str === 'nan' || str === '+nan' || str === '-nan') return NaN;
+
+  // 十六进制 / 八进制 / 二进制整数
+  if (/^0x[0-9a-fA-F_]+$/.test(str)) {
+    return parseInt(str.replace(/_/g, ''), 16);
+  }
+  if (/^0o[0-7_]+$/.test(str)) {
+    return parseInt(str.replace(/_/g, '').slice(2), 8);
+  }
+  if (/^0b[01_]+$/.test(str)) {
+    return parseInt(str.replace(/_/g, '').slice(2), 2);
+  }
+
+  // 常规十进制数字 (允许千分位下划线 1_000_000)
+  if (/^[+-]?(?:0|[1-9](?:_?\d)*)(?:\.\d(?:_?\d)*)?(?:[eE][+-]?\d+)?$/.test(str)) {
+    const cleanNum = str.replace(/_/g, '');
+    const num = Number(cleanNum);
+    if (!isNaN(num)) return num;
+  }
+
+  // 三重引号多行字符串 """...""" 或 '''...'''
+  if (str.startsWith('"""') && str.endsWith('"""') && str.length >= 6) {
+    const inner = str.slice(3, -3);
+    try {
+      return JSON.parse(`"${inner.replace(/"/g, '\\"')}"`);
+    } catch {
+      return inner;
+    }
+  }
+  if (str.startsWith("'''") && str.endsWith("'''") && str.length >= 6) {
+    return str.slice(3, -3);
+  }
+
+  // 基础双引号字符串 (支持转义字符)
+  if (str.startsWith('"') && str.endsWith('"') && str.length >= 2) {
+    try {
+      return JSON.parse(str);
+    } catch {
+      return str.slice(1, -1);
+    }
+  }
+
+  // 字面量单引号字符串 (原样输出)
+  if (str.startsWith("'") && str.endsWith("'") && str.length >= 2) {
+    return str.slice(1, -1);
+  }
+
+  // 内联表 { key = "val", num = 123 }
+  if (str.startsWith('{') && str.endsWith('}')) {
+    const inner = str.slice(1, -1).trim();
+    if (!inner) return {};
+    const result: Record<string, any> = {};
+    const pairs = splitByCommaTopLevel(inner);
+    for (const pair of pairs) {
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx !== -1) {
+        const key = pair.slice(0, eqIdx).trim();
+        const rawVal = pair.slice(eqIdx + 1).trim();
+        const keyParts = parseDottedKey(key);
+        if (keyParts.length > 1) {
+          const lastKey = keyParts.pop()!;
+          const parent = resolveNestedPath(result, keyParts);
+          parent[lastKey] = parseTomlValue(rawVal);
+        } else {
+          result[key] = parseTomlValue(rawVal);
+        }
+      }
+    }
+    return result;
+  }
+
+  // 数组 [1, 2, "three", { inline = true }]
+  if (str.startsWith('[') && str.endsWith(']')) {
+    const inner = str.slice(1, -1).trim();
+    if (!inner) return [];
+    return splitByCommaTopLevel(inner).map(item => parseTomlValue(item));
+  }
+
+  return str;
+}
+
+/**
+ * 健壮轻量 TOML 解析器 (完整支持点分节名 [a.b.c]、数组表 [[a.b]]、内联表 {..}、多行文本与行内注释)
  */
 export function parseTomlToJs(tomlString: string): Record<string, any> {
   const result: Record<string, any> = {};
-  let currentTarget = result;
-  let currentSection = '';
+  let currentTarget: Record<string, any> = result;
 
-  const lines = tomlString.split('\n');
+  const rawLines = tomlString.split(/\r?\n/);
 
-  for (let rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
+  for (let i = 0; i < rawLines.length; i++) {
+    let line = stripTomlComment(rawLines[i]).trim();
+    if (!line) continue;
 
-    // 匹配 [[array_table]]
+    // 1. 数组表 [[servers.alpha]]
     if (line.startsWith('[[') && line.endsWith(']]')) {
-      const key = line.slice(2, -2).trim();
-      currentSection = key;
-      if (!Array.isArray(result[key])) {
-        result[key] = [];
+      const fullPath = line.slice(2, -2).trim();
+      const parts = parseDottedKey(fullPath);
+      const lastKey = parts.pop()!;
+      const parent = parts.length > 0 ? resolveNestedPath(result, parts) : result;
+      if (!Array.isArray(parent[lastKey])) {
+        parent[lastKey] = [];
       }
       const newObj: Record<string, any> = {};
-      result[key].push(newObj);
+      parent[lastKey].push(newObj);
       currentTarget = newObj;
       continue;
     }
 
-    // 匹配 [section]
+    // 2. 普通表/节 [package.metadata.docs]
     if (line.startsWith('[') && line.endsWith(']')) {
-      const key = line.slice(1, -1).trim();
-      currentSection = key;
-      if (!result[key] || typeof result[key] !== 'object') {
-        result[key] = {};
-      }
-      currentTarget = result[key];
+      const fullPath = line.slice(1, -1).trim();
+      const parts = parseDottedKey(fullPath);
+      currentTarget = resolveNestedPath(result, parts);
       continue;
     }
 
-    // 匹配 key = value
+    // 3. 键值对 key = value（支持多行文本与点分键）
     const eqIdx = line.indexOf('=');
     if (eqIdx !== -1) {
       const key = line.slice(0, eqIdx).trim();
-      const rawVal = line.slice(eqIdx + 1).trim();
-      currentTarget[key] = parseTomlValue(rawVal);
+      let rawVal = line.slice(eqIdx + 1).trim();
+
+      // 多行三引号自动合并跨行扫描
+      if (
+        (rawVal.startsWith('"""') && !rawVal.slice(3).includes('"""')) ||
+        (rawVal.startsWith("'''") && !rawVal.slice(3).includes("'''"))
+      ) {
+        const quoteType = rawVal.slice(0, 3);
+        const multiLines = [rawVal];
+        i++;
+        while (i < rawLines.length) {
+          const nextLine = rawLines[i];
+          multiLines.push(nextLine);
+          if (nextLine.includes(quoteType)) {
+            break;
+          }
+          i++;
+        }
+        rawVal = multiLines.join('\n');
+      }
+
+      const keyParts = parseDottedKey(key);
+      if (keyParts.length > 1) {
+        const lastKey = keyParts.pop()!;
+        const parent = resolveNestedPath(currentTarget, keyParts);
+        parent[lastKey] = parseTomlValue(rawVal);
+      } else {
+        currentTarget[key] = parseTomlValue(rawVal);
+      }
     }
   }
 
   return result;
 }
 
-function parseTomlValue(valStr: string): any {
-  if (valStr === 'true') return true;
-  if (valStr === 'false') return false;
-  if (!isNaN(Number(valStr)) && valStr !== '') return Number(valStr);
-
-  // 字符串处理
-  if ((valStr.startsWith('"') && valStr.endsWith('"')) || (valStr.startsWith("'") && valStr.endsWith("'"))) {
-    return valStr.slice(1, -1);
-  }
-
-  // 数组处理 [1, 2, 3]
-  if (valStr.startsWith('[') && valStr.endsWith(']')) {
-    const inner = valStr.slice(1, -1).trim();
-    if (!inner) return [];
-    return inner.split(',').map(item => parseTomlValue(item.trim()));
-  }
-
-  return valStr;
-}
-
 /**
- * 跨格式无损互转序列化引擎
- */
-export function convertStructuredData(
-  data: any,
-  targetFormat: StructuredFormat,
-  options: { pretty?: boolean } = { pretty: true }
-): string {
-  if (data === null || data === undefined) return '';
-
-  try {
-    switch (targetFormat) {
-      case 'json':
-        return JSON.stringify(data, null, options.pretty ? 2 : 0);
-
-      case 'yaml':
-        return dumpYaml(data, { indent: 2, lineWidth: -1, noRefs: true });
-
-      case 'toml':
-        return objectToToml(data);
-
-      case 'xml':
-        return objectToXml(data, 'root');
-
-      default:
-        return JSON.stringify(data, null, 2);
-    }
-  } catch (err: any) {
-    return `// 格式转换失败: ${err?.message || '未知错误'}`;
-  }
-}
-
-/**
- * 将任意 JS 对象转换为合规的 TOML 文本
+ * 将任意 JS 对象转换为合规美观的 TOML 文本 (支持内联表与多级节名)
  */
 export function objectToToml(obj: any): string {
   if (typeof obj !== 'object' || obj === null) return String(obj);
 
   const lines: string[] = [];
-  const sections: Array<{ key: string; val: any; isArray?: boolean }> = [];
 
-  // 首先输出标量与非嵌套键
-  for (const [k, v] of Object.entries(obj)) {
-    if (v === null || v === undefined) continue;
+  function serializeObject(currentObj: Record<string, any>, prefix = '') {
+    const primitives: Array<[string, any]> = [];
+    const inlineTables: Array<[string, any]> = [];
+    const nestedTables: Array<[string, Record<string, any>]> = [];
+    const arrayTables: Array<[string, any[]]> = [];
 
-    if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') {
-      sections.push({ key: k, val: v, isArray: true });
-    } else if (typeof v === 'object' && !Array.isArray(v)) {
-      sections.push({ key: k, val: v, isArray: false });
-    } else {
+    for (const [k, v] of Object.entries(currentObj)) {
+      if (v === null || v === undefined) continue;
+
+      if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') {
+        arrayTables.push([k, v]);
+      } else if (typeof v === 'object' && !Array.isArray(v)) {
+        const subKeys = Object.keys(v);
+        const allScalar = subKeys.every(sk => typeof v[sk] !== 'object' || v[sk] === null);
+        if (subKeys.length > 0 && subKeys.length <= 4 && allScalar && prefix) {
+          inlineTables.push([k, v]);
+        } else {
+          nestedTables.push([k, v]);
+        }
+      } else {
+        primitives.push([k, v]);
+      }
+    }
+
+    // 1. 本节标量键值对
+    for (const [k, v] of primitives) {
       lines.push(`${k} = ${serializeTomlPrimitive(v)}`);
     }
-  }
 
-  // 随后输出 [sections] 与 [[arrays]]
-  for (const sec of sections) {
-    if (lines.length > 0) lines.push('');
-    if (sec.isArray) {
-      for (const item of sec.val) {
-        lines.push(`[[${sec.key}]]`);
-        for (const [subK, subV] of Object.entries(item)) {
-          if (typeof subV !== 'object') {
-            lines.push(`${subK} = ${serializeTomlPrimitive(subV)}`);
-          }
-        }
-      }
-    } else {
-      lines.push(`[${sec.key}]`);
-      for (const [subK, subV] of Object.entries(sec.val)) {
-        if (typeof subV !== 'object') {
-          lines.push(`${subK} = ${serializeTomlPrimitive(subV)}`);
-        }
+    // 2. 本节内联表
+    for (const [k, v] of inlineTables) {
+      const inner = Object.entries(v)
+        .map(([sk, sv]) => `${sk} = ${serializeTomlPrimitive(sv)}`)
+        .join(', ');
+      lines.push(`${k} = { ${inner} }`);
+    }
+
+    // 3. 子级 [section]
+    for (const [k, v] of nestedTables) {
+      const sectionPath = prefix ? `${prefix}.${k}` : k;
+      if (lines.length > 0 && lines[lines.length - 1] !== '') lines.push('');
+      lines.push(`[${sectionPath}]`);
+      serializeObject(v, sectionPath);
+    }
+
+    // 4. 数组表 [[array_table]]
+    for (const [k, v] of arrayTables) {
+      const sectionPath = prefix ? `${prefix}.${k}` : k;
+      for (const item of v) {
+        if (lines.length > 0 && lines[lines.length - 1] !== '') lines.push('');
+        lines.push(`[[${sectionPath}]]`);
+        serializeObject(item, sectionPath);
       }
     }
   }
 
+  serializeObject(obj);
   return lines.join('\n');
 }
 
@@ -354,6 +558,38 @@ function escapeXml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/**
+ * 跨格式无损互转序列化引擎 (支持 JSON ⇄ YAML ⇄ TOML ⇄ XML)
+ */
+export function convertStructuredData(
+  data: any,
+  targetFormat: StructuredFormat,
+  options: { pretty?: boolean } = { pretty: true }
+): string {
+  if (data === null || data === undefined) return '';
+
+  try {
+    switch (targetFormat) {
+      case 'json':
+        return JSON.stringify(data, null, options.pretty ? 2 : 0);
+
+      case 'yaml':
+        return dumpYaml(data, { indent: 2, lineWidth: -1, noRefs: true });
+
+      case 'toml':
+        return objectToToml(data);
+
+      case 'xml':
+        return objectToXml(data, 'root');
+
+      default:
+        return JSON.stringify(data, null, 2);
+    }
+  } catch (err: any) {
+    return `// 格式转换失败: ${err?.message || '未知错误'}`;
+  }
 }
 
 /**

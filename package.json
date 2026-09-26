@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "1.0.28",
+  "version": "1.2.5",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -27,7 +27,9 @@
     "onCustomEditor:omniview.editor",
     "onCommand:omniview.openSidePreview",
     "onCommand:omniview.openSideBySide",
-    "onCommand:omniview.openSource"
+    "onCommand:omniview.openSource",
+    "onCommand:omniview.createNewFile",
+    "onCommand:omniview.openWorkbench"
   ],
   "contributes": {
     "customEditors": [
@@ -138,6 +140,9 @@
             "filenamePattern": "*.xml"
           },
           {
+            "filenamePattern": "*.toml"
+          },
+          {
             "filenamePattern": "*.ts"
           },
           {
@@ -181,6 +186,15 @@
           },
           {
             "filenamePattern": "*.domainstory"
+          },
+          {
+            "filenamePattern": "Dockerfile"
+          },
+          {
+            "filenamePattern": "Dockerfile.*"
+          },
+          {
+            "filenamePattern": "*.dockerfile"
           }
         ],
         "priority": "option"
@@ -190,7 +204,7 @@
       {
         "command": "omniview.openSidePreview",
         "title": "OmniView: 在侧边打开预览",
-        "icon": "$(layout-sidebar-right)"
+        "icon": "$(eye)"
       },
       {
         "command": "omniview.openSource",
@@ -201,6 +215,16 @@
         "command": "omniview.openSideBySide",
         "title": "OmniView: 打开并排协同 (原生源码编辑 + 实时渲染预览)",
         "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "omniview.createNewFile",
+        "title": "OmniView: 新建多维图表/文档模板...",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "omniview.openWorkbench",
+        "title": "OmniView: 打开多维可视化全景工作台",
+        "icon": "$(preview)"
       },
       {
         "command": "omniview.openSettings",
@@ -222,19 +246,19 @@
         "command": "omniview.openSidePreview",
         "key": "ctrl+k v",
         "mac": "cmd+k v",
-        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
       },
       {
         "command": "omniview.openSidePreview",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
       },
       {
         "command": "omniview.openSideBySide",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
-        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
+        "when": "editorTextFocus && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i"
       },
       {
         "command": "omniview.openSource",
@@ -250,10 +274,22 @@
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "omniview.createNewFile",
+          "when": "view == workbench.explorer.fileView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "omniview.openWorkbench",
+          "when": "view == workbench.explorer.fileView",
+          "group": "navigation@2"
+        }
+      ],
       "editor/title": [
         {
           "command": "omniview.openSidePreview",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i && activeCustomEditorId != 'omniview.editor'",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i && activeCustomEditorId != 'omniview.editor'",
           "group": "navigation"
         },
         {
@@ -267,15 +303,37 @@
           "group": "navigation@2"
         }
       ],
-      "explorer/context": [
+      "view/item/context": [
+        {
+          "command": "omniview.openSidePreview",
+          "when": "view == workbench.explorer.fileView && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "group": "inline@1"
+        },
         {
           "command": "omniview.openSideBySide",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "view == workbench.explorer.fileView && resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "group": "inline@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "omniview.openSidePreview",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "group": "inline@1"
+        },
+        {
+          "command": "omniview.openSideBySide",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "group": "inline@2"
+        },
+        {
+          "command": "omniview.openSideBySide",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
           "group": "omniview@1"
         },
         {
           "command": "omniview.openSidePreview",
-          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
+          "when": "resourceExtname =~ /\\.(md|markdown|okf|puml|plantuml|iuml|mmd|mermaid|dot|gv|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|tiff|pdf|epub|docx|pptx|xlsx|xls|xlsm|xltx|csv|tsv|json|yaml|yml|xml|toml|ts|tsx|js|jsx|txt|markmap|mm|mindmap|km|ipynb|typ|typst|excalidraw|egn|domainstory)$/i",
           "group": "omniview@2"
         }
       ]
@@ -328,6 +386,45 @@
           ],
           "description": "文档与图表内容区域默认最大宽度约束。"
         },
+        "omniview.preview.zoomLevel": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 2.5,
+          "description": "渲染视口默认缩放比例（1.0 为 100% 原始大小）。"
+        },
+        "omniview.preview.defaultViewMode": {
+          "type": "string",
+          "default": "preview",
+          "enum": [
+            "preview",
+            "split",
+            "source",
+            "mindmap"
+          ],
+          "description": "多维文档打开时的默认展现模式（预览优先、分屏协作、源码编辑或思维导图）。"
+        },
+        "omniview.preview.splitRatio": {
+          "type": "number",
+          "default": 50,
+          "minimum": 20,
+          "maximum": 80,
+          "description": "双栏分屏协作模式下左侧源码编辑器默认宽度百分比 (20% ~ 80%)。"
+        },
+        "omniview.preview.splitRightMode": {
+          "type": "string",
+          "default": "preview",
+          "enum": [
+            "preview",
+            "mindmap"
+          ],
+          "description": "分屏模式右侧区域默认呈现模式（实时富文本图表渲染或交互式思维导图）。"
+        },
+        "omniview.preview.lazyUnmount": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否开启超长文档视口外大型图表、复杂长公式与代码块的离屏懒卸载性能优化。"
+        },
         "omniview.editor.scrollSync": {
           "type": "boolean",
           "default": true,
@@ -343,6 +440,35 @@
           "default": true,
           "description": "代码与源码查看器是否显示行号槽。"
         },
+        "omniview.editor.doubleClickEdit": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否启用双击预览段落或图表反向定位并打开源码编辑（默认关闭以防止正常阅读误触）。"
+        },
+        "omniview.outline.open": {
+          "type": "boolean",
+          "default": true,
+          "description": "打开 Markdown 文档时是否默认展开大纲目录导航抽屉。"
+        },
+        "omniview.outline.position": {
+          "type": "string",
+          "default": "right",
+          "enum": [
+            "left",
+            "right",
+            "floating"
+          ],
+          "description": "文档大纲目录抽屉的停靠位置（靠右侧边栏、靠左侧边栏或悬浮微型浮窗）。"
+        },
+        "omniview.outline.displayMode": {
+          "type": "string",
+          "default": "tree",
+          "enum": [
+            "list",
+            "tree"
+          ],
+          "description": "文档大纲目录的展现形态（可折叠层级树形结构或紧凑扁平缩进列表）。"
+        },
         "omniview.plantuml.serverUrl": {
           "type": "string",
           "default": "https://www.plantuml.com/plantuml",
@@ -353,6 +479,15 @@
           "type": "boolean",
           "default": true,
           "description": "是否开启 OKF (Open Knowledge Format) 多维知识图谱扩展渲染引擎。"
+        },
+        "omniview.general.locale": {
+          "type": "string",
+          "default": "zh-CN",
+          "enum": [
+            "zh-CN",
+            "en-US"
+          ],
+          "description": "OmniView 渲染工作台界面语言偏好（简体中文或 English）。"
         }
       }
     }
@@ -371,7 +506,7 @@
     "check:structure": "node scripts/analyze-structure.mjs",
     "version:bump": "node scripts/bump-version.mjs",
     "version:check": "node scripts/bump-version.mjs --check",
-    "test": "(esbuild scripts/test-diagram-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-mermaid-config.mjs --bundle --platform=node | node) && (esbuild scripts/test-diagram-cache.mjs --bundle --platform=node | node) && (esbuild scripts/test-diagram-diagnostics.mjs --bundle --platform=node | node) && (esbuild scripts/test-mindmap-driver.mjs --bundle --platform=node | node) && (esbuild scripts/test-settings-storage.mjs --bundle --platform=node | node) && (esbuild scripts/test-a4-print-pagination.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-profiling.mjs --bundle --platform=node | node) && (esbuild scripts/test-security-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-driver-routing.mjs --bundle --platform=node | node) && (esbuild scripts/test-svg-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-table-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-structured-data.mjs --bundle --platform=node | node) && (esbuild scripts/test-okf-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-undo-redo.mjs --bundle --platform=node | node) && (esbuild scripts/test-print-bridge.mjs --bundle --platform=node | node) && (esbuild scripts/test-dom-search-highlighter.mjs --bundle --platform=node | node) && (esbuild scripts/test-plantuml-url.mjs --bundle --platform=node | node) && node scripts/test-i18n.mjs && node scripts/test-markdown-callout-task.mjs && (esbuild scripts/test-markdown-footnotes.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-wiki-links.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-pandoc-extras.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-selection-replacer.mjs --bundle --platform=node | node) && node scripts/test-markdown-outline.mjs && node scripts/test-markdown-print-export.mjs && node scripts/test-webview-save-writeback.mjs && node scripts/test-presentation-outline-restore.mjs && node scripts/test-native-theme.mjs && (esbuild scripts/test-scroll-sync.mjs --bundle --platform=node | node) && node scripts/test-lazy-viewport-block.mjs && (esbuild scripts/test-notebook-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-typst-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-a4-typography-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-excalidraw.mjs --bundle --platform=node --external:@excalidraw/* | node) && (esbuild scripts/test-diagram-playback.mjs --bundle --platform=node | node) && (esbuild scripts/test-domainstory-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-epub-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-docx-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-pptx-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-xlsx-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-image-engine.mjs --bundle --platform=node | node) && node scripts/test-check-vsix-contents.mjs && node scripts/test-version-bump.mjs && (esbuild scripts/test-word-clipboard.mjs --bundle --platform=node | node)",
+    "test": "(esbuild scripts/test-diagram-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-mermaid-config.mjs --bundle --platform=node | node) && (esbuild scripts/test-diagram-cache.mjs --bundle --platform=node | node) && (esbuild scripts/test-diagram-diagnostics.mjs --bundle --platform=node | node) && (esbuild scripts/test-mindmap-driver.mjs --bundle --platform=node --packages=external | node) && (esbuild scripts/test-settings-storage.mjs --bundle --platform=node | node) && (esbuild scripts/test-a4-print-pagination.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-csv-profiling.mjs --bundle --platform=node | node) && (esbuild scripts/test-security-sanitizer.mjs --bundle --platform=node | node) && (esbuild scripts/test-driver-routing.mjs --bundle --platform=node --packages=external | node) && (esbuild scripts/test-svg-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-table-utils.mjs --bundle --platform=node | node) && (esbuild scripts/test-structured-data.mjs --bundle --platform=node | node) && (esbuild scripts/test-okf-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-undo-redo.mjs --bundle --platform=node | node) && (esbuild scripts/test-print-bridge.mjs --bundle --platform=node | node) && (esbuild scripts/test-dom-search-highlighter.mjs --bundle --platform=node | node) && (esbuild scripts/test-plantuml-url.mjs --bundle --platform=node | node) && (esbuild scripts/test-i18n.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-callout-task.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-footnotes.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-wiki-links.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-pandoc-extras.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-selection-replacer.mjs --bundle --platform=node | node) && node scripts/test-markdown-outline.mjs && node scripts/test-markdown-print-export.mjs && node scripts/test-webview-save-writeback.mjs && node scripts/test-presentation-outline-restore.mjs && node scripts/test-native-theme.mjs && (esbuild scripts/test-scroll-sync.mjs --bundle --platform=node | node) && node scripts/test-lazy-viewport-block.mjs && (esbuild scripts/test-notebook-parser.mjs --bundle --platform=node | node) && (esbuild scripts/test-typst-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-a4-typography-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-excalidraw.mjs --bundle --platform=node --external:@excalidraw/* | node) && (esbuild scripts/test-diagram-playback.mjs --bundle --platform=node | node) && (esbuild scripts/test-domainstory-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-epub-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-docx-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-pptx-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-xlsx-engine.mjs --bundle --platform=node | node) && (esbuild scripts/test-image-engine.mjs --bundle --platform=node | node) && node scripts/test-check-vsix-contents.mjs && node scripts/test-version-bump.mjs && (esbuild scripts/test-word-clipboard.mjs --bundle --platform=node | node) && (esbuild scripts/test-explorer-actions.mjs --bundle --platform=node | node) && (esbuild scripts/test-markdown-image-resolver.mjs --bundle --platform=node | node) && node scripts/test-settings-integration.mjs && node scripts/test-codeblock-hover-toolbar.mjs && (esbuild scripts/test-cloudnative-drivers.mjs --bundle --platform=node --packages=external | node)",
     "verify": "npm run check:structure && npm run lint && npm run test && npm run build:plugin",
     "vscode:prepublish": "npm run build:plugin"
   },

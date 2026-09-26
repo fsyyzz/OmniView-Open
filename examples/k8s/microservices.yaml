@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: omniview-prod
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: omniview-prod
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  METRICS_ENABLED: "true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: omniview-prod
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://admin:secret@pg-cluster:5432/omniview"
+  JWT_SIGNING_KEY: "super-secure-production-jwt-key"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-storage-pvc
+  namespace: omniview-prod
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omniview-api
+  namespace: omniview-prod
+  labels:
+    app: omniview-api
+    tier: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: omniview-api
+  template:
+    metadata:
+      labels:
+        app: omniview-api
+    spec:
+      containers:
+        - name: api-container
+          image: omniview/api:v1.2.0
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "1024Mi"
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: persistent-data
+              mountPath: /data
+      volumes:
+        - name: persistent-data
+          persistentVolumeClaim:
+            claimName: data-storage-pvc
+        - name: config-vol
+          configMap:
+            name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: omniview-api-svc
+  namespace: omniview-prod
+  labels:
+    app: omniview-api
+spec:
+  type: ClusterIP
+  selector:
+    app: omniview-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: omniview-ingress
+  namespace: omniview-prod
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  rules:
+    - host: api.omniview.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: omniview-api-svc
+                port:
+                  number: 80

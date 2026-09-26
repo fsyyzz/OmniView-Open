@@ -128,7 +128,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
         return (
           <div className="flex min-h-0 flex-1 overflow-hidden" data-theme={theme}>
             {/* Left: Source Code Editor */}
-            <div className="flex min-h-0 w-1/2 flex-col border-r border-slate-800" style={zoomStyle}>
+            <div className="flex min-h-0 w-1/2 flex-col border-r" style={{ ...zoomStyle, borderColor: 'var(--ov-border)' }}>
               <CodeViewer
                 content={file.content}
                 fileName={file.name}
@@ -142,17 +142,26 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
             {/* Right: Toggleable Preview / Mindmap */}
             <div className="min-h-0 w-1/2 flex flex-col overflow-hidden relative" style={{ background: 'var(--ov-bg)' }}>
               {/* Floating switcher for split view right pane */}
-              <div className="absolute top-2 right-4 z-20 flex items-center bg-slate-900/85 backdrop-blur border border-slate-750 rounded-md p-0.5 shadow-md">
+              <div
+                className="absolute top-2 right-4 z-20 flex items-center backdrop-blur rounded-md p-0.5 shadow-md border"
+                style={{
+                  background: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                }}
+              >
                 <button
                   onClick={() => {
                     setSplitRightMode('preview');
                     saveStoredSettings({ splitRightMode: 'preview' });
                   }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer ${
                     splitRightMode === 'preview'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
+                      : 'hover:bg-[var(--ov-surface-hover)]'
                   }`}
+                  style={{
+                    color: splitRightMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
+                  }}
                   title="富文本渲染预览"
                   aria-label="富文本渲染预览"
                 >
@@ -241,6 +250,8 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
     // 动态分发非 Markdown 驱动插件组件
     const TargetDriverComponent = plugin.getComponent();
     const universalDriverProps = {
+      file,
+      mode,
       content: file.content,
       fileName: file.name,
       extension: file.extension,

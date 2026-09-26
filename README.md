@@ -195,7 +195,28 @@
   - 接入 `DiagramStepPlayer` 播放器，支持按活动序号单步播放、上一帧/下一帧与聚焦高亮；
   - 导出标准 `.egn` 文件与将完整领域模型隐写嵌入的 **Polyglot SVG**，实现图形与源码双向无损提取。
 
-### 17. 全局偏好与工作区持久化体系
+### 17. 云原生与容器化基础设施全套工作台 (Cloud-Native Infrastructure Studio)
+- **Dockerfile 构建流水线与指令透视 (Dockerfile Studio)**:
+  - 自动解析并生成多阶段构建流水线 DAG（如 `base -> builder -> runner`）；
+  - 语法指令分层分类透视（基础镜像、构建步骤、环境配置、网络端口与运行时）；
+  - 环境变量与暴露端口矩阵化提取；
+  - 云原生最佳实践静态体检：检测 `:latest` 镜像漂移、过多 RUN 碎片层、非 root 安全用户合规性等；
+  - 源码分屏实时协同编辑。
+- **Docker Compose 微服务拓扑工作台 (Compose Studio)**:
+  - 自动渲染微服务依赖拓扑架构图，支持按服务关系自动关联连线；
+  - 网络隔离簇（Networks）与持久化卷（Volumes）挂载图谱；
+  - 微服务配置矩阵：集中检视各容器镜像版本、暴露端口、重启策略与资源参数；
+  - 敏感环境变量安全打码脱敏（Secret Masking）与眼球悬浮临时揭示；
+  - 静态配置体检：自动检测端口冲突、悬空 depends_on 与未声明网络。
+- **Kubernetes 复合清单引力拓扑工作台 (Kubernetes Manifest Studio)**:
+  - 纯离线解析复杂多文档 YAML 清单（`---` 自动切分）；
+  - 4 层云原生引力拓扑图：`Ingress / Gateway` $\to$ `Service` $\to$ `Workload (Deployment/StatefulSet/Pod/Job)` $\to$ `Config/Storage (ConfigMap/Secret/PVC)`；
+  - 跨资源 Selector 自动引力连线：基于 `matchLabels` 自动关联 Service 与 Deployment，基于 `volumeMounts` 自动关联 PVC 与 ConfigMap；
+  - 资源概览看板：按 Workload、Network、Config、Storage、RBAC 分类卡片聚合与即时检索；
+  - 最佳实践体检中心：缺少存活/就绪探针 (Probes)、缺少 Resource Limits、Service 悬空断链自动警示与修复建议；
+  - 源码分屏协同与精准跳转。
+
+### 18. 全局偏好与工作区持久化体系
 - **集中式配置中枢 (`settingsStorage.ts`)**: 存储键升级为 `v2`，无缝自动向前平滑兼容迁移旧版本配置并安全回写；
 - **严苛边界防护**: 对缩放比例 (0.5~2.5x)、字号 (12~22px) 及分屏比例建立数学截断与钳位容错，避免任何异常值影响交互；
 - **多工作区生命周期持久化 (`fileStorage.ts`)**: 记住侧边栏与资源管理器开关状态、活动标签页顺序与最后打开文件；

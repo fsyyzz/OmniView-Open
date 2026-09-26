@@ -7,17 +7,24 @@ import type { FileItem, DriverId, ViewMode, ThemeId, ContentWidthMode, DensityMo
 import type { Locale } from '../../../shared/lib/i18n';
 
 export interface DriverProps {
-  file: FileItem;
-  files: FileItem[];
-  mode: ViewMode;
+  file?: FileItem;
+  files?: FileItem[];
+  content?: string;
+  fileName?: string;
+  extension?: string;
+  fileSize?: number;
+  binaryUrl?: string;
+  isDarkTheme?: boolean;
+  mode?: ViewMode;
   theme?: ThemeId;
   density?: DensityMode;
   contentWidth?: ContentWidthMode;
   zoom?: number;
   locale?: Locale;
-  onContentChange: (content: string) => void;
+  onContentChange?: (content: string) => void;
   onRenderComplete?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  onOpenInEditor?: () => void;
   onSelectFile?: (file: FileItem) => void;
   enableOkf?: boolean;
   onToggleOkf?: () => void;
@@ -159,6 +166,76 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     name: '现代图像工作台与像素检视器',
     extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'tiff'],
     getComponent: createLazyDriver('image', () => import('../components/drivers/ImageViewer'), 'ImageViewer'),
+  },
+  {
+    id: 'dockerfile',
+    name: 'Dockerfile 构建流水线与指令透视',
+    extensions: ['dockerfile'],
+    matchFile: (file) => {
+      const lowerName = (file.name || '').toLowerCase();
+      if (lowerName === 'dockerfile' || lowerName.startsWith('dockerfile.') || lowerName.endsWith('.dockerfile')) {
+        return true;
+      }
+      if (file.content && /^\s*FROM\s+[\w\-./:]+/im.test(file.content.slice(0, 1000))) {
+        return true;
+      }
+      return false;
+    },
+    getComponent: createLazyDriver('dockerfile', () => import('../components/drivers/DockerfileViewer'), 'DockerfileViewer'),
+    supportsSplitView: true,
+  },
+  {
+    id: 'compose',
+    name: 'Docker Compose 微服务拓扑工作台',
+    extensions: ['compose'],
+    matchFile: (file) => {
+      const lowerName = (file.name || '').toLowerCase();
+      const isYaml = lowerName.endsWith('.yml') || lowerName.endsWith('.yaml');
+      if (
+        lowerName === 'docker-compose.yml' ||
+        lowerName === 'docker-compose.yaml' ||
+        lowerName.startsWith('docker-compose.') ||
+        lowerName.includes('compose.yml') ||
+        lowerName.includes('compose.yaml')
+      ) {
+        return true;
+      }
+      if (isYaml && file.content) {
+        return (
+          /^\s*services:\s*$/m.test(file.content) ||
+          (/^\s*version:\s*['"]?[23]/m.test(file.content) && /services:/m.test(file.content))
+        );
+      }
+      return false;
+    },
+    getComponent: createLazyDriver('compose', () => import('../components/drivers/ComposeViewer'), 'ComposeViewer'),
+    supportsSplitView: true,
+  },
+  {
+    id: 'k8s',
+    name: 'Kubernetes 清单引力拓扑工作台',
+    extensions: ['k8s'],
+    matchFile: (file) => {
+      const lowerName = (file.name || '').toLowerCase();
+      const isYaml = lowerName.endsWith('.yml') || lowerName.endsWith('.yaml') || lowerName.endsWith('.k8s.yaml');
+      if (
+        lowerName.includes('k8s') ||
+        lowerName.includes('kube') ||
+        lowerName.includes('deployment') ||
+        lowerName.includes('ingress') ||
+        lowerName.includes('service')
+      ) {
+        if (isYaml && file.content && /^\s*apiVersion:\s*/m.test(file.content) && /^\s*kind:\s*/m.test(file.content)) {
+          return true;
+        }
+      }
+      if (isYaml && file.content && /^\s*apiVersion:\s*([a-zA-Z0-9.\-_/]+)/m.test(file.content)) {
+        return /^\s*kind:\s*(Pod|Deployment|Service|Ingress|ConfigMap|Secret|StatefulSet|DaemonSet|Job|CronJob|Namespace|PersistentVolume|PersistentVolumeClaim|HorizontalPodAutoscaler|Gateway|VirtualService|CustomResourceDefinition)\b/m.test(file.content);
+      }
+      return false;
+    },
+    getComponent: createLazyDriver('k8s', () => import('../components/drivers/K8sViewer'), 'K8sViewer'),
+    supportsSplitView: true,
   },
   {
     id: 'code',

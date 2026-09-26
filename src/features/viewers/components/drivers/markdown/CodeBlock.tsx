@@ -78,40 +78,54 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
               {codeLines.length} {t('linesCode', locale)} {isCollapsed && `(${t('collapsed', locale)})`}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          {/* 统一整合的顶部悬浮操作工具条：默认不显示，鼠标悬浮时整体优雅浮现 */}
+          <div
+            className={`code-block-toolbar flex items-center gap-1.5 transition-all duration-200 ${
+              showCopyMenu
+                ? 'opacity-100 pointer-events-auto'
+                : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+            }`}
+          >
+            {/* 1. 折叠 / 展开按钮 */}
             <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 text-[11px] transition shadow-xs"
+              title={isCollapsed ? t('expandCode', locale) : t('collapseCode', locale)}
+              aria-label={isCollapsed ? t('expandCode', locale) : t('collapseCode', locale)}
+            >
+              {isCollapsed ? <ChevronRight className="w-3 h-3 text-blue-400" /> : <ChevronDown className="w-3 h-3 text-blue-400" />}
+              <span>{isCollapsed ? (locale === 'zh-CN' ? '展开' : 'Expand') : (locale === 'zh-CN' ? '折叠' : 'Collapse')}</span>
+            </button>
+
+            {/* 2. 全屏独立灯箱按钮 */}
+            <button
+              type="button"
               onClick={() => setIsFullscreen(true)}
-              className="p-1 hover:bg-slate-700/60 text-slate-400 hover:text-cyan-300 rounded transition"
+              className="p-1 rounded bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 border border-slate-700/60 transition shadow-xs"
               title={t('codeFullscreen', locale)}
               aria-label={t('codeFullscreen', locale)}
             >
               <Maximize2 size={13} />
             </button>
-            <button
-              onClick={onToggleCollapse}
-              className="text-[11px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded hover:bg-slate-700/50 transition"
-              title={isCollapsed ? t('expandCode', locale) : t('collapseCode', locale)}
-            >
-              {isCollapsed ? (locale === 'zh-CN' ? '展开' : 'Expand') : (locale === 'zh-CN' ? '折叠' : 'Collapse')}
-            </button>
 
-            {/* 复制按钮组合 (主按钮复制纯代码，下拉选项可复制为 Word 原生带行号富文本表格) */}
+            {/* 3. 复制按钮组合 (主按钮复制纯代码，下拉选项可复制为 Word 原生带行号富文本表格) */}
             <div className="relative inline-flex items-center" ref={menuRef}>
-              <div className="diagram-hover-actions inline-flex items-center rounded bg-slate-800 border border-slate-700/60 text-slate-300 transition opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+              <div className="inline-flex items-center rounded bg-slate-800/90 border border-slate-700/60 text-slate-300 transition shadow-xs">
                 <button
                   type="button"
                   onClick={onCopy}
-                  className="flex items-center gap-1.5 px-2.5 py-1 hover:bg-slate-700 hover:text-white rounded-l text-xs transition"
+                  className="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-700 hover:text-white rounded-l text-[11px] transition"
                   title={t('copyCodePlain', locale)}
                   aria-label={t('copyCode', locale)}
                 >
-                  {isCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">{isCopied ? t('copied', locale) : (locale === 'zh-CN' ? '复制' : 'Copy')}</span>
+                  {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{isCopied ? t('copied', locale) : (locale === 'zh-CN' ? '复制' : 'Copy')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCopyMenu((v) => !v)}
-                  className="px-1.5 py-1 border-l border-slate-700/60 hover:bg-slate-700 hover:text-white rounded-r text-slate-400 transition"
+                  className="px-1.5 py-0.5 border-l border-slate-700/60 hover:bg-slate-700 hover:text-white rounded-r text-slate-400 hover:text-slate-200 transition"
                   title={t('copyCodeWithLineNumbers', locale)}
                   aria-label={t('copyCodeWithLineNumbers', locale)}
                 >

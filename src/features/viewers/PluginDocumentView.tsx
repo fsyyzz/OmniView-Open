@@ -10,6 +10,7 @@ import { parseMarkdownHeadings, extractSectionContent } from './lib/markdownAst'
 import { exportToWordDocument, exportToPortableHtml, buildPortableHtml } from './lib/exportEngine';
 import { requestPrintHtml } from '../../shared/lib/printBridge';
 import { useScrollHeadingSpy } from './hooks/useScrollHeadingSpy';
+import { useContainerWidth } from './hooks/useContainerWidth';
 import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
 import { MarkdownOutlineSidebar } from './components/markdown/MarkdownOutlineSidebar';
 import { DocStatusBar } from './components/DocStatusBar';
@@ -17,7 +18,7 @@ const WorkbenchSettingsModal = React.lazy(() =>
   import('../workbench/components/WorkbenchSettingsModal').then(m => ({ default: m.WorkbenchSettingsModal }))
 );
 import { KeyboardShortcutsModal } from './components/HelpShortcutsModal';
-import { ExternalLink, Save, Check, Loader2, Keyboard } from 'lucide-react';
+import { ExternalLink, Save, Check, Loader2, Keyboard, Eye, Split, Code2, Settings } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
@@ -112,6 +113,8 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
         file={file}
         theme={currentTheme}
         density={currentDensity}
+        onThemeChange={handleThemeSelect}
+        onDensityChange={handleDensitySelect}
         onContentChange={onContentChange}
         vscode={vscode}
       />
@@ -135,6 +138,8 @@ interface NonMarkdownPluginViewProps {
   file: FileItem;
   theme: ThemeId;
   density: DensityMode;
+  onThemeChange?: (theme: ThemeId) => void;
+  onDensityChange?: (density: DensityMode) => void;
   onContentChange?: (content: string) => void;
   vscode?: VsCodeApi;
 }
@@ -143,6 +148,8 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
   file,
   theme,
   density,
+  onThemeChange,
+  onDensityChange,
   onContentChange,
   vscode,
 }) => {
@@ -151,8 +158,30 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const initialContentRef = useRef(file.content);
   const latestContentRef = useRef(file.content);
+
+  const [settings, setSettings] = useState<WorkbenchSettings>(() => {
+    const stored = loadStoredSettings();
+    return {
+      ...stored,
+      theme: theme || stored.theme,
+      density: density || stored.density,
+    };
+  });
+
+  const handleSettingsChange = (newSettings: WorkbenchSettings) => {
+    setSettings(newSettings);
+    saveStoredSettings(newSettings);
+    if (newSettings.theme !== theme && onThemeChange) {
+      onThemeChange(newSettings.theme);
+    }
+    if (newSettings.density !== density && onDensityChange) {
+      onDensityChange(newSettings.density);
+    }
+  };
 
   useEffect(() => {
     initialContentRef.current = file.content;
@@ -217,7 +246,7 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
           return;
         }
 
-        // 查找正文区域容器 (Markdown / 结构化数据树 / CSV 表格 / 代码与纯文本画布等)，避免选中插件顶栏与状态栏
+        // 查找正文区域容器，避免选中插件顶栏与状态栏
         const contentCanvas = (document.querySelector(
           '#markdown-viewer-canvas, .markdown-document, #structured-data-body, #csv-table-canvas, #code-viewer-canvas, .markdown-plugin-scroll > div'
         ) || document.querySelector(
@@ -255,93 +284,234 @@ const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  const [toolbarRef, toolbarWidth] = useContainerWidth<HTMLDivElement>(700);
+
+  // 阶梯式响应式断点定义 (保证极窄到超宽屏像素级整齐不折行)
+  const isWideMode = toolbarWidth >= 660;
+  const isMediumMode = toolbarWidth >= 440 && toolbarWidth < 660;
+  const showStatusText = toolbarWidth >= 520;
+  const showSaveText = toolbarWidth >= 480;
+  const showEditorText = toolbarWidth >= 780;
+  const showAuxText = toolbarWidth >= 680;
+
   return (
     <main
-      className="flex h-full w-full min-h-0 flex-col overflow-hidden text-slate-100"
+      className="flex h-full w-full min-h-0 flex-col overflow-hidden transition-colors"
       data-theme={theme}
       data-density={density}
-      style={{ background: 'var(--ov-bg)' }}
+      style={{
+        background: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
+      }}
     >
-      {/* 顶部通用动作栏 */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs shrink-0 select-none">
-        <div className="flex items-center gap-2 font-mono text-slate-300">
-          <span className="font-semibold text-slate-200">{file.name}</span>
-          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-            {file.extension}
+      {/* 顶部通用动作栏 (依托容器真实宽度动态自适应文字与图标，杜绝挤爆折行) */}
+      <div
+        ref={toolbarRef}
+        className="flex items-center justify-between px-3 py-1.5 border-b text-xs shrink-0 select-none transition-colors whitespace-nowrap flex-nowrap min-w-0"
+        style={{
+          background: 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+      >
+        {/* 左侧：文件信息与保存状态 */}
+        <div className="flex items-center gap-1.5 sm:gap-2 font-mono min-w-0 mr-2 overflow-hidden shrink">
+          <span className="font-semibold truncate max-w-[100px] sm:max-w-[160px]" style={{ color: 'var(--ov-text)' }} title={file.name}>
+            {file.name}
           </span>
-          <span className="text-slate-600">|</span>
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <span
+            className="text-[10px] uppercase px-1.5 py-0.5 rounded border shrink-0"
+            style={{
+              background: 'var(--ov-code-bg)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+          >
+            {file.extension || 'FILE'}
+          </span>
+          <span style={{ color: 'var(--ov-border)' }} className="shrink-0">|</span>
+          <div className="flex items-center gap-1 text-[11px] font-sans shrink-0">
             {isDirty ? (
-              <span className="flex items-center gap-1 text-amber-400 font-sans" title="存在未落盘修改 (按 Ctrl+S 立即保存)">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                <span>未保存修改</span>
+              <span className="flex items-center gap-1 text-amber-500 font-medium" title="存在未落盘修改 (按 Ctrl+S 立即保存)">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                {showStatusText && <span>未保存修改</span>}
               </span>
             ) : saveStatus === 'saved' ? (
-              <span className="flex items-center gap-1 text-emerald-400 font-sans">
-                <Check size={13} className="text-emerald-400" />
-                <span>已保存</span>
+              <span className="flex items-center gap-1 text-emerald-500 font-medium" title="已保存">
+                <Check size={13} className="text-emerald-500 shrink-0" />
+                {showStatusText && <span>已保存</span>}
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-slate-400 font-sans">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
-                <span>已同步</span>
+              <span className="flex items-center gap-1" style={{ color: 'var(--ov-text-muted)' }} title="已同步">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80 shrink-0" />
+                {showStatusText && <span>已同步</span>}
               </span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* 中间：视图模式切换（渲染 / 并排分屏 / 源码）- 智能激活态文字策略 */}
+        <div
+          className="flex items-center p-0.5 rounded-lg border shadow-xs shrink-0 mx-1"
+          style={{
+            background: 'var(--ov-surface)',
+            borderColor: 'var(--ov-border)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setViewMode('preview')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer shrink-0 ${
+              viewMode === 'preview'
+                ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                : 'hover:bg-[var(--ov-surface-hover)]'
+            }`}
+            style={{
+              color: viewMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            title="图形化渲染视图 (Preview)"
+            aria-label="渲染视图"
+          >
+            <Eye size={13} className="shrink-0" />
+            {(isWideMode || (isMediumMode && viewMode === 'preview')) && <span>渲染视图</span>}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('split')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer shrink-0 ${
+              viewMode === 'split'
+                ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                : 'hover:bg-[var(--ov-surface-hover)]'
+            }`}
+            style={{
+              color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            title="并排分屏协同 (图形渲染 + 实时源码编辑)"
+            aria-label="并排协同"
+          >
+            <Split size={13} className="shrink-0" />
+            {(isWideMode || (isMediumMode && viewMode === 'split')) && <span>并排协同</span>}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('source')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer shrink-0 ${
+              viewMode === 'source'
+                ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                : 'hover:bg-[var(--ov-surface-hover)]'
+            }`}
+            style={{
+              color: viewMode === 'source' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            title="纯源码编辑模式 (Source)"
+            aria-label="源码编辑"
+          >
+            <Code2 size={13} className="shrink-0" />
+            {(isWideMode || (isMediumMode && viewMode === 'source')) && <span>源码编辑</span>}
+          </button>
+        </div>
+
+        {/* 右侧：操作按钮与设置入口 (随宽度自适应文字或纯精致图标) */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {vscode && isDirty && (
             <button
               onClick={handleSaveImmediate}
               disabled={saveStatus === 'saving'}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded transition text-xs font-medium cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded transition text-xs font-medium cursor-pointer shadow-xs shrink-0"
               title="立即保存文件 (Ctrl+S)"
             >
               {saveStatus === 'saving' ? (
-                <Loader2 size={13} className="animate-spin" />
+                <Loader2 size={13} className="animate-spin shrink-0" />
               ) : (
-                <Save size={13} />
+                <Save size={13} className="shrink-0" />
               )}
-              <span>保存</span>
+              {showSaveText && <span>保存</span>}
             </button>
           )}
+
           {vscode && (
             <button
               id="btn-plugin-open-native-editor"
               onClick={() => vscode.postMessage({ type: 'open-source', path: file.path })}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 transition text-xs font-medium cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-2 py-1 rounded border transition text-xs font-medium cursor-pointer shadow-xs hover:bg-[var(--ov-surface-hover)] shrink-0"
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
               title="在 VS Code 原生文本编辑器中并排编辑"
+              aria-label="在编辑器中打开"
             >
-              <ExternalLink size={13} className="text-sky-400" />
-              <span>在编辑器中打开</span>
+              <ExternalLink size={13} className="text-sky-500 shrink-0" />
+              {showEditorText && <span>在编辑器打开</span>}
             </button>
           )}
+
+          <button
+            id="btn-non-markdown-settings"
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded border transition text-xs cursor-pointer shadow-xs hover:bg-[var(--ov-surface-hover)] shrink-0"
+            style={{
+              background: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            title="外观主题与全局设置"
+            aria-label="外观设置"
+          >
+            <Settings size={13} className="shrink-0" />
+            {showAuxText && <span>设置</span>}
+          </button>
+
           <button
             id="btn-non-markdown-shortcuts"
             onClick={() => setIsShortcutsModalOpen(true)}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 transition text-xs cursor-pointer shadow-xs"
+            className="flex items-center gap-1 px-2 py-1 rounded border transition text-xs cursor-pointer shadow-xs hover:bg-[var(--ov-surface-hover)] shrink-0"
+            style={{
+              background: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text-secondary)',
+            }}
             title="快捷键与使用指南 (Ctrl+?)"
+            aria-label="快捷键指南"
           >
-            <Keyboard size={13} className="text-blue-400" />
-            <span className="hidden sm:inline">快捷键</span>
+            <Keyboard size={13} className="text-blue-500 shrink-0" />
+            {showAuxText && <span>快捷键</span>}
           </button>
         </div>
       </div>
+
+      {/* 视图主体容器 */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden h-full w-full">
         <ViewerRenderer
           file={{ ...file, content: currentContent }}
           files={[{ ...file, content: currentContent }]}
-          mode="preview"
+          mode={viewMode}
           theme={theme}
           density={density}
           onContentChange={persistContent}
           onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file.path }) : undefined}
         />
       </div>
+
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
       />
+
+      <React.Suspense fallback={null}>
+        {isSettingsModalOpen && (
+          <WorkbenchSettingsModal
+            isOpen={isSettingsModalOpen}
+            onClose={() => setIsSettingsModalOpen(false)}
+            settings={settings}
+            onSettingsChange={handleSettingsChange}
+            initialTab="appearance"
+          />
+        )}
+      </React.Suspense>
     </main>
   );
 };

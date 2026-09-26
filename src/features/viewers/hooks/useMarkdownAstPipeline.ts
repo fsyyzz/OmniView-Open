@@ -125,9 +125,65 @@ const getCalloutMeta = (typeStr: string, locale: Locale) => {
 
 export interface UseMarkdownAstPipelineOptions {
   content: string;
-  files: Array<{ name: string; content: string; extension: string; path?: string }>;
+  files: Array<{ name: string; content: string; extension: string; path?: string; binaryUrl?: string }>;
   locale: Locale;
   isDarkTheme?: boolean;
+}
+
+/**
+ * 从工作区与关联资源文件池中解析图片路径，支持 Webview 协议与 Base64 DataURI
+ */
+export function resolveMarkdownImageHref(
+  rawHref: string,
+  files?: Array<{ name: string; content: string; extension: string; path?: string; binaryUrl?: string }>
+): string {
+  if (!rawHref) return '';
+  if (
+    rawHref.startsWith('http://') ||
+    rawHref.startsWith('https://') ||
+    rawHref.startsWith('data:') ||
+    rawHref.startsWith('blob:') ||
+    rawHref.startsWith('vscode-webview:') ||
+    rawHref.startsWith('vscode-resource:')
+  ) {
+    return rawHref;
+  }
+  if (!files || files.length === 0) return rawHref;
+
+  const cleanSrc = decodeURIComponent(rawHref.trim().split(/[?#]/, 1)[0]).replace(/\\/g, '/').replace(/^\/+/, '');
+  const relativeSrc = cleanSrc.replace(/^(\.\.\/|\.\/)+/g, '');
+  const matchedFile = files.find(
+    (f) =>
+      f.name === cleanSrc ||
+      f.name.toLowerCase() === cleanSrc.toLowerCase() ||
+      (f.path && f.path.replace(/^\//, '') === cleanSrc) ||
+      (f.path && f.path.replace(/\\/g, '/').endsWith(`/${relativeSrc}`)) ||
+      f.name === relativeSrc ||
+      f.name.toLowerCase() === relativeSrc.toLowerCase()
+  );
+
+  if (matchedFile) {
+    // 1. 若宿主已提供可直接在 Webview 中加载的 binaryUrl，优先使用
+    if (matchedFile.binaryUrl) {
+      return matchedFile.binaryUrl;
+    }
+    // 2. 若 content 已经包含完整 data:image/ 前缀
+    if (matchedFile.content && matchedFile.content.startsWith('data:image/')) {
+      return matchedFile.content;
+    }
+    // 3. SVG 矢量格式
+    const ext = (matchedFile.extension || '').toLowerCase();
+    if (ext === 'svg' && matchedFile.content) {
+      return `data:image/svg+xml;utf8,${encodeURIComponent(matchedFile.content)}`;
+    }
+    // 4. 位图格式 (png, jpg, jpeg, gif, webp, bmp, ico, avif, tiff) 且 content 非空
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'tiff'].includes(ext) && matchedFile.content) {
+      const mime = ext === 'jpg' ? 'jpeg' : ext;
+      return `data:image/${mime};base64,${matchedFile.content}`;
+    }
+  }
+
+  return rawHref;
 }
 
 export function useMarkdownAstPipeline({
@@ -189,41 +245,23 @@ export function useMarkdownAstPipeline({
         const safeAlt = (alt || '').replace(/"/g, '&quot;');
         const safeTitle = (imgTitle || '').replace(/"/g, '&quot;');
 
-        let resolvedHref = rawHref || '';
-        // 尝试从工作区内存文件池中匹配本地相对图片资源
-        if (
-          rawHref &&
-          filesRef.current &&
-          filesRef.current.length > 0 &&
-          !rawHref.startsWith('http://') &&
-          !rawHref.startsWith('https://') &&
-          !rawHref.startsWith('data:')
-        ) {
-          const cleanSrc = decodeURIComponent(rawHref.trim().split(/[?#]/, 1)[0]).replace(/\\/g, '/').replace(/^\/+/, '');
-          const relativeSrc = cleanSrc.replace(/^(\.\.\/|\.\/)+/g, '');
-          const matchedFile = filesRef.current.find(
-            (f) =>
-              f.name === cleanSrc ||
-              f.name.toLowerCase() === cleanSrc.toLowerCase() ||
-              (f.path && f.path.replace(/^\//, '') === cleanSrc) ||
-              (f.path && f.path.replace(/\\/g, '/').endsWith(`/${relativeSrc}`)) ||
-              f.name === relativeSrc ||
-              f.name.toLowerCase() === relativeSrc.toLowerCase()
-          );
-
-          if (matchedFile) {
-            if (matchedFile.content.startsWith('data:image/')) {
-              resolvedHref = matchedFile.content;
-            } else if (matchedFile.extension.toLowerCase() === 'svg') {
-              resolvedHref = `data:image/svg+xml;utf8,${encodeURIComponent(matchedFile.content)}`;
-            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(matchedFile.extension.toLowerCase())) {
-              const mime = matchedFile.extension.toLowerCase() === 'jpg' ? 'jpeg' : matchedFile.extension.toLowerCase();
-              resolvedHref = `data:image/${mime};base64,${matchedFile.content}`;
-            }
-          }
-        }
+        const resolvedHref = resolveMarkdownImageHref(rawHref, filesRef.current);
 
         return `<span class="ov-image-container"><img src="${resolvedHref}" alt="${safeAlt}" title="${safeTitle}" decoding="async" onerror="this.classList.add('ov-img-broken');this.insertAdjacentHTML('afterend','<span class=\\'ov-image-fallback\\'>⚠️ ${t('imageNotFound', locale)}: <code>${rawHref}</code></span>');this.style.display='none';" /></span>`;
+      };
+
+      const origHtml = customRenderer.html?.bind(customRenderer);
+      customRenderer.html = function (tokenOrText: any) {
+        let rawHtml = typeof tokenOrText === 'object' && tokenOrText !== null ? (tokenOrText.text || tokenOrText.raw || '') : tokenOrText;
+        if (!rawHtml) return '';
+        // 智能替换 HTML 中的 <img src="relative/path">
+        if (/<img\s+[^>]*?src=["']/i.test(rawHtml)) {
+          rawHtml = rawHtml.replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*)>/gi, (_match: string, prefix: string, src: string, suffix: string) => {
+            const resolved = resolveMarkdownImageHref(src, filesRef.current);
+            return `<img ${prefix}src="${resolved}"${suffix}>`;
+          });
+        }
+        return origHtml ? origHtml(typeof tokenOrText === 'object' && tokenOrText !== null ? { ...tokenOrText, text: rawHtml, raw: rawHtml } : rawHtml) : rawHtml;
       };
 
       customRenderer.heading = function (headerOrToken: any, depth?: any) {
