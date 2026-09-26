@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { getVsCodeApi } from '../../../shared/lib/vscode';
 import { requestPrintHtml } from '../../../shared/lib/printBridge';
+import { driverSupportsSplitView, driverSupportsSourceEdit } from '../../viewers/lib/driverRegistry';
 
 interface WorkbenchHeaderProps {
   currentView: WorkbenchView;
@@ -290,7 +291,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
 
       {/* Center: View Modes (when in editor view) & Zoom Controls */}
       <div className="hidden md:flex items-center gap-1.5 shrink-0">
-        {currentView === 'editor' && (
+        {currentView === 'editor' && (!activeFile || driverSupportsSplitView(activeFile) || driverSupportsSourceEdit(activeFile)) && (
           <div
             style={{
               backgroundColor: 'var(--ov-bg-elevated)',
@@ -304,39 +305,43 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                 backgroundColor: viewMode === 'preview' ? 'var(--ov-accent)' : 'transparent',
                 color: viewMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
               }}
-              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
+              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
               title="预览模式：查看富文本与即时渲染图表"
               aria-label="预览模式"
             >
               <Eye className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden xl:inline">预览</span>
             </button>
-            <button
-              onClick={() => onViewModeChange('split')}
-              style={{
-                backgroundColor: viewMode === 'split' ? 'var(--ov-accent)' : 'transparent',
-                color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
-              }}
-              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
-              title="分屏模式：左侧源码编辑，右侧同步渲染"
-              aria-label="分屏模式"
-            >
-              <Split className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden xl:inline">分屏</span>
-            </button>
-            <button
-              onClick={() => onViewModeChange('source')}
-              style={{
-                backgroundColor: viewMode === 'source' ? 'var(--ov-accent)' : 'transparent',
-                color: viewMode === 'source' ? '#ffffff' : 'var(--ov-text-secondary)',
-              }}
-              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
-              title="源码模式：查看与编辑原始文件"
-              aria-label="源码模式"
-            >
-              <Code className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden xl:inline">源码</span>
-            </button>
+            {(!activeFile || driverSupportsSplitView(activeFile)) && (
+              <button
+                onClick={() => onViewModeChange('split')}
+                style={{
+                  backgroundColor: viewMode === 'split' ? 'var(--ov-accent)' : 'transparent',
+                  color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
+                title="分屏模式：左侧源码编辑，右侧同步渲染"
+                aria-label="分屏模式"
+              >
+                <Split className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden xl:inline">分屏</span>
+              </button>
+            )}
+            {(!activeFile || driverSupportsSourceEdit(activeFile)) && (
+              <button
+                onClick={() => onViewModeChange('source')}
+                style={{
+                  backgroundColor: viewMode === 'source' ? 'var(--ov-accent)' : 'transparent',
+                  color: viewMode === 'source' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
+                title="源码模式：查看与编辑原始文件"
+                aria-label="源码模式"
+              >
+                <Code className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden xl:inline">源码</span>
+              </button>
+            )}
             {activeFile && ['md', 'markdown'].includes(activeFile.extension.toLowerCase()) && (
               <button
                 onClick={() => onViewModeChange('mindmap')}
@@ -344,7 +349,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                   backgroundColor: viewMode === 'mindmap' ? 'var(--ov-accent)' : 'transparent',
                   color: viewMode === 'mindmap' ? '#ffffff' : 'var(--ov-text-secondary)',
                 }}
-                className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90"
+                className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
                 title="思维导图模式：整篇文档大纲全景树图与动态交互 (Markmap)"
                 aria-label="思维导图模式"
               >

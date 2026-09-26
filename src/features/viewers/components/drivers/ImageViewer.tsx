@@ -22,6 +22,7 @@ import {
   Grid,
   Sun,
   Moon,
+  Monitor,
   Sparkles,
   X,
   FileCode,
@@ -82,8 +83,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [flipH, setFlipH] = useState<boolean>(false);
   const [flipV, setFlipV] = useState<boolean>(false);
 
-  // 背景底色模式: 'checker' | 'dark' | 'light' | 'system'
-  const [bgMode, setBgMode] = useState<'checker' | 'dark' | 'light' | 'system'>('checker');
+  // 背景底色模式: 'system' | 'checker' | 'dark' | 'light'
+  const [bgMode, setBgMode] = useState<'system' | 'checker' | 'dark' | 'light'>('system');
 
   // 像素放大镜与取色器
   const [enableLoupe, setEnableLoupe] = useState<boolean>(false);
@@ -348,50 +349,75 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     }
   };
 
-  // 背景底色样式映射
+  // 背景底色样式映射：自适应全局主题与高对比度棋盘格
   const bgStyle = useMemo(() => {
+    if (bgMode === 'system') return { background: 'var(--ov-bg)' };
     if (bgMode === 'dark') return { background: '#0a0d12' };
     if (bgMode === 'light') return { background: '#ffffff' };
-    if (bgMode === 'system') return { background: 'var(--ov-bg, #0d1117)' };
-    // 默认透明棋盘格
+    // 透明棋盘格：根据亮暗主题提供清晰可辨的对比格子
+    const dotColor = isDarkTheme ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.07)';
+    const bgColor = isDarkTheme ? '#111827' : '#f8fafc';
     return {
       backgroundImage: `
-        linear-gradient(45deg, #1f2937 25%, transparent 25%), 
-        linear-gradient(-45deg, #1f2937 25%, transparent 25%), 
-        linear-gradient(45deg, transparent 75%, #1f2937 75%), 
-        linear-gradient(-45deg, transparent 75%, #1f2937 75%)
+        linear-gradient(45deg, ${dotColor} 25%, transparent 25%), 
+        linear-gradient(-45deg, ${dotColor} 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, ${dotColor} 75%), 
+        linear-gradient(-45deg, transparent 75%, ${dotColor} 75%)
       `,
       backgroundSize: '20px 20px',
       backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-      backgroundColor: '#111827',
+      backgroundColor: bgColor,
     };
-  }, [bgMode]);
+  }, [bgMode, isDarkTheme]);
 
   return (
     <div
       ref={containerRef}
-      className="flex flex-col h-full w-full select-none overflow-hidden"
+      className="flex flex-col h-full w-full select-none overflow-hidden transition-colors"
+      data-theme={theme}
+      data-theme-mode={isDarkTheme ? 'dark' : 'light'}
       style={{
-        background: 'var(--ov-bg, #0d1117)',
-        color: 'var(--ov-fg, #e6edf3)',
+        background: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
       }}
     >
-      {/* 顶部工具栏 */}
-      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] shrink-0 gap-2 z-20">
+      {/* 顶部工具栏 (依托设计令牌实现全主题像素级自适应) */}
+      <header
+        className="flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 z-20 transition-colors"
+        style={{
+          background: 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+      >
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <div
+            className="p-1.5 rounded border shrink-0"
+            style={{
+              background: 'var(--ov-accent-subtle, rgba(59, 130, 246, 0.1))',
+              color: 'var(--ov-accent)',
+              borderColor: 'var(--ov-border)',
+            }}
+          >
             <ImageIcon className="w-4 h-4" />
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-xs truncate max-w-[180px]" title={fileName}>
+              <span className="font-semibold text-xs truncate max-w-[180px]" style={{ color: 'var(--ov-text)' }} title={fileName}>
                 {fileName}
               </span>
-              <span className="px-1.5 py-0.2 text-[10px] font-mono font-medium rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              <span
+                className="px-1.5 py-0.2 text-[10px] font-mono font-medium rounded border shrink-0"
+                style={{
+                  background: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-accent)',
+                }}
+              >
                 {metadata.format}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+            <div className="flex items-center gap-2 text-[10px] font-mono" style={{ color: 'var(--ov-text-muted)' }}>
               <span>{metadata.width} × {metadata.height} px</span>
               <span>•</span>
               <span>{metadata.aspectRatio}</span>
@@ -404,93 +430,176 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         </div>
 
         {/* 中间：缩放、底色与变换工具 */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {/* 缩放控制器 */}
-          <div className="flex items-center border border-[var(--ov-border,#30363d)] rounded bg-[var(--ov-bg,#0d1117)] px-1 py-0.5">
+          <div
+            className="flex items-center border rounded px-1 py-0.5"
+            style={{
+              borderColor: 'var(--ov-border)',
+              background: 'var(--ov-surface)',
+            }}
+          >
             <button
               onClick={() => setZoom(z => Math.max(0.1, Number((z * 0.8).toFixed(2))))}
-              className="p-1 hover:text-white text-slate-400 transition"
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="缩小"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[10px] w-12 text-center font-mono text-slate-200">
+            <span
+              className="text-[10px] w-12 text-center font-mono select-none"
+              style={{ color: 'var(--ov-text)' }}
+            >
               {Math.round(zoom * 100)}%
             </span>
             <button
               onClick={() => setZoom(z => Math.min(32.0, Number((z * 1.25).toFixed(2))))}
-              className="p-1 hover:text-white text-slate-400 transition"
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="放大"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleFitScreen}
-              className="px-1.5 py-0.5 text-[10px] rounded hover:bg-slate-700 text-slate-300 ml-0.5 border-l border-[var(--ov-border,#30363d)]"
+              className="px-1.5 py-0.5 text-[10px] rounded hover:bg-[var(--ov-surface-hover)] transition ml-0.5 border-l cursor-pointer"
+              style={{
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
               title="自适应视口大小"
             >
               适应
             </button>
             <button
               onClick={handlePixelPerfect}
-              className="px-1.5 py-0.5 text-[10px] rounded hover:bg-slate-700 text-slate-300"
+              className="px-1.5 py-0.5 text-[10px] rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="1:1 像素对齐 (100%)"
             >
               1:1
             </button>
           </div>
 
-          {/* 画布底色模式切换 */}
-          <div className="flex items-center border border-[var(--ov-border,#30363d)] rounded bg-[var(--ov-bg,#0d1117)] p-0.5">
+          {/* 画布底色模式切换 (支持系统全局主题、棋盘格、暗室与纯白) */}
+          <div
+            className="flex items-center border rounded p-0.5"
+            style={{
+              borderColor: 'var(--ov-border)',
+              background: 'var(--ov-surface)',
+            }}
+          >
+            <button
+              onClick={() => setBgMode('system')}
+              className={`p-1 rounded transition cursor-pointer ${
+                bgMode === 'system'
+                  ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                  : 'hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              style={{
+                color: bgMode === 'system' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              title="系统底色 (完全跟随全局应用与 VS Code 主题)"
+              aria-label="跟随系统全局主题"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={() => setBgMode('checker')}
-              className={`p-1 rounded transition ${bgMode === 'checker' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}`}
-              title="透明棋盘格底色"
+              className={`p-1 rounded transition cursor-pointer ${
+                bgMode === 'checker'
+                  ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                  : 'hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              style={{
+                color: bgMode === 'checker' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              title="透明棋盘格底色 (适合检视透明通道与切图)"
+              aria-label="透明棋盘格底色"
             >
               <Grid className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setBgMode('dark')}
-              className={`p-1 rounded transition ${bgMode === 'dark' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}`}
-              title="纯黑暗室底色"
+              className={`p-1 rounded transition cursor-pointer ${
+                bgMode === 'dark'
+                  ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                  : 'hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              style={{
+                color: bgMode === 'dark' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              title="纯黑暗室底色 (防眩光)"
+              aria-label="纯黑暗室底色"
             >
               <Moon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setBgMode('light')}
-              className={`p-1 rounded transition ${bgMode === 'light' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}`}
-              title="纯白原纸底色"
+              className={`p-1 rounded transition cursor-pointer ${
+                bgMode === 'light'
+                  ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                  : 'hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              style={{
+                color: bgMode === 'light' ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
+              title="纯白原纸底色 (明亮高对比度)"
+              aria-label="纯白原纸底色"
             >
               <Sun className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {/* 图像几何变换工具 */}
-          <div className="flex items-center border border-[var(--ov-border,#30363d)] rounded bg-[var(--ov-bg,#0d1117)] p-0.5">
+          <div
+            className="flex items-center border rounded p-0.5"
+            style={{
+              borderColor: 'var(--ov-border)',
+              background: 'var(--ov-surface)',
+            }}
+          >
             <button
               onClick={handleRotateCcw}
-              className="p-1 hover:text-white text-slate-400 transition"
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="逆时针旋转 90°"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleRotateCw}
-              className="p-1 hover:text-white text-slate-400 transition"
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+              style={{ color: 'var(--ov-text-secondary)' }}
               title="顺时针旋转 90°"
             >
               <RotateCw className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleFlipH}
-              className={`p-1 rounded transition ${flipH ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white'}`}
+              className={`p-1 rounded transition cursor-pointer ${
+                flipH
+                  ? 'bg-[var(--ov-accent)] text-white shadow-xs'
+                  : 'hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              style={{
+                color: flipH ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
               title="水平镜像翻转"
             >
               <FlipHorizontal className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleFlipV}
-              className={`p-1 rounded transition ${flipV ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white'}`}
+              className={`p-1 rounded transition cursor-pointer ${
+                flipV
+                  ? 'bg-[var(--ov-accent)] text-white shadow-xs'
+                  : 'hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              style={{
+                color: flipV ? '#ffffff' : 'var(--ov-text-secondary)',
+              }}
               title="垂直镜像翻转"
             >
               <FlipVertical className="w-3.5 h-3.5" />
@@ -500,11 +609,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {/* 像素十字放大镜与取色器开关 */}
           <button
             onClick={() => setEnableLoupe(!enableLoupe)}
-            className={`flex items-center gap-1 px-2 py-1 text-xs rounded border transition ${
+            className={`flex items-center gap-1 px-2 py-1 text-xs rounded border transition cursor-pointer ${
               enableLoupe
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs'
-                : 'border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))]'
+                ? 'bg-amber-500/20 text-amber-500 border-amber-500/40 shadow-xs font-semibold'
+                : 'hover:bg-[var(--ov-surface-hover)]'
             }`}
+            style={{
+              borderColor: enableLoupe ? undefined : 'var(--ov-border)',
+              background: enableLoupe ? undefined : 'var(--ov-surface)',
+              color: enableLoupe ? undefined : 'var(--ov-text-secondary)',
+            }}
             title="开启 16x 像素放大镜与十字取色器 (点击复制颜色)"
           >
             <Crosshair className="w-3.5 h-3.5" />
@@ -513,26 +627,37 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         </div>
 
         {/* 右侧：导出、元数据与全屏 */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* 导出下拉 */}
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--ov-border,#30363d)] hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))] text-slate-300 transition"
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded border hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+              style={{
+                borderColor: 'var(--ov-border)',
+                background: 'var(--ov-surface)',
+                color: 'var(--ov-text-secondary)',
+              }}
               title="导出与复制"
             >
-              <Download className="w-3.5 h-3.5 text-blue-400" />
+              <Download className="w-3.5 h-3.5" style={{ color: 'var(--ov-accent)' }} />
               <span className="hidden sm:inline">导出</span>
             </button>
 
             {showExportMenu && (
               <div
-                className="absolute right-0 top-full mt-1 w-44 rounded-md shadow-xl border border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] py-1 z-50 text-xs text-slate-200"
+                className="absolute right-0 top-full mt-1 w-44 rounded-md shadow-xl border py-1 z-50 text-xs"
+                style={{
+                  background: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
                 onClick={() => setShowExportMenu(false)}
               >
                 <button
                   onClick={handleCopyDataUri}
-                  className="w-full text-left px-3 py-1.5 hover:bg-blue-500/20 hover:text-blue-300 flex items-center gap-2"
+                  className="w-full text-left px-3 py-1.5 hover:bg-[var(--ov-surface-hover)] flex items-center gap-2 cursor-pointer"
+                  style={{ color: 'var(--ov-text)' }}
                 >
                   <FileCode className="w-3.5 h-3.5" />
                   <span>{copiedDataUri ? '已复制 Data URI！' : '复制为 Base64 URI'}</span>
@@ -540,7 +665,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                 <a
                   href={imageSrc}
                   download={fileName}
-                  className="w-full text-left px-3 py-1.5 hover:bg-blue-500/20 hover:text-blue-300 flex items-center gap-2"
+                  className="w-full text-left px-3 py-1.5 hover:bg-[var(--ov-surface-hover)] flex items-center gap-2 cursor-pointer"
+                  style={{ color: 'var(--ov-text)' }}
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>下载原图文件</span>
@@ -552,11 +678,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {/* 属性与 EXIF */}
           <button
             onClick={() => setShowInfo(!showInfo)}
-            className={`p-1.5 rounded border transition ${
+            className={`p-1.5 rounded border transition cursor-pointer ${
               showInfo
-                ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                : 'border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))]'
+                ? 'bg-[var(--ov-accent)] text-white shadow-xs font-semibold'
+                : 'hover:bg-[var(--ov-surface-hover)]'
             }`}
+            style={{
+              borderColor: 'var(--ov-border)',
+              background: showInfo ? undefined : 'var(--ov-surface)',
+              color: showInfo ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
             title="查看图像属性与 EXIF 元数据"
           >
             <Info className="w-3.5 h-3.5" />
@@ -565,7 +696,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {/* 全屏 */}
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded border border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))] transition"
+            className="p-1.5 rounded border hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+            style={{
+              borderColor: 'var(--ov-border)',
+              background: 'var(--ov-surface)',
+              color: 'var(--ov-text-secondary)',
+            }}
             title={isFullscreen ? '退出全屏' : '全屏展示图像'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -627,45 +763,57 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         {/* 悬浮 16x 像素放大镜 HUD */}
         {enableLoupe && loupePixel && (
           <div
-            className="fixed pointer-events-none z-50 bg-slate-900/95 backdrop-blur border border-slate-700 rounded-lg shadow-2xl p-2.5 flex flex-col gap-1.5 text-slate-200 text-xs w-52"
+            className="fixed pointer-events-none z-50 backdrop-blur border rounded-lg shadow-2xl p-2.5 flex flex-col gap-1.5 text-xs w-52"
             style={{
               left: Math.min(window.innerWidth - 220, loupePos.clientX + 20),
               top: Math.min(window.innerHeight - 180, loupePos.clientY + 20),
+              background: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
             }}
           >
             {/* 放大镜微缩色块与十字标 */}
             <div className="flex items-center gap-2">
               <div
-                className="w-10 h-10 rounded border border-white/30 shadow-inner shrink-0 relative overflow-hidden"
-                style={{ backgroundColor: loupePixel.hex }}
+                className="w-10 h-10 rounded border shadow-inner shrink-0 relative overflow-hidden"
+                style={{
+                  backgroundColor: loupePixel.hex,
+                  borderColor: 'var(--ov-border)',
+                }}
               >
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-2 h-2 border border-white/80 rounded-full shadow-xs" />
+                  <div className="w-2 h-2 border border-white rounded-full shadow-xs" />
                 </div>
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-mono font-bold text-sm text-white tracking-wide">
+                <span className="font-mono font-bold text-sm tracking-wide" style={{ color: 'var(--ov-text)' }}>
                   {loupePixel.hex}
                 </span>
-                <span className="font-mono text-[10px] text-slate-400 truncate">
+                <span className="font-mono text-[10px] truncate" style={{ color: 'var(--ov-text-muted)' }}>
                   X: {loupePixel.x}, Y: {loupePixel.y}
                 </span>
               </div>
             </div>
 
             {/* 色值多格式显示 */}
-            <div className="flex flex-col gap-0.5 font-mono text-[10px] text-slate-300 pt-1 border-t border-slate-700/60">
+            <div
+              className="flex flex-col gap-0.5 font-mono text-[10px] pt-1 border-t"
+              style={{
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+            >
               <div className="flex justify-between">
-                <span className="text-slate-400">RGBA:</span>
+                <span style={{ color: 'var(--ov-text-muted)' }}>RGBA:</span>
                 <span className="truncate">{loupePixel.rgba}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">HSLA:</span>
+                <span style={{ color: 'var(--ov-text-muted)' }}>HSLA:</span>
                 <span className="truncate">{loupePixel.hsla}</span>
               </div>
             </div>
 
-            <div className="text-[9px] text-amber-400 text-center font-sans mt-0.5">
+            <div className="text-[9px] text-amber-500 text-center font-sans mt-0.5">
               {copiedColor ? `✓ 已复制 ${copiedColor}` : '🖱️ 单击画布直接复制 HEX 色值'}
             </div>
           </div>
@@ -673,7 +821,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       </div>
 
       {/* 底部状态栏 */}
-      <footer className="flex items-center justify-between px-3 py-1 border-t border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] shrink-0 gap-2 z-20 text-[11px] text-slate-400 font-mono">
+      <footer
+        className="flex items-center justify-between px-3 py-1 border-t shrink-0 gap-2 z-20 text-[11px] font-mono transition-colors"
+        style={{
+          background: 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text-secondary)',
+        }}
+      >
         <div className="flex items-center gap-3">
           <span>分辨率: {metadata.width} × {metadata.height}</span>
           <span>•</span>
@@ -681,27 +836,28 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {rotation > 0 && (
             <>
               <span>•</span>
-              <span className="text-blue-400">旋转: {rotation}°</span>
+              <span style={{ color: 'var(--ov-accent)' }}>旋转: {rotation}°</span>
             </>
           )}
           {(flipH || flipV) && (
             <>
               <span>•</span>
-              <span className="text-blue-400">镜像: {flipH ? '水平' : ''}{flipV ? '垂直' : ''}</span>
+              <span style={{ color: 'var(--ov-accent)' }}>镜像: {flipH ? '水平' : ''}{flipV ? '垂直' : ''}</span>
             </>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           {enableLoupe && (
-            <span className="text-amber-400 flex items-center gap-1 font-sans">
+            <span className="text-amber-500 flex items-center gap-1 font-sans font-medium">
               <Crosshair className="w-3 h-3" />
               取色器已激活
             </span>
           )}
           <button
             onClick={handleResetTransform}
-            className="hover:text-white transition px-1 py-0.5 rounded"
+            className="hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] transition px-1.5 py-0.5 rounded cursor-pointer"
+            style={{ color: 'var(--ov-text-secondary)' }}
             title="重置缩放与变换"
           >
             重置视口
@@ -712,62 +868,88 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       {/* 图像属性与 EXIF 元数据模态框 */}
       {showInfo && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-[var(--ov-panel-bg,#161b22)] border border-[var(--ov-border,#30363d)] rounded-lg shadow-2xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--ov-border,#30363d)]">
-              <div className="flex items-center gap-2 text-blue-400 font-semibold text-sm">
+          <div
+            className="w-full max-w-md border rounded-lg shadow-2xl overflow-hidden flex flex-col"
+            style={{
+              background: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b"
+              style={{
+                borderColor: 'var(--ov-border)',
+                background: 'var(--ov-surface-header)',
+              }}
+            >
+              <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: 'var(--ov-accent)' }}>
                 <ImageIcon className="w-4 h-4" />
                 <span>图像属性与 EXIF 元数据 (Image Info)</span>
               </div>
               <button
                 onClick={() => setShowInfo(false)}
-                className="text-slate-400 hover:text-slate-200"
+                className="hover:bg-[var(--ov-surface-hover)] p-1 rounded transition cursor-pointer"
+                style={{ color: 'var(--ov-text-secondary)' }}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 space-y-2.5 text-xs text-slate-300 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">文件名称</span>
-                <span className="col-span-2 font-medium text-slate-200 truncate">{fileName}</span>
+            <div className="p-4 space-y-2.5 text-xs max-h-[70vh] overflow-y-auto" style={{ color: 'var(--ov-text-secondary)' }}>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border)' }}>
+                <span style={{ color: 'var(--ov-text-muted)' }}>文件名称</span>
+                <span className="col-span-2 font-medium truncate" style={{ color: 'var(--ov-text)' }}>{fileName}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">文件大小</span>
-                <span className="col-span-2 text-slate-200">{formatImageSize(metadata.fileSize)}</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border)' }}>
+                <span style={{ color: 'var(--ov-text-muted)' }}>文件大小</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{formatImageSize(metadata.fileSize)}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">图像分辨率</span>
-                <span className="col-span-2 text-slate-200">{metadata.width} × {metadata.height} 像素</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border)' }}>
+                <span style={{ color: 'var(--ov-text-muted)' }}>图像分辨率</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{metadata.width} × {metadata.height} 像素</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">总像素数</span>
-                <span className="col-span-2 text-slate-200">{metadata.megapixels} 百万像素 (MP)</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border)' }}>
+                <span style={{ color: 'var(--ov-text-muted)' }}>总像素数</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{metadata.megapixels} 百万像素 (MP)</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">纵横比例</span>
-                <span className="col-span-2 text-slate-200">{metadata.aspectRatio}</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border)' }}>
+                <span style={{ color: 'var(--ov-text-muted)' }}>纵横比例</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{metadata.aspectRatio}</span>
               </div>
 
               {/* EXIF 元数据区块 */}
               {metadata.exif && Object.keys(metadata.exif).length > 0 && (
                 <div className="pt-2">
-                  <h4 className="text-[11px] font-semibold text-blue-400 mb-1.5 uppercase tracking-wider">
+                  <h4 className="text-[11px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--ov-accent)' }}>
                     相机与拍摄参数 (EXIF)
                   </h4>
                   {Object.entries(metadata.exif).map(([k, v]) => (
-                    <div key={k} className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/40 font-mono">
-                      <span className="text-slate-400">{k}</span>
-                      <span className="col-span-2 text-slate-200">{String(v)}</span>
+                    <div key={k} className="grid grid-cols-3 gap-2 py-1 border-b font-mono" style={{ borderColor: 'var(--ov-border)' }}>
+                      <span style={{ color: 'var(--ov-text-muted)' }}>{k}</span>
+                      <span className="col-span-2 truncate" style={{ color: 'var(--ov-text)' }}>{String(v)}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="px-4 py-2.5 bg-[var(--ov-bg,#0d1117)] border-t border-[var(--ov-border,#30363d)] flex justify-end">
+            <div
+              className="px-4 py-2.5 border-t flex justify-end"
+              style={{
+                background: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+              }}
+            >
               <button
                 onClick={() => setShowInfo(false)}
-                className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium transition"
+                className="px-3 py-1 rounded text-xs font-medium transition cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                style={{
+                  background: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                  borderWidth: 1,
+                }}
               >
                 关闭
               </button>

@@ -249,9 +249,13 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
 
     // 动态分发非 Markdown 驱动插件组件
     const TargetDriverComponent = plugin.getComponent();
+    // 针对图片或纯二进制只读驱动，模式安全收敛为 preview，禁止分屏与源码编辑介入
+    const effectiveMode = (driverId === 'image' || (!plugin.supportsSplitView && !plugin.supportsSourceEdit && plugin.isBinary))
+      ? 'preview'
+      : mode;
     const universalDriverProps = {
       file,
-      mode,
+      mode: effectiveMode,
       content: file.content,
       fileName: file.name,
       extension: file.extension,

@@ -38,6 +38,8 @@ export interface DriverPlugin {
   matchFile?: (file: Partial<FileItem>) => boolean;
   getComponent: () => React.LazyExoticComponent<React.ComponentType<any>>;
   supportsSplitView?: boolean;
+  supportsSourceEdit?: boolean;
+  isBinary?: boolean;
 }
 
 // 惰性懒加载驱动组件映射缓存
@@ -98,6 +100,9 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     name: 'PDF 文档阅读器',
     extensions: ['pdf'],
     getComponent: createLazyDriver('pdf', () => import('../components/drivers/PdfViewer'), 'PdfViewer'),
+    supportsSplitView: false,
+    supportsSourceEdit: false,
+    isBinary: true,
   },
   {
     id: 'csv',
@@ -146,30 +151,45 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
     name: 'EPUB 电子书阅读器',
     extensions: ['epub'],
     getComponent: createLazyDriver('epub', () => import('../components/drivers/EpubViewer'), 'EpubViewer'),
+    supportsSplitView: false,
+    supportsSourceEdit: false,
+    isBinary: true,
   },
   {
     id: 'docx',
     name: 'Word 文档查看器',
     extensions: ['docx'],
     getComponent: createLazyDriver('docx', () => import('../components/drivers/DocxViewer'), 'DocxViewer'),
+    supportsSplitView: false,
+    supportsSourceEdit: false,
+    isBinary: true,
   },
   {
     id: 'pptx',
     name: 'PowerPoint 演示文稿',
     extensions: ['pptx'],
     getComponent: createLazyDriver('pptx', () => import('../components/drivers/PptxViewer'), 'PptxViewer'),
+    supportsSplitView: false,
+    supportsSourceEdit: false,
+    isBinary: true,
   },
   {
     id: 'xlsx',
     name: 'Excel 电子表格工作簿',
     extensions: ['xlsx', 'xls', 'xlsm', 'xltx'],
     getComponent: createLazyDriver('xlsx', () => import('../components/drivers/XlsxViewer'), 'XlsxViewer'),
+    supportsSplitView: false,
+    supportsSourceEdit: false,
+    isBinary: true,
   },
   {
     id: 'image',
     name: '现代图像工作台与像素检视器',
     extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'tiff'],
     getComponent: createLazyDriver('image', () => import('../components/drivers/ImageViewer'), 'ImageViewer'),
+    supportsSplitView: false,
+    supportsSourceEdit: false,
+    isBinary: true,
   },
   {
     id: 'dockerfile',
@@ -303,4 +323,34 @@ export function resolveDriverPluginForFile(file?: Partial<FileItem> | null): Dri
  */
 export function getDriverIdForFile(file?: Partial<FileItem> | null): DriverId {
   return resolveDriverPluginForFile(file).id;
+}
+
+/**
+ * 判断指定文件驱动是否支持分屏协同模式
+ */
+export function driverSupportsSplitView(file?: Partial<FileItem> | null): boolean {
+  if (!file) return false;
+  const plugin = resolveDriverPluginForFile(file);
+  return Boolean(plugin.supportsSplitView);
+}
+
+/**
+ * 判断指定文件驱动是否支持源码编辑
+ */
+export function driverSupportsSourceEdit(file?: Partial<FileItem> | null): boolean {
+  if (!file) return false;
+  const plugin = resolveDriverPluginForFile(file);
+  // 二进制格式或明确声明不支持源码编辑
+  if (plugin.isBinary || plugin.supportsSourceEdit === false) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 判断指定驱动是否为二进制驱动
+ */
+export function isBinaryDriver(driverId: DriverId): boolean {
+  const plugin = getDriverPluginById(driverId);
+  return Boolean(plugin.isBinary);
 }
