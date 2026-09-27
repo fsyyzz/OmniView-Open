@@ -1256,7 +1256,361 @@ $ int_0^infinity e^(-x^2) dif x = sqrt(pi) / 2 $
     });
   }));
 
+  // 资产全景树视图提供者与刷新命令
+  const assetTreeProvider = new OmniViewAssetTreeDataProvider();
+  context.subscriptions.push(vscode.window.registerTreeDataProvider('omniview.assetExplorer', assetTreeProvider));
+  context.subscriptions.push(vscode.commands.registerCommand('omniview.refreshAssets', () => {
+    assetTreeProvider.refresh();
+    vscode.window.showInformationMessage('OmniView: 已刷新工作区多维资产全景树。');
+  }));
+
+  // 注册 Hover 悬浮预览提供者 (支持 Markdown, Typst, Mermaid, PlantUML, DOT, JS/TS 等)
+  const hoverProvider = new OmniViewHoverProvider();
+  const supportedLanguages = [
+    'markdown', 'typst', 'mermaid', 'plantuml', 'dot', 'json', 'yaml', 'toml',
+    'javascript', 'typescript', 'javascriptreact', 'typescriptreact', 'html', 'python'
+  ];
+  for (const lang of supportedLanguages) {
+    context.subscriptions.push(vscode.languages.registerHoverProvider({ language: lang }, hoverProvider));
+  }
+
+  // 注册 CodeLens 一键动作提供者
+  const codeLensProvider = new OmniViewCodeLensProvider();
+  for (const lang of ['markdown', 'typst', 'mermaid', 'plantuml', 'dot']) {
+    context.subscriptions.push(vscode.languages.registerCodeLensProvider({ language: lang }, codeLensProvider));
+  }
+
+  // 注册原生大纲符号提供者 (DocumentSymbolProvider)
+  const docSymbolProvider = new OmniViewDocumentSymbolProvider();
+  for (const lang of ['markdown', 'typst', 'mermaid', 'plantuml', 'dot']) {
+    context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider({ language: lang }, docSymbolProvider));
+  }
+
+  // 注册状态栏指示器与快捷控制菜单
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  statusBarItem.command = 'omniview.showQuickMenu';
+  statusBarItem.text = '$(eye) OmniView';
+  statusBarItem.tooltip = 'OmniView: 多维渲染与实时协同中心 (点击打开快捷面板)';
+  context.subscriptions.push(statusBarItem);
+
+  const updateStatusBarVisibility = (editor?: vscode.TextEditor) => {
+    if (!editor) {
+      statusBarItem.hide();
+      return;
+    }
+    const ext = extname(editor.document.uri.fsPath).toLowerCase();
+    if (SUPPORTED_EXTENSIONS.includes(ext) || editor.document.uri.scheme === 'file') {
+      statusBarItem.show();
+    } else {
+      statusBarItem.hide();
+    }
+  };
+
+  updateStatusBarVisibility(vscode.window.activeTextEditor);
+  context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(updateStatusBarVisibility));
+
+  // 快捷控制菜单 QuickPick
+  context.subscriptions.push(vscode.commands.registerCommand('omniview.showQuickMenu', async () => {
+    const quickItems: vscode.QuickPickItem[] = [
+      {
+        label: '$(split-horizontal) 打开并排协同 (Side-by-Side)',
+        description: 'Ctrl+Alt+V',
+        detail: '左侧原生编辑器享受 LSP/Copilot，右侧 OmniView 毫秒级双向渲染',
+      },
+      {
+        label: '$(eye) 在侧边打开实时预览 (Side Preview)',
+        description: 'Ctrl+Shift+V',
+        detail: '独立侧边栏可视化视口，平滑双向滚动与节点双击反向溯源',
+      },
+      {
+        label: '$(sparkle) 新建多维图表/文档模板...',
+        detail: '快速创建 Mermaid、PlantUML、Typst、Excalidraw、DOT 与 CSV 模板',
+      },
+      {
+        label: '$(preview) 打开多维可视化全景工作台',
+        detail: '无需物理文件，直接进入纯端侧多格式渲染与排版工作台',
+      },
+      {
+        label: '$(refresh) 刷新工作区资产全景树',
+        detail: '重新扫描工作区中的图表、白板、文档与表格资产',
+      },
+      {
+        label: '$(lock) 切换预览跟随与锁定状态',
+        detail: `当前状态: ${isPreviewLocked ? '🔒 已锁定 (Pin 模式)' : '⚡ 自动跟随当前激活文件'}`,
+      },
+      {
+        label: '$(settings-gear) 打开 OmniView 插件设置',
+        detail: '调整主题、排版密度、缩放比例、A4 分页与 PlantUML 服务地址',
+      },
+      {
+        label: '$(output) 查看 OmniView 运行日志',
+        detail: '打开 OmniView 扩展输出通道诊断详细信息',
+      },
+    ];
+
+    const selected = await vscode.window.showQuickPick(quickItems, {
+      placeHolder: 'OmniView 多维渲染与实时协同控制中心...',
+      matchOnDetail: true,
+      matchOnDescription: true,
+    });
+
+    if (!selected) return;
+
+    if (selected.label.includes('打开并排协同')) {
+      await vscode.commands.executeCommand('omniview.openSideBySide');
+    } else if (selected.label.includes('在侧边打开实时预览')) {
+      await vscode.commands.executeCommand('omniview.openSidePreview');
+    } else if (selected.label.includes('新建多维图表/文档模板')) {
+      await vscode.commands.executeCommand('omniview.createNewFile');
+    } else if (selected.label.includes('打开多维可视化全景工作台')) {
+      await vscode.commands.executeCommand('omniview.openWorkbench');
+    } else if (selected.label.includes('刷新工作区资产全景树')) {
+      await vscode.commands.executeCommand('omniview.refreshAssets');
+    } else if (selected.label.includes('切换预览跟随与锁定状态')) {
+      await vscode.commands.executeCommand('omniview.togglePreviewLock');
+    } else if (selected.label.includes('打开 OmniView 插件设置')) {
+      await vscode.commands.executeCommand('omniview.openSettings');
+    } else if (selected.label.includes('查看 OmniView 运行日志')) {
+      await vscode.commands.executeCommand('omniview.showLogs');
+    }
+  }));
+
   context.subscriptions.push(vscode.commands.registerCommand('omniview.showLogs', () => output.show(true)));
+}
+
+export interface AssetItem {
+  type: 'category' | 'file';
+  label: string;
+  categoryKey?: 'arch' | 'whiteboard' | 'document' | 'data' | 'knowledge';
+  resourceUri?: vscode.Uri;
+  description?: string;
+  tooltip?: string;
+  iconPath?: vscode.ThemeIcon;
+}
+
+export class OmniViewAssetTreeDataProvider implements vscode.TreeDataProvider<AssetItem> {
+  private _onDidChangeTreeData: vscode.EventEmitter<AssetItem | undefined | null | void> = new vscode.EventEmitter<AssetItem | undefined | null | void>();
+  readonly onDidChangeTreeData: vscode.Event<AssetItem | undefined | null | void> = this._onDidChangeTreeData.event;
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+
+  getTreeItem(element: AssetItem): vscode.TreeItem {
+    if (element.type === 'category') {
+      const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
+      item.iconPath = element.iconPath;
+      item.contextValue = 'assetCategory';
+      return item;
+    }
+    const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+    item.resourceUri = element.resourceUri;
+    item.description = element.description;
+    item.tooltip = element.tooltip;
+    item.iconPath = element.iconPath || vscode.ThemeIcon.File;
+    item.contextValue = 'assetFile';
+    item.command = {
+      command: 'omniview.openSidePreview',
+      title: 'OmniView: 在侧边打开预览',
+      arguments: [element.resourceUri],
+    };
+    return item;
+  }
+
+  async getChildren(element?: AssetItem): Promise<AssetItem[]> {
+    if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+      return [];
+    }
+
+    if (!element) {
+      return [
+        { type: 'category', label: '📊 架构与流程设计 (Architecture & Flow)', categoryKey: 'arch', iconPath: new vscode.ThemeIcon('symbol-structure') },
+        { type: 'category', label: '🎨 矢量设计与白板 (Whiteboard & Vector)', categoryKey: 'whiteboard', iconPath: new vscode.ThemeIcon('symbol-color') },
+        { type: 'category', label: '📑 学术出版与富文档 (Docs & Publishing)', categoryKey: 'document', iconPath: new vscode.ThemeIcon('book') },
+        { type: 'category', label: '📈 电子表格与结构数据 (Sheets & Data)', categoryKey: 'data', iconPath: new vscode.ThemeIcon('table') },
+        { type: 'category', label: '🧠 知识库与思维导图 (Mindmaps & Knowledge)', categoryKey: 'knowledge', iconPath: new vscode.ThemeIcon('type-hierarchy') },
+      ];
+    }
+
+    if (element.type === 'category' && element.categoryKey) {
+      const extsByCategory: Record<string, string[]> = {
+        arch: ['.mmd', '.mermaid', '.puml', '.plantuml', '.iuml', '.dot', '.gv', '.dst', '.egn', '.domainstory'],
+        whiteboard: ['.excalidraw', '.svg'],
+        document: ['.md', '.markdown', '.typ', '.typst', '.docx', '.pptx', '.pdf', '.epub', '.ipynb', '.html', '.htm'],
+        data: ['.xlsx', '.xls', '.xlsm', '.xltx', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.toml'],
+        knowledge: ['.okf', '.markmap', '.mm', '.mindmap', '.km'],
+      };
+
+      const targetExts = extsByCategory[element.categoryKey] || [];
+      const files: vscode.Uri[] = [];
+
+      for (const folder of vscode.workspace.workspaceFolders) {
+        try {
+          const pattern = new vscode.RelativePattern(folder, `**/*{${targetExts.join(',')}}`);
+          const found = await vscode.workspace.findFiles(pattern, '**/node_modules/**', 100);
+          files.push(...found);
+        } catch {
+          // fallback
+        }
+      }
+
+      const validFiles = files.filter(uri => {
+        const ext = extname(uri.fsPath).toLowerCase();
+        return targetExts.includes(ext);
+      });
+
+      return validFiles.map(uri => {
+        const name = basename(uri.fsPath);
+        const folder = vscode.workspace.asRelativePath(dirname(uri.fsPath));
+        return {
+          type: 'file',
+          label: name,
+          resourceUri: uri,
+          description: folder === '.' ? '' : folder,
+          tooltip: uri.fsPath,
+        };
+      });
+    }
+
+    return [];
+  }
+}
+
+export class OmniViewHoverProvider implements vscode.HoverProvider {
+  provideHover(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+    _token: vscode.CancellationToken
+  ): vscode.ProviderResult<vscode.Hover> {
+    const lineText = document.lineAt(position.line).text;
+
+    // 1. 检查是否在图表代码块定义行或内部
+    if (/```(?:mermaid|puml|plantuml|dot|graphviz|typst|markmap)/i.test(lineText)) {
+      const match = lineText.match(/```(mermaid|puml|plantuml|dot|graphviz|typst|markmap)/i);
+      const diagramType = (match ? match[1] : '图表').toUpperCase();
+      const md = new vscode.MarkdownString();
+      md.isTrusted = true;
+      md.appendMarkdown(`### ⚡ OmniView ${diagramType} 可视化组件\n\n`);
+      md.appendMarkdown(`支持纯本地 WASM 离线 60 FPS 渲染、交互缩放与一键导出。\n\n`);
+      md.appendMarkdown(`[▶ 在侧边打开实时预览](command:omniview.openSidePreview) | [✨ 开启双屏协同](command:omniview.openSideBySide) | [📊 打开全景工作台](command:omniview.openWorkbench)`);
+      return new vscode.Hover(md);
+    }
+
+    // 2. 检查 LaTeX / KaTeX 公式块
+    if (/\$\$|\$[^\$]+\$/.test(lineText)) {
+      const md = new vscode.MarkdownString();
+      md.isTrusted = true;
+      md.appendMarkdown(`### 📐 OmniView KaTeX 数学公式\n\n`);
+      md.appendMarkdown(`高保真矢量数学符号渲染、支持 A4 打印与 Word 剪贴板富文本复制。\n\n`);
+      md.appendMarkdown(`[▶ 查看实时渲染效果](command:omniview.openSidePreview) | [✨ 双屏协同](command:omniview.openSideBySide)`);
+      return new vscode.Hover(md);
+    }
+
+    // 3. 检查嵌入媒体与 Obsidian Wiki 链接
+    if (/!\[\[([^\]]+)\]\]|!\[[^\]]*\]\(([^)]+)\)/.test(lineText)) {
+      const md = new vscode.MarkdownString();
+      md.isTrusted = true;
+      md.appendMarkdown(`### 🖼️ OmniView 媒体/图表嵌入引用\n\n`);
+      md.appendMarkdown(`支持跨格式资产热解析与相对路径本地穿透。\n\n`);
+      md.appendMarkdown(`[▶ 开启实时渲染联动](command:omniview.openSidePreview)`);
+      return new vscode.Hover(md);
+    }
+
+    return null;
+  }
+}
+
+export class OmniViewCodeLensProvider implements vscode.CodeLensProvider {
+  provideCodeLenses(
+    document: vscode.TextDocument,
+    _token: vscode.CancellationToken
+  ): vscode.ProviderResult<vscode.CodeLens[]> {
+    const codeLenses: vscode.CodeLens[] = [];
+    const text = document.getText();
+    const lines = text.split(/\r?\n/);
+
+    const topRange = new vscode.Range(0, 0, 0, 0);
+    codeLenses.push(
+      new vscode.CodeLens(topRange, {
+        title: '▶ OmniView 实时分屏协同',
+        command: 'omniview.openSideBySide',
+        arguments: [document.uri],
+      }),
+      new vscode.CodeLens(topRange, {
+        title: '👁️ 侧边预览',
+        command: 'omniview.openSidePreview',
+        arguments: [document.uri],
+      })
+    );
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^```(mermaid|puml|plantuml|dot|graphviz|typst|markmap)/i.test(line.trim()) || /^@startuml/i.test(line.trim()) || /^digraph/i.test(line.trim())) {
+        const range = new vscode.Range(i, 0, i, line.length);
+        codeLenses.push(
+          new vscode.CodeLens(range, {
+            title: '⚡ OmniView 图表实时渲染',
+            command: 'omniview.openSidePreview',
+            arguments: [document.uri],
+          })
+        );
+      }
+    }
+
+    return codeLenses;
+  }
+}
+
+export class OmniViewDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
+  provideDocumentSymbols(
+    document: vscode.TextDocument,
+    _token: vscode.CancellationToken
+  ): vscode.ProviderResult<vscode.DocumentSymbol[]> {
+    const symbols: vscode.DocumentSymbol[] = [];
+    const lineCount = document.lineCount;
+
+    for (let i = 0; i < lineCount; i++) {
+      const line = document.lineAt(i);
+      const text = line.text.trim();
+
+      const mdHeadingMatch = text.match(/^(#{1,6})\s+(.+)$/);
+      if (mdHeadingMatch) {
+        const level = mdHeadingMatch[1].length;
+        const title = mdHeadingMatch[2];
+        const kind = level === 1 ? vscode.SymbolKind.Namespace : level === 2 ? vscode.SymbolKind.Class : vscode.SymbolKind.Field;
+        symbols.push(new vscode.DocumentSymbol(title, `H${level}`, kind, line.range, line.range));
+        continue;
+      }
+
+      const typstHeadingMatch = text.match(/^(=+)\s+(.+)$/);
+      if (typstHeadingMatch) {
+        const level = typstHeadingMatch[1].length;
+        const title = typstHeadingMatch[2];
+        symbols.push(new vscode.DocumentSymbol(title, `Heading ${level}`, vscode.SymbolKind.Namespace, line.range, line.range));
+        continue;
+      }
+
+      const pumlMatch = text.match(/^(?:package|class|interface|component|state|rectangle)\s+["']?([^"'{]+)["']?/i);
+      if (pumlMatch) {
+        symbols.push(new vscode.DocumentSymbol(pumlMatch[1].trim(), 'UML Element', vscode.SymbolKind.Struct, line.range, line.range));
+        continue;
+      }
+
+      const dotMatch = text.match(/^(?:digraph|graph|subgraph)\s+([a-zA-Z0-9_]+)/i);
+      if (dotMatch) {
+        symbols.push(new vscode.DocumentSymbol(dotMatch[1], 'Graph', vscode.SymbolKind.Module, line.range, line.range));
+        continue;
+      }
+
+      const mmdMatch = text.match(/^(?:flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt)/i);
+      if (mmdMatch) {
+        symbols.push(new vscode.DocumentSymbol(mmdMatch[0], 'Diagram Type', vscode.SymbolKind.Module, line.range, line.range));
+        continue;
+      }
+    }
+
+    return symbols;
+  }
 }
 
 export function deactivate(): void {}

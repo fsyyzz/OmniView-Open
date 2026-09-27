@@ -17,6 +17,9 @@ import {
   X,
   Layers,
   Sparkles,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   parseDocx,
@@ -24,8 +27,9 @@ import {
   base64ToBytes,
   type ParsedDocxDocument,
 } from '../../lib/docxEngine';
+import { highlightSearchMatches, clearSearchHighlights, activateMatch } from '../../lib/domSearchHighlighter';
 import type { ThemeId } from '../../../../shared/types';
-import { type Locale } from '../../../../shared/lib/i18n';
+import { type Locale, t } from '../../../../shared/lib/i18n';
 
 export interface DocxViewerProps {
   content?: string;
@@ -53,9 +57,64 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [paperTheme, setPaperTheme] = useState<'paper' | 'dark' | 'sepia'>('paper');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [matchCount, setMatchCount] = useState<number>(0);
+  const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const docxMountRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // 搜索关键字高亮
+  useEffect(() => {
+    if (!docxMountRef.current) return;
+    if (!searchQuery.trim()) {
+      clearSearchHighlights(docxMountRef.current);
+      setMatchCount(0);
+      setActiveMatchIndex(-1);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!docxMountRef.current) return;
+      const count = highlightSearchMatches(docxMountRef.current, searchQuery);
+      setMatchCount(count);
+      if (count > 0) {
+        setActiveMatchIndex(0);
+        activateMatch(docxMountRef.current, 0, false);
+      } else {
+        setActiveMatchIndex(-1);
+      }
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleNavigateMatch = (backwards = false) => {
+    if (!docxMountRef.current || matchCount === 0) return;
+    setActiveMatchIndex(prev => {
+      let next = backwards ? prev - 1 : prev + 1;
+      if (next < 0) next = matchCount - 1;
+      if (next >= matchCount) next = 0;
+      activateMatch(docxMountRef.current, next, true);
+      return next;
+    });
+  };
+
+  // 全局 Ctrl+F 快捷聚焦搜索框
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }, 50);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 解析并载入 DOCX 数据
   const loadDocument = useCallback(async () => {
@@ -197,6 +256,63 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
+        </div>
+
+        {/* 中间：全文搜索框 */}
+        <div className="flex items-center gap-1.5 flex-1 max-w-xs justify-center">
+          <div className="relative w-full">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 opacity-50" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleNavigateMatch(e.shiftKey);
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setSearchQuery('');
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              placeholder="搜索正文... (Ctrl+F)"
+              className="w-full pl-8 pr-16 py-1 text-xs rounded-md bg-black/5 dark:bg-white/5 border border-[var(--ov-border)] focus:outline-none focus:border-blue-500 placeholder:opacity-50"
+            />
+            {matchCount > 0 && (
+              <span className="absolute right-7 top-1/2 -translate-y-1/2 text-[10px] font-mono opacity-70">
+                {activeMatchIndex + 1}/{matchCount}
+              </span>
+            )}
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                title="清除搜索 (Esc)"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {matchCount > 0 && (
+            <div className="flex items-center">
+              <button
+                onClick={() => handleNavigateMatch(true)}
+                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100"
+                title="上一个匹配项 (Shift+Enter)"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => handleNavigateMatch(false)}
+                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100"
+                title="下一个匹配项 (Enter)"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 右侧：纸张主题、打印与元数据 */}

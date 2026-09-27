@@ -884,13 +884,31 @@ const MarkdownPluginView: React.FC<{
     setIsSettingsModalOpen(true);
   }, []);
 
-  // 快捷键监听 (Ctrl+? 或 Ctrl+Shift+/ 打开快捷键与使用指南)
+  // 快捷键监听 (Ctrl+? 帮助指南，Ctrl+F 全局快速检索)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      // Ctrl+F / Cmd+F: 全局唤起并聚焦搜索框
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setToolbarVisible(true);
+        setTimeout(() => {
+          const searchInput = (document.getElementById('omniview-markdown-search-input') ||
+            document.querySelector('#csv-smart-grid-container input[type="text"]') ||
+            document.querySelector('input[placeholder*="搜索"]') ||
+            document.querySelector('input[placeholder*="Search"]')) as HTMLInputElement | null;
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+          }
+        }, 50);
         return;
       }
+
+      if (isInput) return;
+
       if ((e.ctrlKey || e.metaKey) && (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash')))) {
         e.preventDefault();
         setSettings(loadStoredSettings());

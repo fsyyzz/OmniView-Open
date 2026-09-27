@@ -202,6 +202,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
         <div className="markdown-search-box">
           <Search size={14} />
           <input
+            id="omniview-markdown-search-input"
             value={searchText}
             onChange={e => onSearchTextChange(e.target.value)}
             onKeyDown={e => {
@@ -214,13 +215,27 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
               } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 onFindText(true);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                onSearchTextChange('');
+                (e.target as HTMLInputElement).blur();
               }
             }}
-            placeholder={t('searchPlaceholder', locale)}
+            placeholder={`${t('searchPlaceholder', locale)} (Ctrl+F)`}
             aria-label={t('searchPlaceholder', locale)}
           />
-          <button type="button" onClick={() => onFindText(true)} title={t('prevMatch', locale)}>↑</button>
-          <button type="button" onClick={() => onFindText(false)} title={t('nextMatch', locale)}>↓</button>
+          {searchText && (
+            <button
+              type="button"
+              onClick={() => onSearchTextChange('')}
+              className="text-slate-400 hover:text-slate-200 text-xs px-1"
+              title="清除搜索 (Esc)"
+            >
+              ×
+            </button>
+          )}
+          <button type="button" onClick={() => onFindText(true)} title={`${t('prevMatch', locale)} (Shift+Enter / ↑)`}>↑</button>
+          <button type="button" onClick={() => onFindText(false)} title={`${t('nextMatch', locale)} (Enter / ↓)`}>↓</button>
         </div>
 
         <div className="markdown-toolbar-title items-center gap-1.5" title={filePath}>

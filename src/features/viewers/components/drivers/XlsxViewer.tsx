@@ -87,6 +87,22 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
   const [useFirstRowAsHeader, setUseFirstRowAsHeader] = useState<boolean>(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // 全局 Ctrl+F 快捷聚焦搜索框
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }, 50);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 载入与解析工作簿
   const loadWorkbook = useCallback(async () => {
@@ -304,13 +320,14 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           <div className="relative w-full max-w-xs">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={e => {
                 setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              placeholder="搜索单元格数据..."
+              placeholder="搜索单元格数据... (Ctrl+F)"
               className="w-full pl-8 pr-3 py-1 text-xs rounded bg-[var(--ov-bg,#0d1117)] border border-[var(--ov-border,#30363d)] focus:border-emerald-500 focus:outline-none placeholder:text-slate-500 text-slate-200"
             />
             {searchQuery && (

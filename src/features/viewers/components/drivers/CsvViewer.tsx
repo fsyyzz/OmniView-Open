@@ -122,6 +122,25 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
   // Header Data Profiling & Sparkline States
   const [showProfiling, setShowProfiling] = useState<boolean>(true);
   const [inspectingProfile, setInspectingProfile] = useState<ColumnProfile | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // 全局 Ctrl+F 快捷聚焦搜索框
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        if (viewMode !== 'table') {
+          setViewMode('table');
+        }
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }, 50);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode]);
 
   // Exports & Clipboard
   const handleDownloadCsv = () => {
@@ -268,13 +287,14 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                 className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2"
               />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={e => {
                   setSearchQuery(e.target.value);
                   setPage(1);
                 }}
-                placeholder={t('csvSearch', locale)}
+                placeholder={`${t('csvSearch', locale)} (Ctrl+F)`}
                 style={{
                   backgroundColor: 'var(--ov-bg)',
                   borderColor: 'var(--ov-border)',
