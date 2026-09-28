@@ -11,6 +11,7 @@ import {
   convertSvgToVue,
   convertSvgToDataUri,
   getSvgElementInfo,
+  getLineToElementIndex,
   updateSvgElement,
   removeSvgElement,
   moveSvgElement,
@@ -72,6 +73,19 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
   });
   const [selectedElementIndex, setSelectedElementIndex] = useState<number | null>(null);
   const [highlightLine, setHighlightLine] = useState<number | null>(null);
+
+  // 代码行 hover → 画布图元反向高亮映射
+  const [codeHoverLine, setCodeHoverLine] = useState<number | null>(null);
+  const codeHoverElementIndex = useMemo(
+    () => (codeHoverLine ? getLineToElementIndex(code, codeHoverLine) : null),
+    [code, codeHoverLine]
+  );
+
+  // 代码行 hover 回调
+  const handleCodeHoverLine = useCallback(
+    (line: number | null) => setCodeHoverLine(line),
+    []
+  );
 
   // Inkscape 风格工具箱与 15°角度吸附约束状态
   const [activeTool, setActiveTool] = useState<'select' | 'node' | 'pen'>('select');
@@ -543,6 +557,8 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
               onOptimize={handleOptimize}
               onReset={handleReset}
               highlightLine={highlightLine}
+              hoverLine={codeHoverLine}
+              onHoverLine={handleCodeHoverLine}
             />
           </div>
         )}
@@ -606,8 +622,9 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
               onUpdatePathNode={handleUpdatePathNode}
               onInsertPathNode={handleInsertPathNode}
               onDeletePathNode={handleDeletePathNode}
-              onTogglePathNodeType={handleTogglePathNodeType}
-              onAddNewPolyline={handleAddNewPolyline}
+               onTogglePathNodeType={handleTogglePathNodeType}
+               onAddNewPolyline={handleAddNewPolyline}
+               hoverElementIndex={codeHoverElementIndex}
             />
           </div>
         )}

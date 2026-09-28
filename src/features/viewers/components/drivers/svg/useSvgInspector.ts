@@ -28,6 +28,17 @@ export function useSvgInspector({ element, onUpdate }: UseSvgInspectorProps) {
   const [opacity, setOpacity] = useState(element.opacity || '1');
   const [textContent, setTextContent] = useState(element.textContent || '');
 
+  // 高级元素属性缓冲
+  const [fontFamily, setFontFamily] = useState(element.fontFamily || '');
+  const [fontWeight, setFontWeight] = useState(element.fontWeight || '');
+  const [fontStyle, setFontStyle] = useState(element.fontStyle || '');
+  const [textAnchor, setTextAnchor] = useState(element.textAnchor || '');
+  const [fontSizeLocal, setFontSizeLocal] = useState(element.fontSize || '');
+  const [imageHref, setImageHref] = useState(element.imageHref || '');
+  const [useHref, setUseHref] = useState(element.useHref || '');
+  const [filterRef, setFilterRef] = useState(element.filter || '');
+  const [clipPathRef, setClipPathRef] = useState(element.clipPath || '');
+
   // 几何坐标输入缓冲
   const [xVal, setXVal] = useState(element.x ?? element.cx ?? '');
   const [yVal, setYVal] = useState(element.y ?? element.cy ?? '');
@@ -48,6 +59,15 @@ export function useSvgInspector({ element, onUpdate }: UseSvgInspectorProps) {
     setMarkerEnd(element.markerEnd || '');
     setOpacity(element.opacity || '1');
     setTextContent(element.textContent || '');
+    setFontFamily(element.fontFamily || '');
+    setFontWeight(element.fontWeight || '');
+    setFontStyle(element.fontStyle || '');
+    setTextAnchor(element.textAnchor || '');
+    setFontSizeLocal(element.fontSize || '');
+    setImageHref(element.imageHref || '');
+    setUseHref(element.useHref || '');
+    setFilterRef(element.filter || '');
+    setClipPathRef(element.clipPath || '');
     setXVal(element.x ?? element.cx ?? '');
     setYVal(element.y ?? element.cy ?? '');
     setLineX1(element.x1 || '');
@@ -123,6 +143,51 @@ export function useSvgInspector({ element, onUpdate }: UseSvgInspectorProps) {
 
   const isTextTag = element.tagName === 'text' || element.tagName === 'tspan';
   const isLineTag = element.tagName === 'line';
+  const isImageTag = element.tagName === 'image';
+  const isUseTag = element.tagName === 'use';
+  const isDefsTag = ['linearGradient', 'radialGradient', 'filter', 'pattern', 'clipPath', 'mask', 'symbol'].includes(element.tagName);
+
+  // 字体与文本高级属性处理
+  const handleFontFamilyChange = (val: string) => {
+    setFontFamily(val);
+    onUpdate({ fontFamily: val });
+  };
+  const handleFontWeightChange = (val: string) => {
+    setFontWeight(val);
+    onUpdate({ fontWeight: val });
+  };
+  const handleFontStyleChange = (val: string) => {
+    setFontStyle(val);
+    onUpdate({ fontStyle: val });
+  };
+  const handleTextAnchorChange = (val: string) => {
+    setTextAnchor(val);
+    onUpdate({ textAnchor: val });
+  };
+  const handleFontSizeChange = (val: string) => {
+    setFontSizeLocal(val);
+    onUpdate({ fontSize: val });
+  };
+
+  // 图像 href 属性处理
+  const handleImageHrefChange = (val: string) => {
+    setImageHref(val);
+    onUpdate({ imageHref: val });
+  };
+  const handleUseHrefChange = (val: string) => {
+    setUseHref(val);
+    onUpdate({ useHref: val });
+  };
+
+  // 滤镜与裁剪路径引用
+  const handleFilterRefChange = (val: string) => {
+    setFilterRef(val);
+    onUpdate({ filter: val });
+  };
+  const handleClipPathRefChange = (val: string) => {
+    setClipPathRef(val);
+    onUpdate({ clipPath: val });
+  };
 
   // 极坐标与几何特征实时解算
   const lineMetrics = isLineTag
@@ -164,6 +229,31 @@ export function useSvgInspector({ element, onUpdate }: UseSvgInspectorProps) {
     handleOpacityChange,
     textContent,
     handleTextContentChange,
+    // 高级元素属性
+    fontFamily,
+    handleFontFamilyChange,
+    fontWeight,
+    handleFontWeightChange,
+    fontStyle,
+    handleFontStyleChange,
+    textAnchor,
+    handleTextAnchorChange,
+    fontSizeLocal,
+    handleFontSizeChange,
+    imageHref,
+    handleImageHrefChange,
+    useHref,
+    handleUseHrefChange,
+    filterRef,
+    handleFilterRefChange,
+    clipPathRef,
+    handleClipPathRefChange,
+    // 标签类型判断
+    isTextTag,
+    isLineTag,
+    isImageTag,
+    isUseTag,
+    isDefsTag,
     xVal,
     setXVal,
     yVal,
@@ -177,8 +267,6 @@ export function useSvgInspector({ element, onUpdate }: UseSvgInspectorProps) {
     lineY2,
     setLineY2,
     handleCoordCommit,
-    isTextTag,
-    isLineTag,
     lineMetrics,
     handleUpdateLineAngleOrLength,
   };

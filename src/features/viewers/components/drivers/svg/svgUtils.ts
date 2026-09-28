@@ -55,6 +55,16 @@ export interface SvgElementInfo {
   points?: string;
   transform?: string;
   fontSize?: string;
+  fontFamily?: string;
+  fontWeight?: string;
+  fontStyle?: string;
+  textAnchor?: string;
+  letterSpacing?: string;
+  preserveAspectRatio?: string;
+  imageHref?: string;
+  useHref?: string;
+  clipPath?: string;
+  filter?: string;
   lineInSource?: number;
   outerXml?: string;
 }
@@ -525,6 +535,95 @@ export function exportSvgAsPng(svgText: string, fileName = 'graphic.png', scale 
 }
 
 /**
+ * 根据源码行号（1-indexed）反向查找对应的图元索引
+ * 用于代码编辑器 hover 行号 → 画布图元高亮的反向映射
+ */
+export function getLineToElementIndex(svgText: string, lineNum: number): number | null {
+  if (!svgText || !lineNum) return null;
+  const lines = svgText.split('\n');
+  const targetLine = lines[lineNum - 1];
+  if (!targetLine) return null;
+
+  // 提取该行的标签名与关键属性作为唯一签名
+  const tagMatch = targetLine.match(/<(\/?)([a-zA-Z][\w:-]*)([^>]*?)>/);
+  if (!tagMatch) return null;
+  const tagName = tagMatch[2].toLowerCase();
+
+  // 若该行是注释或纯文本，不映射
+  if (/^\s*<!--/.test(targetLine) || /-->\s*$/.test(targetLine)) return null;
+
+  const allElements = getSvgTargetElementsFromText(svgText);
+  let foundIndex: number | null = null;
+
+  // 策略 1：精确匹配标签 + 行号（利用 findLineInSource 正向验证）
+  for (let i = 0; i < allElements.length; i++) {
+    const el = allElements[i];
+    const elTag = el.tagName.toLowerCase();
+    if (elTag !== tagName) continue;
+    const id = el.getAttribute('id');
+    const elLine = findLineInSource(svgText, elTag, id, undefined);
+    if (elLine === lineNum) {
+      foundIndex = i;
+      break;
+    }
+  }
+
+  // 策略 2：标签名唯一（仅有一个同名图元时直接映射）
+  if (foundIndex === null) {
+    const candidates = allElements.filter(el => el.tagName.toLowerCase() === tagName);
+    if (candidates.length === 1) {
+      foundIndex = allElements.indexOf(candidates[0]);
+    }
+  }
+
+  return foundIndex;
+}
+
+/**
+ * 从 SVG 文本中获取所有可寻址图元（兼容 Node.js 与浏览器环境）
+ * 返回最小化接口，仅暴露本文件内需要的 tagName 与 getAttribute
+ */
+interface SvgElementStub {
+  tagName: string;
+  getAttribute(name: string): string | null;
+}
+
+function getSvgTargetElementsFromText(svgText: string): SvgElementStub[] {
+  const trimmed = svgText.trim();
+  if (!trimmed) return [];
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      return getSvgTargetElements(doc);
+    } catch {
+      return [];
+    }
+  }
+
+  // Node.js 环境：用正则解析所有目标图元，返回轻量存根
+  const regex = /<(path|rect|circle|ellipse|line|polyline|polygon|text|tspan|g|image|use)\b([^>]*)>/gi;
+  const results: SvgElementStub[] = [];
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = regex.exec(trimmed)) !== null) {
+    const tag = match[1].toLowerCase();
+    const attrsStr = match[2];
+    const stub: SvgElementStub = {
+      tagName: tag,
+      getAttribute(name: string): string | null {
+        const m = attrsStr.match(new RegExp(`(?:^|\\s)${name}=["']([^"']*)["']`, 'i'));
+        return m ? m[1] : null;
+      },
+    };
+    results.push(stub);
+    idx++;
+  }
+  return results;
+}
+
+/**
  * 获取用于图形检视的 SVG 核心图元列表
  */
 export function getSvgTargetElements(root: Document | Element): Element[] {
@@ -641,69 +740,89 @@ export function getSvgElementInfo(svgText: string, targetIndex: number): SvgElem
       const strokeLinecap = el.getAttribute('stroke-linecap') || undefined;
       const strokeLinejoin = el.getAttribute('stroke-linejoin') || undefined;
       const strokeMiterlimit = el.getAttribute('stroke-miterlimit') || undefined;
-      const markerStart = el.getAttribute('marker-start') || undefined;
-      const markerEnd = el.getAttribute('marker-end') || undefined;
-      const opacity = el.getAttribute('opacity') || undefined;
-      const transform = el.getAttribute('transform') || undefined;
-      const d = el.getAttribute('d') || undefined;
-      const x = el.getAttribute('x') || undefined;
-      const y = el.getAttribute('y') || undefined;
-      const width = el.getAttribute('width') || undefined;
-      const height = el.getAttribute('height') || undefined;
-      const cx = el.getAttribute('cx') || undefined;
-      const cy = el.getAttribute('cy') || undefined;
-      const r = el.getAttribute('r') || undefined;
-      const rx = el.getAttribute('rx') || undefined;
-      const ry = el.getAttribute('ry') || undefined;
-      const x1 = el.getAttribute('x1') || undefined;
-      const y1 = el.getAttribute('y1') || undefined;
-      const x2 = el.getAttribute('x2') || undefined;
-      const y2 = el.getAttribute('y2') || undefined;
-      const points = el.getAttribute('points') || undefined;
-      const fontSize = el.getAttribute('font-size') || undefined;
-      const textContent = (tagName === 'text' || tagName === 'tspan') ? (el.textContent || undefined) : undefined;
+       const markerStart = el.getAttribute('marker-start') || undefined;
+       const markerEnd = el.getAttribute('marker-end') || undefined;
+       const opacity = el.getAttribute('opacity') || undefined;
+       const transform = el.getAttribute('transform') || undefined;
+       const d = el.getAttribute('d') || undefined;
+       const x = el.getAttribute('x') || undefined;
+       const y = el.getAttribute('y') || undefined;
+       const width = el.getAttribute('width') || undefined;
+       const height = el.getAttribute('height') || undefined;
+       const cx = el.getAttribute('cx') || undefined;
+       const cy = el.getAttribute('cy') || undefined;
+       const r = el.getAttribute('r') || undefined;
+       const rx = el.getAttribute('rx') || undefined;
+       const ry = el.getAttribute('ry') || undefined;
+       const x1 = el.getAttribute('x1') || undefined;
+       const y1 = el.getAttribute('y1') || undefined;
+       const x2 = el.getAttribute('x2') || undefined;
+       const y2 = el.getAttribute('y2') || undefined;
+       const points = el.getAttribute('points') || undefined;
+       const fontSize = el.getAttribute('font-size') || undefined;
+       const fontFamily = el.getAttribute('font-family') || undefined;
+       const fontWeight = el.getAttribute('font-weight') || undefined;
+       const fontStyle = el.getAttribute('font-style') || undefined;
+       const textAnchor = el.getAttribute('text-anchor') || undefined;
+       const letterSpacing = el.getAttribute('letter-spacing') || undefined;
+       const preserveAspectRatio = el.getAttribute('preserveAspectRatio') || undefined;
+       const imageHref = el.getAttribute('xlink:href') || el.getAttribute('href') || undefined;
+       const useHref = el.getAttribute('xlink:href') || el.getAttribute('href') || undefined;
+       const clipPath = el.getAttribute('clip-path') || undefined;
+       const filter = el.getAttribute('filter') || undefined;
+       const textContent = (tagName === 'text' || tagName === 'tspan') ? (el.textContent || undefined) : undefined;
 
-      const lineInSource = findLineInSource(svgText, tagName, id, d || x || cx || x1 || textContent);
-      const outerXml = (typeof XMLSerializer !== 'undefined' ? new XMLSerializer().serializeToString(el) : '')
-        .replace(/\s*data-omni-[a-z-]+="[^"]*"/g, '');
+       const lineInSource = findLineInSource(svgText, tagName, id, d || x || cx || x1 || textContent);
+       const outerXml = (typeof XMLSerializer !== 'undefined' ? new XMLSerializer().serializeToString(el) : '')
+         .replace(/\s*data-omni-[a-z-]+="[^"]*"/g, '');
 
-      return {
-        index: targetIndex,
-        tagName,
-        id,
-        className,
-        fill,
-        stroke,
-        strokeWidth,
-        strokeDasharray,
-        strokeDashoffset,
-        strokeLinecap,
-        strokeLinejoin,
-        strokeMiterlimit,
-        markerStart,
-        markerEnd,
-        opacity,
-        transform,
-        fontSize,
-        textContent,
-        d,
-        x,
-        y,
-        width,
-        height,
-        cx,
-        cy,
-        r,
-        rx,
-        ry,
-        x1,
-        y1,
-        x2,
-        y2,
-        points,
-        lineInSource,
-        outerXml,
-      };
+       return {
+         index: targetIndex,
+         tagName,
+         id,
+         className,
+         fill,
+         stroke,
+         strokeWidth,
+         strokeDasharray,
+         strokeDashoffset,
+         strokeLinecap,
+         strokeLinejoin,
+         strokeMiterlimit,
+         markerStart,
+         markerEnd,
+         opacity,
+         transform,
+         fontSize,
+         fontFamily,
+         fontWeight,
+         fontStyle,
+         textAnchor,
+         letterSpacing,
+         preserveAspectRatio,
+         imageHref,
+         useHref,
+         clipPath,
+         filter,
+         textContent,
+         d,
+         x,
+         y,
+         width,
+         height,
+         cx,
+         cy,
+         r,
+         rx,
+         ry,
+         x1,
+         y1,
+         x2,
+         y2,
+         points,
+         lineInSource,
+         outerXml,
+       };
     } catch {
       return null;
     }
@@ -854,9 +973,35 @@ export function updateSvgElement(
       setOrRemove('y1', updates.y1);
       setOrRemove('x2', updates.x2);
       setOrRemove('y2', updates.y2);
-      setOrRemove('points', updates.points);
-      setOrRemove('d', updates.d);
-      setOrRemove('font-size', updates.fontSize);
+       setOrRemove('points', updates.points);
+       setOrRemove('d', updates.d);
+       setOrRemove('font-size', updates.fontSize);
+       setOrRemove('font-family', updates.fontFamily);
+       setOrRemove('font-weight', updates.fontWeight);
+       setOrRemove('font-style', updates.fontStyle);
+       setOrRemove('text-anchor', updates.textAnchor);
+       setOrRemove('letter-spacing', updates.letterSpacing);
+       setOrRemove('preserveAspectRatio', updates.preserveAspectRatio);
+       setOrRemove('clip-path', updates.clipPath);
+       setOrRemove('filter', updates.filter);
+       if (updates.imageHref !== undefined) {
+         if (updates.imageHref === '') {
+           target.removeAttribute('xlink:href');
+           target.removeAttribute('href');
+         } else {
+           target.setAttribute('xlink:href', updates.imageHref);
+           target.setAttribute('href', updates.imageHref);
+         }
+       }
+       if (updates.useHref !== undefined) {
+         if (updates.useHref === '') {
+           target.removeAttribute('xlink:href');
+           target.removeAttribute('href');
+         } else {
+           target.setAttribute('xlink:href', updates.useHref);
+           target.setAttribute('href', updates.useHref);
+         }
+       }
 
       if (updates.textContent !== undefined) {
         target.textContent = updates.textContent;

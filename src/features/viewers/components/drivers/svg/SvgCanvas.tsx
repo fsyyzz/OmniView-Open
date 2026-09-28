@@ -61,6 +61,8 @@ interface SvgCanvasProps {
   onTogglePathNodeType?: (nodeIndex: number) => void;
   onAddNewLine?: (x1: number, y1: number, x2: number, y2: number) => void;
   onAddNewPolyline?: (points: Array<{ x: number; y: number }>) => void;
+  /** 代码编辑器行 hover 时反向高亮的图元索引（1-indexed 源行号映射结果） */
+  hoverElementIndex?: number | null;
 }
 
 export const SvgCanvas: React.FC<SvgCanvasProps> = ({
@@ -100,6 +102,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
   onTogglePathNodeType,
   onAddNewLine,
   onAddNewPolyline,
+  hoverElementIndex = null,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -192,11 +195,12 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
 
     if (!targetContent) return '';
 
-    const taggedContent = inspectorActive || selectedElementIndex !== null
+    const needsTag = inspectorActive || selectedElementIndex !== null || hoverElementIndex !== null;
+    const taggedContent = needsTag
       ? tagSvgWithNodeIds(targetContent, selectedElementIndex)
       : targetContent;
 
-    return DOMPurify.sanitize(taggedContent, {
+    let sanitized = DOMPurify.sanitize(taggedContent, {
       USE_PROFILES: { svg: true, svgFilters: true },
       ADD_TAGS: [
         'style',
@@ -218,6 +222,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
       ADD_ATTR: [
         'data-omni-id',
         'data-omni-selected',
+        'data-omni-hover',
         'class',
         'style',
         'x1',
@@ -254,14 +259,28 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         'font-family',
         'font-size',
         'font-weight',
+        'font-style',
         'text-anchor',
+        'letter-spacing',
         'dominant-baseline',
         'width',
         'height',
         'preserveAspectRatio',
+        'clip-path',
+        'filter',
       ],
     });
-  }, [svgContent, validation.valid, inspectorActive, selectedElementIndex]);
+
+    // 注入 hover 高亮标记（DOMPurify 之后直接字符串替换，安全可控）
+    if (hoverElementIndex !== null && needsTag) {
+      sanitized = sanitized.replace(
+        `data-omni-id="${hoverElementIndex}"`,
+        `data-omni-id="${hoverElementIndex}" data-omni-hover="true"`
+      );
+    }
+
+    return sanitized;
+  }, [svgContent, validation.valid, inspectorActive, selectedElementIndex, hoverElementIndex]);
 
   // 8 向手柄定义配置
   const resizeHandles: Array<{ direction: ResizeHandleDirection; cursor: string; className: string }> = [
@@ -335,6 +354,11 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
           outline-offset: 2px;
           filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.7));
           cursor: move !important;
+        }
+        #svg-render-surface [data-omni-hover="true"] {
+          outline: 2px solid #f59e0b !important;
+          outline-offset: 1.5px;
+          filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.6));
         }
       `}</style>
 

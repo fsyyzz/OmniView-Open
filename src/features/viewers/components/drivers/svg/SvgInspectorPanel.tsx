@@ -89,6 +89,29 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
     handleOpacityChange,
     textContent,
     handleTextContentChange,
+    fontFamily,
+    handleFontFamilyChange,
+    fontWeight,
+    handleFontWeightChange,
+    fontStyle,
+    handleFontStyleChange,
+    textAnchor,
+    handleTextAnchorChange,
+    fontSizeLocal,
+    handleFontSizeChange,
+    imageHref,
+    handleImageHrefChange,
+    useHref,
+    handleUseHrefChange,
+    filterRef,
+    handleFilterRefChange,
+    clipPathRef,
+    handleClipPathRefChange,
+    isTextTag,
+    isLineTag,
+    isImageTag,
+    isUseTag,
+    isDefsTag,
     xVal,
     setXVal,
     yVal,
@@ -102,8 +125,6 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
     lineY2,
     setLineY2,
     handleCoordCommit,
-    isTextTag,
-    isLineTag,
     lineMetrics,
     handleUpdateLineAngleOrLength,
   } = useSvgInspector({ element, onUpdate });
@@ -324,6 +345,212 @@ export const SvgInspectorPanel: React.FC<SvgInspectorPanelProps> = ({
               className="w-full p-2 border rounded text-xs font-sans outline-none focus:border-blue-500 resize-none"
               placeholder="输入文本内容..."
             />
+
+            {/* 字体与排版高级属性 */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1">
+              <div>
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px]">字体族 (Family)</span>
+                <input
+                  value={fontFamily}
+                  onChange={e => handleFontFamilyChange(e.target.value)}
+                  placeholder="sans-serif / monospace"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full mt-0.5 p-1 border rounded text-[11px] font-mono outline-none focus:border-cyan-500"
+                />
+              </div>
+              <div>
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px]">字号 (Size)</span>
+                <input
+                  value={fontSizeLocal}
+                  onChange={e => handleFontSizeChange(e.target.value)}
+                  placeholder="16"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full mt-0.5 p-1 border rounded text-[11px] font-mono outline-none focus:border-cyan-500"
+                />
+              </div>
+              <div>
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px]">字重 (Weight)</span>
+                <select
+                  value={fontWeight}
+                  onChange={e => handleFontWeightChange(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full mt-0.5 p-1 border rounded text-[11px] outline-none focus:border-cyan-500"
+                >
+                  <option value="">默认</option>
+                  <option value="100">Thin 100</option>
+                  <option value="300">Light 300</option>
+                  <option value="400">Normal 400</option>
+                  <option value="500">Medium 500</option>
+                  <option value="700">Bold 700</option>
+                  <option value="900">Black 900</option>
+                </select>
+              </div>
+              <div>
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px]">样式 (Style)</span>
+                <select
+                  value={fontStyle}
+                  onChange={e => handleFontStyleChange(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full mt-0.5 p-1 border rounded text-[11px] outline-none focus:border-cyan-500"
+                >
+                  <option value="">Normal</option>
+                  <option value="italic">Italic</option>
+                  <option value="oblique">Oblique</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <span style={{ color: 'var(--ov-text-secondary)' }} className="text-[10px]">水平对齐 (Text Anchor)</span>
+                <div style={{ borderColor: 'var(--ov-border)' }} className="mt-0.5 flex rounded border overflow-hidden text-[10px]">
+                  {[
+                    { id: '', label: '默认 (start)' },
+                    { id: 'start', label: '左对齐' },
+                    { id: 'middle', label: '居中对齐' },
+                    { id: 'end', label: '右对齐' },
+                  ].map(item => (
+                    <button
+                      key={item.id || 'default'}
+                      onClick={() => handleTextAnchorChange(item.id)}
+                      style={{
+                        backgroundColor: textAnchor === item.id ? 'var(--ov-accent, #3b82f6)' : 'var(--ov-surface-header)',
+                        color: textAnchor === item.id ? '#ffffff' : 'var(--ov-text-secondary)',
+                      }}
+                      className="flex-1 py-1 text-center transition font-medium"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 图像元素 href 源引用直编 */}
+        {isImageTag && (
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="space-y-1.5 p-2.5 rounded-lg border"
+          >
+            <div className="flex items-center gap-1.5 font-medium text-[11px]" style={{ color: 'var(--ov-text)' }}>
+              <Type className="w-3.5 h-3.5 text-amber-400" />
+              <span>图像源引用 (href)</span>
+            </div>
+            <input
+              value={imageHref}
+              onChange={e => handleImageHrefChange(e.target.value)}
+              placeholder="data:image/png;base64,... 或 URL"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="w-full p-2 border rounded text-[11px] font-mono outline-none focus:border-amber-500 truncate"
+              title={imageHref}
+            />
+            {(filterRef || clipPathRef) && (
+              <div className="flex gap-2 pt-1 text-[10px] font-mono">
+                {filterRef && (
+                  <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30" title="滤镜引用">
+                    filter: {filterRef}
+                  </span>
+                )}
+                {clipPathRef && (
+                  <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30" title="裁剪路径引用">
+                    clip-path: {clipPathRef}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* use 元素引用目标编辑 */}
+        {isUseTag && (
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="space-y-1.5 p-2.5 rounded-lg border"
+          >
+            <div className="flex items-center gap-1.5 font-medium text-[11px]" style={{ color: 'var(--ov-text)' }}>
+              <Type className="w-3.5 h-3.5 text-emerald-400" />
+              <span>引用目标 (href → symbol/图元 id)</span>
+            </div>
+            <input
+              value={useHref}
+              onChange={e => handleUseHrefChange(e.target.value)}
+              placeholder="#my-symbol-id"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="w-full p-2 border rounded text-[11px] font-mono outline-none focus:border-emerald-500"
+            />
+          </div>
+        )}
+
+        {/* defs 容器（渐变/滤镜/裁剪路径/图案）高级属性只读展示 */}
+        {isDefsTag && (
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface-header)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="space-y-1.5 p-2.5 rounded-lg border"
+          >
+            <div className="flex items-center gap-1.5 font-medium text-[11px]" style={{ color: 'var(--ov-text)' }}>
+              <Type className="w-3.5 h-3.5 text-violet-400" />
+              <span>高级定义容器属性</span>
+            </div>
+            <div className="space-y-1 text-[10px] font-mono">
+              {element.id && (
+                <div className="flex items-center gap-1.5">
+                  <span style={{ color: 'var(--ov-text-muted)' }}>id</span>
+                  <span className="text-amber-300 truncate flex-1">{element.id}</span>
+                </div>
+              )}
+              {element.fill && (
+                <div className="flex items-center gap-1.5">
+                  <span style={{ color: 'var(--ov-text-muted)' }}>fill</span>
+                  <span className="text-cyan-300 truncate flex-1">{element.fill}</span>
+                </div>
+              )}
+              {(element.opacity !== undefined) && (
+                <div className="flex items-center gap-1.5">
+                  <span style={{ color: 'var(--ov-text-muted)' }}>opacity</span>
+                  <span className="text-cyan-300 flex-1">{element.opacity}</span>
+                </div>
+              )}
+              {element.outerXml && (
+                <div
+                  className="mt-1.5 p-1.5 rounded bg-black/30 border overflow-x-auto whitespace-pre-wrap break-all"
+                  style={{ borderColor: 'var(--ov-border)', color: 'var(--ov-text-secondary)' }}
+                >
+                  {element.outerXml.length > 200 ? element.outerXml.slice(0, 200) + '…' : element.outerXml}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

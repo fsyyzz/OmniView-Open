@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [1.2.30] - 2026-09-28
+
+### Added
+
+- **SVG 矢量检视工作台代码行与画布图元反向映射高亮 (SVG Bi-directional Code Hover Inspection)**:
+  - 源码面板代码行 Hover 联动：当光标悬浮在 SVG 源码指定标签或属性行时，自动推导行号与 DOM 图元对应关系，并在画布中实时高亮对应矢量图元；
+  - 路径控制点编辑与属性检视联动优化，提升矢量图形可视化微调与调试效率。
+
+### Documentation
+
+- **完成 Univer 电子表格引擎引入前置影响面与架构评估 (Univer RFC & Impact Assessment)**:
+  - 系统评估构建包体积与 VSIX 离线容量影响（预计增加 1.5MB~2.2MB，受 `manualChunks` 隔离保护）；
+  - 确认 Univer v1.0+ 对 React 19 的原生 peerDependencies 兼容性；
+  - 制定纯前端本地离线数据转换管道架构（基于现有 `xlsxEngine` 转换为 `IWorkbookData`，规避商业版授权限制）；
+  - 确立“极速轻量预览 + Univer 专业工作台”双模共存设计。
+
 ## [1.2.29] - 2026-09-28
 
 ### Added
