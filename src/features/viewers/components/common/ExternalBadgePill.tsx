@@ -9,7 +9,8 @@ export const ExternalBadgePill: React.FC<ExternalBadgePillProps> = ({ externalFi
 
   return (
     <div
-      className="ov-external-badge-wrapper"
+      data-clipboard-ignore="true"
+      className="ov-external-badge-wrapper ov-clipboard-ignore select-none"
       style={{
         position: 'absolute',
         bottom: '8px',
@@ -21,7 +22,10 @@ export const ExternalBadgePill: React.FC<ExternalBadgePillProps> = ({ externalFi
         height: 'auto',
       }}
     >
-      <span className="ov-external-diagram-badge-pill">
+      <span
+        data-clipboard-ignore="true"
+        className="ov-external-diagram-badge-pill ov-clipboard-ignore select-none"
+      >
         📌 外部挂载文件: <code>{externalFile}</code>
       </span>
     </div>

@@ -42,6 +42,8 @@ export function isIgnoredClipboardElement(el: Element): boolean {
     el.classList.contains('markdown-bubble-toolbar') ||
     el.classList.contains('markdown-lazy-placeholder') ||
     el.classList.contains('page-break-screen-indicator') ||
+    el.classList.contains('ov-external-badge-wrapper') ||
+    el.classList.contains('ov-external-diagram-badge-pill') ||
     el.classList.contains('ov-image-fallback') ||
     el.classList.contains('ov-callout-fold-icon') ||
     el.tagName.toLowerCase() === 'button'
@@ -52,7 +54,7 @@ export function isIgnoredClipboardElement(el: Element): boolean {
 }
 
 /**
- * 纯文本剪贴板脱敏与清洗：剔除表格统计行、双击就地编辑等交互提示文本
+ * 纯文本剪贴板脱敏与清洗：剔除表格统计行、双击就地编辑、外部挂载文件等交互提示文本
  */
 export function sanitizePlainTextClipboard(text: string): string {
   if (!text) return text;
@@ -67,6 +69,8 @@ export function sanitizePlainTextClipboard(text: string): string {
     // 剔除拖拽列宽提示
     .replace(/拖拽调整列宽/g, '')
     .replace(/Drag to resize column/gi, '')
+    // 剔除外部挂载文件提示徽标 (如 "📌 外部挂载文件: performance-radar-chart.svg")
+    .replace(/(?:📌\s*)?(?:外部挂载文件|External mounted file)\s*[:：]?\s*[^\s\n]+/gi, '')
     // 压缩多余连续空行与首尾空白
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -179,6 +183,8 @@ export function cleanAndFormatDomForWordSync(
     '.markdown-bubble-toolbar',
     '.markdown-lazy-placeholder',
     '.page-break-screen-indicator',
+    '.ov-external-badge-wrapper',
+    '.ov-external-diagram-badge-pill',
     '.ov-image-fallback',
     '.ov-callout-fold-icon',
     'button',

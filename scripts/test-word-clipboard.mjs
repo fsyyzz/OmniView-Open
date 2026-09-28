@@ -44,6 +44,16 @@ function runTests() {
     throw new Error('未能识别 .ov-table-block-footer 为忽略元素');
   }
 
+  const dummyExternalWrapper = createMockElement('ov-external-badge-wrapper');
+  if (!isIgnoredClipboardElement(dummyExternalWrapper)) {
+    throw new Error('未能识别 .ov-external-badge-wrapper 为忽略元素');
+  }
+
+  const dummyExternalPill = createMockElement('ov-external-diagram-badge-pill');
+  if (!isIgnoredClipboardElement(dummyExternalPill)) {
+    throw new Error('未能识别 .ov-external-diagram-badge-pill 为忽略元素');
+  }
+
   const dummyResizer = createMockElement('ov-col-resizer');
   if (!isIgnoredClipboardElement(dummyResizer)) {
     throw new Error('未能识别 .ov-col-resizer 为忽略元素');
@@ -385,6 +395,18 @@ Sum: 1914 Avg: 957`;
   if (!cleanedPlainText.includes('TableBlock') || !cleanedPlainText.includes('MarkdownViewer') || !cleanedPlainText.includes('924')) {
     throw new Error('sanitizePlainTextClipboard 误伤了表格正文数据');
   }
+
+  const dirtyExternalText = `### 性能指标雷达图
+📌 外部挂载文件: performance-radar-chart.svg
+经过全链路压测，各指标表现优异。`;
+  const cleanedExternalText = sanitizePlainTextClipboard(dirtyExternalText);
+  if (cleanedExternalText.includes('外部挂载文件') || cleanedExternalText.includes('performance-radar-chart.svg')) {
+    throw new Error('sanitizePlainTextClipboard 未能剔除外部挂载文件徽标提示');
+  }
+  if (!cleanedExternalText.includes('性能指标雷达图') || !cleanedExternalText.includes('经过全链路压测')) {
+    throw new Error('sanitizePlainTextClipboard 误伤了图表前后的正文分析文字');
+  }
+
   console.log('✅ sanitizePlainTextClipboard 脱敏与清洗测试 100% 通过');
 
   console.log('\n🎉 全部 8 组 Word 剪贴板清洗自动化测试 100% 通过！');
