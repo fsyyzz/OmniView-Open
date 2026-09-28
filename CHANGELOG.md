@@ -4,7 +4,23 @@
 
 ## [Unreleased]
 
-## [1.2.26] - 2026-09-28
+## [1.2.27] - 2026-09-28
+
+### Added
+
+- **Word (.docx) 示例文档扩充至 5 页高保真多章节架构指南 (Multi-page DOCX Suite)**:
+  - 在 `docxEngine.ts` 与 `examples/docx/omniview-architecture-guide.docx` 中注入 4 处显式硬分页符（`<w:br w:type="page"/>`），严格划分为 5 个独立 A4 页面；
+  - 构建涵盖 5 个一级大纲（Heading 1）与 10 个二级小节（Heading 2）的完整章节体系，包括独立封面页、核心特性排版、排版支持度矩阵表格、三重纸张滤镜与全局快捷键对照表、常见问题解答 FAQ；
+  - 完美适配左侧 Navigation Pane 大纲过滤、点击平滑滚动跳转与脉冲高亮动画（Highlight Flash）。
+
+- **PPTX 演讲者备注 (Speaker Notes) 标准解析与交互兜底**:
+  - 在 `pptxEngine.ts` 中全面接入 `ppt/notesSlides/notesSlide{N}.xml` 演讲者备注标准解析与生成支持；
+  - 优化 `PptxViewer` 备注抽屉展示逻辑，无论有无备注均提供清晰界面反馈并附带“当前幻灯片暂无演播提词与备注”友好兜底。
+
+- **DOCX & PPTX 全套 17 项核心操作可用性验证矩阵与守卫测试**:
+  - 新增 `scripts/test-office-operations-matrix.mjs` 自动化回归套件并接入 `npm test`，持续守护 DOCX 9 项核心操作与 PPTX 8 项核心操作的可用性；
+  - 增强 `DocxViewer` 的 `@media print` 样式，在点击「系统打印 / 导出 PDF」时自动剔除工具栏与侧栏，实现纯净 A4 无损打印。
+
 
 ### Added
 

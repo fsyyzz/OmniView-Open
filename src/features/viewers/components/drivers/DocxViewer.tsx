@@ -556,6 +556,30 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   animation: docxHeadingFlash 1.5s cubic-bezier(0.4, 0, 0.2, 1);
                   border-radius: 4px;
                 }
+                @media print {
+                  header, aside, .docx-toc-sidebar {
+                    display: none !important;
+                  }
+                  .docx-preview-container {
+                    box-shadow: none !important;
+                    transform: none !important;
+                    max-width: 100% !important;
+                    width: 100% !important;
+                  }
+                  .docx-viewport-root {
+                    gap: 0 !important;
+                  }
+                  .docx-viewport-root section,
+                  .docx-viewport-root .docx-rendered-wrapper,
+                  .docx-viewport-root section.docx-rendered-wrapper,
+                  .docx-viewport-root .docx_page {
+                    box-shadow: none !important;
+                    border: none !important;
+                    margin-bottom: 0 !important;
+                    page-break-after: always !important;
+                    break-after: page !important;
+                  }
+                }
               `}</style>
               {/* docx-preview DOM 真实挂载节点 */}
               <div ref={docxMountRef} className="docx-viewport-root" />

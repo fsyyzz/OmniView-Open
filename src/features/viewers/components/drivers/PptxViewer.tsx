@@ -473,17 +473,19 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
           ) : null}
 
           {/* 底部：演讲者备注抽屉 */}
-          {showNotes && currentSlide?.notes && (
-            <div className="absolute bottom-4 left-6 right-6 max-h-32 bg-[var(--ov-surface)]/95 border border-[var(--ov-border)] rounded-xl p-3 shadow-2xl backdrop-blur-md overflow-y-auto animate-in slide-in-from-bottom duration-200">
+          {showNotes && (
+            <div className="absolute bottom-4 left-6 right-6 max-h-36 bg-[var(--ov-surface)]/95 border border-[var(--ov-border)] rounded-xl p-3 shadow-2xl backdrop-blur-md overflow-y-auto animate-in slide-in-from-bottom duration-200 z-30">
               <div className="flex items-center justify-between pb-1.5 border-b border-[var(--ov-border)] mb-1.5">
                 <span className="text-[11px] font-bold flex items-center gap-1 text-blue-500">
-                  <MessageSquare className="w-3.5 h-3.5" /> 演讲者备注 (Speaker Notes)
+                  <MessageSquare className="w-3.5 h-3.5" /> 演讲者备注 (Speaker Notes) · 第 {currentSlideIndex + 1} 页
                 </span>
                 <button onClick={() => setShowNotes(false)} className="opacity-60 hover:opacity-100">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <p className="text-xs leading-relaxed opacity-90 whitespace-pre-wrap">{currentSlide.notes}</p>
+              <p className="text-xs leading-relaxed opacity-90 whitespace-pre-wrap">
+                {currentSlide?.notes || '当前幻灯片暂无演播提词与备注。'}
+              </p>
             </div>
           )}
         </main>

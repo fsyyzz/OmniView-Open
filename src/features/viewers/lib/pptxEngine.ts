@@ -712,6 +712,9 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
   <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
   <Override PartName="/ppt/slides/slide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
   <Override PartName="/ppt/slides/slide3.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+  <Override PartName="/ppt/notesSlides/notesSlide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>
+  <Override PartName="/ppt/notesSlides/notesSlide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>
+  <Override PartName="/ppt/notesSlides/notesSlide3.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
 </Types>`
   );
@@ -992,6 +995,67 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
     </p:spTree>
   </p:cSld>
 </p:sld>`
+  );
+
+  // 10. 演讲者备注 (Speaker Notes)
+  zip.file(
+    'ppt/notesSlides/notesSlide1.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp>
+        <p:txBody>
+          <a:p>
+            <a:r>
+              <a:t>【开场演讲提示】欢迎体验 OmniView 原生 PPTX 矢量幻灯片工作台！本演示文稿由本地纯前端 OOXML 引擎实时解构并渲染，支持 16:9 宽屏自适应、全屏放映与演讲者提词备注。</a:t>
+            </a:r>
+          </a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:notes>`
+  );
+
+  zip.file(
+    'ppt/notesSlides/notesSlide2.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp>
+        <p:txBody>
+          <a:p>
+            <a:r>
+              <a:t>【架构讲解要点】重点向受众介绍零外部网络依赖与本地沙箱安全：解析流水线不通过任何云端中转，完全在本地 WebAssembly 与内存完成解压与矢量绘制，兼顾性能与商业机密安全。</a:t>
+            </a:r>
+          </a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:notes>`
+  );
+
+  zip.file(
+    'ppt/notesSlides/notesSlide3.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp>
+        <p:txBody>
+          <a:p>
+            <a:r>
+              <a:t>【收尾互动建议】引导观众尝试键盘快捷键（←/→/Space 翻页、F5 全屏放映、Home/End 跳转首尾），并展示多页表格与自适应缩略图的联动能力。</a:t>
+            </a:r>
+          </a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:notes>`
   );
 
   return await zip.generateAsync({ type: 'uint8array' });

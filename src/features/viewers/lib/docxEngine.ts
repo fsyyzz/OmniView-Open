@@ -265,6 +265,8 @@ export async function generateSampleDocxBytes(): Promise<Uint8Array> {
       </w:r>
     </w:p>
     <w:p><w:r><w:t></w:t></w:r></w:p>
+    <!-- ===== 分页符：封面结束，进入第 2 页 ===== -->
+    <w:p><w:r><w:br w:type="page"/></w:r></w:p>
     <w:p>
       <w:pPr>
         <w:pStyle w:val="Heading1"/>
@@ -376,7 +378,279 @@ export async function generateSampleDocxBytes(): Promise<Uint8Array> {
         <w:tc><w:p><w:r><w:t>✅ 完全支持</w:t></w:r></w:p></w:tc>
         <w:tc><w:p><w:r><w:t>--ov-* 语义化设计令牌体系</w:t></w:r></w:p></w:tc>
       </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>无损打印与 PDF 导出</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>✅ 完全支持</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>@media print 纯净介质适配</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>全文 Ctrl+F 实时高亮</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>✅ 完全支持</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>双向节点脱敏与无缝跳转</w:t></w:r></w:p></w:tc>
+      </w:tr>
     </w:tbl>
+
+    <!-- ===== 分页符：进入第 3 页 ===== -->
+    <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading1"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="36"/>
+          <w:color w:val="1E293B"/>
+        </w:rPr>
+        <w:t>三、渲染引擎架构与安全沙箱防御</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>OmniView 采用独创的纯前端隔离沙箱设计，解析流水线完全在本地内存中运行，保证企业级研发生命周期的核心数据安全与高性能响应。</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>3.1 零外网直通与离线安全</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>针对敏感企业方案与涉密代码工程，Word 渲染器 100% 基于本地 WebAssembly 与轻量 JavaScript 运行时，绝不向任何外部公网服务器上传或回传文件流。</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>3.2 DOMPurify 严格过滤与 XSS 物理防御</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>所有 XML 节点中的文本、样式标签与内联图元均经由 DOMPurify 进行深层转义和脱敏清洗，彻底根除跨站脚本攻击与恶意构造的宏代码注入隐患。</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>3.3 极端异常损坏输入自愈降级</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>内置防御性容错机制：当遇到非标准或截断的 DOCX 二进制包时，引擎自动捕获异常并无缝回退至内置自愈样例文档，杜绝白屏与插件崩溃。</w:t>
+      </w:r>
+    </w:p>
+
+    <!-- ===== 分页符：进入第 4 页 ===== -->
+    <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading1"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="36"/>
+          <w:color w:val="1E293B"/>
+        </w:rPr>
+        <w:t>四、主题滤镜与全局快捷键指南</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>为了满足长时间技术文档研读与跨光照环境阅览需求，OmniView 提供了拟真三色滤镜及全键盘高效控制体系：</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>4.1 三重视觉纸张滤镜风格</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>• 原纸 (Classic Paper)：100% 还原物理标准白纸与真实油墨色调，适合商务与校对打印；</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>• 羊皮 (Eye-care Sepia)：柔和暖调护眼色泽，有效过滤蓝光辐射，降低长时间研读疲劳；</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>• 暗夜 (Dark Matrix)：反转亮白底色，与 VS Code 深色编辑器界面浑然一体，夜间开发不刺眼。</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>4.2 全局快捷键对照表</w:t>
+      </w:r>
+    </w:p>
+    <w:tbl>
+      <w:tblPr>
+        <w:tblW w:w="5000" w:type="pct"/>
+        <w:tblBorders>
+          <w:top w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
+          <w:left w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
+          <w:bottom w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
+          <w:right w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
+          <w:insideH w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+          <w:insideV w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+        </w:tblBorders>
+      </w:tblPr>
+      <w:tr>
+        <w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>快捷键</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>功能描述</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Ctrl + F</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>自动聚焦全文检索输入框并选中现有内容</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Enter / Shift + Enter</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>快速跳转至下一个 / 上一个关键字匹配项</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Ctrl + Shift + O</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>一键展开或折叠左侧多级大纲导航窗口</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Escape</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>退出当前搜索匹配状态并清除黄色高亮标记</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+
+    <!-- ===== 分页符：进入第 5 页 ===== -->
+    <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading1"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="36"/>
+          <w:color w:val="1E293B"/>
+        </w:rPr>
+        <w:t>五、常见问题解答与最佳实践 (FAQ)</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>5.1 如何在无 Microsoft Word 环境下打印当前文档？</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>答：直接点击顶栏右侧的「打印」图标（快捷键 Ctrl+P），OmniView 已内置专有的 @media print 分页流样式，能够自动隐藏所有的侧边栏和工具条，直接调用系统打印机或无损输出为标准 PDF 文件。</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>5.2 为什么点击大纲标题能够正确定位至对应页面？</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>答：引擎在解析完成时会自动对 DOM 进行 AST 目录特征提取，生成独立的 DocxTocItem 映射，并配备平滑滚动与标题脉冲高亮动画（Highlight Flash），极大提升长文档阅读体验。</w:t>
+      </w:r>
+    </w:p>
+
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>5.3 大体积 Word 文档渲染性能如何？</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>答：基于 JSZip 解构与流式节点装配，首屏渲染通常在 100ms 内完成，且配合视口容器虚拟化与垃圾回收防护，保障 60 FPS 的丝滑滚动体验。</w:t>
+      </w:r>
+    </w:p>
   </w:body>
 </w:document>`
   );
