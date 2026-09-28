@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [1.2.11] - 2026-09-27
+
+### Added
+
+- **VS Code 深度原生生态集成 (VS Code Deep Extension Ecosystem Integration)**:
+  - **活动栏资产全景树 (`Activity Bar` 视图容器 & `TreeView`)**：注册独立的 OmniView 资产中枢，按架构流程、矢量设计、学术出版、数据报表、思维导图 5 大业务领域对工作区资产进行全景扫描与聚合呈现，支持一键新建与直达工作台。
+  - **光标 Hover 悬浮微型预览 (`HoverProvider`)**：在 Markdown、Typst、Mermaid、PlantUML 等源码中悬停时即时解析图表块、LaTeX 数学公式与 Obsidian Wiki 媒体嵌入引用。
+  - **内联 CodeLens 快捷动作 (`CodeLensProvider`)**：在文档与图表块上方注入「实时分屏协同」与「图表快速渲染」动作。
+  - **原生大纲与符号索引 (`DocumentSymbolProvider`)**：为 Markdown、Typst、PlantUML、Graphviz 等提供标准文档符号结构，无缝接入 VS Code `Ctrl+Shift+O` 快捷跳转。
+  - **原生底部状态栏与快捷控制中心 (`StatusBarItem` & `QuickPick`)**：右下角常驻状态指示，单击唤起工作台多维控制中心。
+
+### Improved
+
+- **全文档格式全局 `Ctrl+F` / `Cmd+F` 检索与高亮联动闭环 (Universal Search Enhancement)**:
+  - **Markdown 阅读视口全局快捷检索**：支持在阅读视口任意位置按 `Ctrl+F` 即时展开工具栏并聚焦搜索框，支持 `Enter/Shift+Enter` 上下项导航与 `Escape` 快速清空失焦。
+  - **全驱动搜索交互对齐**：为 CSV、Excel (`.xlsx`)、Word (`.docx`) 等驱动全面对齐 `Ctrl+F` 全局按键捕获与高亮检索联动，CSV 源码模式下按 `Ctrl+F` 自动平滑切回网格模式。
+  - **DOM 敏感子树保护**：严格保护 SVG 矢量画布、KaTeX 公式与离屏图表节点，杜绝检索高亮导致排版断裂。
+
 ## [1.2.10] - 2026-09-26
 
 ### Fixed
