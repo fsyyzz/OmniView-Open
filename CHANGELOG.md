@@ -4,7 +4,59 @@
 
 ## [Unreleased]
 
-## [1.2.11] - 2026-09-27
+## [1.2.24] - 2026-09-28
+
+### Fixed
+
+- **外部挂载文件提示徽标剪贴板脱敏隔离 (External Badge Clipboard Ignore)**:
+  - 在 `ExternalBadgePill` 组件的外层 wrapper 与内层 pill 元素上注入 `data-clipboard-ignore="true"` 与 `ov-clipboard-ignore select-none`，配合全局 CSS `user-select: none !important;` 彻底杜绝选区将“📌 外部挂载文件: performance-radar-chart.svg”等提示徽标捕获进剪贴板；
+  - `wordClipboardHelper.ts` 的 `isIgnoredClipboardElement` 与 `ignoreSelectors` 深度同步，在 Word 富文本复制与 `sanitizePlainTextClipboard` 纯文本清洗中物理剔除挂载提示。
+
+## [1.2.23] - 2026-09-28
+
+### Fixed
+
+- **Markdown 表格底栏统计与就地编辑提示剪贴板隔离 (Table Footer Clipboard Ignore)**:
+  - 修复表格底部统计栏（“总行数: X”、“双击单元格就地编辑”）缺少剪贴板隔离标识而在全选/划选时被带入剪贴板的问题；
+  - 为 `TableBlock` 和 `TableLightboxModal` 底部统计栏增加 `data-clipboard-ignore="true"` 与 `ov-table-block-footer ov-clipboard-ignore select-none` 隔离类名；
+  - 修复 `isFullContainerSelection` 全选判定缺陷，放宽带有 ignore 属性的工具栏文字容差至 85%，确保 Ctrl+A 全选时 100% 稳定输出干净的 Markdown 源码；
+  - 增加 `sanitizePlainTextClipboard` 纯文本剪贴板脱敏清洗函数，自动剥除表格统计信息、求和均值与双击就地编辑等辅助文本。
+
+## [1.2.20] - 2026-09-28
+
+### Refactored
+
+- **多格式驱动外层重复通用顶栏彻底剥离与系统能力融合 (Viewer Toolbar Deduplication & System Capability Integration)**:
+  - **彻底移除外层通用动作条**：在 `PluginDocumentView` 中剥离 `NonMarkdownPluginView` 顶部冗余的通用顶栏，彻底消灭了与下层驱动专有 Header 冲突的“文件名”、“同步状态标签”及“在编辑器中打开”重复按钮，净增 36px+ 垂直可视阅读与绘图工作空间；
+  - **驱动 SPI 契约升级与系统能力下沉融合**：在 `driverRegistry.ts` 的 `DriverProps` 中扩展新增 `onOpenSettings?: () => void;` 与 `onOpenShortcuts?: () => void;` 接口契约，并通过 `ViewerRenderer` 自动向下分发；
+  - **各大驱动专有顶栏深度赋能**：在通用图表顶栏骨架 `DiagramStudioShell` 以及 PlantUML、Mindmap、StructuredDataViewer、CodeViewer 等各大驱动专有 Header 中无缝融合“工作台设置”与“快捷键指南”入口；
+  - **未落盘修改优雅浮动提示**：在 VS Code Webview 模式中产生未保存变更时，采用右下角悬浮半透明玻璃质感徽标展示未保存标记与一键保存按钮，既不遮挡主图表视图，又保证状态实时可感知；
+  - **专属守卫测试沉淀**：新增 `test-toolbar-dedup.mjs` 自动化回归测试套件并接入 `npm test`。
+
+## [1.2.18] - 2026-09-28
+
+### Refactored
+
+- **巨型组件拆分与宿主模块化架构重构 (Modular Component Architecture & Design Tokenization)**:
+  - 拆分 `PluginDocumentView` 与 `MarkdownViewer` 巨型文件为专注子组件与定制 Hook；
+  - 统一 Markdown 渲染路由至驱动注册表，全量消除散落硬编码色值，实现 100% `--ov-*` 语义设计令牌化，像素级融合 VS Code 原生与第三方主题。
+
+## [1.2.16] - 2026-09-28
+
+### Improved
+
+- **Markdown 渲染 SVG 矢量图响应式空间自适应 (Responsive SVG Layout Engine)**:
+  - 自动推导并补全缺失的 `viewBox`，物理单位自动换算，内联 style 深度脱敏与防溢出自适应；
+  - 修复 Markdown 渲染区划选复制误判为全选源码问题，划选时仅复制选中片段。
+
+## [1.2.14] - 2026-09-28
+
+### Added
+
+- **Word (`.docx`) 离线文档导航大纲支持与目录节点过滤 (Word Offline Outline Navigation)**:
+  - 增加 DOCX 离线文档导航大纲侧边栏，支持多级标题快速定位与平滑滚动；
+  - 增加 Word 自动生成目录页 (TOC Block) 节点过滤，杜绝点击导航误跳转至文档开头目录；
+  - 增加外部文件修改热重载与实时同步机制，外部保存文件时 Webview 自动热更新。
 
 ### Added
 

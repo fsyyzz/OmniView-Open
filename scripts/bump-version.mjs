@@ -135,7 +135,20 @@ export function runVersionBump(options = {}) {
 
   console.log(`🚀 [Version Auto-Bump] 未检测到显式版本更新，已自动将小版本号自增: v${currentVersion} -> v${newVersion}`);
 
-  // 5. 自动同步到 git 暂存区 (若适用)
+  // 5. 检查 CHANGELOG.md 是否已记录新版本
+  const changelogPath = join(rootDir, 'CHANGELOG.md');
+  try {
+    const changelogContent = readFileSync(changelogPath, 'utf8');
+    if (!changelogContent.includes(`## [${newVersion}]`)) {
+      console.log(`💡 [Changelog Guard] 提示: CHANGELOG.md 尚未包含 v${newVersion} 的更新说明，请记得更新发布日志！`);
+    } else {
+      console.log(`📝 [Changelog Guard] CHANGELOG.md 已就绪并包含 v${newVersion} 发布说明。`);
+    }
+  } catch {
+    // 忽略缺少 CHANGELOG 的外部环境
+  }
+
+  // 6. 自动同步到 git 暂存区 (若适用)
   if (autoStage) {
     try {
       execSync('git add package.json', { cwd: rootDir, stdio: 'ignore' });
