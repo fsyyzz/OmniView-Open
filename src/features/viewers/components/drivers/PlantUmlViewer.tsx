@@ -25,6 +25,8 @@ import {
   HelpCircle,
   FileCode,
   Grid,
+  Settings,
+  Keyboard,
 } from 'lucide-react';
 import {
   getPlantUmlSvgUrl,
@@ -58,6 +60,8 @@ interface PlantUmlViewerProps {
   fileName?: string;
   locale?: Locale;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
@@ -66,6 +70,8 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   fileName = 'diagram.puml',
   locale = 'zh-CN',
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
 }) => {
   const [localCode, setLocalCode] = useState(content);
   const [zoom, setZoom] = useState(1);
@@ -726,6 +732,42 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-200" /> : <Copy className="w-3.5 h-3.5" />}
             {showCopyText && <span>{copied ? '已复制' : '复制代码'}</span>}
           </button>
+
+          {onOpenSettings && (
+            <button
+              type="button"
+              id="btn-plantuml-settings"
+              onClick={onOpenSettings}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="p-1.5 rounded border transition text-xs cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0"
+              title="外观主题与全局设置"
+              aria-label="设置"
+            >
+              <Settings className="w-3.5 h-3.5 shrink-0" />
+            </button>
+          )}
+
+          {onOpenShortcuts && (
+            <button
+              type="button"
+              id="btn-plantuml-shortcuts"
+              onClick={onOpenShortcuts}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="p-1.5 rounded border transition text-xs cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0"
+              title="快捷键与使用指南 (Ctrl+?)"
+              aria-label="快捷键指南"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            </button>
+          )}
         </div>
       </div>
 

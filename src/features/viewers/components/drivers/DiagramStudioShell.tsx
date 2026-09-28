@@ -3,7 +3,7 @@
  * 左：DSL 编辑；右：实时预览；支持 split / preview / editor
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Code, Columns, Copy, Eye, FileCode, Sparkles, Undo2, Redo2, ExternalLink } from 'lucide-react';
+import { Check, Code, Columns, Copy, Eye, FileCode, Sparkles, Undo2, Redo2, ExternalLink, Settings, Keyboard } from 'lucide-react';
 import { useTextHistory } from '../../hooks/useTextHistory';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 
@@ -21,6 +21,8 @@ interface DiagramStudioShellProps {
   content: string;
   onContentChange?: (content: string) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
   storageKeyPrefix: string;
   languageLabel: string;
   placeholder: string;
@@ -58,6 +60,8 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   content,
   onContentChange,
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
   storageKeyPrefix,
   languageLabel,
   placeholder,
@@ -318,6 +322,8 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
   const showTemplateText = headerWidth >= 580;
   const showEditorText = headerWidth >= 600;
   const showCopyText = headerWidth >= 500;
+  const showSettingsText = headerWidth >= 820;
+  const showShortcutsText = headerWidth >= 900;
   const showStatusBadge = headerWidth >= 420;
 
   return (
@@ -485,6 +491,44 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             {showCopyText && <span>{copied ? '已复制' : '复制源码'}</span>}
           </button>
+
+          {onOpenSettings && (
+            <button
+              type="button"
+              id="btn-diagram-settings"
+              onClick={onOpenSettings}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showSettingsText ? 'px-2 py-1' : 'p-1.5'} rounded border transition text-xs cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0`}
+              title="外观主题与全局设置"
+              aria-label="设置"
+            >
+              <Settings className="w-3.5 h-3.5 shrink-0" />
+              {showSettingsText && <span>设置</span>}
+            </button>
+          )}
+
+          {onOpenShortcuts && (
+            <button
+              type="button"
+              id="btn-diagram-shortcuts"
+              onClick={onOpenShortcuts}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className={`flex items-center gap-1 ${showShortcutsText ? 'px-2 py-1' : 'p-1.5'} rounded border transition text-xs cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0`}
+              title="快捷键与使用指南 (Ctrl+?)"
+              aria-label="快捷键指南"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              {showShortcutsText && <span>快捷键</span>}
+            </button>
+          )}
         </div>
       </header>
 

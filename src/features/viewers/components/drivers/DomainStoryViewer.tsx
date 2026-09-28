@@ -14,6 +14,8 @@ interface DomainStoryViewerProps {
   locale?: Locale;
   onContentChange?: (content: string) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 const DOMAIN_STORY_SNIPPETS: DiagramSnippet[] = [
@@ -99,6 +101,8 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
   locale = 'zh-CN',
   onContentChange,
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
 }) => {
   const [zoom, setZoom] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
@@ -120,6 +124,8 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
       content={content}
       onContentChange={onContentChange}
       onOpenInEditor={onOpenInEditor}
+      onOpenSettings={onOpenSettings}
+      onOpenShortcuts={onOpenShortcuts}
       storageKeyPrefix="domainstory"
       languageLabel="Domain Story (.dst / .domainstory)"
       placeholder={'title: 业务流转\n1. 买家 -> 下单 -> 商城'}

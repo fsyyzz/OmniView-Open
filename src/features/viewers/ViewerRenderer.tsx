@@ -2,20 +2,14 @@
  * OmniView 多格式统一渲染分发驱动
  * 基于 Driver Registry 插件注册表动态调度分发
  */
-import React, { useState, Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { FileItem, DriverId, ViewMode, ThemeId, ContentWidthMode } from '../../shared/types';
 import { Locale } from '../../shared/lib/i18n';
-import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
-import { Eye, Network, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getDriverIdForFile, resolveDriverPluginForFile } from './lib/driverRegistry';
 import { RenderErrorBoundary } from './components/common/RenderErrorBoundary';
 
 export { getDriverIdForFile };
-
-// Markdown 模式专用异步驱动
-const MarkdownViewer = lazy(() => import('./components/drivers/MarkdownViewer').then(m => ({ default: m.MarkdownViewer })));
-const MarkmapViewer = lazy(() => import('./components/drivers/MarkmapViewer').then(m => ({ default: m.MarkmapViewer })));
-const CodeViewer = lazy(() => import('./components/drivers/CodeViewer').then(m => ({ default: m.CodeViewer })));
 
 const DriverLoadingFallback: React.FC<{ fileName: string }> = ({ fileName }) => (
   <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center gap-3 p-8 text-slate-400 select-none">
@@ -42,6 +36,8 @@ export interface ViewerRendererProps {
   onRenderComplete?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
   onSelectFile?: (file: FileItem) => void;
   enableOkf?: boolean;
   onToggleOkf?: () => void;
@@ -61,6 +57,8 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   onRenderComplete,
   onOpenSourceAtLine,
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
   onSelectFile,
   enableOkf,
   onToggleOkf,
@@ -70,181 +68,31 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   const driverId = plugin.id;
   const isDarkTheme = ['dark', 'midnight', 'cyber', 'nord', 'dracula', 'forest'].includes(theme);
 
-  const [internalEnableOkf, setInternalEnableOkf] = useState<boolean>(() => {
-    const s = loadStoredSettings();
-    return s.enableOkfRendering ?? true;
-  });
-  const effectiveEnableOkf = enableOkf !== undefined ? enableOkf : internalEnableOkf;
-  const handleToggleOkf = () => {
-    if (onToggleOkf) {
-      onToggleOkf();
-    } else {
-      const next = !effectiveEnableOkf;
-      setInternalEnableOkf(next);
-      saveStoredSettings({ enableOkfRendering: next });
-    }
-  };
-
   const zoomStyle = zoom !== 1.0 ? { zoom } : undefined;
-  const [splitRightMode, setSplitRightMode] = useState<'preview' | 'mindmap'>(() => {
-    const s = loadStoredSettings();
-    return s.splitRightMode || 'preview';
-  });
 
   const renderDriverContent = () => {
-    if (driverId === 'markdown') {
-      if (mode === 'mindmap') {
-        return (
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden" data-theme={theme} style={zoomStyle}>
-            <MarkmapViewer
-              content={file.content}
-              fileName={file.name}
-              isDarkTheme={isDarkTheme}
-              theme={theme}
-              density={density}
-              locale={locale}
-              onOpenSourceAtLine={onOpenSourceAtLine}
-            />
-          </div>
-        );
-      }
-
-      if (mode === 'source') {
-        return (
-          <div className="flex-1 min-h-0 flex flex-col" style={zoomStyle}>
-            <CodeViewer
-              content={file.content}
-              fileName={file.name}
-              extension={file.extension}
-              locale={locale}
-              onContentChange={onContentChange}
-              onOpenInEditor={onOpenInEditor}
-            />
-          </div>
-        );
-      }
-
-      if (mode === 'split') {
-        return (
-          <div className="flex min-h-0 flex-1 overflow-hidden" data-theme={theme}>
-            {/* Left: Source Code Editor */}
-            <div className="flex min-h-0 w-1/2 flex-col border-r" style={{ ...zoomStyle, borderColor: 'var(--ov-border)' }}>
-              <CodeViewer
-                content={file.content}
-                fileName={file.name}
-                extension={file.extension}
-                locale={locale}
-                onContentChange={onContentChange}
-                onOpenInEditor={onOpenInEditor}
-              />
-            </div>
-
-            {/* Right: Toggleable Preview / Mindmap */}
-            <div className="min-h-0 w-1/2 flex flex-col overflow-hidden relative" style={{ background: 'var(--ov-bg)' }}>
-              {/* Floating switcher for split view right pane */}
-              <div
-                className="absolute top-2 right-4 z-20 flex items-center backdrop-blur rounded-md p-0.5 shadow-md border"
-                style={{
-                  background: 'var(--ov-surface)',
-                  borderColor: 'var(--ov-border)',
-                }}
-              >
-                <button
-                  onClick={() => {
-                    setSplitRightMode('preview');
-                    saveStoredSettings({ splitRightMode: 'preview' });
-                  }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer ${
-                    splitRightMode === 'preview'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'hover:bg-[var(--ov-surface-hover)]'
-                  }`}
-                  style={{
-                    color: splitRightMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
-                  }}
-                  title="富文本渲染预览"
-                  aria-label="富文本渲染预览"
-                >
-                  <Eye className="w-3 h-3 shrink-0" />
-                  <span className="hidden sm:inline">预览</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setSplitRightMode('mindmap');
-                    saveStoredSettings({ splitRightMode: 'mindmap' });
-                  }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                    splitRightMode === 'mindmap'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="全景思维导图 (Markmap)"
-                  aria-label="全景思维导图"
-                >
-                  <Network className="w-3 h-3 shrink-0" />
-                  <span className="hidden sm:inline">思维导图</span>
-                </button>
-              </div>
-
-              {splitRightMode === 'preview' ? (
-                <div className="markdown-plugin-scroll ov-split-preview-scroll flex-1 overflow-y-auto" style={{ background: 'var(--ov-bg)' }}>
-                  <div style={zoomStyle}>
-                    <MarkdownViewer
-                      content={file.content}
-                      files={files}
-                      isDarkTheme={isDarkTheme}
-                      density={density}
-                      contentWidth={contentWidth}
-                      locale={locale}
-                      onContentChange={onContentChange}
-                      onRenderComplete={onRenderComplete}
-                      onOpenSourceAtLine={onOpenSourceAtLine}
-                      onSelectFile={onSelectFile}
-                      enableOkf={effectiveEnableOkf}
-                      onToggleOkf={handleToggleOkf}
-                      eagerMount={eagerMount}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={zoomStyle}>
-                  <MarkmapViewer
-                    content={file.content}
-                    fileName={file.name}
-                    isDarkTheme={isDarkTheme}
-                    theme={theme}
-                    density={density}
-                    locale={locale}
-                    onOpenSourceAtLine={onOpenSourceAtLine}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="w-full flex-1 min-h-0" data-theme={theme} style={{ background: 'var(--ov-bg)' }}>
-          <div style={zoomStyle}>
-            <MarkdownViewer
-              content={file.content}
-              files={files}
-              isDarkTheme={isDarkTheme}
-              density={density}
-              contentWidth={contentWidth}
-              locale={locale}
-              onContentChange={onContentChange}
-              onRenderComplete={onRenderComplete}
-              onOpenSourceAtLine={onOpenSourceAtLine}
-              onSelectFile={onSelectFile}
-              enableOkf={effectiveEnableOkf}
-              onToggleOkf={handleToggleOkf}
-              eagerMount={eagerMount}
-            />
-          </div>
-        </div>
-      );
+    if (plugin.renderMode) {
+      return plugin.renderMode({
+        file,
+        files,
+        mode,
+        isDarkTheme,
+        theme,
+        density,
+        contentWidth,
+        zoom,
+        locale,
+        onContentChange,
+        onRenderComplete,
+        onOpenSourceAtLine,
+        onOpenInEditor,
+        onOpenSettings,
+        onOpenShortcuts,
+        onSelectFile,
+        enableOkf,
+        onToggleOkf,
+        eagerMount,
+      });
     }
 
     // 动态分发非 Markdown 驱动插件组件
@@ -268,6 +116,8 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
       onContentChange,
       onOpenSourceAtLine,
       onOpenInEditor,
+      onOpenSettings,
+      onOpenShortcuts,
       files,
     };
 
@@ -286,4 +136,3 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
     </RenderErrorBoundary>
   );
 };
-

@@ -18,6 +18,8 @@ import {
   FileCode,
   Sparkles,
   ExternalLink,
+  Settings,
+  Keyboard,
 } from 'lucide-react';
 import { dump as dumpYaml } from 'js-yaml';
 import {
@@ -49,6 +51,8 @@ interface StructuredDataViewerProps {
   density?: DensityMode;
   onContentChange?: (newContent: string) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 type DataViewMode = 'tree' | 'mindmap' | 'table' | 'topology' | 'code';
@@ -63,6 +67,8 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
   density = 'standard',
   onContentChange,
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
 }) => {
   const [localRawText, setLocalRawText] = useState(content);
   const [isSynced, setIsSynced] = useState(true);
@@ -458,6 +464,42 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
             >
               <ExternalLink className="w-3 h-3 text-sky-400" />
               {showEditorText && <span>在编辑器中打开</span>}
+            </button>
+          )}
+
+          {onOpenSettings && (
+            <button
+              type="button"
+              id="btn-structured-settings"
+              onClick={onOpenSettings}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="p-1.5 rounded-md border text-[11px] transition cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0"
+              title="外观主题与全局设置"
+              aria-label="设置"
+            >
+              <Settings className="w-3 h-3 shrink-0" />
+            </button>
+          )}
+
+          {onOpenShortcuts && (
+            <button
+              type="button"
+              id="btn-structured-shortcuts"
+              onClick={onOpenShortcuts}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="p-1.5 rounded-md border text-[11px] transition cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0"
+              title="快捷键与使用指南 (Ctrl+?)"
+              aria-label="快捷键指南"
+            >
+              <Keyboard className="w-3 h-3 text-blue-400 shrink-0" />
             </button>
           )}
         </div>

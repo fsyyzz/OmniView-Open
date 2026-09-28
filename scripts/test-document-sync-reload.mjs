@@ -11,23 +11,26 @@ const ROOT = process.cwd();
 console.log('🧪 开始外部编辑热同步与重载机制单元测试...');
 
 // 测试 1: extension.ts 中 isSameDocumentUri 跨平台 URI 匹配规则与监听器覆盖
+// 注: extension.ts 拆分重构后, 文档同步逻辑迁移至 editorProvider.ts, 辅助函数迁移至 utils.ts
 console.log('--- 测试 1: extension.ts 跨平台 URI 匹配与事件监听器覆盖 ---');
 const extTs = readFileSync(join(ROOT, 'src/extension/extension.ts'), 'utf8');
+const editorProviderTs = readFileSync(join(ROOT, 'src/extension/editorProvider.ts'), 'utf8');
+const utilsTs = readFileSync(join(ROOT, 'src/extension/utils.ts'), 'utf8');
 
 assert.ok(
-  extTs.includes('function isSameDocumentUri'),
-  'extension.ts 必须定义 isSameDocumentUri 辅助函数'
+  utilsTs.includes('function isSameDocumentUri') || extTs.includes('function isSameDocumentUri'),
+  'Host 侧必须定义 isSameDocumentUri 辅助函数 (已拆分至 utils.ts)'
 );
 assert.ok(
-  extTs.includes('toLowerCase() === b.fsPath.toLowerCase()'),
+  utilsTs.includes('toLowerCase() === b.fsPath.toLowerCase()'),
   'isSameDocumentUri 必须支持跨平台盘符大小写不敏感匹配'
 );
 assert.ok(
-  extTs.includes('reload-document'),
-  'extension.ts 必须支持来自 webview 的 reload-document 消息'
+  editorProviderTs.includes('reload-document'),
+  'editorProvider 必须支持来自 webview 的 reload-document 消息'
 );
 assert.ok(
-  extTs.includes('fileWatcher.onDidCreate'),
+  editorProviderTs.includes('fileWatcher.onDidCreate'),
   'fileWatcher 必须同时监听 onDidChange 与 onDidCreate（适配原子写重命名保存）'
 );
 console.log('✅ extension.ts 跨平台 URI 匹配与原子写监听器校验通过');

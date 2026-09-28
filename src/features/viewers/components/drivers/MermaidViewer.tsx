@@ -13,6 +13,8 @@ interface MermaidViewerProps {
   locale?: Locale;
   onContentChange?: (content: string) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 const MERMAID_SNIPPETS: DiagramSnippet[] = [
@@ -50,6 +52,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   locale = 'zh-CN',
   onContentChange,
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
 }) => {
   return (
     <DiagramStudioShell
@@ -58,6 +62,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       content={content}
       onContentChange={onContentChange}
       onOpenInEditor={onOpenInEditor}
+      onOpenSettings={onOpenSettings}
+      onOpenShortcuts={onOpenShortcuts}
       storageKeyPrefix="mermaid"
       languageLabel="Mermaid DSL"
       placeholder={'flowchart TD\n  A[开始] --> B[结束]'}

@@ -18,7 +18,7 @@ import {
   driverSupportsSourceEdit,
   isBinaryDriver,
   getDriverIdForFile,
-} from '../src/features/viewers/lib/driverRegistry.ts';
+} from '../src/features/viewers/lib/driverRegistry';
 
 async function testColorConversions() {
   console.log('  [test] RGBA -> HEX 与 HSLA 色彩空间转换测试...');

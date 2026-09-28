@@ -13,6 +13,8 @@ interface GraphvizViewerProps {
   locale?: Locale;
   onContentChange?: (content: string) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 const GRAPHVIZ_SNIPPETS: DiagramSnippet[] = [
@@ -56,6 +58,8 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
   locale = 'zh-CN',
   onContentChange,
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
 }) => {
   return (
     <DiagramStudioShell
@@ -64,6 +68,8 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
       content={content}
       onContentChange={onContentChange}
       onOpenInEditor={onOpenInEditor}
+      onOpenSettings={onOpenSettings}
+      onOpenShortcuts={onOpenShortcuts}
       storageKeyPrefix="graphviz"
       languageLabel="DOT / Graphviz"
       placeholder={'digraph G {\n  A -> B;\n}'}

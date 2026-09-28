@@ -6,7 +6,7 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { getDriverIdForFile, resolveDriverPluginForFile } from '../src/features/viewers/lib/driverRegistry.ts';
+import { getDriverIdForFile, resolveDriverPluginForFile } from '../src/features/viewers/lib/driverRegistry';
 import { parseDockerfile } from '../src/features/viewers/lib/parsers/dockerfileParser.ts';
 import { parseComposeFile, maskSensitiveValue } from '../src/features/viewers/lib/parsers/composeParser.ts';
 import { parseK8sManifest } from '../src/features/viewers/lib/parsers/k8sParser.ts';

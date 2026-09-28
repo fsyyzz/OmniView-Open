@@ -39,6 +39,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: var(--vscode-textBlockQuote-background, rgba(128, 128, 128, 0.08));
   --ov-quote-border: var(--vscode-textBlockQuote-border, var(--vscode-focusBorder, #007acc));
   --ov-accent: var(--vscode-button-background, var(--vscode-focusBorder, #007acc));
+  --ov-text-on-accent: var(--vscode-button-foreground, #ffffff);
   --ov-table-th: var(--vscode-editorGroupHeader-tabsBackground, rgba(128, 128, 128, 0.1));
   --ov-table-alt: rgba(128, 128, 128, 0.04);
   --ov-table-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.08));
@@ -128,6 +129,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(51, 65, 85, 0.25);
   --ov-quote-border: #3b82f6;
   --ov-accent: #3b82f6;
+  --ov-text-on-accent: #ffffff;
   --ov-table-th: #1e293b;
   --ov-table-alt: rgba(30, 41, 59, 0.28);
   --ov-table-hover: rgba(59, 130, 246, 0.08);
@@ -158,6 +160,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(226, 232, 240, 0.45);
   --ov-quote-border: #2563eb;
   --ov-accent: #2563eb;
+  --ov-text-on-accent: #ffffff;
   --ov-table-th: #f1f5f9;
   --ov-table-alt: rgba(241, 245, 249, 0.65);
   --ov-table-hover: rgba(37, 99, 235, 0.06);
@@ -184,6 +187,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(221, 206, 180, 0.35);
   --ov-quote-border: #b45309;
   --ov-accent: #b45309;
+  --ov-text-on-accent: #ffffff;
   --ov-table-th: #ede3cc;
   --ov-table-alt: rgba(237, 227, 204, 0.5);
   --ov-table-hover: rgba(180, 83, 9, 0.08);
@@ -210,6 +214,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(16, 185, 129, 0.08);
   --ov-quote-border: #10b981;
   --ov-accent: #10b981;
+  --ov-text-on-accent: #0f172a;
   --ov-table-th: #141414;
   --ov-table-alt: rgba(20, 20, 20, 0.6);
   --ov-table-hover: rgba(16, 185, 129, 0.08);
@@ -236,6 +241,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(216, 180, 254, 0.12);
   --ov-quote-border: #d8b4fe;
   --ov-accent: #ec4899;
+  --ov-text-on-accent: #ffffff;
   --ov-table-th: #261647;
   --ov-table-alt: rgba(38, 22, 71, 0.5);
   --ov-table-hover: rgba(236, 72, 153, 0.08);
@@ -260,6 +266,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(136, 192, 208, 0.12);
   --ov-quote-border: #88c0d0;
   --ov-accent: #88c0d0;
+  --ov-text-on-accent: #0f172a;
   --ov-table-th: #434c5e;
   --ov-table-alt: rgba(67, 76, 94, 0.4);
   --ov-table-hover: rgba(136, 192, 208, 0.08);
@@ -284,6 +291,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(189, 147, 249, 0.12);
   --ov-quote-border: #bd93f9;
   --ov-accent: #bd93f9;
+  --ov-text-on-accent: #1e1b4b;
   --ov-table-th: #343746;
   --ov-table-alt: rgba(68, 71, 90, 0.35);
   --ov-table-hover: rgba(189, 147, 249, 0.08);
@@ -308,6 +316,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(16, 185, 129, 0.12);
   --ov-quote-border: #10b981;
   --ov-accent: #10b981;
+  --ov-text-on-accent: #0f172a;
   --ov-table-th: #1f322f;
   --ov-table-alt: rgba(31, 50, 47, 0.45);
   --ov-table-hover: rgba(16, 185, 129, 0.08);
@@ -332,6 +341,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-quote-bg: rgba(181, 137, 0, 0.08);
   --ov-quote-border: #b58900;
   --ov-accent: #135f8d;
+  --ov-text-on-accent: #ffffff;
   --ov-table-th: #eee8d5;
   --ov-table-alt: rgba(238, 232, 213, 0.55);
   --ov-table-hover: rgba(19, 95, 141, 0.07);

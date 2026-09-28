@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
-import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles, MoreHorizontal, Search, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles, MoreHorizontal, Search, X, ChevronUp, ChevronDown, Settings, Keyboard } from 'lucide-react';
 import Prism from 'prismjs';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../shared/types';
@@ -30,6 +30,8 @@ interface CodeViewerProps {
   density?: DensityMode;
   onContentChange?: (newContent: string) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 const STRUCTURED_EXTENSIONS = ['json', 'yaml', 'yml', 'toml', 'xml'];
@@ -45,6 +47,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     density,
     onContentChange,
     onOpenInEditor,
+    onOpenSettings,
+    onOpenShortcuts,
   } = props;
 
   const ext = (extension || '').toLowerCase();
@@ -68,6 +72,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
           density={density}
           onContentChange={onContentChange}
           onOpenInEditor={onOpenInEditor}
+          onOpenSettings={onOpenSettings}
+          onOpenShortcuts={onOpenShortcuts}
         />
       </Suspense>
     );
@@ -816,6 +822,42 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               {showSecondaryBtnText && <span>{copied ? t('copied', locale) : t('copyCode2', locale)}</span>}
+            </button>
+          )}
+
+          {onOpenSettings && !isExtremelyNarrow && (
+            <button
+              type="button"
+              id="btn-code-settings"
+              onClick={onOpenSettings}
+              className="p-1.5 rounded transition text-xs cursor-pointer border hover:bg-[var(--ov-surface-hover)]"
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              title="外观主题与全局设置"
+              aria-label="设置"
+            >
+              <Settings className="w-3.5 h-3.5 shrink-0" />
+            </button>
+          )}
+
+          {onOpenShortcuts && !isExtremelyNarrow && (
+            <button
+              type="button"
+              id="btn-code-shortcuts"
+              onClick={onOpenShortcuts}
+              className="p-1.5 rounded transition text-xs cursor-pointer border hover:bg-[var(--ov-surface-hover)]"
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              title="快捷键与使用指南 (Ctrl+?)"
+              aria-label="快捷键指南"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             </button>
           )}
 

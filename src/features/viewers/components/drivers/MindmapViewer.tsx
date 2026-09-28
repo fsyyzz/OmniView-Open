@@ -22,6 +22,8 @@ import {
   FileCode,
   Layers,
   ExternalLink,
+  Settings,
+  Keyboard,
 } from 'lucide-react';
 import { ThemeId, DensityMode } from '../../../../shared/types';
 import { Locale, t } from '../../../../shared/lib/i18n';
@@ -39,6 +41,8 @@ interface MindmapViewerProps {
   locale?: Locale;
   onContentChange?: (content: string) => void;
   onOpenInEditor?: () => void;
+  onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 type MindmapViewMode = 'split' | 'mindmap' | 'editor';
@@ -172,6 +176,8 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   locale = 'zh-CN',
   onContentChange,
   onOpenInEditor,
+  onOpenSettings,
+  onOpenShortcuts,
 }) => {
   const [localCode, setLocalCode] = useState<string>(() => normalizeMindmapContent(content));
   const [viewMode, setViewMode] = useState<MindmapViewMode>(() => {
@@ -567,6 +573,42 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             {showCopyText && <span>{copied ? '已复制' : '复制源码'}</span>}
           </button>
+
+          {onOpenSettings && (
+            <button
+              type="button"
+              id="btn-mindmap-settings"
+              onClick={onOpenSettings}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="p-1.5 rounded border transition text-xs cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0"
+              title="外观主题与全局设置"
+              aria-label="设置"
+            >
+              <Settings className="w-3.5 h-3.5 shrink-0" />
+            </button>
+          )}
+
+          {onOpenShortcuts && (
+            <button
+              type="button"
+              id="btn-mindmap-shortcuts"
+              onClick={onOpenShortcuts}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="p-1.5 rounded border transition text-xs cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] shrink-0"
+              title="快捷键与使用指南 (Ctrl+?)"
+              aria-label="快捷键指南"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            </button>
+          )}
         </div>
       </header>
 

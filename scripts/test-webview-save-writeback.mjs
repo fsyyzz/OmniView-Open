@@ -9,16 +9,18 @@ const root = process.cwd();
 const read = (rel) => readFileSync(resolve(root, rel), 'utf8');
 
 const extension = read('src/extension/extension.ts');
+const editorProvider = read('src/extension/editorProvider.ts');
 const pluginView = read('src/features/viewers/PluginDocumentView.tsx');
 const codeViewer = read('src/features/viewers/components/drivers/CodeViewer.tsx');
 
-assert.match(extension, /persistWebviewContent/, 'Host 必须实现 persistWebviewContent');
-assert.match(extension, /message\?\.type === 'document-change'/, 'Host 必须监听 document-change');
-assert.match(extension, /message\.type === 'save-content'/, 'Host 必须监听 save-content');
-assert.match(extension, /isWritingFromWebview/, '写回时必须屏蔽磁盘回声重载');
-assert.match(extension, /type: 'content-saved'/, '写回后必须回传 content-saved');
+// Host 写回能力已由 extension.ts 拆分迁移至 editorProvider.ts (persistWebviewContent / document-change / save-content 消息监听)
+assert.match(editorProvider, /persistWebviewContent/, 'Host (editorProvider) 必须实现 persistWebviewContent');
+assert.match(editorProvider, /message\?\.type === 'document-change'/, 'Host 必须监听 document-change');
+assert.match(editorProvider, /message\.type === 'save-content'/, 'Host 必须监听 save-content');
+assert.match(extension + editorProvider, /isWritingFromWebview/, '写回时必须屏蔽磁盘回声重放');
+assert.match(editorProvider, /type: 'content-saved'/, '写回后必须回显 content-saved');
 assert.match(
-  extension,
+  extension + editorProvider,
   /WorkspaceEdit|workspace\.fs\.writeFile|writeFile\(/,
   'Host 必须具备磁盘写回能力'
 );

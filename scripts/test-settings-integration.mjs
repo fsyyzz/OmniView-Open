@@ -69,12 +69,16 @@ assert.strictEqual(props['omniview.preview.splitRatio'].minimum, 20);
 assert.strictEqual(props['omniview.preview.splitRatio'].maximum, 80);
 console.log('✅ 2. 枚举列表与数值约束范围校验通过');
 
-// 3. 校验 extension.ts 中的 getHostConfiguration 与 save-configuration 映射覆盖率
+// 3. 校验 getHostConfiguration 与 save-configuration 映射覆盖率
+// 注: extension.ts 拆分重构后, getHostConfiguration 迁移至 configSync.ts, save-configuration 监听迁移至 editorProvider.ts
 const extPath = path.join(rootDir, 'src/extension/extension.ts');
 const extCode = fs.readFileSync(extPath, 'utf8');
+const configSyncCode = fs.readFileSync(path.join(rootDir, 'src/extension/configSync.ts'), 'utf8');
+const editorProviderCode = fs.readFileSync(path.join(rootDir, 'src/extension/editorProvider.ts'), 'utf8');
+const hostCode = extCode + configSyncCode + editorProviderCode;
 
 // 提取 getHostConfiguration 内部逻辑
-assert.ok(extCode.includes('function getHostConfiguration(): Record<string, unknown>'), 'extension.ts 必须定义 getHostConfiguration');
+assert.ok(configSyncCode.includes('function getHostConfiguration()'), 'Host 侧必须定义 getHostConfiguration (已拆分至 configSync.ts)');
 
 // 验证每个 omniview.* key 在 getHostConfiguration() 中都被读取
 const hostKeyMapping = {
@@ -101,30 +105,30 @@ const hostKeyMapping = {
 
 for (const [vsKey, webKey] of Object.entries(hostKeyMapping)) {
   assert.ok(
-    extCode.includes(`'${vsKey}'`),
-    `getHostConfiguration 必须包含读取 '${vsKey}'`
+    hostCode.includes(`'${vsKey}'`),
+    `host 侧必须包含读取 '${vsKey}'`
   );
   assert.ok(
-    extCode.includes(webKey),
-    `getHostConfiguration 必须映射属性 ${webKey}`
+    hostCode.includes(webKey),
+    `host 侧必须映射属性 ${webKey}`
   );
 }
-console.log('✅ 3. extension.ts getHostConfiguration 19 项配置正向映射覆盖率 100% 通过');
+console.log('✅ 3. Host getHostConfiguration 19 项配置正向映射覆盖率 100% 通过');
 
 // 4. 验证 save-configuration 回写更新完整性
-assert.ok(extCode.includes("message?.type === 'save-configuration'"), 'extension.ts 必须处理 save-configuration 消息');
+assert.ok(hostCode.includes("message?.type === 'save-configuration'"), 'Host 侧必须处理 save-configuration 消息');
 for (const [vsKey] of Object.entries(hostKeyMapping)) {
   assert.ok(
-    extCode.includes(`config.update('${vsKey}'`),
+    hostCode.includes(`config.update('${vsKey}'`),
     `save-configuration 必须支持将改动写回 '${vsKey}'`
   );
 }
-console.log('✅ 4. extension.ts save-configuration 19 项配置反向持久化写回覆盖率 100% 通过');
+console.log('✅ 4. Host save-configuration 19 项配置反向持久化写回覆盖率 100% 通过');
 
 // 5. 验证 open-vscode-settings 消息处理
-assert.ok(extCode.includes("message?.type === 'open-vscode-settings'"), 'extension.ts 必须监听 open-vscode-settings 消息');
+assert.ok(hostCode.includes("message?.type === 'open-vscode-settings'"), 'Host 侧必须监听 open-vscode-settings 消息');
 assert.ok(
-  extCode.includes("'workbench.action.openSettings', 'omniview'"),
+  hostCode.includes("'workbench.action.openSettings', 'omniview'"),
   'open-vscode-settings 必须调用 workbench.action.openSettings 过滤 omniview'
 );
 console.log('✅ 5. Webview 到 VS Code 原生设置面板通道联动校验通过');

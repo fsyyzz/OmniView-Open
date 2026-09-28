@@ -12,6 +12,7 @@ import { RenderErrorBoundary } from '../features/viewers/components/common/Rende
 import { loadStoredSettings, saveStoredSettings, DEFAULT_SETTINGS } from '../shared/lib/settingsStorage';
 import { loadStoredFiles, saveStoredFiles, resetStoredFiles } from '../shared/lib/fileStorage';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../shared/lib/nativeTheme';
+import { useWorkbenchSettings } from './useWorkbenchSettings';
 
 const DocCenter = React.lazy(() => import('../features/docs/DocCenter').then(m => ({ default: m.DocCenter })));
 const DriversManager = React.lazy(() => import('../features/drivers/DriversManager').then(m => ({ default: m.DriversManager })));
@@ -111,74 +112,25 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
-  // 同步外观与视口变更
-  const handleThemeChange = (newTheme: ThemeId) => {
-    setTheme(newTheme);
-    setSettings(prev => ({ ...prev, theme: newTheme }));
-    saveStoredSettings({ theme: newTheme });
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', newTheme);
-      document.body?.setAttribute('data-theme', newTheme);
-    }
-    if (vscode) {
-      vscode.postMessage({
-        type: 'save-configuration',
-        settings: { theme: newTheme },
-      });
-    }
-  };
-
-  const handleDensityChange = (newDensity: DensityMode) => {
-    setDensity(newDensity);
-    setSettings(prev => ({ ...prev, density: newDensity }));
-    saveStoredSettings({ density: newDensity });
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-density', newDensity);
-      document.body?.setAttribute('data-density', newDensity);
-    }
-    if (vscode) {
-      vscode.postMessage({
-        type: 'save-configuration',
-        settings: { density: newDensity },
-      });
-    }
-  };
-
-  const handleZoomChange = (newZoom: number) => {
-    setZoom(newZoom);
-    setSettings(prev => ({ ...prev, zoom: newZoom }));
-    saveStoredSettings({ zoom: newZoom });
-  };
-
-  const handleViewModeChange = (newMode: ViewMode) => {
-    setViewMode(newMode);
-    setSettings(prev => ({ ...prev, viewMode: newMode }));
-    saveStoredSettings({ viewMode: newMode });
-  };
-
-  const handleCurrentViewChange = (newView: WorkbenchView) => {
-    setCurrentView(newView);
-    setSettings(prev => ({ ...prev, currentView: newView }));
-    saveStoredSettings({ currentView: newView });
-  };
-
-  const handleToggleSidebar = () => {
-    setSidebarOpen(prev => {
-      const next = !prev;
-      setSettings(s => ({ ...s, sidebarOpen: next }));
-      saveStoredSettings({ sidebarOpen: next });
-      return next;
-    });
-  };
-
-  const handleToggleExplorer = () => {
-    setExplorerOpen(prev => {
-      const next = !prev;
-      setSettings(s => ({ ...s, explorerOpen: next }));
-      saveStoredSettings({ explorerOpen: next });
-      return next;
-    });
-  };
+  const {
+    handleThemeChange,
+    handleDensityChange,
+    handleZoomChange,
+    handleViewModeChange,
+    handleCurrentViewChange,
+    handleToggleSidebar,
+    handleToggleExplorer,
+  } = useWorkbenchSettings({
+    setTheme,
+    setDensity,
+    setZoom,
+    setViewMode,
+    setCurrentView,
+    setSidebarOpen,
+    setExplorerOpen,
+    setSettings,
+    vscode,
+  });
 
   const handleSettingsModalChange = (updatedSettings: WorkbenchSettings) => {
     setSettings(updatedSettings);
@@ -411,6 +363,19 @@ export default function App() {
   };
 
   // Upload local files with persistence
+  const commitNewFile = (newFile: FileItem) => {
+    setFiles(prev => {
+      const updated = [newFile, ...prev];
+      saveStoredFiles(updated);
+      return updated;
+    });
+    setActiveFileId(newFile.id);
+    const nextTabs = openTabIds.includes(newFile.id) ? openTabIds : [...openTabIds, newFile.id];
+    setOpenTabIds(nextTabs);
+    saveStoredSettings({ activeFileId: newFile.id, openTabIds: nextTabs });
+    setCurrentView('editor');
+  };
+
   const handleFileUpload = (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'txt';
     const binaryExts = new Set([
@@ -450,16 +415,7 @@ export default function App() {
           binaryUrl: URL.createObjectURL(file),
         };
 
-        setFiles(prev => {
-          const updated = [newFile, ...prev];
-          saveStoredFiles(updated);
-          return updated;
-        });
-        setActiveFileId(newFile.id);
-        const nextTabs = openTabIds.includes(newFile.id) ? openTabIds : [...openTabIds, newFile.id];
-        setOpenTabIds(nextTabs);
-        saveStoredSettings({ activeFileId: newFile.id, openTabIds: nextTabs });
-        setCurrentView('editor');
+        commitNewFile(newFile);
       };
       reader.readAsArrayBuffer(file);
     } else {
@@ -477,16 +433,7 @@ export default function App() {
           isCustomUploaded: true,
         };
 
-        setFiles(prev => {
-          const updated = [newFile, ...prev];
-          saveStoredFiles(updated);
-          return updated;
-        });
-        setActiveFileId(newFile.id);
-        const nextTabs = openTabIds.includes(newFile.id) ? openTabIds : [...openTabIds, newFile.id];
-        setOpenTabIds(nextTabs);
-        saveStoredSettings({ activeFileId: newFile.id, openTabIds: nextTabs });
-        setCurrentView('editor');
+        commitNewFile(newFile);
       };
       reader.readAsText(file);
     }
@@ -591,7 +538,7 @@ flowchart LR
       <div
         data-theme={theme}
         data-density={density}
-        className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans transition-colors duration-200"
+        className="h-screen w-screen flex flex-col overflow-hidden font-sans transition-colors duration-200"
         style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)' }}
       >
         {/* Top Application Bar */}
