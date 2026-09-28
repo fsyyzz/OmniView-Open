@@ -765,3 +765,11 @@ export async function generateSampleXlsxZip(): Promise<JSZip> {
 
   return zip;
 }
+
+/**
+ * 生成合规演示 XLSX 二进制字节流
+ */
+export async function generateSampleXlsxBytes(): Promise<Uint8Array> {
+  const zip = await generateSampleXlsxZip();
+  return await zip.generateAsync({ type: 'uint8array' });
+}

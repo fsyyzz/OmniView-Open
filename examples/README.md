@@ -27,6 +27,7 @@
 | **[markmap/](./markmap/)** | `.markmap`, `.mm`, `.km`, `.mindmap` | Markmap Lib + D3 Tree | 树形大纲思维导图、FreeMind XML、KityMinder JSON、节点折叠 |
 | **[docx/](./docx/)** | `.docx` | OOXML + JSZip + Docx Engine | Word 离线高保真排版、A4 拟真分页、多级导航大纲提取、纸张主题切换 |
 | **[pptx/](./pptx/)** | `.pptx` | OOXML + JSZip + PPTX Engine | PowerPoint 离线演播工作台、多页幻灯片预览、矢量形状渲染、表格矩阵 |
+| **[xlsx/](./xlsx/)** | `.xlsx`, `.xls` | OOXML + JSZip + XLSX Engine | Excel 多工作表数据报表、公式计算值检视、列特征画像、数据导出 |
 | **[domainstory/](./domainstory/)** | `.dst`, `.domainstory`, `.egn` | Domain Story Engine (WPS egon.io) | 领域故事讲授法、逐帧步进演播、业务活动序号、Polyglot SVG 双向还原 |
 | **[html/](./html/)** | `.html`, `.htm` | Native Web Sandbox Engine | 严格受控双层 iframe 沙箱、响应式设备仿真 (Desktop/Tablet/Mobile)、分屏编辑 |
 
@@ -35,8 +36,9 @@
 ## 🎯 推荐验证路径
 
 1. **白板、Office 文档、数据科学与领域驱动故事**：
-   - 打开 `docx/omniview-architecture-guide.docx` 体验 Word A4 拟真分页与左侧大纲树导航；
+   - 打开 `docx/omniview-architecture-guide.docx` 体验 Word 高效流式阅读、A4 拟真分页与左侧大纲树导航；
    - 打开 `pptx/omniview-tech-presentation.pptx` 体验 PowerPoint 幻灯片多页演播与矢量形状渲染；
+   - 打开 `xlsx/omniview-budget-report.xlsx` 体验 Excel 多工作表切换、公式检视与列特征画像；
    - 打开 `domainstory/ecommerce-fulfillment.dst` 体验领域故事讲授法图元与逐帧播放；
    - 打开 `excalidraw/architecture-sketch.excalidraw` 体验手绘矢量白板与画布交互；
    - 打开 `notebook/deep-learning-analysis.ipynb` 体验交互式数据科学单元格；

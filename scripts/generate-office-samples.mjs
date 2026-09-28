@@ -7,13 +7,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateSampleDocxBytes } from '../src/features/viewers/lib/docxEngine.ts';
 import { generateSamplePptxBytes } from '../src/features/viewers/lib/pptxEngine.ts';
+import { generateSampleXlsxBytes } from '../src/features/viewers/lib/xlsxEngine.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 async function main() {
-  console.log('🚀 开始生成 Office 示例文件 (.docx / .pptx)...');
+  console.log('🚀 开始生成 Office 示例文件 (.docx / .pptx / .xlsx)...');
 
   // 1. 生成 Word (.docx) 示例
   const docxDir = path.join(rootDir, 'examples', 'docx');
@@ -34,6 +35,16 @@ async function main() {
   const pptxFilePath = path.join(pptxDir, 'omniview-tech-presentation.pptx');
   fs.writeFileSync(pptxFilePath, Buffer.from(pptxBytes));
   console.log(`✅ 已生成 PPTX 示例: ${pptxFilePath} (${pptxBytes.length} bytes)`);
+
+  // 3. 生成 Excel (.xlsx) 示例
+  const xlsxDir = path.join(rootDir, 'examples', 'xlsx');
+  if (!fs.existsSync(xlsxDir)) {
+    fs.mkdirSync(xlsxDir, { recursive: true });
+  }
+  const xlsxBytes = await generateSampleXlsxBytes();
+  const xlsxFilePath = path.join(xlsxDir, 'omniview-budget-report.xlsx');
+  fs.writeFileSync(xlsxFilePath, Buffer.from(xlsxBytes));
+  console.log(`✅ 已生成 XLSX 示例: ${xlsxFilePath} (${xlsxBytes.length} bytes)`);
 
   console.log('🎉 全部 Office 示例文件生成完毕！');
 }

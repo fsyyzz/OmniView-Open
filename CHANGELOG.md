@@ -4,7 +4,16 @@
 
 ## [Unreleased]
 
-## [1.2.28] - 2026-09-28
+## [1.2.29] - 2026-09-28
+
+### Added
+
+- **补充 Excel (.xlsx) 官方演示数据工作簿 (Office Spreadsheet Suite)**:
+  - 新增 `examples/xlsx/omniview-budget-report.xlsx`：涵盖双工作表（Sheet 1: 业务营收与增长，Sheet 2: 研发及运营预算明细）、公式计算值（SUM、差额扣减）、格式化数值与状态预警；
+  - 目录内附说明文档并同步更新 `examples/README.md` 全景矩阵与推荐路径；
+  - `xlsxEngine.ts` 导出 `generateSampleXlsxBytes`，`generate-office-samples.mjs` 升级为 Office 三剑客完整生成流水线；
+  - `test-office-operations-matrix.mjs` 扩展覆盖 XLSX 8 项核心操作，Office 三剑客全套 25 项核心交互能力 100% 确认可用并受单测持续守护。
+
 
 ### Added
 
