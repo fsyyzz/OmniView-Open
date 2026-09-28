@@ -50,6 +50,17 @@ function log(message: string, details?: unknown): void {
   console.log(`[OmniView] ${message}${suffix}`);
 }
 
+/** 跨平台 URI 与文件路径归一化匹配判定 (处理 Windows 盘符大小写与多 scheme 兼容) */
+function isSameDocumentUri(a: vscode.Uri | undefined, b: vscode.Uri | undefined): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.toString() === b.toString()) return true;
+  if (a.scheme === b.scheme && a.fsPath && b.fsPath) {
+    return a.fsPath.toLowerCase() === b.fsPath.toLowerCase();
+  }
+  return false;
+}
+
 /** 读取并归一化 VS Code 宿主工作区中的 omniview 配置 */
 function getHostConfiguration(): Record<string, unknown> {
   const config = vscode.workspace.getConfiguration('omniview');
@@ -337,7 +348,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
       try {
         const bytes = Buffer.from(content, 'utf8');
         const openDoc = vscode.workspace.textDocuments.find(
-          (doc) => doc.uri.fsPath === document.uri.fsPath && !doc.isClosed
+          (doc) => isSameDocumentUri(doc.uri, document.uri) && !doc.isClosed
         );
 
         if (openDoc) {
@@ -400,6 +411,11 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
         log('Webview runtime error', message);
         return;
       }
+      if (message?.type === 'reload-document') {
+        log(`Manual reload requested from webview: ${document.uri.fsPath}`);
+        await reloadAndPost(true);
+        return;
+      }
       if (message?.type === 'document-change' || message?.type === 'save-content') {
         const content = typeof message.content === 'string' ? message.content : '';
         if (message.type === 'save-content') {
@@ -441,7 +457,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
 
         // 查找当前是否已分屏打开此文件的文本编辑器
         const visibleEditor = vscode.window.visibleTextEditors.find(
-          (editor) => editor.document.uri.fsPath === document.uri.fsPath
+          (editor) => isSameDocumentUri(editor.document.uri, document.uri)
         );
 
         if (visibleEditor) {
@@ -538,7 +554,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     let editDebounceTimer: NodeJS.Timeout | undefined;
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
       if (isWritingFromWebview) return;
-      if (event.document.uri.fsPath === document.uri.fsPath && !isBinary) {
+      if (isSameDocumentUri(event.document.uri, document.uri) && !isBinary) {
         clearTimeout(editDebounceTimer);
         editDebounceTimer = setTimeout(async () => {
           if (isWritingFromWebview) return;
@@ -564,24 +580,42 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     disposables.push(changeListener);
 
     // 2. 文件保存与物理改动重载 (onDidSaveTextDocument & FileWatcher)
-    const reloadAndPost = async () => {
-      if (isWritingFromWebview) {
+    const reloadAndPost = async (forceFromDisk = false) => {
+      if (isWritingFromWebview && !forceFromDisk) {
         log(`Skip reload while writing from webview: ${document.uri.fsPath}`);
         return;
       }
       try {
-        docData = await loadDocData();
+        const openDoc = vscode.workspace.textDocuments.find(
+          (doc) => isSameDocumentUri(doc.uri, document.uri) && !doc.isClosed
+        );
+        if (openDoc && !isBinary && !forceFromDisk) {
+          const content = openDoc.getText();
+          const bytes = Buffer.from(content, 'utf8');
+          const referencedFiles =
+            (extension === '.md' || extension === '.markdown') && document.uri.fsPath
+              ? await loadReferencedMediaFiles(document.uri.fsPath, content, webview)
+              : [];
+          docData = {
+            buffer: bytes,
+            content,
+            binaryUrl: undefined,
+            referencedFiles,
+          };
+        } else {
+          docData = await loadDocData();
+        }
         await postDocument(true);
-        log(`Auto reloaded document from disk: ${document.uri.fsPath}`);
+        log(`Auto reloaded document from memory/disk: ${document.uri.fsPath}`);
       } catch (err) {
         log(`Failed to auto reload document: ${document.uri.fsPath}`, err);
       }
     };
 
     const saveListener = vscode.workspace.onDidSaveTextDocument(async (savedDoc) => {
-      if (savedDoc.uri.fsPath === document.uri.fsPath) {
+      if (isSameDocumentUri(savedDoc.uri, document.uri)) {
         log(`onDidSaveTextDocument triggered for: ${savedDoc.uri.fsPath}`);
-        await reloadAndPost();
+        await reloadAndPost(true);
       }
     });
     disposables.push(saveListener);
@@ -593,7 +627,11 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
         );
         fileWatcher.onDidChange(async () => {
           log(`FileSystemWatcher onDidChange triggered for: ${document.uri.fsPath}`);
-          await reloadAndPost();
+          await reloadAndPost(true);
+        });
+        fileWatcher.onDidCreate(async () => {
+          log(`FileSystemWatcher onDidCreate triggered for: ${document.uri.fsPath}`);
+          await reloadAndPost(true);
         });
         disposables.push(fileWatcher);
       } catch (err) {
@@ -604,7 +642,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     // 3. 监听编辑器滚动范围变更 (onDidChangeTextEditorVisibleRanges)，建立平滑双向同步
     const visibleRangesListener = vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
       if (isSyncingFromWebview) return;
-      if (event?.textEditor?.document?.uri && event.textEditor.document.uri.fsPath === document.uri.fsPath) {
+      if (event?.textEditor?.document?.uri && isSameDocumentUri(event.textEditor.document.uri, document.uri)) {
         const visibleRange = event.visibleRanges[0];
         if (!visibleRange) return;
         const topLine = visibleRange.start.line + 1;
@@ -626,7 +664,7 @@ class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProvider<Om
     // 4. 监听编辑器光标选择位置变更 (onDidChangeTextEditorSelection)
     const selectionListener = vscode.window.onDidChangeTextEditorSelection((event) => {
       if (isSyncingFromWebview) return;
-      if (event?.textEditor?.document?.uri && event.textEditor.document.uri.fsPath === document.uri.fsPath) {
+      if (event?.textEditor?.document?.uri && isSameDocumentUri(event.textEditor.document.uri, document.uri)) {
         const activeLine = event.selections[0]?.active.line + 1;
         if (activeLine) {
           webview.postMessage({

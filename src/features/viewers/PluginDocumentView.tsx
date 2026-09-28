@@ -520,17 +520,31 @@ const MarkdownPluginView: React.FC<{
     });
   }, []);
 
-  // Interactive Markdown content state for in-place editing & real-time re-rendering
+  // Interactive Markdown/Driver content state for in-place editing & real-time re-rendering
   const [documentContent, setDocumentContent] = useState(file.content);
   const prevFileIdRef = useRef(file.id);
   const prevContentRef = useRef(file.content);
+  const [isReloading, setIsReloading] = useState(false);
 
   useEffect(() => {
     if (file.id !== prevFileIdRef.current || file.content !== prevContentRef.current) {
       prevFileIdRef.current = file.id;
       prevContentRef.current = file.content;
+      setDocumentContent(file.content);
     }
   }, [file.id, file.content]);
+
+  const handleReloadDocument = useCallback(() => {
+    setIsReloading(true);
+    if (vscode) {
+      vscode.postMessage({ type: 'reload-document' });
+    } else {
+      setDocumentContent(file.content);
+    }
+    setTimeout(() => {
+      setIsReloading(false);
+    }, 600);
+  }, [file.content, vscode]);
 
   const handleContentUpdate = useCallback(
     (newContent: string) => {
@@ -907,6 +921,13 @@ const MarkdownPluginView: React.FC<{
         return;
       }
 
+      // Ctrl+R / Cmd+R / F5: 从磁盘/编辑器重新加载预览
+      if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') || e.key === 'F5') {
+        e.preventDefault();
+        handleReloadDocument();
+        return;
+      }
+
       if (isInput) return;
 
       if ((e.ctrlKey || e.metaKey) && (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash')))) {
@@ -1071,6 +1092,8 @@ const MarkdownPluginView: React.FC<{
         onToggleOkf={handleToggleOkf}
         onOpenSettings={handleOpenSettings}
         onOpenShortcuts={handleOpenShortcuts}
+        onReloadDocument={handleReloadDocument}
+        isReloading={isReloading}
       />
 
       {/* Main Body: Outline Sidebar + Canvas */}

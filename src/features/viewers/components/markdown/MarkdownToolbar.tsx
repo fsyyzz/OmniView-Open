@@ -89,6 +89,8 @@ interface MarkdownToolbarProps {
   onToggleOkf?: () => void;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
+  onReloadDocument?: () => void;
+  isReloading?: boolean;
 }
 
 export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
@@ -144,6 +146,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   onToggleOkf,
   onOpenSettings,
   onOpenShortcuts,
+  onReloadDocument,
+  isReloading = false,
 }) => {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [densityMenuOpen, setDensityMenuOpen] = useState(false);
@@ -617,6 +621,22 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             aria-label={t('openInNativeEditor', locale)}
           >
             <ExternalLink size={14} />
+          </button>
+        )}
+
+        {/* 从磁盘/编辑器重新加载预览 (Ctrl+R / Cmd+R) */}
+        {onReloadDocument && (
+          <button
+            type="button"
+            id="btn-markdown-reload-document"
+            className={`markdown-tool-button text-teal-400 hover:text-teal-300 hover:bg-teal-950/70 border border-teal-600/30 ${
+              isReloading ? 'animate-spin text-teal-300' : ''
+            }`}
+            onClick={onReloadDocument}
+            title={`${t('reloadPreview', locale)} (Ctrl+R)`}
+            aria-label={t('reloadPreview', locale)}
+          >
+            <RefreshCw size={13} className={isReloading ? 'animate-spin' : ''} />
           </button>
         )}
 

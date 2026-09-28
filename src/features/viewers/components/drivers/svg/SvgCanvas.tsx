@@ -262,8 +262,16 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
 
   // 经过 DOMPurify 严格安全净化的 SVG 内容，并按需注入 data-omni-id 供检视器点选
   const sanitizedMarkup = useMemo(() => {
-    const targetContent = validation.valid ? svgContent : lastValidSvgRef.current;
-    if (!targetContent.trim()) return '';
+    const rawContent = validation.valid ? svgContent : lastValidSvgRef.current;
+    if (!rawContent || !rawContent.trim()) return '';
+
+    // 预清理：剥除 <?xml ...?> 与 <!DOCTYPE ...>，避免引起 HTML 挂载解析错乱
+    const targetContent = rawContent
+      .replace(/<\?xml[\s\S]*?\?>/gi, '')
+      .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
+      .trim();
+
+    if (!targetContent) return '';
 
     const taggedContent = inspectorActive || selectedElementIndex !== null
       ? tagSvgWithNodeIds(targetContent, selectedElementIndex)
@@ -271,10 +279,28 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
 
     return DOMPurify.sanitize(taggedContent, {
       USE_PROFILES: { svg: true, svgFilters: true },
+      ADD_TAGS: [
+        'style',
+        'clipPath',
+        'linearGradient',
+        'radialGradient',
+        'filter',
+        'feGaussianBlur',
+        'feOffset',
+        'feMerge',
+        'feMergeNode',
+        'marker',
+        'pattern',
+        'mask',
+        'use',
+        'symbol',
+        'foreignObject',
+      ],
       ADD_ATTR: [
         'data-omni-id',
         'data-omni-selected',
         'class',
+        'style',
         'x1',
         'y1',
         'x2',
@@ -285,6 +311,34 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         'rx',
         'ry',
         'points',
+        'd',
+        'viewBox',
+        'xmlns',
+        'xmlns:xlink',
+        'xlink:href',
+        'transform',
+        'fill',
+        'stroke',
+        'stroke-width',
+        'stroke-linecap',
+        'stroke-linejoin',
+        'stroke-dasharray',
+        'stroke-dashoffset',
+        'stroke-miterlimit',
+        'opacity',
+        'fill-opacity',
+        'stroke-opacity',
+        'marker-start',
+        'marker-end',
+        'marker-mid',
+        'font-family',
+        'font-size',
+        'font-weight',
+        'text-anchor',
+        'dominant-baseline',
+        'width',
+        'height',
+        'preserveAspectRatio',
       ],
     });
   }, [svgContent, validation.valid, inspectorActive, selectedElementIndex]);
@@ -1304,6 +1358,12 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
     >
       {/* 检视模式与选中图元高亮样式注入 */}
       <style>{`
+        #svg-render-surface svg {
+          display: block;
+          max-width: 100%;
+          max-height: 100%;
+          box-sizing: content-box;
+        }
         #svg-render-surface [data-omni-id] {
           transition: outline 0.1s ease;
         }
