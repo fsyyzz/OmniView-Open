@@ -347,7 +347,114 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-table-hover: rgba(19, 95, 141, 0.07);
   --ov-table-col-hover: rgba(19, 95, 141, 0.03);
   --ov-surface-hover: rgba(0, 0, 0, 0.04);
-  --ov-shadow: 0 6px 20px rgba(7, 54, 66, 0.07);
+}
+
+[data-theme="github-dark"] {
+  --ov-bg: #0d1117;
+  --ov-bg-elevated: #161b22;
+  --ov-surface: #161b22;
+  --ov-surface-header: #21262d;
+  --ov-border: #30363d;
+  --ov-border-subtle: #21262d;
+  --ov-text: #c9d1d9;
+  --ov-text-secondary: #8b949e;
+  --ov-text-muted: #6e7681;
+  --ov-code-bg: #161b22;
+  --ov-inline-code-bg: rgba(110, 118, 129, 0.3);
+  --ov-inline-code-color: #79c0ff;
+  --ov-quote-bg: rgba(56, 139, 253, 0.1);
+  --ov-quote-border: #1f6feb;
+  --ov-accent: #238636;
+  --ov-text-on-accent: #ffffff;
+  --ov-table-th: #161b22;
+  --ov-table-alt: rgba(110, 118, 129, 0.08);
+  --ov-table-hover: rgba(56, 139, 253, 0.1);
+  --ov-table-col-hover: rgba(56, 139, 253, 0.05);
+  --ov-surface-hover: rgba(177, 186, 196, 0.08);
+  --ov-shadow: 0 8px 24px rgba(1, 4, 9, 0.8);
+  --ov-diagram-canvas-bg: rgba(13, 17, 23, 0.6);
+  --ov-diagram-mask-from: rgba(13, 17, 23, 0.9);
+}
+
+[data-theme="catppuccin"] {
+  --ov-bg: #181825;
+  --ov-bg-elevated: #1e1e2e;
+  --ov-surface: #1e1e2e;
+  --ov-surface-header: #313244;
+  --ov-border: #45475a;
+  --ov-border-subtle: #313244;
+  --ov-text: #cdd6f4;
+  --ov-text-secondary: #bac2de;
+  --ov-text-muted: #a6adc8;
+  --ov-code-bg: #11111b;
+  --ov-inline-code-bg: #313244;
+  --ov-inline-code-color: #89dceb;
+  --ov-quote-bg: rgba(203, 166, 247, 0.12);
+  --ov-quote-border: #cba6f7;
+  --ov-accent: #89b4fa;
+  --ov-text-on-accent: #11111b;
+  --ov-table-th: #313244;
+  --ov-table-alt: rgba(49, 50, 68, 0.45);
+  --ov-table-hover: rgba(137, 180, 250, 0.1);
+  --ov-table-col-hover: rgba(137, 180, 250, 0.05);
+  --ov-surface-hover: rgba(205, 214, 244, 0.08);
+  --ov-shadow: 0 8px 28px rgba(17, 17, 27, 0.65);
+  --ov-diagram-canvas-bg: rgba(24, 24, 37, 0.6);
+  --ov-diagram-mask-from: rgba(24, 24, 37, 0.9);
+}
+
+[data-theme="tokyo-night"] {
+  --ov-bg: #1a1b26;
+  --ov-bg-elevated: #1f2335;
+  --ov-surface: #24283b;
+  --ov-surface-header: #292e42;
+  --ov-border: #383e5a;
+  --ov-border-subtle: #292e42;
+  --ov-text: #a9b1d6;
+  --ov-text-secondary: #9aa5ce;
+  --ov-text-muted: #787c99;
+  --ov-code-bg: #16161e;
+  --ov-inline-code-bg: #2f354d;
+  --ov-inline-code-color: #7dcfff;
+  --ov-quote-bg: rgba(122, 162, 247, 0.12);
+  --ov-quote-border: #7aa2f7;
+  --ov-accent: #7aa2f7;
+  --ov-text-on-accent: #15161e;
+  --ov-table-th: #292e42;
+  --ov-table-alt: rgba(41, 46, 66, 0.5);
+  --ov-table-hover: rgba(122, 162, 247, 0.12);
+  --ov-table-col-hover: rgba(122, 162, 247, 0.06);
+  --ov-surface-hover: rgba(169, 177, 214, 0.08);
+  --ov-shadow: 0 8px 30px rgba(16, 17, 24, 0.7);
+  --ov-diagram-canvas-bg: rgba(26, 27, 38, 0.6);
+  --ov-diagram-mask-from: rgba(26, 27, 38, 0.9);
+}
+
+[data-theme="notion"] {
+  --ov-bg: #f7f6f3;
+  --ov-bg-elevated: #ffffff;
+  --ov-surface: #ffffff;
+  --ov-surface-header: #f1f0eb;
+  --ov-border: #e3e2de;
+  --ov-border-subtle: #edece9;
+  --ov-text: #37352f;
+  --ov-text-secondary: #6b6860;
+  --ov-text-muted: #9b9a97;
+  --ov-code-bg: #f1f0eb;
+  --ov-inline-code-bg: rgba(235, 87, 87, 0.12);
+  --ov-inline-code-color: #eb5757;
+  --ov-quote-bg: rgba(235, 236, 237, 0.45);
+  --ov-quote-border: #37352f;
+  --ov-accent: #2383e2;
+  --ov-text-on-accent: #ffffff;
+  --ov-table-th: #f7f6f3;
+  --ov-table-alt: rgba(247, 246, 243, 0.65);
+  --ov-table-hover: rgba(55, 53, 47, 0.06);
+  --ov-table-col-hover: rgba(55, 53, 47, 0.03);
+  --ov-surface-hover: rgba(55, 53, 47, 0.05);
+  --ov-shadow: 0 4px 16px rgba(15, 15, 15, 0.06);
+  --ov-diagram-canvas-bg: rgba(247, 246, 243, 0.7);
+  --ov-diagram-mask-from: rgba(255, 255, 255, 0.92);
 }
 
 /* =========================================================

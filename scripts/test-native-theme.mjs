@@ -56,4 +56,15 @@ assert(typesSource.includes("id: 'system'"), "RENDER_THEMES 必须包含 id: 'sy
 const settingsStorageSource = readFileSync(resolve('src/shared/lib/settingsStorage.ts'), 'utf8');
 assert(settingsStorageSource.includes("theme === 'vscode'") && settingsStorageSource.includes("'system'"), 'settingsStorage 必须兼容 vscode 和 system 主题别名');
 
-console.log('✅ All 24 Native Theme Injection assertions passed successfully!');
+// 6. 验证 4 大现代互联网主题 (GitHub Dark, Catppuccin, Tokyo Night, Notion) 在 types 与 css 中的完整定义
+assert(typesSource.includes("'github-dark'"), "ThemeId 必须包含 'github-dark'");
+assert(typesSource.includes("'catppuccin'"), "ThemeId 必须包含 'catppuccin'");
+assert(typesSource.includes("'tokyo-night'"), "ThemeId 必须包含 'tokyo-night'");
+assert(typesSource.includes("'notion'"), "ThemeId 必须包含 'notion'");
+
+assert(cssContent.includes('[data-theme="github-dark"]'), 'index.css 必须包含 github-dark 主题定义');
+assert(cssContent.includes('[data-theme="catppuccin"]'), 'index.css 必须包含 catppuccin 主题定义');
+assert(cssContent.includes('[data-theme="tokyo-night"]'), 'index.css 必须包含 tokyo-night 主题定义');
+assert(cssContent.includes('[data-theme="notion"]'), 'index.css 必须包含 notion 主题定义');
+
+console.log('✅ All Native Theme Injection and Internet Themes assertions passed successfully!');

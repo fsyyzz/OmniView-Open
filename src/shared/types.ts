@@ -71,7 +71,22 @@ export interface SoftwareDoc {
   tags: string[];
 }
 
-export type ThemeId = 'system' | 'vscode' | 'dark' | 'light' | 'sepia' | 'midnight' | 'cyber' | 'nord' | 'dracula' | 'forest' | 'solarized';
+export type ThemeId =
+  | 'system'
+  | 'vscode'
+  | 'dark'
+  | 'light'
+  | 'sepia'
+  | 'midnight'
+  | 'cyber'
+  | 'nord'
+  | 'dracula'
+  | 'forest'
+  | 'solarized'
+  | 'github-dark'
+  | 'catppuccin'
+  | 'tokyo-night'
+  | 'notion';
 
 export interface RenderTheme {
   id: ThemeId;
@@ -92,6 +107,42 @@ export const RENDER_THEMES: RenderTheme[] = [
     isDark: true,
     colorDot: '#007acc',
     badgeBg: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
+  },
+  {
+    id: 'github-dark',
+    name: 'GitHub 极客',
+    label: 'GitHub Dark',
+    description: '开源社区标杆之作，深空灰底色、经典高亮与原汁原味现代开发者氛围',
+    isDark: true,
+    colorDot: '#238636',
+    badgeBg: 'bg-emerald-950 text-emerald-300 border-emerald-800',
+  },
+  {
+    id: 'catppuccin',
+    name: '摩卡猫咪',
+    label: 'Catppuccin Mocha',
+    description: '当红顶流极客美学，温润摩卡灰黑底色与柔和马卡龙低反差护眼调色',
+    isDark: true,
+    colorDot: '#cba6f7',
+    badgeBg: 'bg-purple-950 text-purple-300 border-purple-800',
+  },
+  {
+    id: 'tokyo-night',
+    name: '东京夜潮',
+    label: 'Tokyo Night',
+    description: '前沿云原生与 Web3 潮流，夜空深蓝底色与霓虹青紫交织的未来科技感',
+    isDark: true,
+    colorDot: '#7aa2f7',
+    badgeBg: 'bg-blue-950 text-cyan-300 border-cyan-800',
+  },
+  {
+    id: 'notion',
+    name: '极简无界',
+    label: 'Notion Minimal',
+    description: '现代互联网产品极简知识库美学，纯粹白调、石墨雅灰与无干扰专注排版',
+    isDark: false,
+    colorDot: '#2383e2',
+    badgeBg: 'bg-stone-100 text-stone-800 border-stone-300',
   },
   {
     id: 'dark',
