@@ -4,7 +4,22 @@
 
 ## [Unreleased]
 
-## [1.2.25] - 2026-09-28
+## [1.2.26] - 2026-09-28
+
+### Added
+
+- **补充 Word (.docx) 与 PowerPoint (.pptx) 官方高保真示例集 (Office Samples Suite)**:
+  - 新增 `examples/docx/omniview-architecture-guide.docx`：涵盖大纲分级标题（H1/H2）、拟真 A4 分页、对比矩阵表格与段落样式，用于测试 Word 离线渲染与导航大纲提取；
+  - 新增 `examples/pptx/omniview-tech-presentation.pptx`：涵盖 16:9 封面页、架构特性卡片、内嵌矢量形状与数据矩阵表格，用于测试 PPTX 幻灯片演播工作台与多页翻页；
+  - 目录内附说明文档并同步更新 `examples/README.md` 索引全景表与推荐体验路径；
+  - 新增 `scripts/generate-office-samples.mjs` 自动化构建生成脚本。
+
+### Fixed
+
+- **修正 .vscodeignore 避免源码根目录 index.html 误打入 VSIX 包 (Packaging Optimization)**:
+  - 将 `.vscodeignore` 中的 `/index.html` 修正为 `index.html`，彻底解决 Windows/VSCE 规则匹配时根目录 Vite SPA 源码模板被打包进 VSIX 根目录的问题；
+  - 保持 `!dist/index.html`，确保 Webview 编译产物正确且唯一地被打包发布。
+
 
 ### Added
 

@@ -11,7 +11,7 @@ public
 *.tsx
 vite.config.ts
 tsconfig.json
-/index.html
+index.html
 metadata.json
 .env.example
 AGENTS.md
