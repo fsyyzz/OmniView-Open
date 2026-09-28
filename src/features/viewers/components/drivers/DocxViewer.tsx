@@ -58,6 +58,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [tocItems, setTocItems] = useState<DocxTocItem[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'fluid' | 'paged'>('fluid'); // 默认高效流式阅读
   const [paperTheme, setPaperTheme] = useState<'paper' | 'dark' | 'sepia'>('paper');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [matchCount, setMatchCount] = useState<number>(0);
@@ -164,8 +165,8 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         if (!docxMountRef.current) return;
         await renderDocxToContainer(docData.rawBytes, docxMountRef.current, {
           inWrapper: true,
-          ignoreWidth: false,
-          breakPages: true,
+          ignoreWidth: viewMode === 'fluid',
+          breakPages: viewMode === 'paged',
         });
         if (!isCancelled) {
           setLoading(false);
@@ -192,7 +193,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [docData]);
+  }, [docData, viewMode]);
 
   // 导航选中标题定位
   const handleSelectHeading = useCallback((item: DocxTocItem) => {
@@ -411,8 +412,30 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           )}
         </div>
 
-        {/* 右侧：纸张主题、打印与元数据 */}
+        {/* 右侧：视图模式切换、纸张主题、打印与元数据 */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* 视图模式切换：高效流式 (默认) vs A4 分页 */}
+          <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border border-[var(--ov-border)]">
+            <button
+              onClick={() => setViewMode('fluid')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
+                viewMode === 'fluid' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
+              }`}
+              title="高效流式阅读：无缝连续滚动、自适应分屏宽度、消除大面积空白断层（默认，推荐日常研发阅读）"
+            >
+              流式
+            </button>
+            <button
+              onClick={() => setViewMode('paged')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
+                viewMode === 'paged' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
+              }`}
+              title="A4 拟真分页：标准 210mm x 297mm 纸张排版（适合打印排版校对）"
+            >
+              分页
+            </button>
+          </div>
+
           {/* 纸张主题快捷切换 */}
           <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border border-[var(--ov-border)]">
             <button
@@ -556,6 +579,37 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   animation: docxHeadingFlash 1.5s cubic-bezier(0.4, 0, 0.2, 1);
                   border-radius: 4px;
                 }
+                /* 现代高效流式排版模式 (mode-fluid，默认推荐) */
+                .docx-viewport-root.mode-fluid {
+                  width: 100%;
+                  max-width: 900px;
+                  margin: 0 auto;
+                }
+                .docx-viewport-root.mode-fluid section,
+                .docx-viewport-root.mode-fluid .docx-rendered-wrapper,
+                .docx-viewport-root.mode-fluid section.docx-rendered-wrapper {
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  min-height: auto !important;
+                  padding: 28px 36px !important;
+                  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+                  border-radius: 8px !important;
+                  margin-bottom: 20px !important;
+                }
+                .docx-viewport-root.mode-fluid .docx_page {
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  min-height: auto !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  padding: 0 !important;
+                  margin-bottom: 0 !important;
+                }
+                .docx-viewport-root.mode-fluid .docx_page_break {
+                  border-top: 1px dashed rgba(0, 0, 0, 0.15);
+                  margin: 24px 0;
+                  height: 1px;
+                }
                 @media print {
                   header, aside, .docx-toc-sidebar {
                     display: none !important;
@@ -582,7 +636,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                 }
               `}</style>
               {/* docx-preview DOM 真实挂载节点 */}
-              <div ref={docxMountRef} className="docx-viewport-root" />
+              <div ref={docxMountRef} className={`docx-viewport-root mode-${viewMode}`} />
             </div>
           )}
 
