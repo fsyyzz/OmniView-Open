@@ -262,11 +262,12 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
 
   // 经过 DOMPurify 严格安全净化的 SVG 内容，并按需注入 data-omni-id 供检视器点选
   const sanitizedMarkup = useMemo(() => {
-    const rawContent = validation.valid ? svgContent : lastValidSvgRef.current;
+    const rawContent = (validation.valid ? svgContent : lastValidSvgRef.current) || svgContent || '';
     if (!rawContent || !rawContent.trim()) return '';
 
-    // 预清理：剥除 <?xml ...?> 与 <!DOCTYPE ...>，避免引起 HTML 挂载解析错乱
+    // 预清理：剥除 UTF-8 BOM、<?xml ...?> 与 <!DOCTYPE ...>，避免引起 HTML 挂载解析错乱
     const targetContent = rawContent
+      .replace(/^\uFEFF/, '')
       .replace(/<\?xml[\s\S]*?\?>/gi, '')
       .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
       .trim();
@@ -316,6 +317,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         'xmlns',
         'xmlns:xlink',
         'xlink:href',
+        'href',
         'transform',
         'fill',
         'stroke',

@@ -3,7 +3,7 @@
  */
 import React, { useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import { FileItem, ThemeId, DensityMode, ViewMode, OutlinePosition, OutlineDisplayMode, ContentWidthMode, WorkbenchSettings } from '../../shared/types';
-import { ViewerRenderer } from './ViewerRenderer';
+import { ViewerRenderer, getDriverIdForFile } from './ViewerRenderer';
 import { loadStoredSettings, saveStoredSettings } from '../../shared/lib/settingsStorage';
 import { VsCodeApi } from '../../shared/lib/vscode';
 import { parseMarkdownHeadings, extractSectionContent } from './lib/markdownAst';
@@ -1024,6 +1024,50 @@ const MarkdownPluginView: React.FC<{
 
   const currentHeading = headings?.[activeHeadingIndex];
   const fileWordCount = Math.max(1, (file?.content || '').trim().split(/\s+/).filter(Boolean).length || 1);
+  const activeDriverId = activeFile ? getDriverIdForFile(activeFile) : 'markdown';
+  const isMarkdown = activeDriverId === 'markdown';
+
+  if (!isMarkdown) {
+    return (
+      <main
+        ref={shellRef as React.RefObject<HTMLElement>}
+        data-theme={theme}
+        data-density={density}
+        className="omniview-driver-shell flex-1 min-h-0 w-full h-full flex flex-col overflow-hidden select-none"
+        style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)' }}
+      >
+        <div className="flex-1 min-h-0 w-full h-full flex flex-col overflow-hidden">
+          <ViewerRenderer
+            file={activeFile}
+            files={viewerFiles}
+            mode="preview"
+            theme={theme}
+            density={density}
+            contentWidth={contentWidth}
+            locale={locale}
+            onContentChange={handleContentUpdate}
+            onRenderComplete={handleRenderComplete}
+            onOpenSourceAtLine={handleOpenSourceAtLine}
+            onOpenInEditor={handleOpenInEditor}
+            enableOkf={enableOkfRendering}
+            onToggleOkf={handleToggleOkf}
+            eagerMount={eagerMountBlocks}
+          />
+        </div>
+        {isSettingsModalOpen && (
+          <React.Suspense fallback={null}>
+            <WorkbenchSettingsModal
+              isOpen={isSettingsModalOpen}
+              onClose={() => setIsSettingsModalOpen(false)}
+              settings={settings}
+              onSettingsChange={handleSettingsChange}
+              initialTab={settingsInitialTab}
+            />
+          </React.Suspense>
+        )}
+      </main>
+    );
+  }
 
   return (
     <main

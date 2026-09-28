@@ -264,4 +264,13 @@ const dashedPresetSvg = applyLinePreset(testLineToReverse, 0, 'dashed');
 assert.ok(dashedPresetSvg.includes('stroke-dasharray="6,4"'), 'dashed 预设应设置虚线序列');
 console.log('✅ 线条工业预设与 Marker 注入测试通过');
 
-console.log('🎉 全部 18 组 SVG 开发者工程引擎、线条微调、拓扑转换与智能吸附测试用例 100% 通过！\n');
+// --- 测试 19: UTF-8 BOM 与 HTML 实体容错清洗 ---
+console.log('--- 测试 19: UTF-8 BOM 与 HTML 实体容错清洗 ---');
+const bomSvg = `\uFEFF<svg viewBox="0 0 100 100"><text x="10" y="20">Hello&nbsp;World &copy; 2026</text></svg>`;
+const bomValidation = validateSvg(bomSvg);
+assert.strictEqual(bomValidation.valid, true, '带 UTF-8 BOM 与 HTML 实体的 SVG 应被清洗并判定为合法');
+const bomStats = parseSvgStats(bomSvg);
+assert.strictEqual(bomStats.viewBox, '0 0 100 100', 'BOM SVG 应正确提取 viewBox');
+console.log('✅ UTF-8 BOM 与 HTML 实体容错清洗测试通过');
+
+console.log('🎉 全部 19 组 SVG 开发者工程引擎、线条微调、拓扑转换与智能吸附测试用例 100% 通过！\n');

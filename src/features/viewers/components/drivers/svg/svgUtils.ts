@@ -68,6 +68,18 @@ export interface SvgOptimizationResult {
 }
 
 /**
+ * 归一化清洗待解析的 SVG XML 文本（移除 BOM、替换非标准 XML 实体）
+ */
+function normalizeSvgXmlForParser(raw: string): string {
+  return raw
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .replace(/&nbsp;/g, '&#160;')
+    .replace(/&copy;/g, '&#169;')
+    .replace(/&reg;/g, '&#174;');
+}
+
+/**
  * 解析 SVG 结构元数据
  */
 export function parseSvgStats(svgText: string): SvgStats {
@@ -87,12 +99,13 @@ export function parseSvgStats(svgText: string): SvgStats {
     byteSize,
   };
 
-  if (!svgText.trim()) return defaultStats;
+  const normalized = normalizeSvgXmlForParser(svgText);
+  if (!normalized) return defaultStats;
 
   if (typeof DOMParser !== 'undefined') {
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(svgText, 'image/svg+xml');
+      const doc = parser.parseFromString(normalized, 'image/svg+xml');
       const svgEl = doc.querySelector('svg');
       if (!svgEl) return defaultStats;
 
@@ -112,14 +125,14 @@ export function parseSvgStats(svgText: string): SvgStats {
     }
   } else {
     // Node.js 运行环境兼容提取
-    const viewBoxMatch = svgText.match(/viewBox=["']([^"']+)["']/i);
-    const widthMatch = svgText.match(/width=["']([^"']+)["']/i);
-    const heightMatch = svgText.match(/height=["']([^"']+)["']/i);
-    const pathMatches = svgText.match(/<path\b/gi) || [];
-    const gMatches = svgText.match(/<g\b/gi) || [];
-    const textMatches = svgText.match(/<text\b/gi) || [];
-    const defsMatches = svgText.match(/<defs\b/gi) || [];
-    const allTagMatches = svgText.match(/<[a-zA-Z0-9_-]+\b/g) || [];
+    const viewBoxMatch = normalized.match(/viewBox=["']([^"']+)["']/i);
+    const widthMatch = normalized.match(/width=["']([^"']+)["']/i);
+    const heightMatch = normalized.match(/height=["']([^"']+)["']/i);
+    const pathMatches = normalized.match(/<path\b/gi) || [];
+    const gMatches = normalized.match(/<g\b/gi) || [];
+    const textMatches = normalized.match(/<text\b/gi) || [];
+    const defsMatches = normalized.match(/<defs\b/gi) || [];
+    const allTagMatches = normalized.match(/<[a-zA-Z0-9_-]+\b/g) || [];
 
     return {
       viewBox: viewBoxMatch ? viewBoxMatch[1] : 'None',
@@ -139,15 +152,15 @@ export function parseSvgStats(svgText: string): SvgStats {
  * 实时校验 SVG XML 语法合法性
  */
 export function validateSvg(svgText: string): SvgValidationResult {
-  const trimmed = svgText.trim();
-  if (!trimmed) {
+  const normalized = normalizeSvgXmlForParser(svgText);
+  if (!normalized) {
     return { valid: false, error: 'SVG 内容为空' };
   }
 
   if (typeof DOMParser !== 'undefined') {
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const doc = parser.parseFromString(normalized, 'image/svg+xml');
       const parserError = doc.querySelector('parsererror');
 
       if (parserError) {
@@ -189,10 +202,10 @@ export function validateSvg(svgText: string): SvgValidationResult {
     }
   } else {
     // Node.js 容错校验
-    if (!/<svg\b[^>]*>/i.test(trimmed)) {
+    if (!/<svg\b[^>]*>/i.test(normalized)) {
       return { valid: false, error: '根节点缺失 <svg> 元素' };
     }
-    if (!/<\/svg\s*>$/i.test(trimmed) && !/<svg\b[^>]*\/>/i.test(trimmed)) {
+    if (!/<\/svg\s*>$/i.test(normalized) && !/<svg\b[^>]*\/>/i.test(normalized)) {
       return { valid: false, error: '缺失 </svg> 闭合标签' };
     }
     return { valid: true };
