@@ -108,13 +108,40 @@ export function useScrollHeadingSpy({
   }, [scrollRef, autoScrollSpeed]);
 
   const jumpToHeading = (headingIndex: number) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const cached = headingElsRef.current;
-    const target =
-      cached[headingIndex] ||
-      el.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')[headingIndex];
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const allDomHeadings = Array.from(container.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'));
+    let target = allDomHeadings[headingIndex];
+
+    const targetHeadingMeta = headings[headingIndex];
+    if (targetHeadingMeta?.text) {
+      const matchText = targetHeadingMeta.text.trim().toLowerCase();
+      const matchedEl = allDomHeadings.find(
+        h => h.textContent?.trim().toLowerCase() === matchText
+      );
+      if (matchedEl) {
+        target = matchedEl;
+      }
+    }
+
+    if (!target) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const relativeTop = targetRect.top - containerRect.top;
+    const targetScrollTop = Math.max(0, container.scrollTop + relativeTop - 20);
+
+    container.scrollTo({
+      top: targetScrollTop,
+      behavior: 'smooth',
+    });
+
+    target.classList.add('docx-heading-highlight-flash');
+    setTimeout(() => {
+      target.classList.remove('docx-heading-highlight-flash');
+    }, 1600);
+
     indexRef.current = headingIndex;
     setActiveHeadingIndex(headingIndex);
   };

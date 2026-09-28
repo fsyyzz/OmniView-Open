@@ -15,6 +15,13 @@ export interface DocxMetadata {
   wordCount?: number;
 }
 
+export interface DocxTocItem {
+  id: string;
+  text: string;
+  level: number;
+  element?: HTMLElement;
+}
+
 export interface ParsedDocxDocument {
   rawBytes: Uint8Array;
   metadata: DocxMetadata;
@@ -37,6 +44,111 @@ export function base64ToBytes(base64: string): Uint8Array {
   }
   // Node.js 环境兼容
   return Uint8Array.from(Buffer.from(clean, 'base64'));
+}
+
+/**
+ * 从已渲染的 DOCX DOM 节点中精准智能提取层级标题与大纲 (TocItems)
+ */
+export function extractHeadingsFromDom(container: HTMLElement): DocxTocItem[] {
+  if (!container) return [];
+
+  // 选择 HTML 标题元素及 docx-preview 渲染的 heading 节点
+  const selector = 'h1, h2, h3, h4, h5, h6, [class*="heading"], [class*="Heading"], [class*="docx-p-heading"]';
+  const rawHeadingEls = Array.from(container.querySelectorAll<HTMLElement>(selector));
+
+  const items: DocxTocItem[] = [];
+
+  rawHeadingEls.forEach((el, index) => {
+    // 拦截并排除 Word 自动生成的目录页 (TOC Block) 节点
+    if (
+      el.closest('[class*="toc"], [class*="TOC"], .docx-toc, .word-toc, sdt') ||
+      /\btoc[0-9]?\b/i.test(el.className) ||
+      /\bdocx-p-toc\b/i.test(el.className)
+    ) {
+      return;
+    }
+
+    let text = el.textContent?.trim() || '';
+    if (!text) return;
+
+    // 剔除目录条目尾部的点线与页码 (如 "1.1 导航... 2")
+    text = text.replace(/[\.\s·‥…\t]+\d+$/, '').trim();
+    if (!text) return;
+
+    // 再次检查文本是否为纯目录点线残余
+    if (/[\.\s·‥…]{3,}\d+$/.test(el.textContent || '')) return;
+
+    let level = 1;
+    const tagName = el.tagName.toLowerCase();
+    if (/^h[1-6]$/.test(tagName)) {
+      level = parseInt(tagName.replace('h', ''), 10);
+    } else {
+      const className = el.className || '';
+      const match = className.match(/heading\s*([1-6])/i) || className.match(/heading-([1-6])/i);
+      if (match) {
+        level = parseInt(match[1], 10);
+      } else {
+        level = 2;
+      }
+    }
+
+    if (!el.id) {
+      el.id = `docx-heading-${index}-${Math.random().toString(36).substring(2, 7)}`;
+    }
+
+    items.push({
+      id: el.id,
+      text,
+      level,
+      element: el,
+    });
+  });
+
+  // 备用机制：若文档未应用官方 Word Heading 样式，扫描带有明显标题特征的段落 (同时过滤 TOC 区域)
+  if (items.length === 0) {
+    const paragraphs = Array.from(container.querySelectorAll<HTMLElement>('p, section > div, .docx-rendered-wrapper p'));
+    let fallbackCount = 0;
+    paragraphs.forEach((p) => {
+      if (
+        p.closest('[class*="toc"], [class*="TOC"], .docx-toc, .word-toc, sdt') ||
+        /\btoc[0-9]?\b/i.test(p.className) ||
+        /\bdocx-p-toc\b/i.test(p.className)
+      ) {
+        return;
+      }
+
+      let txt = p.textContent?.trim() || '';
+      if (!txt || txt.length > 80 || fallbackCount >= 25) return;
+      txt = txt.replace(/[\.\s·‥…\t]+\d+$/, '').trim();
+
+      const style = window.getComputedStyle(p);
+      const isBold = style.fontWeight === '700' || style.fontWeight === 'bold' || !!p.querySelector('b, strong');
+      const isTitlePattern = /^[0-9一二三四五六七八九十]+[、.．\s]/.test(txt) || /^第[0-9一二三四五六七八九十]+[章节条]/i.test(txt);
+
+      if (isBold || isTitlePattern) {
+        if (!p.id) {
+          p.id = `docx-heading-fb-${fallbackCount}-${Math.random().toString(36).substring(2, 7)}`;
+        }
+
+        let inferredLevel = 2;
+        if (/^第[一二三四五六七八九十0-9]+章/.test(txt) || /^[一二三四五六七八九十]+[、.]/.test(txt)) {
+          inferredLevel = 1;
+        } else if (/^[0-9]+\.[0-9]+/.test(txt)) {
+          inferredLevel = 3;
+        }
+
+        items.push({
+          id: p.id,
+          text: txt,
+          level: inferredLevel,
+          element: p,
+        });
+        fallbackCount++;
+      }
+    });
+  }
+
+  return items;
 }
 
 /**
@@ -149,15 +261,19 @@ export async function generateSampleDocxBytes(): Promise<Uint8Array> {
           <w:sz w:val="24"/>
           <w:color w:val="64748B"/>
         </w:rPr>
-        <w:t>纯前端零外网依赖 · 拟真 A4 出版级排版 · 支持表格与复杂段落</w:t>
+        <w:t>纯前端零外网依赖 · 拟真 A4 出版级排版 · 支持导航窗口与多级大纲</w:t>
       </w:r>
     </w:p>
     <w:p><w:r><w:t></w:t></w:r></w:p>
     <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading1"/>
+      </w:pPr>
       <w:r>
         <w:rPr>
           <w:b/>
-          <w:sz w:val="32"/>
+          <w:sz w:val="36"/>
+          <w:color w:val="1E293B"/>
         </w:rPr>
         <w:t>一、核心特性与排版能力</w:t>
       </w:r>
@@ -165,13 +281,58 @@ export async function generateSampleDocxBytes(): Promise<Uint8Array> {
     <w:p>
       <w:r>
         <w:rPr><w:sz w:val="24"/></w:rPr>
-        <w:t>本渲染驱动基于 Office Open XML (OOXML) 标准，无需 Microsoft Word 或第三方云端服务，直接在 VS Code 隔离沙箱与浏览器中将 DOCX 完美编译为高保真 HTML5/CSS3 拟真纸张。</w:t>
+        <w:t>本渲染驱动基于 Office Open XML (OOXML) 标准，无需 Microsoft Word 或第三方云端服务，直接在 VS Code 隔离沙箱与浏览器中将 DOCX 编译为高保真 HTML5/CSS3 拟真纸张。</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>1.1 导航窗口与多级大纲</w:t>
       </w:r>
     </w:p>
     <w:p>
       <w:r>
         <w:rPr><w:sz w:val="24"/></w:rPr>
-        <w:t>支持 50% ~ 200% 无级平滑缩放、双栏多列、表格单元格合并、行内图片以及全套 11 种设计令牌主题自适应。</w:t>
+        <w:t>新增全功能导航窗口 (Navigation Pane)，自动捕获文档中的 H1~H6 层级标题，支持实时检索筛选、多层级缩进显示以及平滑定位跳转。</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading2"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+          <w:color w:val="334155"/>
+        </w:rPr>
+        <w:t>1.2 缩放与主题自适应</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:rPr><w:sz w:val="24"/></w:rPr>
+        <w:t>支持 50% ~ 200% 无级平滑缩放、双栏多列、表格单元格合并、行内图片以及原纸/羊皮/暗夜三大视觉滤镜主题。</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="Heading1"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="36"/>
+          <w:color w:val="1E293B"/>
+        </w:rPr>
+        <w:t>二、排版支持度规格矩阵</w:t>
       </w:r>
     </w:p>
     <w:tbl>
@@ -197,18 +358,18 @@ export async function generateSampleDocxBytes(): Promise<Uint8Array> {
         </w:tc>
         <w:tc>
           <w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr>
-          <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>技术标准</w:t></w:r></w:p>
+          <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>技术标准与响应表现</w:t></w:r></w:p>
         </w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>导航窗口 (Navigation Pane)</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>✅ 完全支持</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>多级大纲树、检索过滤、平滑定位</w:t></w:r></w:p></w:tc>
       </w:tr>
       <w:tr>
         <w:tc><w:p><w:r><w:t>A4 拟真分页</w:t></w:r></w:p></w:tc>
         <w:tc><w:p><w:r><w:t>✅ 完全支持</w:t></w:r></w:p></w:tc>
         <w:tc><w:p><w:r><w:t>CSS Paged Media 210mm x 297mm</w:t></w:r></w:p></w:tc>
-      </w:tr>
-      <w:tr>
-        <w:tc><w:p><w:r><w:t>复杂表格排版</w:t></w:r></w:p></w:tc>
-        <w:tc><w:p><w:r><w:t>✅ 完全支持</w:t></w:r></w:p></w:tc>
-        <w:tc><w:p><w:r><w:t>单元格合并、边框与底纹</w:t></w:r></w:p></w:tc>
       </w:tr>
       <w:tr>
         <w:tc><w:p><w:r><w:t>多主题夜间模式</w:t></w:r></w:p></w:tc>
@@ -292,3 +453,4 @@ export async function renderDocxToContainer(
   container.innerHTML = '';
   await renderAsync(bytes, container, undefined, mergedOptions);
 }
+

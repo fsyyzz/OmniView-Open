@@ -19,6 +19,7 @@ import { Locale, t } from '../../../../../shared/lib/i18n';
 import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 
 import { ExternalBadgePill } from '../../common/ExternalBadgePill';
+import { prepareAdaptiveSvg } from '../../../lib/svgResponsiveHelper';
 
 interface SvgBlockProps {
   id: string;
@@ -94,14 +95,15 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
   const activeCode = editedCode !== undefined ? editedCode : rawCode;
   const [isCopiedImage, setIsCopiedImage] = React.useState<boolean>(false);
   const [isCopyingImage, setIsCopyingImage] = React.useState<boolean>(false);
-  const sanitizedLiveSvg = useMemo(() => {
-    return DOMPurify.sanitize(activeCode, DOMPURIFY_SVG_CONFIG) as string;
+  const adaptiveSvgInfo = useMemo(() => {
+    const sanitized = DOMPurify.sanitize(activeCode, DOMPURIFY_SVG_CONFIG) as string;
+    return prepareAdaptiveSvg(sanitized);
   }, [activeCode]);
 
   const handleCopyImage = async () => {
-    if (!sanitizedLiveSvg || isCopyingImage) return;
+    if (!adaptiveSvgInfo.svgHtml || isCopyingImage) return;
     setIsCopyingImage(true);
-    const success = await copySvgOrImageToClipboard(sanitizedLiveSvg, false, '#ffffff');
+    const success = await copySvgOrImageToClipboard(adaptiveSvgInfo.svgHtml, false, '#ffffff');
     setIsCopyingImage(false);
     if (success) {
       setIsCopiedImage(true);
@@ -136,7 +138,7 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
   };
 
   return (
-    <div id={id} className={`markdown-diagram ${modeBadge.border} group relative`}>
+    <div id={id} className={`markdown-diagram markdown-diagram-svg ${modeBadge.border} group relative`}>
       {/* Card Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className={`flex items-center gap-2 font-mono ${modeBadge.accent}`}>
@@ -306,11 +308,18 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
           </div>
         ) : (
           <div
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-            className="diagram-canvas transition-transform duration-150 flex justify-center max-w-full [&>svg]:max-w-full [&>svg]:h-auto cursor-zoom-in"
+            style={{
+              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+              transformOrigin: 'center center',
+              width: adaptiveSvgInfo.intrinsicWidth
+                ? `min(100%, ${adaptiveSvgInfo.intrinsicWidth}px)`
+                : '100%',
+              maxWidth: '100%',
+            }}
+            className="diagram-canvas markdown-diagram-svg-canvas transition-all duration-150 flex justify-center items-center max-w-full cursor-zoom-in"
             onDoubleClick={onOpenLightbox}
             title={t('fullScreen', locale)}
-            dangerouslySetInnerHTML={{ __html: sanitizedLiveSvg }}
+            dangerouslySetInnerHTML={{ __html: adaptiveSvgInfo.svgHtml }}
           />
         )}
       </div>

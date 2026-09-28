@@ -1055,9 +1055,64 @@ body.vscode-high-contrast-light[data-theme="system"] {
 }
 
 .markdown-content img {
-  max-width: 100%;
+
   height: auto;
+  border-radius: 8px;
+  display: block;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 20px auto;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--ov-border-subtle);
+  object-fit: contain;
+  cursor: zoom-in;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.markdown-document img:hover,
+.markdown-content img:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  border-color: var(--ov-border);
+}
+
+.markdown-content p:has(> img) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  max-width: 100%;
+  margin: 20px 0;
+}
+
+.markdown-content td img,
+.markdown-content th img,
+.markdown-content li p > img {
+  display: inline-block;
+  margin: 4px auto;
+  vertical-align: middle;
+}
+
+/* Markdown 正文内联与块级 SVG 元素自适应容器显示空间 */
+.markdown-content svg:not(.ov-callout-icon):not([class*="lucide"]) {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 18px auto;
   border-radius: 6px;
+}
+
+.markdown-content p:has(> svg) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  max-width: 100%;
+  margin: 20px 0;
+  overflow-x: auto;
 }
 
 /* Keep diagrams readable without stretching their aspect ratio. */
@@ -1079,6 +1134,34 @@ body.vscode-high-contrast-light[data-theme="system"] {
   max-width: 100% !important;
   height: auto !important;
   max-height: 72vh;
+  object-fit: contain;
+}
+
+[data-width="wide"] .diagram-canvas {
+  width: min(100%, 1200px);
+}
+[data-width="full"] .diagram-canvas {
+  width: 100%;
+}
+
+/* SVG 矢量图专用自适应排版 (打破固定尺寸限制，根据外层文档与视口显示空间弹性伸缩) */
+.markdown-diagram-svg .diagram-canvas,
+.markdown-diagram-svg-canvas {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.markdown-diagram-svg .diagram-canvas > svg,
+.markdown-diagram-svg-canvas > svg {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: 85vh;
   object-fit: contain;
 }
 
@@ -4004,12 +4087,16 @@ details.ov-callout[open] .ov-callout-fold-icon {
   }
 }
 
+/* =========================================================
+   Universal Heading Jump Highlight Animation
+   ========================================================= */
+@keyframes docxHeadingFlash {
+  0% { background-color: rgba(59, 130, 246, 0.25); outline: 2px solid rgba(59, 130, 246, 0.6); }
+  50% { background-color: rgba(59, 130, 246, 0.35); outline: 2px solid rgba(59, 130, 246, 0.8); }
+  100% { background-color: transparent; outline: none; }
+}
 
-
-
-
-
-
-
-
-
+.docx-heading-highlight-flash {
+  animation: docxHeadingFlash 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 4px;
+}

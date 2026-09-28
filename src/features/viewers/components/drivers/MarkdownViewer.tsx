@@ -72,6 +72,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef(content);
   contentRef.current = content;
+  const isCtrlASelectAllRef = useRef(false);
 
   // 1. AST 解析与格式预处理流水线 Hook
   const { blocks, okfData, isRendering } = useMarkdownAstPipeline({
@@ -270,6 +271,11 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
+    // 鼠标点击或拖拽选择时，重置 Ctrl+A 全选标记
+    const handleMouseDown = () => {
+      isCtrlASelectAllRef.current = false;
+    };
+
     // 4. 监听 Ctrl+A / Cmd+A：无论在 Web 独立应用还是 VS Code 插件 Webview 中，均仅精准全选中 Markdown 正文
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
@@ -296,6 +302,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
+        // 标记全选意图
+        isCtrlASelectAllRef.current = true;
+
         // 立即唤醒所有离屏块挂载 (Eager Mount)
         setForceEagerAll(true);
 
@@ -311,52 +320,67 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
     // 5. 监听 copy 事件：富文本剪贴板拦截与清洗流水线 (Word / WPS / Office 深度优化)
     const handleCopy = (e: ClipboardEvent) => {
-      const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+      try {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount) return;
 
-      const range = selection.getRangeAt(0);
-      if (!container.contains(range.commonAncestorContainer) && !range.intersectsNode(container)) {
-        return;
-      }
+        // 焦点在输入框、textarea 或代码编辑框内部时放行原生复制
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.isContentEditable ||
+            activeEl.closest('textarea, input, select, [contenteditable="true"], .ov-code-editor'))
+        ) {
+          return;
+        }
 
-      // 获取纯文本
-      const rawText = selection.toString();
-      if (!rawText) return;
+        const range = selection.getRangeAt(0);
+        if (!container.contains(range.commonAncestorContainer) && !range.intersectsNode(container)) {
+          return;
+        }
 
-      // 阻止浏览器默认粗暴复制，确保立即接管剪贴板事务
-      if (e.clipboardData) {
-        e.preventDefault();
-      }
+        const rawText = selection.toString();
+        if (!rawText) return;
 
-      // 克隆选中的 DOM 片段
-      const fragment = range.cloneContents();
-      const tempWrapper = document.createElement('div');
-      tempWrapper.appendChild(fragment);
+        // 克隆选中的 DOM 片段
+        const fragment = range.cloneContents();
+        const tempWrapper = document.createElement('div');
+        tempWrapper.appendChild(fragment);
 
-      // 同步执行专用清洗与格式转换 (包含离屏图表/表格/公式自愈与 Base64 转换)
-      cleanAndFormatDomForWordSync(tempWrapper, blocksMapRef.current, {
-        isDarkTheme: isDarkThemeRef.current,
-        containerElement: container,
-      });
+        // 同步执行专用清洗与格式转换 (包含离屏图表/表格/公式自愈与 Base64 转换)
+        cleanAndFormatDomForWordSync(tempWrapper, blocksMapRef.current, {
+          isDarkTheme: isDarkThemeRef.current,
+          containerElement: container,
+        });
 
-      const cleanedHtml = tempWrapper.innerHTML;
-      if (!cleanedHtml) return;
+        const cleanedHtml = tempWrapper.innerHTML;
+        // 只有明确通过 Ctrl+A/Cmd+A 触发且选区包含整个容器时，才替换为原生的 Markdown 文本全文源码；划线/手选仅复制选中内容
+        const isFullDoc = isCtrlASelectAllRef.current && isFullContainerSelection(range, container);
+        const plainText = isFullDoc && contentRef.current ? contentRef.current : rawText;
 
-      // 智能纯文本提取：全选时优先提供纯净原始 Markdown 源码 (粘贴到 .md 文件 100% 保留语法标记与图片链接)
-      const isFullDoc = isFullContainerSelection(range, container);
-      const plainText = isFullDoc && contentRef.current ? contentRef.current : rawText;
-
-      // 同步写入富文本 (text/html) 与纯文本 (text/plain)
-      if (e.clipboardData) {
-        e.clipboardData.setData('text/html', cleanedHtml);
-        e.clipboardData.setData('text/plain', plainText);
+        if (e.clipboardData) {
+          e.preventDefault();
+          if (cleanedHtml) {
+            e.clipboardData.setData('text/html', cleanedHtml);
+          }
+          if (plainText) {
+            e.clipboardData.setData('text/plain', plainText);
+          }
+        }
+      } catch (err) {
+        console.warn('[MarkdownViewer] copy 拦截处理异常，降级至原生复制:', err);
       }
     };
 
+    window.addEventListener('mousedown', handleMouseDown, true);
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('copy', handleCopy, true);
 
     return () => {
+      window.removeEventListener('mousedown', handleMouseDown, true);
       window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('copy', handleCopy, true);
     };

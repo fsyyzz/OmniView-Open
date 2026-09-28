@@ -54,15 +54,24 @@ export function isIgnoredClipboardElement(el: Element): boolean {
  */
 export function isFullContainerSelection(range: Range, container: HTMLElement): boolean {
   if (!range || !container) return false;
+
+  const rawText = typeof range.toString === 'function' ? range.toString().trim() : '';
+  const containerText = container.textContent ? container.textContent.trim() : '';
+
+  // 若实体验参均包含文本，选中的文本长度必须达到容器总文本长度的 98% 以上才判定为全选
+  if (rawText && containerText && rawText.length < Math.floor(containerText.length * 0.98)) {
+    return false;
+  }
+
   if (range.startContainer === container && range.endContainer === container) {
-    return range.startOffset === 0 && range.endOffset >= container.childNodes.length;
+    return range.startOffset === 0 && range.endOffset >= (container.childNodes?.length || 0);
   }
   const firstChild = container.firstElementChild;
   const lastChild = container.lastElementChild;
   if (firstChild && lastChild) {
     try {
-      const startsAtBeginning = range.comparePoint(firstChild, 0) <= 0;
-      const endsAtEnd = range.comparePoint(lastChild, lastChild.childNodes.length || 0) >= 0;
+      const startsAtBeginning = typeof range.comparePoint === 'function' ? range.comparePoint(firstChild, 0) <= 0 : true;
+      const endsAtEnd = typeof range.comparePoint === 'function' ? range.comparePoint(lastChild, lastChild.childNodes?.length || 0) >= 0 : true;
       return startsAtBeginning && endsAtEnd;
     } catch {
       return false;

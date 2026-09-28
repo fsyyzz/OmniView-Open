@@ -202,17 +202,19 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
         />
       </div>
 
-      <div className="flex items-center justify-between px-2 pb-2.5 border-b border-slate-800/80 mb-2 gap-1.5 select-none shrink-0 min-w-0">
-        <span className="markdown-outline-heading !p-0 truncate text-xs font-semibold text-slate-300 min-w-0 flex-1">
+      <div className="flex items-center justify-between px-2 pb-2.5 border-b border-[var(--ov-border)] mb-2 gap-1.5 select-none shrink-0 min-w-0">
+        <span className="markdown-outline-heading !p-0 truncate text-xs font-semibold text-[var(--ov-text)] min-w-0 flex-1">
           {t('outlineHeading', locale)} ({filteredHeadings.length})
         </span>
 
         <div className="flex items-center gap-1 shrink-0">
-          <div className="flex items-center bg-slate-900/60 p-0.5 rounded border border-slate-800">
+          <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-md border border-[var(--ov-border)]">
             <button
               onClick={() => onFilterLevelChange(2)}
-              className={`px-1 py-0.5 rounded text-[10px] ${
-                headingFilterLevel === 2 ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
+              className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition ${
+                headingFilterLevel === 2
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
               }`}
               title={t('filterH2', locale)}
             >
@@ -220,8 +222,10 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
             </button>
             <button
               onClick={() => onFilterLevelChange(3)}
-              className={`px-1 py-0.5 rounded text-[10px] ${
-                headingFilterLevel === 3 ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
+              className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition ${
+                headingFilterLevel === 3
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
               }`}
               title={t('filterH3', locale)}
             >
@@ -229,8 +233,10 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
             </button>
             <button
               onClick={() => onFilterLevelChange(6)}
-              className={`px-1 py-0.5 rounded text-[10px] ${
-                headingFilterLevel === 6 ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
+              className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition ${
+                headingFilterLevel === 6
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
               }`}
               title={t('filterAll', locale)}
             >
@@ -239,12 +245,14 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
           </div>
 
           {onDisplayModeChange && (
-            <div className="flex items-center bg-slate-900/60 p-0.5 rounded border border-slate-800">
+            <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-md border border-[var(--ov-border)]">
               <button
                 type="button"
                 onClick={() => onDisplayModeChange('list')}
                 className={`p-1 rounded transition ${
-                  displayMode === 'list' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                  displayMode === 'list'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
                 title={t('outlineModeListTooltip', locale)}
                 aria-label={t('outlineModeList', locale)}
@@ -255,7 +263,9 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                 type="button"
                 onClick={() => onDisplayModeChange('tree')}
                 className={`p-1 rounded transition ${
-                  displayMode === 'tree' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                  displayMode === 'tree'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
                 title={t('outlineModeTreeTooltip', locale)}
                 aria-label={t('outlineModeTree', locale)}
@@ -266,11 +276,13 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
           )}
 
           {onPositionChange && (
-            <div className="flex items-center bg-slate-900/60 p-0.5 rounded border border-slate-800">
+            <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-md border border-[var(--ov-border)]">
               <button
                 onClick={() => onPositionChange('left')}
                 className={`p-1 rounded transition ${
-                  position === 'left' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                  position === 'left'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
                 title={t('outlinePosLeftTooltip', locale)}
                 aria-label={t('outlinePosLeft', locale)}
@@ -280,7 +292,9 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
               <button
                 onClick={() => onPositionChange('right')}
                 className={`p-1 rounded transition ${
-                  position === 'right' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                  position === 'right'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
                 title={t('outlinePosRightTooltip', locale)}
                 aria-label={t('outlinePosRight', locale)}
@@ -290,7 +304,9 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
               <button
                 onClick={() => onPositionChange('floating')}
                 className={`p-1 rounded transition ${
-                  position === 'floating' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                  position === 'floating'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
                 title={t('outlinePosFloatingTooltip', locale)}
                 aria-label={t('outlinePosFloating', locale)}
@@ -303,7 +319,7 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
+              className="p-1 rounded-md text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/10 dark:hover:bg-white/10 transition"
               title={t('outlineTooltip', locale)}
             >
               <X size={12} />

@@ -1,8 +1,3 @@
-/**
- * OmniView 原生专业 Word (.docx) 高保真只读渲染器 (DocxViewer)
- * 基于 OOXML 标准与 docx-preview 纯离线流水线
- * 支持 A4 拟真纸张排版、50%~200% 平滑缩放、分页/连续流切换、多主题自适应与出版信息抽屉
- */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   FileText,
@@ -20,13 +15,17 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  PanelLeft,
 } from 'lucide-react';
 import {
   parseDocx,
   renderDocxToContainer,
   base64ToBytes,
+  extractHeadingsFromDom,
   type ParsedDocxDocument,
+  type DocxTocItem,
 } from '../../lib/docxEngine';
+import { DocxTocSidebar } from './docx/DocxTocSidebar';
 import { highlightSearchMatches, clearSearchHighlights, activateMatch } from '../../lib/domSearchHighlighter';
 import type { ThemeId } from '../../../../shared/types';
 import { type Locale, t } from '../../../../shared/lib/i18n';
@@ -55,6 +54,9 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(1.0);
   const [showInfo, setShowInfo] = useState<boolean>(false);
+  const [showNavigation, setShowNavigation] = useState<boolean>(true);
+  const [tocItems, setTocItems] = useState<DocxTocItem[]>([]);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [paperTheme, setPaperTheme] = useState<'paper' | 'dark' | 'sepia'>('paper');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -62,6 +64,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const docxMountRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,7 +104,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     });
   };
 
-  // 全局 Ctrl+F 快捷聚焦搜索框
+  // 全局 Ctrl+F 搜索与 Ctrl+Shift+O 导航窗口切换快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
@@ -110,6 +113,9 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           searchInputRef.current?.focus();
           searchInputRef.current?.select();
         }, 50);
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        setShowNavigation(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -149,7 +155,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     loadDocument();
   }, [loadDocument]);
 
-  // 当 docData 解析完毕后，渲染至 DOM 挂载容器
+  // 当 docData 解析完毕后，渲染至 DOM 挂载容器并提取大纲标题
   useEffect(() => {
     if (!docData?.rawBytes || !docxMountRef.current) return;
     let isCancelled = false;
@@ -163,6 +169,16 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         });
         if (!isCancelled) {
           setLoading(false);
+          // 提取层级大纲
+          setTimeout(() => {
+            if (docxMountRef.current) {
+              const headings = extractHeadingsFromDom(docxMountRef.current);
+              setTocItems(headings);
+              if (headings.length > 0) {
+                setActiveHeadingId(headings[0].id);
+              }
+            }
+          }, 100);
         }
       } catch (err) {
         if (!isCancelled) {
@@ -177,6 +193,71 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       isCancelled = true;
     };
   }, [docData]);
+
+  // 导航选中标题定位
+  const handleSelectHeading = useCallback((item: DocxTocItem) => {
+    setActiveHeadingId(item.id);
+    const scrollContainer = scrollAreaRef.current;
+    let targetEl = item.element || (docxMountRef.current ? document.getElementById(item.id) : null);
+
+    // 正文节点二次校验：若抓到的 DOM 元素位于文档开头的目录页中，重新搜寻正文里的实际 Heading
+    if (docxMountRef.current && targetEl) {
+      if (
+        targetEl.closest('[class*="toc"], [class*="TOC"], .docx-toc, .word-toc, sdt') ||
+        /\btoc[0-9]?\b/i.test(targetEl.className)
+      ) {
+        const cleanText = item.text.trim().toLowerCase();
+        const allHeadings = Array.from(docxMountRef.current.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, p'));
+        const bodyHeading = allHeadings.find(el => {
+          if (el.closest('[class*="toc"], [class*="TOC"], .docx-toc, .word-toc, sdt') || /\btoc[0-9]?\b/i.test(el.className)) {
+            return false;
+          }
+          const txt = el.textContent?.trim().toLowerCase() || '';
+          return txt === cleanText || (txt.length > 0 && cleanText.length > 0 && (txt.includes(cleanText) || cleanText.includes(txt)));
+        });
+        if (bodyHeading) {
+          targetEl = bodyHeading;
+        }
+      }
+    }
+
+    if (targetEl && scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      const relativeTop = targetRect.top - containerRect.top;
+      const targetScrollTop = Math.max(0, scrollContainer.scrollTop + relativeTop - 24);
+
+      scrollContainer.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth',
+      });
+
+      targetEl.classList.add('docx-heading-highlight-flash');
+      setTimeout(() => {
+        targetEl.classList.remove('docx-heading-highlight-flash');
+      }, 1600);
+    }
+  }, []);
+
+  // 滚动时检测视口最上方的标题项
+  const handleMainScroll = useCallback(() => {
+    if (!scrollAreaRef.current || tocItems.length === 0) return;
+    const scrollContainerTop = scrollAreaRef.current.getBoundingClientRect().top;
+
+    let currentActiveId = tocItems[0].id;
+    for (const item of tocItems) {
+      const el = item.element || document.getElementById(item.id);
+      if (el) {
+        const top = el.getBoundingClientRect().top - scrollContainerTop;
+        if (top <= 120) {
+          currentActiveId = item.id;
+        } else {
+          break;
+        }
+      }
+    }
+    setActiveHeadingId(currentActiveId);
+  }, [tocItems]);
 
   // 全屏切换
   const toggleFullscreen = useCallback(() => {
@@ -216,13 +297,28 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     >
       {/* 顶部主工具栏 */}
       <header className="h-12 border-b border-[var(--ov-border)] bg-[var(--ov-surface-header)] px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 backdrop-blur-md">
-        {/* 左侧：文件名与标识 */}
+        {/* 左侧：导航窗口开关、文件名与标识 */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-blue-500">
+          <button
+            onClick={() => setShowNavigation(prev => !prev)}
+            className={`p-1.5 rounded-md transition flex items-center gap-1.5 text-xs font-medium ${
+              showNavigation
+                ? 'bg-blue-600/20 text-blue-500 border border-blue-500/40 shadow-2xs'
+                : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'
+            }`}
+            title="导航窗口 / 目录大纲 (Ctrl+Shift+O)"
+          >
+            <PanelLeft className="w-4 h-4" />
+            <span className="hidden md:inline">导航</span>
+          </button>
+
+          <div className="h-4 w-px bg-[var(--ov-border)] hidden sm:block" />
+
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-blue-500 shrink-0">
               <FileText className="w-4 h-4" />
             </div>
-            <span className="font-semibold text-xs sm:text-sm truncate max-w-[150px] sm:max-w-xs" title={docData?.metadata?.title || fileName}>
+            <span className="font-semibold text-xs sm:text-sm truncate max-w-[130px] sm:max-w-xs" title={docData?.metadata?.title || fileName}>
               {docData?.metadata?.title || fileName}
             </span>
           </div>
@@ -259,7 +355,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         </div>
 
         {/* 中间：全文搜索框 */}
-        <div className="flex items-center gap-1.5 flex-1 max-w-xs justify-center">
+        <div className="flex items-center gap-1.5 flex-1 max-w-xs justify-center hidden sm:flex">
           <div className="relative w-full">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 opacity-50" />
             <input
@@ -374,122 +470,147 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         </div>
       </header>
 
-      {/* 主画布滚动区域 */}
-      <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center relative bg-[var(--ov-bg)]">
-        {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 m-auto py-16 bg-[var(--ov-bg)]/80 backdrop-blur-xs z-20">
-            <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-            <p className="text-xs opacity-70">正在解析 Word 文档结构...</p>
-          </div>
-        )}
+      {/* 主体工作区（导航侧边栏 + 画布 + 元数据抽屉） */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* 左侧导航窗口 */}
+        <DocxTocSidebar
+          showNavigation={showNavigation}
+          tocItems={tocItems}
+          activeHeadingId={activeHeadingId}
+          onClose={() => setShowNavigation(false)}
+          onSelectHeading={handleSelectHeading}
+        />
 
-        {error ? (
-          <div className="flex flex-col items-center justify-center gap-3 m-auto py-16 text-red-500 z-20">
-            <p className="text-sm font-semibold">加载失败</p>
-            <p className="text-xs opacity-80">{error}</p>
-            <button
-              onClick={loadDocument}
-              className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-xs hover:bg-red-500/20"
-            >
-              重新加载
-            </button>
-          </div>
-        ) : (
-          <div
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: 'top center',
-              transition: 'transform 0.15s ease-out',
-              ...paperFilterStyle,
-            }}
-            className="docx-preview-container max-w-full shadow-2xl rounded-sm"
-          >
-            {/* 注入 docx-preview 专用拟真 A4 纸张排版与对比度样式，防止深色模式下字色与底色混杂 */}
-            <style>{`
-              .docx-viewport-root {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 20px;
-                min-height: 400px;
-              }
-              .docx-viewport-root section,
-              .docx-viewport-root .docx-rendered-wrapper,
-              .docx-viewport-root section.docx-rendered-wrapper,
-              .docx-viewport-root .docx_page {
-                background: #ffffff !important;
-                color: #1a1a1a !important;
-                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
-                border: 1px solid rgba(0, 0, 0, 0.08);
-                border-radius: 2px;
-                box-sizing: border-box;
-                margin-bottom: 24px;
-              }
-              .docx-viewport-root p,
-              .docx-viewport-root span,
-              .docx-viewport-root article,
-              .docx-viewport-root table,
-              .docx-viewport-root td,
-              .docx-viewport-root th {
-                color: #1a1a1a;
-              }
-              .docx-viewport-root table {
-                border-collapse: collapse;
-              }
-            `}</style>
-            {/* docx-preview DOM 真实挂载节点 */}
-            <div ref={docxMountRef} className="docx-viewport-root" />
-          </div>
-        )}
+        {/* 主画布滚动区域 */}
+        <div
+          ref={scrollAreaRef}
+          onScroll={handleMainScroll}
+          className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center relative bg-[var(--ov-bg)]"
+        >
+          {loading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 m-auto py-16 bg-[var(--ov-bg)]/80 backdrop-blur-xs z-20">
+              <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+              <p className="text-xs opacity-70">正在解析 Word 文档结构...</p>
+            </div>
+          )}
 
-        {/* 右侧：文档出版元数据详情抽屉 */}
-        {showInfo && (
-          <aside className="absolute right-0 top-0 bottom-0 w-80 bg-[var(--ov-surface)] border-l border-[var(--ov-border)] p-4 flex flex-col z-40 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--ov-border)] mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider">Word 文档元数据</h3>
+          {error ? (
+            <div className="flex flex-col items-center justify-center gap-3 m-auto py-16 text-red-500 z-20">
+              <p className="text-sm font-semibold">加载失败</p>
+              <p className="text-xs opacity-80">{error}</p>
               <button
-                onClick={() => setShowInfo(false)}
-                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10"
+                onClick={loadDocument}
+                className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-xs hover:bg-red-500/20"
               >
-                <X className="w-4 h-4" />
+                重新加载
               </button>
             </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-[10px] font-mono opacity-50 block uppercase">文档标题 / Title</span>
-                <p className="font-semibold text-sm">{docData?.metadata?.title || fileName}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-mono opacity-50 block uppercase">作者 / Creator</span>
-                <p>{docData?.metadata?.creator || '未记录'}</p>
-              </div>
-
-              {docData?.metadata?.description && (
-                <div>
-                  <span className="text-[10px] font-mono opacity-50 block uppercase">简介 / Description</span>
-                  <p className="opacity-80 text-[11px] leading-relaxed mt-1">
-                    {docData.metadata.description}
-                  </p>
-                </div>
-              )}
-
-              {docData?.metadata?.created && (
-                <div>
-                  <span className="text-[10px] font-mono opacity-50 block uppercase">创建时间 / Created</span>
-                  <p className="font-mono">{docData.metadata.created}</p>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-[var(--ov-border)] space-y-1 font-mono text-[10px] opacity-50">
-                <div>总页数估算: {docData?.metadata?.pageCount || '动态流式分页'}</div>
-                <div>字数统计: {docData?.metadata?.wordCount || '已载入'}</div>
-                <div>文件大小: {fileSize ? `${(fileSize / 1024).toFixed(1)} KB` : '标准 DOCX'}</div>
-              </div>
+          ) : (
+            <div
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: 'top center',
+                transition: 'transform 0.15s ease-out',
+                ...paperFilterStyle,
+              }}
+              className="docx-preview-container max-w-full shadow-2xl rounded-sm"
+            >
+              {/* 注入 docx-preview 专用拟真 A4 纸张排版与对比度样式，及标题高亮闪烁效果 */}
+              <style>{`
+                .docx-viewport-root {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 20px;
+                  min-height: 400px;
+                }
+                .docx-viewport-root section,
+                .docx-viewport-root .docx-rendered-wrapper,
+                .docx-viewport-root section.docx-rendered-wrapper,
+                .docx-viewport-root .docx_page {
+                  background: #ffffff !important;
+                  color: #1a1a1a !important;
+                  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+                  border: 1px solid rgba(0, 0, 0, 0.08);
+                  border-radius: 2px;
+                  box-sizing: border-box;
+                  margin-bottom: 24px;
+                }
+                .docx-viewport-root p,
+                .docx-viewport-root span,
+                .docx-viewport-root article,
+                .docx-viewport-root table,
+                .docx-viewport-root td,
+                .docx-viewport-root th {
+                  color: #1a1a1a;
+                }
+                .docx-viewport-root table {
+                  border-collapse: collapse;
+                }
+                @keyframes docxHeadingFlash {
+                  0% { background-color: rgba(59, 130, 246, 0.25); outline: 2px solid rgba(59, 130, 246, 0.6); }
+                  50% { background-color: rgba(59, 130, 246, 0.35); outline: 2px solid rgba(59, 130, 246, 0.8); }
+                  100% { background-color: transparent; outline: none; }
+                }
+                .docx-heading-highlight-flash {
+                  animation: docxHeadingFlash 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+                  border-radius: 4px;
+                }
+              `}</style>
+              {/* docx-preview DOM 真实挂载节点 */}
+              <div ref={docxMountRef} className="docx-viewport-root" />
             </div>
-          </aside>
-        )}
+          )}
+
+          {/* 右侧：文档出版元数据详情抽屉 */}
+          {showInfo && (
+            <aside className="absolute right-0 top-0 bottom-0 w-80 bg-[var(--ov-surface)] border-l border-[var(--ov-border)] p-4 flex flex-col z-40 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--ov-border)] mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider">Word 文档元数据</h3>
+                <button
+                  onClick={() => setShowInfo(false)}
+                  className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="text-[10px] font-mono opacity-50 block uppercase">文档标题 / Title</span>
+                  <p className="font-semibold text-sm">{docData?.metadata?.title || fileName}</p>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-mono opacity-50 block uppercase">作者 / Creator</span>
+                  <p>{docData?.metadata?.creator || '未记录'}</p>
+                </div>
+
+                {docData?.metadata?.description && (
+                  <div>
+                    <span className="text-[10px] font-mono opacity-50 block uppercase">简介 / Description</span>
+                    <p className="opacity-80 text-[11px] leading-relaxed mt-1">
+                      {docData.metadata.description}
+                    </p>
+                  </div>
+                )}
+
+                {docData?.metadata?.created && (
+                  <div>
+                    <span className="text-[10px] font-mono opacity-50 block uppercase">创建时间 / Created</span>
+                    <p className="font-mono">{docData.metadata.created}</p>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-[var(--ov-border)] space-y-1 font-mono text-[10px] opacity-50">
+                  <div>总页数估算: {docData?.metadata?.pageCount || '动态流式分页'}</div>
+                  <div>字数统计: {docData?.metadata?.wordCount || '已载入'}</div>
+                  <div>文件大小: {fileSize ? `${(fileSize / 1024).toFixed(1)} KB` : '标准 DOCX'}</div>
+                </div>
+              </div>
+            </aside>
+          )}
+        </div>
       </div>
     </div>
   );
