@@ -35,6 +35,8 @@ export function isIgnoredClipboardElement(el: Element): boolean {
     el.classList.contains('doc-status-bar') ||
     el.classList.contains('table-block-toolbar') ||
     el.classList.contains('ov-table-block-toolbar') ||
+    el.classList.contains('table-block-footer') ||
+    el.classList.contains('ov-table-block-footer') ||
     el.classList.contains('ov-col-resizer') ||
     el.classList.contains('ov-table-sort-icon') ||
     el.classList.contains('markdown-bubble-toolbar') ||
@@ -50,33 +52,60 @@ export function isIgnoredClipboardElement(el: Element): boolean {
 }
 
 /**
+ * 纯文本剪贴板脱敏与清洗：剔除表格统计行、双击就地编辑等交互提示文本
+ */
+export function sanitizePlainTextClipboard(text: string): string {
+  if (!text) return text;
+  return text
+    // 剔除表格底部统计信息 (如: "总行数: 10", "Total Rows: 10")
+    .replace(/(?:总行数|Total Rows)\s*[:：]?\s*\d+/gi, '')
+    // 剔除统计求和/平均值等残留
+    .replace(/(?:求和|平均值|Sum|Avg)\s*[:：]?\s*[\d,.-]+/gi, '')
+    // 剔除双击单元格就地编辑提示
+    .replace(/双击单元格(?:就地)?编辑/g, '')
+    .replace(/Double-click to edit/gi, '')
+    // 剔除拖拽列宽提示
+    .replace(/拖拽调整列宽/g, '')
+    .replace(/Drag to resize column/gi, '')
+    // 压缩多余连续空行与首尾空白
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * 检查选区是否覆盖了目标容器的全部内容 (例如通过 Ctrl+A 或全选触发)
  */
 export function isFullContainerSelection(range: Range, container: HTMLElement): boolean {
   if (!range || !container) return false;
 
-  const rawText = typeof range.toString === 'function' ? range.toString().trim() : '';
-  const containerText = container.textContent ? container.textContent.trim() : '';
-
-  // 若实体验参均包含文本，选中的文本长度必须达到容器总文本长度的 98% 以上才判定为全选
-  if (rawText && containerText && rawText.length < Math.floor(containerText.length * 0.98)) {
-    return false;
-  }
-
+  // 1. 若选区直接建立在容器节点上，精准比对偏移量
   if (range.startContainer === container && range.endContainer === container) {
     return range.startOffset === 0 && range.endOffset >= (container.childNodes?.length || 0);
   }
+
+  // 2. 跨子节点选区：检查是否覆盖了容器的首个与最后一个元素
   const firstChild = container.firstElementChild;
   const lastChild = container.lastElementChild;
-  if (firstChild && lastChild) {
+  if (firstChild && lastChild && typeof range.comparePoint === 'function') {
     try {
-      const startsAtBeginning = typeof range.comparePoint === 'function' ? range.comparePoint(firstChild, 0) <= 0 : true;
-      const endsAtEnd = typeof range.comparePoint === 'function' ? range.comparePoint(lastChild, lastChild.childNodes?.length || 0) >= 0 : true;
-      return startsAtBeginning && endsAtEnd;
+      const startsAtBeginning = range.comparePoint(firstChild, 0) <= 0;
+      const endsAtEnd = range.comparePoint(lastChild, lastChild.childNodes?.length || 0) >= 0;
+      if (startsAtBeginning && endsAtEnd) {
+        return true;
+      }
     } catch {
-      return false;
+      // 忽略异常，降级至文本比对
     }
   }
+
+  // 3. 文本长度比对兜底：选中文本长度达到容器文本的 85% 以上判定为全选 (预留交互工具栏与底栏容差)
+  const rawText = typeof range.toString === 'function' ? range.toString().trim() : '';
+  const containerText = container.textContent ? container.textContent.trim() : '';
+
+  if (rawText && containerText) {
+    return rawText.length >= Math.floor(containerText.length * 0.85);
+  }
+
   return false;
 }
 
@@ -143,6 +172,8 @@ export function cleanAndFormatDomForWordSync(
     '.doc-status-bar',
     '.table-block-toolbar',
     '.ov-table-block-toolbar',
+    '.table-block-footer',
+    '.ov-table-block-footer',
     '.ov-col-resizer',
     '.ov-table-sort-icon',
     '.markdown-bubble-toolbar',

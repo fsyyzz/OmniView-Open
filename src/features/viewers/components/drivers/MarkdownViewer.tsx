@@ -31,7 +31,7 @@ import { useMarkdownScrollSync } from '../../hooks/useMarkdownScrollSync';
 import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
 import { getMermaidConfig } from '../../../../shared/lib/mermaidConfig';
 import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
-import { cleanAndFormatDomForWordSync, cleanAndFormatDomForWord, isFullContainerSelection } from '../../lib/wordClipboardHelper';
+import { cleanAndFormatDomForWordSync, cleanAndFormatDomForWord, isFullContainerSelection, sanitizePlainTextClipboard } from '../../lib/wordClipboardHelper';
 import { mermaidRenderCache, graphvizRenderCache } from '../../lib/diagramCache';
 import { graphvizRenderer } from '../../lib/graphvizRenderer';
 
@@ -357,9 +357,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         });
 
         const cleanedHtml = tempWrapper.innerHTML;
-        // 只有明确通过 Ctrl+A/Cmd+A 触发且选区包含整个容器时，才替换为原生的 Markdown 文本全文源码；划线/手选仅复制选中内容
+        // 只有明确通过 Ctrl+A/Cmd+A 触发且选区包含整个容器时，才替换为原生的 Markdown 文本全文源码；划线/手选仅复制选中内容 (已自动剔除表格统计栏等噪音)
         const isFullDoc = isCtrlASelectAllRef.current && isFullContainerSelection(range, container);
-        const plainText = isFullDoc && contentRef.current ? contentRef.current : rawText;
+        const plainText = isFullDoc && contentRef.current ? contentRef.current : sanitizePlainTextClipboard(rawText);
 
         if (e.clipboardData) {
           e.preventDefault();

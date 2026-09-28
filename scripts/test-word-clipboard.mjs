@@ -3,7 +3,7 @@
  * 单元测试: wordClipboardHelper 剪贴板清洗与 Word 富文本兼容引擎
  */
 
-import { isIgnoredClipboardElement, generateWordCodeTableHtml, cleanAndFormatDomForWordSync, resolveUnmountedLazyBlocks, svgToBase64DataUrl, isFullContainerSelection, inlinePrismStyles, balanceMultilineSpans, convertCodeBlocksToWordTables } from '../src/features/viewers/lib/wordClipboardHelper.ts';
+import { isIgnoredClipboardElement, generateWordCodeTableHtml, cleanAndFormatDomForWordSync, resolveUnmountedLazyBlocks, svgToBase64DataUrl, isFullContainerSelection, inlinePrismStyles, balanceMultilineSpans, convertCodeBlocksToWordTables, sanitizePlainTextClipboard } from '../src/features/viewers/lib/wordClipboardHelper.ts';
 
 function runTests() {
   console.log('🧪 开始 Word 富文本剪贴板清洗引擎自动化测试...');
@@ -32,6 +32,16 @@ function runTests() {
   const dummyTableToolbar = createMockElement('ov-table-block-toolbar');
   if (!isIgnoredClipboardElement(dummyTableToolbar)) {
     throw new Error('未能识别 .ov-table-block-toolbar 为忽略元素');
+  }
+
+  const dummyTableFooter = createMockElement('table-block-footer');
+  if (!isIgnoredClipboardElement(dummyTableFooter)) {
+    throw new Error('未能识别 .table-block-footer 为忽略元素');
+  }
+
+  const dummyOvTableFooter = createMockElement('ov-table-block-footer');
+  if (!isIgnoredClipboardElement(dummyOvTableFooter)) {
+    throw new Error('未能识别 .ov-table-block-footer 为忽略元素');
   }
 
   const dummyResizer = createMockElement('ov-col-resizer');
@@ -357,7 +367,27 @@ function runTests() {
 
   console.log('✅ 离屏未挂载图表 (Mermaid, PlantUML, SVG, Graphviz 等) 深度自愈回填验证通过');
 
-  console.log('\n🎉 全部 7 组 Word 剪贴板清洗自动化测试 100% 通过！');
+  console.log('\n--- 测试 8: 纯文本剪贴板脱敏 (sanitizePlainTextClipboard) 契约 ---');
+  const dirtyPlainText = `| 模块名称 | 状态 | 代码行数 |
+| --- | --- | --- |
+| TableBlock | 完成 | 924 |
+| MarkdownViewer | 完成 | 990 |
+
+总行数: 2
+双击单元格就地编辑
+拖拽调整列宽
+Sum: 1914 Avg: 957`;
+
+  const cleanedPlainText = sanitizePlainTextClipboard(dirtyPlainText);
+  if (cleanedPlainText.includes('总行数') || cleanedPlainText.includes('双击单元格') || cleanedPlainText.includes('拖拽调整') || cleanedPlainText.includes('Sum:')) {
+    throw new Error('sanitizePlainTextClipboard 未能彻底剔除表格统计栏与编辑提示文案');
+  }
+  if (!cleanedPlainText.includes('TableBlock') || !cleanedPlainText.includes('MarkdownViewer') || !cleanedPlainText.includes('924')) {
+    throw new Error('sanitizePlainTextClipboard 误伤了表格正文数据');
+  }
+  console.log('✅ sanitizePlainTextClipboard 脱敏与清洗测试 100% 通过');
+
+  console.log('\n🎉 全部 8 组 Word 剪贴板清洗自动化测试 100% 通过！');
 }
 
 runTests();
