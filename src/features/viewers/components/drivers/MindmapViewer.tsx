@@ -615,7 +615,12 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
       {/* 主体视口区域：编辑器与导图画布 */}
       <div ref={containerRef} className="flex-1 min-h-0 flex overflow-hidden relative">
         {/* 拖拽时的全局遮罩防滑脱 */}
-        {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize select-none" />}
+        {isDragging && (
+          <div
+            className="ov-drag-overlay absolute inset-0 z-50 cursor-col-resize select-none pointer-events-auto"
+            style={{ backgroundColor: 'transparent' }}
+          />
+        )}
 
         {/* 左侧：思维导图 DSL 源代码编辑器 */}
         {(viewMode === 'split' || viewMode === 'editor') && (

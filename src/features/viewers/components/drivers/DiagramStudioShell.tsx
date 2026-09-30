@@ -571,7 +571,12 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
       </header>
 
       <div ref={containerRef} className="flex-1 min-h-0 flex overflow-hidden relative">
-        {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize select-none" />}
+        {isDragging && (
+          <div
+            className="ov-drag-overlay absolute inset-0 z-50 cursor-col-resize select-none pointer-events-auto"
+            style={{ backgroundColor: 'transparent' }}
+          />
+        )}
 
         {(viewMode === 'split' || viewMode === 'editor') && (
           <div

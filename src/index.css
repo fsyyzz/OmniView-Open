@@ -3256,10 +3256,7 @@ details.ov-callout[open] .ov-callout-fold-icon {
 .markdown-toolbar .absolute,
 .csv-dropdown-menu,
 #workbench-header .absolute,
-#plantuml-studio-container .absolute,
 #svg-studio-toolbar .absolute,
-#diagram-studio-shell .absolute,
-#mindmap-studio-container .absolute,
 #excalidraw-viewer-container .absolute {
   background-color: var(--ov-surface) !important;
   border-color: var(--ov-border) !important;
@@ -3267,13 +3264,22 @@ details.ov-callout[open] .ov-callout-fold-icon {
   box-shadow: var(--ov-shadow) !important;
 }
 
+/* 拖拽分屏交互全局透明遮罩 (杜绝被任何样式污染为不透明背景导致黑屏) */
+.ov-drag-overlay {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+}
+
 .markdown-toolbar .absolute button:hover,
 .csv-dropdown-menu button:hover,
 #workbench-header .absolute button:hover,
-#plantuml-studio-container .absolute button:hover,
+#plantuml-studio-container .absolute:not(.ov-drag-overlay) button:hover,
 #svg-studio-toolbar .absolute button:hover,
-#diagram-studio-shell .absolute button:hover,
-#mindmap-studio-container .absolute button:hover,
+#diagram-studio-shell .absolute:not(.ov-drag-overlay) button:hover,
+#mindmap-studio-container .absolute:not(.ov-drag-overlay) button:hover,
 #excalidraw-viewer-container .absolute button:hover {
   background-color: var(--ov-table-alt) !important;
   color: var(--ov-text) !important;

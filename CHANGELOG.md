@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [1.2.35] - 2026-09-30
+
+### Fixed
+
+- **PlantUML / Mermaid / Mindmap 双栏拖拽黑屏与内容被遮挡问题终极修复 (Split Drag Transparent Overlay Fix)**:
+  - **样式污染斩断**：排查并彻底移除了 `src/index.css` 中对 `#diagram-studio-shell .absolute`、`#plantuml-studio-container .absolute` 与 `#mindmap-studio-container .absolute` 的宽泛通配选择器，杜绝其将拖拽遮罩强制赋予不透明深色背景 `var(--ov-surface)` (`#111827`) 导致两边内容在拖动时被 100% 遮蔽的严重缺陷；
+  - **双重透明度防御**：为 `DiagramStudioShell`、`PlantUmlViewer` 与 `MindmapViewer` 中的拖拽全局手势防脱遮罩增加专属 `.ov-drag-overlay` 标记类名，并显式绑定内联 `style={{ backgroundColor: 'transparent' }}`，确保在全主题与高层级下维持绝对透明；
+  - **浏览器自动化真实验证**：经由 Chrome CDP 模拟拖动全过程（包含多段 `mousemove`）验证，确认拖拽期间遮罩背景色恒为 `rgba(0, 0, 0, 0)`，左右两栏代码编辑器与图表画布内容清晰稳定可视，拖拽丝滑无闪烁。
+
 ## [1.2.34] - 2026-09-30
 
 ### Fixed

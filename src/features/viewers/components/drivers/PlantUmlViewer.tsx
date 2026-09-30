@@ -784,7 +784,12 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
       {/* Main Split View: Code Editor vs Vector Canvas (Draggable Splitter) */}
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
         {/* Pointer-events overlay during drag to prevent textarea or image from intercepting mouse movements */}
-        {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize select-none" />}
+        {isDragging && (
+          <div
+            className="ov-drag-overlay absolute inset-0 z-50 cursor-col-resize select-none pointer-events-auto"
+            style={{ backgroundColor: 'transparent' }}
+          />
+        )}
 
         {/* Left: Code Editor */}
         <div
