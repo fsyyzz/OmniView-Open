@@ -30,6 +30,8 @@ import {
 import { docxDomToMarkdown } from '../../lib/docxMarkdownConverter';
 import { DocxTocSidebar } from './docx/DocxTocSidebar';
 import { highlightSearchMatches, clearSearchHighlights, activateMatch } from '../../lib/domSearchHighlighter';
+import { requestPrintHtml } from '../../../../shared/lib/printBridge';
+import { getVsCodeApi } from '../../../../shared/lib/vscode';
 import type { ThemeId } from '../../../../shared/types';
 import { type Locale, t } from '../../../../shared/lib/i18n';
 
@@ -76,12 +78,120 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   // 复制为 Markdown
   const handleCopyAsMarkdown = useCallback(() => {
     const md = docxDomToMarkdown(docxMountRef.current);
-    if (!md) return;
+    if (!md || !md.trim()) return;
     navigator.clipboard.writeText(md).then(() => {
       setMdCopied(true);
       setTimeout(() => setMdCopied(false), 2000);
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn('[DocxViewer] 复制到剪贴板失败:', err);
+    });
   }, []);
+
+  // 纯净隔离 A4 打印管道（消除外层 overflow 截断、暗夜滤镜及工具栏污染）
+  const handlePrint = useCallback(() => {
+    if (!docxMountRef.current) return;
+
+    // 1. 克隆真实 DOM 并清洗临时高亮状态
+    const clone = docxMountRef.current.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.docx-search-highlight, .docx-search-active').forEach(el => {
+      const parent = el.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(el.textContent || ''), el);
+        parent.normalize();
+      }
+    });
+    clone.classList.remove('docx-heading-highlight-flash');
+
+    // 2. 收集当前宿主内的全部样式（包括 docx-preview 动态注入的全局样式表）
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(el => el.outerHTML)
+      .join('\n');
+
+    // 3. 构建独立全封闭的纯净 A4 打印模板
+    const printTitle = docData?.metadata?.title || fileName || 'Word 文档打印';
+    const printHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>${printTitle.replace(/[<>&"]/g, '')}</title>
+  ${styles}
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm 15mm;
+    }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      color: #1a1a1a !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif !important;
+      overflow: visible !important;
+      height: auto !important;
+    }
+    .docx-viewport-root {
+      display: block !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      gap: 0 !important;
+      box-shadow: none !important;
+      transform: none !important;
+      filter: none !important;
+    }
+    .docx-viewport-root section,
+    .docx-viewport-root .docx-rendered-wrapper,
+    .docx-viewport-root section.docx-rendered-wrapper,
+    .docx-viewport-root .docx_page {
+      background: #ffffff !important;
+      color: #1a1a1a !important;
+      box-shadow: none !important;
+      border: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-height: auto !important;
+      page-break-inside: auto !important;
+    }
+    .docx-viewport-root .docx_page,
+    .docx-viewport-root section {
+      page-break-after: always !important;
+      break-after: page !important;
+    }
+    .docx-viewport-root .docx_page:last-child,
+    .docx-viewport-root section:last-child {
+      page-break-after: auto !important;
+      break-after: auto !important;
+    }
+    table, tr, td, th {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    h1, h2, h3, h4, h5, h6, [class*="heading"], [class*="Heading"] {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  ${clone.outerHTML}
+</body>
+</html>`;
+
+    // 4. 调用统一打印桥接：VS Code 内走 Extension Host 外部浏览器拉起，普通浏览器走隔离窗口打印
+    requestPrintHtml(fileName || 'word-document', printHtml, {
+      vscode: getVsCodeApi(),
+      preferNativeInBrowser: false,
+    });
+  }, [docData, fileName]);
 
   // 搜索关键字高亮
   useEffect(() => {
@@ -119,7 +229,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     });
   };
 
-  // 全局 Ctrl+F 搜索与 Ctrl+Shift+O 导航窗口切换快捷键
+  // 全局快捷键：Ctrl+F (搜索) / Ctrl+Shift+O (目录大纲) / Ctrl+P (打印)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
@@ -131,11 +241,14 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         setShowNavigation(prev => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handlePrint();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handlePrint]);
 
   // 解析并载入 DOCX 数据
   const loadDocument = useCallback(async () => {
@@ -482,9 +595,9 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           </div>
 
           <button
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 opacity-80 hover:opacity-100 transition hidden sm:block"
-            title="系统打印 / 导出为 PDF"
+            title="系统打印 / 导出为 PDF (Ctrl+P)"
           >
             <Printer className="w-4 h-4" />
           </button>

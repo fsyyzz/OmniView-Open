@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [1.2.33] - 2026-09-30
+
+### Fixed
+
+- **Word (.docx) 系统打印与跨宿主高保真隔离导出修复 (DOCX Print Isolation & VS Code Webview Bridge)**:
+  - **宿主打印桥接**：解决 VS Code 插件内 `window.print()` 被沙箱静默屏蔽的问题，接入 `requestPrintHtml` 与 Extension Host 打印通道，一键唤起系统默认浏览器打印预览并支持导出标准 PDF；
+  - **独立纯净 A4 模板**：针对浏览器外层容器 `overflow: hidden/auto` 导致的打印丢页/单页截断问题，构建全隔离的纯净打印模板，自动剥除暗夜/羊皮滤镜与搜索高亮态，严格保证跨页排版（`page-break-after: always`）与表格规整；
+  - **键盘交互支持**：新增全局 `Ctrl+P` 快捷键，无缝调起打印管道。
+- **Word (.docx) 复制全文为 Markdown 结构与内联样式解析修复 (DOCX DOM to Markdown Deep Extraction)**:
+  - **真实 DOM NodeList 兼容**：修复 `Array.isArray(childNodes)` 在浏览器环境下恒为 `false` 导致文本内容被清空的严重兼容性缺陷；
+  - **Word 标题智能识别**：深度兼容 docx-preview 的 `docx_heading_*`、`docx-p-heading-*` 类名及大纲段落特征，准确保留 `#` 标题层级；
+  - **Word Numbering 列表支持**：适配 `-num-*` 类名与段落前缀，准确映射为标准 Markdown 缩进列表（`-` 与 `1.`）；
+  - **富文本内联样式全量覆盖**：增加对 `<span>` 元素内联 `fontWeight`（粗体）、`fontStyle`（斜体）、`textDecoration`（删除线）、`fontFamily`（代码）等多维样式的自动解构；
+  - **页面冗余清理**：智能过滤每页重复出现的页眉（`header`）、页脚（`footer`）与隔离符，保障导出的 Markdown 纯粹规范；
+  - **测试覆盖扩充**：`test-docx-markdown-converter.mjs` 覆盖率提升至 12 组真实场景用例。
+
 ## [1.2.32] - 2026-09-28
 
 ### Added

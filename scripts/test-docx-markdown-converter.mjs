@@ -156,7 +156,138 @@ function testBasicMarkdown() {
   assert(result6.includes('[Click here](https://example.com)'), `链接转换失败`);
   console.log('✅ 测试 6: 图片与链接转换通过');
 
-  console.log('\n🎉 全部 6 组 docxMarkdownConverter 单元测试 100% 通过！');
+  // 测试 7: 真实 NodeList 结构兼容性（Array.isArray 为 false）
+  function makeFakeNodeList(items) {
+    const obj = { length: items.length };
+    items.forEach((it, idx) => { obj[idx] = it; });
+    obj.item = (i) => items[i];
+    return obj;
+  }
+  const textNode1 = { nodeType: 3, textContent: 'Hello ' };
+  const textNode2 = { nodeType: 3, textContent: 'World' };
+  const pWithNodeList = {
+    tagName: 'P',
+    childNodes: makeFakeNodeList([textNode1, textNode2]),
+    getAttribute: () => null,
+  };
+  const sectionNodeList = makeSection([pWithNodeList]);
+  const containerNodeList = makeContainer([sectionNodeList]);
+  const result7 = docxDomToMarkdown(containerNodeList);
+  assert(result7.includes('Hello World'), `NodeList 提取失败，实际: ${JSON.stringify(result7)}`);
+  console.log('✅ 测试 7: 类浏览器 NodeList 结构兼容通过');
+
+  // 测试 8: docx-preview 特有 class 标题识别
+  const docxHeading1 = {
+    tagName: 'P',
+    className: 'docx-rendered-wrapper_heading_1',
+    childNodes: ['项目整体架构设计'],
+    textContent: '项目整体架构设计',
+    getAttribute: (attr) => (attr === 'class' ? 'docx-rendered-wrapper_heading_1' : null),
+  };
+  const docxHeading2 = {
+    tagName: 'P',
+    className: 'docx-p-heading-2',
+    childNodes: ['核心模块拆解'],
+    textContent: '核心模块拆解',
+    getAttribute: (attr) => (attr === 'class' ? 'docx-p-heading-2' : null),
+  };
+  const result8 = docxDomToMarkdown(makeContainer([makeSection([docxHeading1, docxHeading2])]));
+  assert(result8.includes('# 项目整体架构设计'), `Heading 1 类名识别失败，实际: ${JSON.stringify(result8)}`);
+  assert(result8.includes('## 核心模块拆解'), `Heading 2 类名识别失败，实际: ${JSON.stringify(result8)}`);
+  console.log('✅ 测试 8: docx-preview 特有类名标题识别通过');
+
+  // 测试 9: docx-preview 特有 numbering 类名列表识别
+  const docxNumItem1 = {
+    tagName: 'P',
+    className: 'docx-rendered-wrapper-num-1-0',
+    childNodes: ['• 第一阶段：设计与评审'],
+    textContent: '• 第一阶段：设计与评审',
+    getAttribute: (attr) => (attr === 'class' ? 'docx-rendered-wrapper-num-1-0' : null),
+  };
+  const docxNumItem2 = {
+    tagName: 'P',
+    className: 'docx-rendered-wrapper-num-1-0',
+    childNodes: ['• 第二阶段：编码与测试'],
+    textContent: '• 第二阶段：编码与测试',
+    getAttribute: (attr) => (attr === 'class' ? 'docx-rendered-wrapper-num-1-0' : null),
+  };
+  const result9 = docxDomToMarkdown(makeContainer([makeSection([docxNumItem1, docxNumItem2])]));
+  assert(result9.includes('- 第一阶段：设计与评审'), `编号列表项 1 转换失败，实际: ${JSON.stringify(result9)}`);
+  assert(result9.includes('- 第二阶段：编码与测试'), `编号列表项 2 转换失败`);
+  console.log('✅ 测试 9: docx-preview numbering 类名列表转换通过');
+
+  // 测试 10: docx-preview span style 强调样式
+  const boldSpan = {
+    tagName: 'SPAN',
+    style: { fontWeight: 'bold' },
+    childNodes: ['加粗关键结论'],
+    textContent: '加粗关键结论',
+    getAttribute: () => null,
+  };
+  const italicSpan = {
+    tagName: 'SPAN',
+    style: { fontStyle: 'italic' },
+    childNodes: ['斜体补充说明'],
+    textContent: '斜体补充说明',
+    getAttribute: () => null,
+  };
+  const mixedP = {
+    tagName: 'P',
+    childNodes: [boldSpan, { nodeType: 3, textContent: ' 与 ' }, italicSpan],
+    getAttribute: () => null,
+  };
+  const result10 = docxDomToMarkdown(makeContainer([makeSection([mixedP])]));
+  assert(result10.includes('**加粗关键结论**'), `span fontWeight 加粗转换失败，实际: ${JSON.stringify(result10)}`);
+  assert(result10.includes('*斜体补充说明*'), `span fontStyle 斜体转换失败`);
+  console.log('✅ 测试 10: docx-preview span 内联样式强调转换通过');
+
+  // 测试 11: 流式无 section 容器直接挂载
+  const fluidContainer = {
+    tagName: 'DIV',
+    className: 'docx-rendered-wrapper',
+    children: [
+      {
+        tagName: 'H1',
+        childNodes: ['流式标题'],
+        textContent: '流式标题',
+        getAttribute: () => null,
+      },
+      {
+        tagName: 'P',
+        childNodes: ['流式正文段落'],
+        textContent: '流式正文段落',
+        getAttribute: () => null,
+      },
+    ],
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+  const result11 = docxDomToMarkdown(fluidContainer);
+  assert(result11.includes('# 流式标题'), `流式无 section 标题失败，实际: ${JSON.stringify(result11)}`);
+  assert(result11.includes('流式正文段落'), `流式无 section 正文失败`);
+  console.log('✅ 测试 11: 流式阅读无 section 容器挂载转换通过');
+
+  // 测试 12: 忽略页眉页脚
+  const headerNode = {
+    tagName: 'HEADER',
+    className: 'docx-header',
+    childNodes: ['公司机密文件 - 仅供内部传阅'],
+    textContent: '公司机密文件 - 仅供内部传阅',
+    getAttribute: () => null,
+  };
+  const bodyP = {
+    tagName: 'P',
+    childNodes: ['正式正文内容'],
+    textContent: '正式正文内容',
+    getAttribute: () => null,
+  };
+  const result12 = docxDomToMarkdown(makeContainer([makeSection([headerNode, bodyP])]));
+  assert(!result12.includes('公司机密文件'), `页眉应当被忽略，实际: ${JSON.stringify(result12)}`);
+  assert(result12.includes('正式正文内容'), `正文应当被保留`);
+  console.log('✅ 测试 12: 冗余页眉页脚过滤通过');
+
+  console.log('\n🎉 全部 12 组 docxMarkdownConverter 单元测试 100% 通过！\n');
 }
 
 testBasicMarkdown();
+
