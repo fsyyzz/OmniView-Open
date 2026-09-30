@@ -867,10 +867,10 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
         )}
       </div>
 
-      {/* 底部统计分析栏 (展示行数、数值列合计与均值、双击编辑提示) */}
+      {/* 底部统计分析栏 (展示行数、数值列合计与均值、双击编辑提示，打印/导出时自动隐藏) */}
       <div
         data-clipboard-ignore="true"
-        className="ov-table-block-footer ov-clipboard-ignore table-block-footer flex items-center justify-between px-3.5 py-1.5 border-t text-[11px] select-none gap-2 flex-wrap"
+        className="ov-table-block-footer ov-clipboard-ignore table-block-footer no-print flex items-center justify-between px-3.5 py-1.5 border-t text-[11px] select-none gap-2 flex-wrap"
         style={{
           borderColor: 'var(--ov-border)',
           backgroundColor: 'var(--ov-surface-header, var(--ov-surface))',

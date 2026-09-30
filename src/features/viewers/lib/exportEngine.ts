@@ -72,7 +72,11 @@ export function cleanInteractiveElements(root: HTMLElement): void {
     '.doc-status-bar',
     '.table-block-toolbar',
     '.ov-table-block-toolbar',
+    '.table-block-footer',
+    '.ov-table-block-footer',
     '.ov-table-sort-icon',
+    '.ov-col-resizer',
+    '.no-print',
     'button',
     '.ov-image-fallback',
   ];
@@ -506,6 +510,12 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
         page-break-after: avoid !important;
       }
       .ov-table-sort-icon {
+        display: none !important;
+      }
+      .ov-table-block-footer,
+      .table-block-footer,
+      .ov-col-resizer,
+      .no-print {
         display: none !important;
       }
     }

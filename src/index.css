@@ -1746,6 +1746,11 @@ body.vscode-high-contrast-light[data-theme="system"] {
   .diagram-header,
   .code-block-header,
   .table-block-toolbar,
+  .ov-table-block-toolbar,
+  .table-block-footer,
+  .ov-table-block-footer,
+  .no-print,
+  .ov-col-resizer,
   .markdown-tool-button,
   .diagram-tools,
   .markdown-more-menu,
@@ -1941,6 +1946,13 @@ body.vscode-high-contrast-light[data-theme="system"] {
 
   /* 导出/打印：隐藏表格排序箭头 */
   .ov-table-sort-icon {
+    display: none !important;
+  }
+
+  /* 导出/打印：隐藏表格底部统计栏（总行数/就地编辑提示）与列宽拖拽手柄 */
+  .ov-table-block-footer,
+  .table-block-footer,
+  .ov-col-resizer {
     display: none !important;
   }
 
@@ -4138,6 +4150,11 @@ details.ov-callout[open] .ov-callout-fold-icon {
   #workbench-sidebar,
   #workbench-statusbar,
   .table-block-toolbar,
+  .ov-table-block-toolbar,
+  .table-block-footer,
+  .ov-table-block-footer,
+  .no-print,
+  .ov-col-resizer,
   .diagram-header,
   .code-block-header,
   .ov-floating-toolbar,

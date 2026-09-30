@@ -768,10 +768,10 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
         )}
       </div>
 
-      {/* 底部信息栏 */}
+      {/* 底部信息栏 (打印/导出时隐藏) */}
       <div
         data-clipboard-ignore="true"
-        className="ov-table-block-footer ov-clipboard-ignore table-block-footer flex items-center justify-between px-6 py-2.5 border-t border-slate-800 bg-slate-900/70 text-[11px] text-slate-400 backdrop-blur-sm z-20 gap-3 flex-wrap select-none"
+        className="ov-table-block-footer ov-clipboard-ignore table-block-footer no-print flex items-center justify-between px-6 py-2.5 border-t border-slate-800 bg-slate-900/70 text-[11px] text-slate-400 backdrop-blur-sm z-20 gap-3 flex-wrap select-none"
       >
         <div className="flex items-center gap-3">
           <span>{t('tableTotalRows', locale)}: <strong className="font-mono text-slate-200">{processedRows.length}</strong></span>

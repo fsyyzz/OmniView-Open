@@ -57,4 +57,28 @@ assert.match(
   '打印样式 code-line-body 必须 white-space:pre，与 gutter 一对一'
 );
 
+assert.match(
+  tableBlock,
+  /ov-table-block-footer[^>]*no-print/,
+  'TableBlock 底部统计分析栏必须带有 no-print 标记'
+);
+
+assert.match(
+  exportEngine,
+  /['"]\.ov-table-block-footer['"]/,
+  'cleanInteractiveElements 必须移除 .ov-table-block-footer'
+);
+
+assert.match(
+  exportEngine,
+  /\.ov-table-block-footer\s*,\s*[^}]*display:\s*none/s,
+  '便携 HTML 打印样式必须隐藏表格底部统计栏'
+);
+
+assert.match(
+  indexCss,
+  /\.ov-table-block-footer[\s\S]*?display:\s*none\s*!important/s,
+  '全局打印样式必须隐藏表格底部统计栏（行数统计与就地编辑提示）'
+);
+
 console.log('test-markdown-print-export: OK');

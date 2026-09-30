@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [1.2.36] - 2026-09-30
+
+### Fixed
+
+- **Markdown 打印与导出净化：剔除表格底部统计栏与双击就地编辑提示 (Markdown Print Clean Table Footer)**:
+  - **打印介质净化**：在 `@media print` 样式中补充 `.ov-table-block-footer`、`.table-block-footer`、`.ov-col-resizer` 与 `.no-print` 隐藏规则，彻底剔除打印或导出 PDF 时表格底部出现的“总行数: X”与“双击单元格就地编辑”屏幕专用交互提示；
+  - **组件级防御**：在 `TableBlock.tsx` 与全屏表格灯箱 `TableLightboxModal.tsx` 底部统计栏结构上显式赋予 `no-print` 标记，双重锁定打印介质下的静默隐藏；
+  - **导出引擎同步**：在 `exportEngine.ts`（支持导出为 Word / 便携 HTML）与 `a4TypographyEngine.ts` 中同步剔除表格底部统计栏与拖拽列宽手柄，保障外部交付物排版规范；
+  - **自动化契约守护**：更新 `test-markdown-print-export.mjs` 测试套件，并通过 Chrome CDP 打印媒体仿真断言 `ov-table-block-footer` 在 `@media print` 下 computed display 严格为 `none`。
+
 ## [1.2.35] - 2026-09-30
 
 ### Fixed

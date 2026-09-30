@@ -152,6 +152,11 @@ export function generateA4PrintCss(options: Partial<A4PrintOptions> = {}): strin
       .diagram-tools,
       .markdown-toolbar,
       .code-block-header button,
+      .table-block-footer,
+      .ov-table-block-footer,
+      .table-block-toolbar,
+      .ov-table-block-toolbar,
+      .ov-col-resizer,
       .doc-status-bar,
       .workbench-tabs,
       .workbench-sidebar {
