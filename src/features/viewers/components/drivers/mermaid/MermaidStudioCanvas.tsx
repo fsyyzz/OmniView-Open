@@ -181,8 +181,9 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
       svgHeight = svgEl.viewBox.baseVal.height;
     } else {
       const bbox = svgEl.getBoundingClientRect();
-      svgWidth = bbox.width / zoom;
-      svgHeight = bbox.height / zoom;
+      const currentScale = contentWrapperRef.current ? 1 : 1;
+      svgWidth = bbox.width / currentScale;
+      svgHeight = bbox.height / currentScale;
     }
 
     if (svgWidth > 0 && svgHeight > 0) {
@@ -198,7 +199,7 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
       setZoom(1);
       setPan({ x: 0, y: 0 });
     }
-  }, [zoom]);
+  }, []);
 
   // 初次渲染就绪时自动居中适应
   const hasAutoFitRef = useRef(false);
@@ -210,6 +211,40 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
       });
     }
   }, [svgContent, handleFitToViewport]);
+
+  // 监听容器尺寸剧烈变动 (如分屏拖拽/窗口缩放)，自动矫正视口边界防黑屏
+  useEffect(() => {
+    const stageEl = stageRef.current;
+    if (!stageEl || typeof ResizeObserver === 'undefined') return;
+
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        if (entry.contentRect.width <= 0 || entry.contentRect.height <= 0) continue;
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          // 容器宽度大幅变动时，软约束 pan 坐标，避免图表被推入 overflow:hidden 区域
+          setPan(currentPan => {
+            const maxX = Math.max(100, entry.contentRect.width * 0.8);
+            const maxY = Math.max(100, entry.contentRect.height * 0.8);
+            if (Math.abs(currentPan.x) > maxX || Math.abs(currentPan.y) > maxY) {
+              return {
+                x: Math.max(-maxX, Math.min(maxX, currentPan.x)),
+                y: Math.max(-maxY, Math.min(maxY, currentPan.y)),
+              };
+            }
+            return currentPan;
+          });
+        }, 120);
+      }
+    });
+
+    observer.observe(stageEl);
+    return () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      observer.disconnect();
+    };
+  }, []);
 
   // 鼠标拖拽平移事件处理
   const handleMouseDown = (e: React.MouseEvent) => {

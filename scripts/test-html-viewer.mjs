@@ -96,6 +96,12 @@ assert.ok(viewerSource.includes("'white'"), '必须支持纯白背景');
 assert.ok(viewerSource.includes("'dark'"), '必须支持暗黑背景');
 assert.ok(viewerSource.includes("'system'"), '必须支持跟随系统主题背景');
 
+// 扩展规格矩阵断言 (1080P / 便携本 / 横竖屏旋转)
+assert.ok(viewerSource.includes('HTML_VIEWPORT_PRESETS'), '必须包含 HTML_VIEWPORT_PRESETS 规格矩阵');
+assert.ok(viewerSource.includes('1920'), '必须支持全高清 1080P 规格');
+assert.ok(viewerSource.includes('1366'), '必须支持高清便携本 768P 规格');
+assert.ok(viewerSource.includes('isRotated'), '必须支持横竖屏旋转翻转能力');
+
 console.log('✅ 3. 设备视口与底色能力断言全部通过');
 
 // ========================================================

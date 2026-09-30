@@ -2,7 +2,7 @@
  * OmniView 双栏拖拽分割与持久化 Hook (useSplitPane)
  * 提供可拖拽调整占比、防抖持久化、边界截断与平滑指针样式的标准化分栏逻辑
  */
-import { useState, useEffect, useCallback, RefObject } from 'react';
+import { useState, useEffect, useCallback, useRef, RefObject } from 'react';
 
 export interface UseSplitPaneOptions {
   storageKey?: string;
@@ -38,7 +38,9 @@ export function useSplitPane({
     return defaultRatio;
   });
 
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const latestRatioRef = useRef(splitRatio);
+  latestRatioRef.current = splitRatio;
 
   const handleSplitterMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -48,38 +50,46 @@ export function useSplitPane({
   useEffect(() => {
     if (!isDragging) return;
 
+    let rafId: number | null = null;
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+
       const offsetX = e.clientX - rect.left;
       const rawPercentage = (offsetX / rect.width) * 100;
       const clamped = Math.min(Math.max(rawPercentage, minRatio), maxRatio);
-      setSplitRatio(clamped);
+
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setSplitRatio(clamped);
+      });
     };
 
     const handleMouseUp = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       setIsDragging(false);
+      if (storageKey) {
+        try {
+          localStorage.setItem(storageKey, latestRatioRef.current.toString());
+        } catch {}
+      }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isDragging, containerRef, minRatio, maxRatio]);
-
-  useEffect(() => {
-    if (!storageKey) return;
-    try {
-      localStorage.setItem(storageKey, splitRatio.toString());
-    } catch {}
-  }, [storageKey, splitRatio]);
+  }, [isDragging, containerRef, minRatio, maxRatio, storageKey]);
 
   return {
     splitRatio,

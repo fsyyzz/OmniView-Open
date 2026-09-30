@@ -122,15 +122,30 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
     }
   };
 
-  const persistSplit = (ratio: number) => {
+  const updateSplitRatio = useCallback((ratio: number) => {
     const clamped = Math.min(85, Math.max(15, Math.round(ratio)));
     setSplitRatio(clamped);
-    try {
-      localStorage.setItem(splitKey, String(clamped));
-    } catch {
-      /* ignore */
-    }
-  };
+  }, []);
+
+  const saveSplitToStorage = useCallback(
+    (ratio: number) => {
+      const clamped = Math.min(85, Math.max(15, Math.round(ratio)));
+      try {
+        localStorage.setItem(splitKey, String(clamped));
+      } catch {
+        /* ignore */
+      }
+    },
+    [splitKey]
+  );
+
+  const applySplitPreset = useCallback(
+    (ratio: number) => {
+      updateSplitRatio(ratio);
+      saveSplitToStorage(ratio);
+    },
+    [updateSplitRatio, saveSplitToStorage]
+  );
 
   const handleCodeChange = useCallback(
     (newCode: string, forceNewSnapshot = false) => {
@@ -265,24 +280,47 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
 
   useEffect(() => {
     if (!isDragging) return;
+    let rafId: number | null = null;
+    let latestRatio = splitRatio;
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const ratio = ((e.clientX - rect.left) / rect.width) * 100;
-      persistSplit(ratio);
+      latestRatio = ratio;
+
+      if (rafId === null) {
+        rafId = window.requestAnimationFrame(() => {
+          updateSplitRatio(latestRatio);
+          rafId = null;
+        });
+      }
     };
-    const handleMouseUp = () => setIsDragging(false);
+
+    const handleMouseUp = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      setIsDragging(false);
+      saveSplitToStorage(latestRatio);
+    };
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+
     return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isDragging]);
+  }, [isDragging, splitRatio, updateSplitRatio, saveSplitToStorage]);
 
   const handleCopy = async () => {
     try {
@@ -426,7 +464,7 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
                 <button
                   key={ratio}
                   type="button"
-                  onClick={() => persistSplit(ratio)}
+                  onClick={() => applySplitPreset(ratio)}
                   style={{
                     backgroundColor: splitRatio === ratio ? 'var(--ov-accent, #06b6d4)' : 'transparent',
                     color: splitRatio === ratio ? '#ffffff' : 'var(--ov-text-secondary)',
@@ -539,10 +577,11 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
           <div
             style={{
               width: viewMode === 'editor' ? '100%' : `${splitRatio}%`,
+              minWidth: viewMode === 'editor' ? undefined : '180px',
               backgroundColor: 'var(--ov-surface)',
               borderRightColor: 'var(--ov-border)',
             }}
-            className="flex flex-col min-w-0 h-full border-r"
+            className="flex flex-col min-w-0 h-full border-r shrink-0"
           >
             <div
               style={{
@@ -638,7 +677,10 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
               e.preventDefault();
               setIsDragging(true);
             }}
-            onDoubleClick={() => persistSplit(50)}
+            onDoubleClick={() => {
+              updateSplitRatio(50);
+              saveSplitToStorage(50);
+            }}
             title="拖拽调节分屏比例 | 双击复位 50%"
             style={{
               backgroundColor: isDragging ? 'var(--ov-accent)' : 'var(--ov-surface-header)',
@@ -654,9 +696,10 @@ export const DiagramStudioShell: React.FC<DiagramStudioShellProps> = ({
           <div
             style={{
               width: viewMode === 'preview' ? '100%' : `${100 - splitRatio}%`,
+              minWidth: viewMode === 'preview' ? undefined : '180px',
               backgroundColor: 'var(--ov-bg)',
             }}
-            className="flex flex-col min-w-0 h-full overflow-hidden"
+            className="flex flex-col min-w-0 h-full overflow-hidden flex-1"
           >
             {renderPreview(localCode)}
           </div>

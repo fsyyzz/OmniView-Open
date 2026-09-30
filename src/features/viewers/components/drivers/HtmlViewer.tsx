@@ -20,6 +20,7 @@ import {
   Moon,
   Laptop,
   Code2,
+  RotateCw,
 } from 'lucide-react';
 import { DiagramStudioShell, DiagramSnippet } from './DiagramStudioShell';
 import { Locale, t } from '../../../../shared/lib/i18n';
@@ -32,8 +33,133 @@ interface HtmlViewerProps {
   onOpenInEditor?: () => void;
 }
 
-export type HtmlDeviceViewport = 'desktop' | 'tablet' | 'mobile';
+export type HtmlDeviceViewport =
+  | 'desktop'
+  | 'desktop-fhd'
+  | 'desktop-hd'
+  | 'laptop'
+  | 'tablet'
+  | 'tablet-landscape'
+  | 'tablet-portrait'
+  | 'mobile-large'
+  | 'mobile'
+  | 'mobile-small';
+
 export type HtmlCanvasBg = 'checkerboard' | 'white' | 'dark' | 'system';
+
+export interface HtmlViewportPreset {
+  id: HtmlDeviceViewport;
+  label: string;
+  subLabel: string;
+  width: number | string;
+  height: number | string;
+  ratio: string;
+  category: 'desktop' | 'tablet' | 'mobile';
+  canRotate: boolean;
+}
+
+export const HTML_VIEWPORT_PRESETS: HtmlViewportPreset[] = [
+  {
+    id: 'desktop',
+    label: '流式桌面',
+    subLabel: '100% 自适应',
+    width: '100%',
+    height: '100%',
+    ratio: '自适应',
+    category: 'desktop',
+    canRotate: false,
+  },
+  {
+    id: 'desktop-fhd',
+    label: '全高清 1080P',
+    subLabel: '1920 × 1080',
+    width: 1920,
+    height: 1080,
+    ratio: '16:9',
+    category: 'desktop',
+    canRotate: true,
+  },
+  {
+    id: 'desktop-hd',
+    label: '高清便携本',
+    subLabel: '1366 × 768',
+    width: 1366,
+    height: 768,
+    ratio: '16:9',
+    category: 'desktop',
+    canRotate: true,
+  },
+  {
+    id: 'laptop',
+    label: '经典笔记本',
+    subLabel: '1280 × 800',
+    width: 1280,
+    height: 800,
+    ratio: '16:10',
+    category: 'desktop',
+    canRotate: true,
+  },
+  {
+    id: 'tablet',
+    label: '平板视口 (768px)',
+    subLabel: '768 × 1024',
+    width: '768px',
+    height: '1024px',
+    ratio: '3:4',
+    category: 'tablet',
+    canRotate: true,
+  },
+  {
+    id: 'tablet-landscape',
+    label: '平板横屏',
+    subLabel: '1024 × 768',
+    width: 1024,
+    height: 768,
+    ratio: '4:3',
+    category: 'tablet',
+    canRotate: true,
+  },
+  {
+    id: 'tablet-portrait',
+    label: '平板竖屏',
+    subLabel: '768 × 1024',
+    width: 768,
+    height: 1024,
+    ratio: '3:4',
+    category: 'tablet',
+    canRotate: true,
+  },
+  {
+    id: 'mobile-large',
+    label: '大屏旗舰机',
+    subLabel: '430 × 932',
+    width: 430,
+    height: 932,
+    ratio: '19.5:9',
+    category: 'mobile',
+    canRotate: true,
+  },
+  {
+    id: 'mobile',
+    label: '手机视口 (375px)',
+    subLabel: '375 × 667',
+    width: '375px',
+    height: '667px',
+    ratio: '16:9',
+    category: 'mobile',
+    canRotate: true,
+  },
+  {
+    id: 'mobile-small',
+    label: '微屏紧凑机',
+    subLabel: '320 × 568',
+    width: 320,
+    height: 568,
+    ratio: '16:9',
+    category: 'mobile',
+    canRotate: true,
+  },
+];
 
 const HTML_SNIPPETS: DiagramSnippet[] = [
   {
@@ -242,11 +368,39 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
   onOpenInEditor,
 }) => {
   const [viewportMode, setViewportMode] = useState<HtmlDeviceViewport>('desktop');
+  const [isRotated, setIsRotated] = useState<boolean>(false);
   const [zoom, setZoom] = useState<number>(1);
   const [canvasBg, setCanvasBg] = useState<HtmlCanvasBg>('white');
   const [allowScripts, setAllowScripts] = useState<boolean>(true);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const currentPreset = useMemo(() => {
+    return HTML_VIEWPORT_PRESETS.find(p => p.id === viewportMode) || HTML_VIEWPORT_PRESETS[0];
+  }, [viewportMode]);
+
+  // 计算当前规格渲染宽高与标注文本
+  const { renderedWidth, renderedHeight, dimensionLabel } = useMemo(() => {
+    if (currentPreset.id === 'desktop') {
+      return {
+        renderedWidth: '100%',
+        renderedHeight: '100%',
+        dimensionLabel: '100% 自适应流式视口',
+      };
+    }
+
+    const parseDim = (d: number | string) => (typeof d === 'number' ? d : parseInt(String(d), 10) || 800);
+    const rawW = parseDim(currentPreset.width);
+    const rawH = parseDim(currentPreset.height);
+    const finalW = isRotated ? rawH : rawW;
+    const finalH = isRotated ? rawW : rawH;
+
+    return {
+      renderedWidth: `${finalW}px`,
+      renderedHeight: `${finalH}px`,
+      dimensionLabel: `${currentPreset.label} (${finalW} × ${finalH} px · ${currentPreset.ratio}${isRotated ? ' · 旋转' : ''})`,
+    };
+  }, [currentPreset, isRotated]);
 
   // 深度转义与 UTF-8 编码健全保证
   const sanitizedDoc = useMemo(() => {
@@ -320,8 +474,9 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
           }}
           className="flex items-center justify-between gap-2 px-3 py-1.5 border-b text-xs shrink-0 select-none overflow-x-auto no-scrollbar"
         >
-          {/* Left: 设备模式切换 (Desktop / Tablet / Mobile) */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Left: 设备模式切换与分辨率规格下拉 */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* 常用分类快捷药丸 */}
             <div
               style={{
                 backgroundColor: 'var(--ov-surface)',
@@ -331,44 +486,104 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
             >
               <button
                 type="button"
-                onClick={() => setViewportMode('desktop')}
-                style={{
-                  backgroundColor: viewportMode === 'desktop' ? 'var(--ov-accent, #0284c7)' : 'transparent',
-                  color: viewportMode === 'desktop' ? '#ffffff' : 'var(--ov-text-secondary)',
+                onClick={() => {
+                  setViewportMode('desktop');
+                  setIsRotated(false);
                 }}
-                className="flex items-center gap-1 px-2 py-1 rounded transition text-[11px]"
-                title={t('htmlDeviceFluid', locale) || '响应式桌面 (100%)'}
+                style={{
+                  backgroundColor: currentPreset.category === 'desktop' && viewportMode === 'desktop' ? 'var(--ov-accent, #0284c7)' : 'transparent',
+                  color: currentPreset.category === 'desktop' && viewportMode === 'desktop' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded transition text-[11px] cursor-pointer"
+                title="响应式桌面流式视口 (100%)"
               >
                 <Monitor className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">桌面 (100%)</span>
+                <span className="hidden sm:inline">桌面</span>
               </button>
               <button
                 type="button"
-                onClick={() => setViewportMode('tablet')}
-                style={{
-                  backgroundColor: viewportMode === 'tablet' ? 'var(--ov-accent, #0284c7)' : 'transparent',
-                  color: viewportMode === 'tablet' ? '#ffffff' : 'var(--ov-text-secondary)',
+                onClick={() => {
+                  setViewportMode('tablet');
+                  setIsRotated(false);
                 }}
-                className="flex items-center gap-1 px-2 py-1 rounded transition text-[11px]"
-                title={t('htmlDeviceTablet', locale) || '平板视口 (768px)'}
+                style={{
+                  backgroundColor: currentPreset.category === 'tablet' ? 'var(--ov-accent, #0284c7)' : 'transparent',
+                  color: currentPreset.category === 'tablet' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded transition text-[11px] cursor-pointer"
+                title="平板电脑视口 (768×1024 / 1024×768)"
               >
                 <Tablet className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">平板 (768px)</span>
+                <span className="hidden sm:inline">平板</span>
               </button>
               <button
                 type="button"
-                onClick={() => setViewportMode('mobile')}
-                style={{
-                  backgroundColor: viewportMode === 'mobile' ? 'var(--ov-accent, #0284c7)' : 'transparent',
-                  color: viewportMode === 'mobile' ? '#ffffff' : 'var(--ov-text-secondary)',
+                onClick={() => {
+                  setViewportMode('mobile');
+                  setIsRotated(false);
                 }}
-                className="flex items-center gap-1 px-2 py-1 rounded transition text-[11px]"
-                title={t('htmlDeviceMobile', locale) || '手机视口 (375px)'}
+                style={{
+                  backgroundColor: currentPreset.category === 'mobile' ? 'var(--ov-accent, #0284c7)' : 'transparent',
+                  color: currentPreset.category === 'mobile' ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded transition text-[11px] cursor-pointer"
+                title="移动手机视口 (375×667 / 430×932)"
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">手机 (375px)</span>
+                <span className="hidden sm:inline">手机</span>
               </button>
             </div>
+
+            {/* 精确规格下拉选单 */}
+            <select
+              value={viewportMode}
+              onChange={e => {
+                setViewportMode(e.target.value as HtmlDeviceViewport);
+                setIsRotated(false);
+              }}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+              className="border rounded-lg px-2 py-1 text-[11px] font-mono outline-none cursor-pointer hover:border-[var(--ov-accent)] transition"
+              title="切换具体设备分辨率与长宽比"
+            >
+              <optgroup label="桌面与便携本 (Desktop)">
+                <option value="desktop">流式桌面 (100% 自适应)</option>
+                <option value="desktop-fhd">全高清 1080P (1920×1080 · 16:9)</option>
+                <option value="desktop-hd">高清便携本 (1366×768 · 16:9)</option>
+                <option value="laptop">经典笔记本 (1280×800 · 16:10)</option>
+              </optgroup>
+              <optgroup label="平板电脑 (Tablet)">
+                <option value="tablet">标准平板 (768×1024 · 3:4)</option>
+                <option value="tablet-landscape">平板横屏 (1024×768 · 4:3)</option>
+                <option value="tablet-portrait">平板竖屏 (768×1024 · 3:4)</option>
+              </optgroup>
+              <optgroup label="移动手机 (Mobile)">
+                <option value="mobile-large">大屏旗舰机 (430×932 · 19.5:9)</option>
+                <option value="mobile">标准主流机 (375×667 · 16:9)</option>
+                <option value="mobile-small">微屏紧凑机 SE (320×568 · 16:9)</option>
+              </optgroup>
+            </select>
+
+            {/* 横竖屏旋转按钮 */}
+            {currentPreset.canRotate && (
+              <button
+                type="button"
+                onClick={() => setIsRotated(prev => !prev)}
+                style={{
+                  backgroundColor: isRotated ? 'var(--ov-accent)' : 'var(--ov-surface)',
+                  borderColor: isRotated ? 'var(--ov-accent)' : 'var(--ov-border)',
+                  color: isRotated ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg border transition text-[11px] cursor-pointer hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)]"
+                title={isRotated ? '当前为旋转模式，点击复位' : '横竖屏旋转 (互换长宽)'}
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">{isRotated ? '已旋转' : '旋转'}</span>
+              </button>
+            )}
           </div>
 
           {/* Center: 画布底色与缩放 */}
@@ -460,7 +675,7 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
                 backgroundColor: 'var(--ov-surface)',
                 borderColor: 'var(--ov-border)',
               }}
-              className="p-1.5 rounded-lg border text-slate-300 hover:text-white transition"
+              className="p-1.5 rounded-lg border text-slate-300 hover:text-white transition cursor-pointer"
               title={t('htmlReload', locale) || '刷新网页'}
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -475,7 +690,7 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
                 borderColor: allowScripts ? '#0284c7' : 'var(--ov-border)',
                 color: allowScripts ? '#38bdf8' : 'var(--ov-text-muted)',
               }}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-medium transition"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-medium transition cursor-pointer"
               title={allowScripts ? '已允许脚本执行 (沙箱隔离中)' : '已彻底禁用脚本 (纯文本排版模式)'}
             >
               <Code2 className="w-3.5 h-3.5" />
@@ -499,7 +714,7 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
                 backgroundColor: 'var(--ov-surface)',
                 borderColor: 'var(--ov-border)',
               }}
-              className="p-1.5 rounded-lg border text-slate-300 hover:text-white transition"
+              className="p-1.5 rounded-lg border text-slate-300 hover:text-white transition cursor-pointer"
               title="系统高保真打印 (Print to PDF)"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -509,38 +724,44 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
 
         {/* 视口舞台容器 (自适应居中与缩放) */}
         <div className="flex-1 min-h-0 overflow-auto p-4 flex flex-col items-center justify-start relative">
+          {/* 尺寸状态徽标 */}
+          {currentPreset.id !== 'desktop' && (
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="mb-2 px-2.5 py-0.5 rounded-full border text-[10px] font-mono shrink-0 shadow-xs"
+            >
+              {dimensionLabel}
+            </div>
+          )}
+
           <div
             style={{
               transform: `scale(${zoom})`,
               transformOrigin: 'top center',
               transition: 'transform 0.15s ease-out, width 0.2s ease, height 0.2s ease',
-              width:
-                viewportMode === 'mobile'
-                  ? '375px'
-                  : viewportMode === 'tablet'
-                    ? '768px'
-                    : '100%',
-              height:
-                viewportMode === 'mobile'
-                  ? '667px'
-                  : viewportMode === 'tablet'
-                    ? '1024px'
-                    : '100%',
+              width: renderedWidth,
+              height: renderedHeight,
               ...getCanvasBgStyle(),
             }}
             className={`flex flex-col relative transition-all duration-200 ${
-              viewportMode !== 'desktop'
-                ? 'rounded-2xl border-4 border-slate-700 shadow-2xl overflow-hidden shrink-0 my-auto'
-                : 'w-full h-full rounded-lg border border-slate-800/80 shadow-md overflow-hidden'
+              currentPreset.id === 'desktop'
+                ? 'w-full h-full rounded-lg border border-slate-800/80 shadow-md overflow-hidden'
+                : currentPreset.category === 'mobile'
+                  ? 'rounded-3xl border-4 border-slate-700 shadow-2xl overflow-hidden shrink-0 my-auto'
+                  : 'rounded-2xl border-4 border-slate-700 shadow-2xl overflow-hidden shrink-0 my-auto'
             }`}
           >
             {/* 移动端与平板顶部听筒/灵动胶囊拟真条 */}
-            {viewportMode === 'mobile' && (
+            {currentPreset.category === 'mobile' && !isRotated && (
               <div className="h-5 w-full bg-slate-800/90 flex items-center justify-center shrink-0">
                 <div className="w-12 h-1.5 bg-slate-600 rounded-full" />
               </div>
             )}
-            {viewportMode === 'tablet' && (
+            {currentPreset.category === 'tablet' && !isRotated && (
               <div className="h-4 w-full bg-slate-800/80 flex items-center justify-center shrink-0">
                 <div className="w-2.5 h-2.5 bg-slate-600 rounded-full" />
               </div>
@@ -565,6 +786,7 @@ export const HtmlViewer: React.FC<HtmlViewerProps> = ({
       </div>
     );
   };
+
 
   return (
     <DiagramStudioShell

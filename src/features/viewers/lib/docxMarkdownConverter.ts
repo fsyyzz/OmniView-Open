@@ -1,5 +1,4 @@
 /**
-/**
  * DOCX 渲染 DOM → Markdown 纯函数转换器
  * 智能识别 docx-preview 渲染产出的 DOM 节点、类名特征、富文本内联样式与表格结构，
  * 输出清晰标准、层级严谨的 Markdown 文本

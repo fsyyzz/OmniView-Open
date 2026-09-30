@@ -790,10 +790,11 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
         <div
           style={{
             width: `${splitRatio}%`,
+            minWidth: '180px',
             backgroundColor: 'var(--ov-code-bg, var(--ov-bg))',
             borderRight: '1px solid var(--ov-border)',
           }}
-          className="flex flex-col min-w-0"
+          className="flex flex-col min-w-0 shrink-0"
         >
           {/* Editor Header */}
           <div
@@ -882,9 +883,10 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
         <div
           style={{
             width: `${100 - splitRatio}%`,
+            minWidth: '180px',
             backgroundColor: 'var(--ov-bg)',
           }}
-          className="flex flex-col min-w-0"
+          className="flex flex-col min-w-0 flex-1 overflow-hidden"
         >
           {/* Viewport Toolbar */}
           <div
