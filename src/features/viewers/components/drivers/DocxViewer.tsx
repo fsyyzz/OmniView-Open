@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   PanelLeft,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   parseDocx,
@@ -25,6 +27,7 @@ import {
   type ParsedDocxDocument,
   type DocxTocItem,
 } from '../../lib/docxEngine';
+import { docxDomToMarkdown } from '../../lib/docxMarkdownConverter';
 import { DocxTocSidebar } from './docx/DocxTocSidebar';
 import { highlightSearchMatches, clearSearchHighlights, activateMatch } from '../../lib/domSearchHighlighter';
 import type { ThemeId } from '../../../../shared/types';
@@ -63,11 +66,22 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [matchCount, setMatchCount] = useState<number>(0);
   const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
+  const [mdCopied, setMdCopied] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const docxMountRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // 复制为 Markdown
+  const handleCopyAsMarkdown = useCallback(() => {
+    const md = docxDomToMarkdown(docxMountRef.current);
+    if (!md) return;
+    navigator.clipboard.writeText(md).then(() => {
+      setMdCopied(true);
+      setTimeout(() => setMdCopied(false), 2000);
+    }).catch(() => {});
+  }, []);
 
   // 搜索关键字高亮
   useEffect(() => {
@@ -473,6 +487,16 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
             title="系统打印 / 导出为 PDF"
           >
             <Printer className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handleCopyAsMarkdown}
+            className={`p-1.5 rounded-md opacity-80 hover:opacity-100 transition hidden sm:block ${
+              mdCopied ? 'bg-emerald-600/20 text-emerald-500' : 'hover:bg-black/10 dark:hover:bg-white/10'
+            }`}
+            title="复制全文为 Markdown"
+          >
+            {mdCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
           </button>
 
           <button

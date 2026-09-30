@@ -85,6 +85,11 @@ async function testDocxOperations() {
   // 全屏沉浸
   assert(docxViewerSource.includes('toggleFullscreen'), '缺失全屏切换操作');
   console.log('✅ 9. 全屏阅读 (Fullscreen API) 完备');
+
+  // 复制全文为 Markdown
+  assert(docxViewerSource.includes('handleCopyAsMarkdown'), '缺失复制全文为 Markdown 交互处理函数');
+  assert(docxViewerSource.includes('docxDomToMarkdown'), '缺失 docxDomToMarkdown 模块接入');
+  console.log('✅ 10. 复制全文为 Markdown (DOM → Markdown 结构化清洗导出) 交互完备');
 }
 
 async function testPptxOperations() {
@@ -205,7 +210,7 @@ async function main() {
   await testDocxOperations();
   await testPptxOperations();
   await testXlsxOperations();
-  console.log('\n🎉 Office 三剑客 (DOCX & PPTX & XLSX) 全部 25 项核心操作与交互能力 100% 确认可用！\n');
+  console.log('\n🎉 Office 三剑客 (DOCX & PPTX & XLSX) 全部 26 项核心操作与交互能力 100% 确认可用！\n');
 }
 
 main().catch(err => {

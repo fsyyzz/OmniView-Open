@@ -47,6 +47,9 @@ export default defineConfig(() => {
             if (id.includes('node_modules/js-yaml')) {
               return 'vendor-yaml';
             }
+            if (id.includes('node_modules/@univerjs')) {
+              return 'vendor-univer';
+            }
           },
         },
       },

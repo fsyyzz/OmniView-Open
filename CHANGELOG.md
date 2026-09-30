@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+## [1.2.32] - 2026-09-28
+
+### Added
+
+- **Word (.docx) 结构化提取与一键复制为 Markdown (DOCX DOM to Markdown Extraction)**:
+  - **纯函数转换器**：引入 `docxMarkdownConverter.ts`，基于渲染树将标题（H1~H6）、正文段落、粗体/斜体、有序/无序列表、图片、超链接与规范表格结构化反解为清晰的 Markdown 语法；
+  - **工具栏快捷操作**：在 `DocxViewer` 顶栏新增一键「复制全文为 Markdown」交互按钮，配合绿色对勾反馈与防抖提示，极大提升 Office 文档内容转入知识库与 AI 提示词的效率；
+  - **Office 操作能力矩阵升级**：自动化操作矩阵套件覆盖升至 26 项大满贯，包含专属单元测试 `test-docx-markdown-converter.mjs`。
+
+## [1.2.31] - 2026-09-28
+
+### Added
+
+- **全面引入 Univer 专业电子表格工作台 (Full Univer Spreadsheet Engine Integration)**:
+  - **核心模块集成**：完整引入 `@univerjs/core`、`@univerjs/design`、`@univerjs/engine-render`、`@univerjs/engine-formula`、`@univerjs/sheets`、`@univerjs/sheets-ui`、`@univerjs/sheets-formula`、`@univerjs/sheets-formula-ui`、`@univerjs/sheets-numfmt` 与 `@univerjs/themes`；
+  - **双模单键无缝切换**：在 `XlsxViewer` 中提供「极速轻量预览 (默认秒开)」与「Univer 专业工作台 (Canvas 2D 60FPS 虚拟滚动、公式计算与就地编辑)」双模自由切换；
+  - **纯前端离线数据转换适配器**：新增 `xlsxToUniverAdapter.ts`，基于 OOXML 原生解析结果，实现单元格数值、类型、公式、合并单元格（`mergeData`）与多工作表的 100% 离线无损转换，彻底规避网络与商业版授权依赖；
+  - **VS Code 与 --ov-* 多主题桥接器**：新增 `univerThemeBridge.ts`，深度映射 `--ov-*` 语义化设计令牌与 VS Code 原生 CSS 变量，支持浅色/暗色及高对比度主题像素级融合；
+  - **Vite 按需动态懒加载与独立分包**：配置 `vendor-univer` Chunk 物理隔离，确保普通文件预览与工作台轻量启动零资源拖累，并在组件卸载时调用 `univer.dispose()` 杜绝内存泄漏；
+  - **完整中英文国际化语言包注入**：全量内置 Design、UI、Sheets、FormulaUI 语言包，保证菜单与公式工具栏原生汉化。
+
+### Added
+
+- **补充 Univer 适配层与模型转换自动化测试套件**:
+  - `test-xlsx-engine.mjs` 新增 `testConvertOmniWorkbookToUniver`，覆盖工作表拓扑、单元格坐标、类型推断与合并单元格校验，保障 100% 转换准确率。
+
 ## [1.2.30] - 2026-09-28
 
 ### Added

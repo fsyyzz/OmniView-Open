@@ -56,6 +56,8 @@ export interface XlsxViewerProps {
   onContentChange?: (content: string) => void;
 }
 
+const UniverSheetViewer = React.lazy(() => import('./xlsx/UniverSheetViewer'));
+
 export const XlsxViewer: React.FC<XlsxViewerProps> = ({
   content,
   binaryUrl,
@@ -69,6 +71,9 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
   const [activeSheetIdx, setActiveSheetIdx] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 双模引擎状态: 'fast' (轻量秒开只读预览) | 'univer' (Univer 专业 Canvas 工作台)
+  const [viewEngine, setViewEngine] = useState<'fast' | 'univer'>('fast');
 
   // 搜索、排序与分页状态
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -315,43 +320,75 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           </div>
         </div>
 
-        {/* 中间：全局搜索与表头模式切换 */}
-        <div className="flex items-center gap-2 flex-1 max-w-md justify-center">
-          <div className="relative w-full max-w-xs">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={e => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              placeholder="搜索单元格数据... (Ctrl+F)"
-              className="w-full pl-8 pr-3 py-1 text-xs rounded bg-[var(--ov-bg,#0d1117)] border border-[var(--ov-border,#30363d)] focus:border-emerald-500 focus:outline-none placeholder:text-slate-500 text-slate-200"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+        {/* 中间：双模引擎切换与检索 */}
+        <div className="flex items-center gap-2 flex-1 max-w-xl justify-center">
+          {/* 双模引擎无缝切换 (极速轻量 vs Univer 专业 Canvas) */}
+          <div className="flex items-center rounded border border-[var(--ov-border,#30363d)] bg-[var(--ov-bg,#0d1117)] p-0.5 shrink-0">
+            <button
+              onClick={() => setViewEngine('fast')}
+              className={`px-2 py-0.5 text-xs rounded transition flex items-center gap-1 ${
+                viewEngine === 'fast'
+                  ? 'bg-emerald-600 text-white font-medium shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="极速轻量预览：毫秒秒开、内存低、支持列画像与快速检索"
+            >
+              <Table className="w-3 h-3" />
+              <span>极速预览</span>
+            </button>
+            <button
+              onClick={() => setViewEngine('univer')}
+              className={`px-2 py-0.5 text-xs rounded transition flex items-center gap-1 ${
+                viewEngine === 'univer'
+                  ? 'bg-emerald-600 text-white font-medium shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Univer 专业工作台：Canvas 2D 60FPS 虚拟滚动、公式栏、复杂选区与单元格就地编辑"
+            >
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Univer 专业工作台</span>
+            </button>
           </div>
 
-          <button
-            onClick={() => setUseFirstRowAsHeader(!useFirstRowAsHeader)}
-            className={`px-2 py-1 text-[11px] rounded border transition flex items-center gap-1 shrink-0 ${
-              useFirstRowAsHeader
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-medium'
-                : 'bg-[var(--ov-bg,#0d1117)] border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200'
-            }`}
-            title="切换是否使用第一行作为列标题"
-          >
-            <Table className="w-3 h-3" />
-            <span className="hidden sm:inline">首行为表头</span>
-          </button>
+          {viewEngine === 'fast' && (
+            <>
+              <div className="relative w-full max-w-xs">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="搜索单元格数据... (Ctrl+F)"
+                  className="w-full pl-8 pr-3 py-1 text-xs rounded bg-[var(--ov-bg,#0d1117)] border border-[var(--ov-border,#30363d)] focus:border-emerald-500 focus:outline-none placeholder:text-slate-500 text-slate-200"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => setUseFirstRowAsHeader(!useFirstRowAsHeader)}
+                className={`px-2 py-1 text-[11px] rounded border transition flex items-center gap-1 shrink-0 ${
+                  useFirstRowAsHeader
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-medium'
+                    : 'bg-[var(--ov-bg,#0d1117)] border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200'
+                }`}
+                title="切换是否使用第一行作为列标题"
+              >
+                <Table className="w-3 h-3" />
+                <span className="hidden sm:inline">首行为表头</span>
+              </button>
+            </>
+          )}
         </div>
 
         {/* 右侧：缩放、导出、属性与全屏 */}
@@ -481,8 +518,30 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           </div>
         )}
 
-        {!loading && !error && currentSheet && (
-          <div className="flex-1 min-h-0 overflow-auto relative" style={{ fontSize: `${zoom * 12}px` }}>
+        {!loading && !error && workbook && (
+          viewEngine === 'univer' ? (
+            <div className="flex-1 min-h-0 w-full h-full overflow-hidden">
+              <React.Suspense
+                fallback={
+                  <div className="flex flex-col items-center justify-center h-full bg-[var(--ov-bg,#0d1117)]">
+                    <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
+                    <span className="text-xs text-slate-400 font-mono">
+                      正在动态装载 Univer 专业表格引擎...
+                    </span>
+                  </div>
+                }
+              >
+                <UniverSheetViewer
+                  workbook={workbook}
+                  fileName={fileName}
+                  theme={theme}
+                  isDarkTheme={isDarkTheme}
+                  locale={locale}
+                />
+              </React.Suspense>
+            </div>
+          ) : currentSheet ? (
+            <div className="flex-1 min-h-0 overflow-auto relative" style={{ fontSize: `${zoom * 12}px` }}>
             <table className="w-full border-collapse border-spacing-0 text-left">
               {/* 表头 */}
               <thead className="sticky top-0 z-20 bg-[var(--ov-panel-bg,#161b22)] shadow-xs">
@@ -609,82 +668,85 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
               </tbody>
             </table>
           </div>
+          ) : null
         )}
       </div>
 
-      {/* 底部多工作表 Tab 栏与分页状态条 */}
-      <footer className="flex items-center justify-between px-3 py-1.5 border-t border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] shrink-0 gap-2 z-10">
-        {/* 左侧：工作表 (Sheets) Tab 列表 */}
-        <div className="flex items-center gap-1 overflow-x-auto min-w-0 max-w-xl py-0.5">
-          {workbook?.sheets.map((sheet, idx) => {
-            const isActive = idx === activeSheetIdx;
-            return (
-              <button
-                key={sheet.id || idx}
-                onClick={() => {
-                  setActiveSheetIdx(idx);
+      {/* 底部多工作表 Tab 栏与分页状态条 (仅在 fast 极速模式下展示) */}
+      {viewEngine === 'fast' && (
+        <footer className="flex items-center justify-between px-3 py-1.5 border-t border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] shrink-0 gap-2 z-10">
+          {/* 左侧：工作表 (Sheets) Tab 列表 */}
+          <div className="flex items-center gap-1 overflow-x-auto min-w-0 max-w-xl py-0.5">
+            {workbook?.sheets.map((sheet, idx) => {
+              const isActive = idx === activeSheetIdx;
+              return (
+                <button
+                  key={sheet.id || idx}
+                  onClick={() => {
+                    setActiveSheetIdx(idx);
+                    setPage(1);
+                    setSortCol(null);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs whitespace-nowrap font-medium transition border ${
+                    isActive
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                      : 'bg-[var(--ov-bg,#0d1117)] text-slate-400 border-[var(--ov-border,#30363d)] hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))]'
+                  }`}
+                  title={`工作表: ${sheet.name} (${sheet.rowCount} 行, ${sheet.colCount} 列)`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate max-w-[120px]">{sheet.name}</span>
+                  <span className={`text-[10px] px-1 py-0.2 rounded ${isActive ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-800 text-slate-400'}`}>
+                    {sheet.rowCount}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 右侧：分页控制器 */}
+          <div className="flex items-center gap-2 text-xs text-slate-400 shrink-0">
+            <div className="flex items-center gap-1">
+              <span>每页</span>
+              <select
+                value={pageSize}
+                onChange={e => {
+                  setPageSize(Number(e.target.value));
                   setPage(1);
-                  setSortCol(null);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs whitespace-nowrap font-medium transition border ${
-                  isActive
-                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
-                    : 'bg-[var(--ov-bg,#0d1117)] text-slate-400 border-[var(--ov-border,#30363d)] hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))]'
-                }`}
-                title={`工作表: ${sheet.name} (${sheet.rowCount} 行, ${sheet.colCount} 列)`}
+                className="px-1.5 py-0.5 rounded bg-[var(--ov-bg,#0d1117)] border border-[var(--ov-border,#30363d)] text-slate-200 text-xs focus:outline-none"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate max-w-[120px]">{sheet.name}</span>
-                <span className={`text-[10px] px-1 py-0.2 rounded ${isActive ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-800 text-slate-400'}`}>
-                  {sheet.rowCount}
-                </span>
+                <option value={20}>20 行</option>
+                <option value={50}>50 行</option>
+                <option value={100}>100 行</option>
+                <option value={500}>500 行</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1 border border-[var(--ov-border,#30363d)] rounded bg-[var(--ov-bg,#0d1117)] px-1 py-0.5">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+                title="上一页"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-            );
-          })}
-        </div>
-
-        {/* 右侧：分页控制器 */}
-        <div className="flex items-center gap-2 text-xs text-slate-400 shrink-0">
-          <div className="flex items-center gap-1">
-            <span>每页</span>
-            <select
-              value={pageSize}
-              onChange={e => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="px-1.5 py-0.5 rounded bg-[var(--ov-bg,#0d1117)] border border-[var(--ov-border,#30363d)] text-slate-200 text-xs focus:outline-none"
-            >
-              <option value={20}>20 行</option>
-              <option value={50}>50 行</option>
-              <option value={100}>100 行</option>
-              <option value={500}>500 行</option>
-            </select>
+              <span className="text-[11px] font-mono px-1 text-slate-300">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+                title="下一页"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-
-          <div className="flex items-center gap-1 border border-[var(--ov-border,#30363d)] rounded bg-[var(--ov-bg,#0d1117)] px-1 py-0.5">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
-              title="上一页"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[11px] font-mono px-1 text-slate-300">
-              {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
-              title="下一页"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* 列数据画像透视模态框 */}
       {selectedProfileCol !== null && columnProfiles[selectedProfileCol] && (

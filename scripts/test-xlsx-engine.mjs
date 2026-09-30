@@ -14,6 +14,7 @@ import {
   exportSheetToJson,
   exportSheetToMarkdown,
 } from '../src/features/viewers/lib/xlsxEngine.ts';
+import { convertOmniWorkbookToUniver } from '../src/features/viewers/components/drivers/xlsx/xlsxToUniverAdapter.ts';
 
 async function testColLetterConversion() {
   console.log('  [test] 列字母与 0-based 索引双向换算测试...');
@@ -148,6 +149,42 @@ async function testResilienceOnEmptyInput() {
   console.log('  ✓ 空输入容错保底通过');
 }
 
+async function testConvertOmniWorkbookToUniver() {
+  console.log('  [test] OmniView -> Univer 数据模型转换适配测试...');
+  const sampleZip = await generateSampleXlsxZip();
+  const buffer = await sampleZip.generateAsync({ type: 'nodebuffer' });
+  const workbook = await parseXlsx(buffer);
+
+  // 模拟添加合并单元格
+  workbook.sheets[0].mergedRanges = ['A1:B2'];
+
+  const univerData = convertOmniWorkbookToUniver(workbook, '测试工作簿.xlsx', 'test_unit_1');
+  assert.equal(univerData.id, 'test_unit_1');
+  assert.equal(univerData.name, '测试工作簿.xlsx');
+  assert.ok(univerData.sheetOrder.length >= 2);
+
+  const firstSheetId = univerData.sheetOrder[0];
+  const firstSheet = univerData.sheets[firstSheetId];
+  assert.ok(firstSheet);
+  assert.equal(firstSheet.name, '2026年度业务营收与增长');
+  assert.ok(firstSheet.cellData);
+
+  // 验证单元格数据转换 (0-based)
+  // 检查是否有数据行被转换为 Univer ICellData (包含 v)
+  assert.ok(firstSheet.cellData[0]);
+  assert.ok(firstSheet.cellData[0][0].v !== undefined);
+
+  // 验证合并单元格转换
+  assert.ok(Array.isArray(firstSheet.mergeData));
+  assert.equal(firstSheet.mergeData.length, 1);
+  assert.equal(firstSheet.mergeData[0].startRow, 0);
+  assert.equal(firstSheet.mergeData[0].endRow, 1);
+  assert.equal(firstSheet.mergeData[0].startColumn, 0);
+  assert.equal(firstSheet.mergeData[0].endColumn, 1);
+
+  console.log('  ✓ OmniView -> Univer 数据模型适配测试通过');
+}
+
 async function runAll() {
   console.log('=== 开始执行 XLSX 渲染引擎自动化测试套件 ===');
   await testColLetterConversion();
@@ -156,7 +193,8 @@ async function runAll() {
   await testSampleXlsxGenerationAndParsing();
   await testExportToCsvJsonMarkdown();
   await testResilienceOnEmptyInput();
-  console.log('=== XLSX 渲染引擎 6 项测试全部 PASSED ===\n');
+  await testConvertOmniWorkbookToUniver();
+  console.log('=== XLSX 渲染引擎 7 项测试全部 PASSED ===\n');
 }
 
 runAll().catch(err => {
