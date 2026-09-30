@@ -561,8 +561,11 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                       backgroundColor: 'var(--ov-surface-header)',
                       borderColor: 'var(--ov-border)',
                       color: 'var(--ov-text-muted)',
+                      width: 80,
+                      minWidth: 80,
+                      maxWidth: 80,
                     }}
-                    className="p-2.5 font-mono w-14 text-center border-r sticky left-0 z-30 select-none"
+                    className="p-2 font-mono w-20 min-w-[80px] max-w-[80px] text-center border-r sticky left-0 z-30 select-none box-border"
                   >
                     #
                   </th>
@@ -732,17 +735,22 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                           backgroundColor: 'var(--ov-surface)',
                           borderColor: 'var(--ov-border)',
                           color: 'var(--ov-text-muted)',
+                          width: 80,
+                          minWidth: 80,
+                          maxWidth: 80,
                         }}
-                        className="p-1.5 font-mono text-center border-r sticky left-0 z-10 text-[11px] group-hover:opacity-100 transition"
+                        className="p-1 font-mono text-center border-r sticky left-0 z-10 text-[11px] w-20 min-w-[80px] max-w-[80px] box-border group-hover:opacity-100 transition"
                       >
-                        <div className="flex items-center justify-center relative">
-                          <span className="group-hover:hidden">{displayRowNumber}</span>
+                        <div className="relative flex items-center justify-center w-full h-5 select-none">
+                          <span className="group-hover:opacity-0 transition-opacity duration-150 truncate">
+                            {displayRowNumber}
+                          </span>
                           {/* Hover Action Buttons */}
-                          <div className="hidden group-hover:flex items-center gap-0.5 justify-center">
+                          <div className="absolute inset-0 flex items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none group-hover:pointer-events-auto">
                             <button
                               onClick={() => handleInsertRowBelow(originalIndex)}
                               style={{ color: 'var(--ov-text-muted)' }}
-                              className="p-1 hover:text-emerald-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
+                              className="p-1 hover:text-emerald-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded transition"
                               title="在下方插入新行"
                             >
                               <Plus className="w-3 h-3" />
@@ -750,7 +758,7 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                             <button
                               onClick={() => handleDuplicateRow(originalIndex)}
                               style={{ color: 'var(--ov-text-muted)' }}
-                              className="p-1 hover:text-blue-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
+                              className="p-1 hover:text-blue-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded transition"
                               title="复制此行"
                             >
                               <Copy className="w-3 h-3" />
@@ -758,7 +766,7 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
                             <button
                               onClick={() => handleDeleteRow(originalIndex)}
                               style={{ color: 'var(--ov-text-muted)' }}
-                              className="p-1 hover:text-red-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded"
+                              className="p-1 hover:text-red-400 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded transition"
                               title="删除此行"
                             >
                               <Trash2 className="w-3 h-3" />

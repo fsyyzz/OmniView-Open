@@ -20,18 +20,18 @@ export function getUniverThemeConfig(isDarkTheme: boolean, _themeId?: ThemeId) {
   return {
     ...baseTheme,
     // 基础背景与面板色
-    colorBgLayout: 'var(--ov-bg-primary, #1e1e1e)',
-    colorBgContainer: 'var(--ov-bg-secondary, #252526)',
-    colorBgElevated: 'var(--ov-bg-tertiary, #2d2d2d)',
+    colorBgLayout: 'var(--ov-bg, #1e1e1e)',
+    colorBgContainer: 'var(--ov-surface, #252526)',
+    colorBgElevated: 'var(--ov-surface-header, #2d2d2d)',
     // 文本颜色
-    colorText: 'var(--ov-text-primary, #cccccc)',
-    colorTextSecondary: 'var(--ov-text-secondary, #999999)',
-    colorTextTertiary: 'var(--ov-text-tertiary, #666666)',
+    colorText: 'var(--ov-text, #e6edf3)',
+    colorTextSecondary: 'var(--ov-text-secondary, #9da5b4)',
+    colorTextTertiary: 'var(--ov-text-muted, #768390)',
     // 边框色
-    colorBorder: 'var(--ov-border-base, #3e3e42)',
+    colorBorder: 'var(--ov-border, #3e3e42)',
     colorBorderSecondary: 'var(--ov-border-subtle, #333333)',
     // 强调与主色
-    colorPrimary: 'var(--ov-accent-primary, #007acc)',
-    colorPrimaryHover: 'var(--ov-accent-hover, #1f8ad2)',
+    colorPrimary: 'var(--ov-accent, #007acc)',
+    colorPrimaryHover: 'var(--ov-accent, #1f8ad2)',
   };
 }

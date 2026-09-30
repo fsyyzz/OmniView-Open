@@ -27,6 +27,7 @@ import {
   type ParsedDocxDocument,
   type DocxTocItem,
 } from '../../lib/docxEngine';
+import { paginateDocxContainer } from '../../lib/docxPaginationEngine';
 import { docxDomToMarkdown } from '../../lib/docxMarkdownConverter';
 import { DocxTocSidebar } from './docx/DocxTocSidebar';
 import { highlightSearchMatches, clearSearchHighlights, activateMatch } from '../../lib/domSearchHighlighter';
@@ -63,7 +64,10 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [tocItems, setTocItems] = useState<DocxTocItem[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'fluid' | 'paged'>('fluid'); // 默认高效流式阅读
+  const [viewMode, setViewMode] = useState<'fluid' | 'paged'>('paged'); // 默认按真实物理页数分页阅读
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [pageInputVal, setPageInputVal] = useState<string>('1');
   const [paperTheme, setPaperTheme] = useState<'paper' | 'dark' | 'sepia'>('paper');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [matchCount, setMatchCount] = useState<number>(0);
@@ -229,7 +233,27 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     });
   };
 
-  // 全局快捷键：Ctrl+F (搜索) / Ctrl+Shift+O (目录大纲) / Ctrl+P (打印)
+  // 跳转至指定页码
+  const handleJumpToPage = useCallback((pageNum: number) => {
+    if (!docxMountRef.current || !scrollAreaRef.current) return;
+    const targetPage = Math.max(1, Math.min(totalPages, pageNum));
+    const sheet = docxMountRef.current.querySelector<HTMLElement>(`[data-page-number="${targetPage}"]`);
+    if (sheet) {
+      const scrollContainer = scrollAreaRef.current;
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const targetRect = sheet.getBoundingClientRect();
+      const relativeTop = targetRect.top - containerRect.top;
+      const targetScrollTop = Math.max(0, scrollContainer.scrollTop + relativeTop - 12);
+      scrollContainer.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth',
+      });
+      setCurrentPage(targetPage);
+      setPageInputVal(String(targetPage));
+    }
+  }, [totalPages]);
+
+  // 全局快捷键：Ctrl+F (搜索) / Ctrl+Shift+O (目录大纲) / Ctrl+P (打印) / PageUp / PageDown
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
@@ -244,11 +268,17 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         handlePrint();
+      } else if (e.key === 'PageUp' && viewMode === 'paged') {
+        e.preventDefault();
+        handleJumpToPage(currentPage - 1);
+      } else if (e.key === 'PageDown' && viewMode === 'paged') {
+        e.preventDefault();
+        handleJumpToPage(currentPage + 1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrint]);
+  }, [handlePrint, viewMode, currentPage, handleJumpToPage]);
 
   // 解析并载入 DOCX 数据
   const loadDocument = useCallback(async () => {
@@ -272,6 +302,9 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
       const parsed = await parseDocx(rawData);
       setDocData(parsed);
+      if (parsed.metadata?.pageCount && parsed.metadata.pageCount > 0) {
+        setTotalPages(parsed.metadata.pageCount);
+      }
     } catch (err: unknown) {
       console.error('[DocxViewer] 解析失败:', err);
       setError(err instanceof Error ? err.message : 'DOCX 文档解析异常');
@@ -294,9 +327,26 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           inWrapper: true,
           ignoreWidth: viewMode === 'fluid',
           breakPages: viewMode === 'paged',
+          ignoreLastRenderedPageBreak: false,
         });
+
         if (!isCancelled) {
           setLoading(false);
+
+          // 若处于分页模式，启动自然分页排版引擎，将长节切分为真实纸张页面
+          if (viewMode === 'paged' && docxMountRef.current) {
+            const pageRes = paginateDocxContainer(docxMountRef.current, {
+              expectedPageCount: docData.metadata?.pageCount,
+            });
+            setTotalPages(pageRes.totalPages);
+            setCurrentPage(1);
+            setPageInputVal('1');
+          } else {
+            setTotalPages(1);
+            setCurrentPage(1);
+            setPageInputVal('1');
+          }
+
           // 提取层级大纲
           setTimeout(() => {
             if (docxMountRef.current) {
@@ -367,25 +417,45 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     }
   }, []);
 
-  // 滚动时检测视口最上方的标题项
+  // 滚动时检测视口最上方的标题项以及当前可见的页码
   const handleMainScroll = useCallback(() => {
-    if (!scrollAreaRef.current || tocItems.length === 0) return;
+    if (!scrollAreaRef.current) return;
     const scrollContainerTop = scrollAreaRef.current.getBoundingClientRect().top;
 
-    let currentActiveId = tocItems[0].id;
-    for (const item of tocItems) {
-      const el = item.element || document.getElementById(item.id);
-      if (el) {
-        const top = el.getBoundingClientRect().top - scrollContainerTop;
-        if (top <= 120) {
-          currentActiveId = item.id;
-        } else {
-          break;
+    // 1. 标题大纲跟踪
+    if (tocItems.length > 0) {
+      let currentActiveId = tocItems[0].id;
+      for (const item of tocItems) {
+        const el = item.element || document.getElementById(item.id);
+        if (el) {
+          const top = el.getBoundingClientRect().top - scrollContainerTop;
+          if (top <= 120) {
+            currentActiveId = item.id;
+          } else {
+            break;
+          }
         }
       }
+      setActiveHeadingId(currentActiveId);
     }
-    setActiveHeadingId(currentActiveId);
-  }, [tocItems]);
+
+    // 2. 当前物理页码跟踪 (viewMode === 'paged')
+    if (viewMode === 'paged' && docxMountRef.current) {
+      const sheets = Array.from(docxMountRef.current.querySelectorAll<HTMLElement>('.docx-paged-sheet'));
+      if (sheets.length > 0) {
+        const targetLine = scrollContainerTop + scrollAreaRef.current.clientHeight * 0.35;
+        let detected = 1;
+        for (let i = 0; i < sheets.length; i++) {
+          const rect = sheets[i].getBoundingClientRect();
+          if (rect.top <= targetLine && rect.bottom >= scrollContainerTop) {
+            detected = i + 1;
+          }
+        }
+        setCurrentPage(detected);
+        setPageInputVal(String(detected));
+      }
+    }
+  }, [tocItems, viewMode]);
 
   // 全屏切换
   const toggleFullscreen = useCallback(() => {
@@ -480,6 +550,53 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
+
+          {/* 真实物理页数导航器 (在分页模式且多页时呈现) */}
+          {viewMode === 'paged' && totalPages > 1 && (
+            <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md border border-[var(--ov-border)] text-xs font-mono ml-1 sm:ml-2">
+              <button
+                onClick={() => handleJumpToPage(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 transition"
+                title="上一页 (PageUp)"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <span className="opacity-60 text-[11px]">第</span>
+              <input
+                type="text"
+                value={pageInputVal}
+                onChange={e => setPageInputVal(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const num = parseInt(pageInputVal, 10);
+                    if (!isNaN(num)) {
+                      handleJumpToPage(num);
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  const num = parseInt(pageInputVal, 10);
+                  if (!isNaN(num)) {
+                    handleJumpToPage(num);
+                  } else {
+                    setPageInputVal(String(currentPage));
+                  }
+                }}
+                className="w-7 text-center bg-transparent border-b border-blue-500/50 focus:border-blue-500 focus:outline-none text-xs font-bold"
+                title="输入页码回车直达"
+              />
+              <span className="opacity-60 text-[11px]">/ {totalPages} 页</span>
+              <button
+                onClick={() => handleJumpToPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 transition"
+                title="下一页 (PageDown)"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 中间：全文搜索框 */}
@@ -541,25 +658,25 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
         {/* 右侧：视图模式切换、纸张主题、打印与元数据 */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* 视图模式切换：高效流式 (默认) vs A4 分页 */}
+          {/* 视图模式切换：A4 原始物理分页 (默认) vs 紧凑流式 */}
           <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border border-[var(--ov-border)]">
-            <button
-              onClick={() => setViewMode('fluid')}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                viewMode === 'fluid' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
-              }`}
-              title="高效流式阅读：无缝连续滚动、自适应分屏宽度、消除大面积空白断层（默认，推荐日常研发阅读）"
-            >
-              流式
-            </button>
             <button
               onClick={() => setViewMode('paged')}
               className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
                 viewMode === 'paged' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
               }`}
-              title="A4 拟真分页：标准 210mm x 297mm 纸张排版（适合打印排版校对）"
+              title="A4 原始物理分页阅读：根据文档原始真实页数与 A4 纸张排版（默认推荐）"
             >
               分页
+            </button>
+            <button
+              onClick={() => setViewMode('fluid')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
+                viewMode === 'fluid' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
+              }`}
+              title="紧凑流式阅读：无缝连续滚动、适应分屏宽度"
+            >
+              流式
             </button>
           </div>
 
@@ -716,7 +833,45 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   animation: docxHeadingFlash 1.5s cubic-bezier(0.4, 0, 0.2, 1);
                   border-radius: 4px;
                 }
-                /* 现代高效流式排版模式 (mode-fluid，默认推荐) */
+                /* 标准物理拟真 A4 分页排版模式 (mode-paged，默认推荐) */
+                .docx-viewport-root.mode-paged {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 28px;
+                  width: 100%;
+                  margin: 0 auto;
+                }
+                .docx-viewport-root.mode-paged section,
+                .docx-viewport-root.mode-paged .docx_page,
+                .docx-viewport-root.mode-paged .docx-paged-sheet {
+                  background: #ffffff !important;
+                  color: #1a1a1a !important;
+                  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+                  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+                  border-radius: 3px !important;
+                  position: relative !important;
+                  box-sizing: border-box !important;
+                  margin: 0 auto 28px auto !important;
+                  overflow: hidden !important;
+                }
+                .docx-page-number-badge {
+                  position: absolute;
+                  bottom: 8px;
+                  right: 16px;
+                  font-size: 11px;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  color: #64748b;
+                  pointer-events: none;
+                  background: rgba(255, 255, 255, 0.92);
+                  padding: 2px 8px;
+                  border-radius: 10px;
+                  border: 1px solid rgba(100, 116, 139, 0.2);
+                  user-select: none;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                  z-index: 10;
+                }
+                /* 现代高效流式排版模式 (mode-fluid) */
                 .docx-viewport-root.mode-fluid {
                   width: 100%;
                   max-width: 900px;
@@ -818,7 +973,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                 )}
 
                 <div className="pt-4 border-t border-[var(--ov-border)] space-y-1 font-mono text-[10px] opacity-50">
-                  <div>总页数估算: {docData?.metadata?.pageCount || '动态流式分页'}</div>
+                  <div>文档总页数: {docData?.metadata?.pageCount || totalPages} 页</div>
                   <div>字数统计: {docData?.metadata?.wordCount || '已载入'}</div>
                   <div>文件大小: {fileSize ? `${(fileSize / 1024).toFixed(1)} KB` : '标准 DOCX'}</div>
                 </div>

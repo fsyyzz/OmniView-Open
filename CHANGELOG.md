@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [1.2.37] - 2026-09-30
+
+### Fixed
+
+- **Excel (.xlsx) 暗色主题文字与界面全景高对比度适配 (XLSX Dark Theme Legibility & Design Tokens)**:
+  - **全量消除硬编码色值与未定义令牌**：彻底排查并替换 `XlsxViewer.tsx` 中散落的 `text-slate-*`、`bg-[var(--ov-panel-bg,#161b22)]` 与未定义的 `--ov-fg`，全量接入 `--ov-bg`、`--ov-surface`、`--ov-surface-header`、`--ov-border`、`--ov-text`、`--ov-text-secondary` 与 `--ov-text-muted` 语义化设计令牌；
+  - **单元格文本对比度增强**：在数据单元格 `<td>` 上显式绑定 `color: var(--ov-text)`，空单元格提示采用 `var(--ov-text-muted)`，杜绝暗色背景下单元格文字继承失真导致的文字看不清；
+  - **Univer 引擎深色主题与字体样式桥接**：修正 `univerThemeBridge.ts` 映射变量名，并在 `xlsxToUniverAdapter.ts` 转换层中为深色模式注入复用样式规则 `ov-dark-cell`（`#e6edf3`），确保 Univer 专业 Canvas 2D 绘图在各种暗黑主题下文字高亮清晰可辨。
+
+- **CSV / TSV 表格预览行号操作列抖动与向右闪烁根治 (CSV/TSV Line Number Anti-Jitter)**:
+  - **行号列固定 80px 宽度约束**：为表头 `<th>` 与表体行号 `<td>` 统一绑定 `width: 80, minWidth: 80, maxWidth: 80` 并设置 `box-sizing: border-box`，消除 HTML 表格默认 auto layout 在内容变更时对整列宽度的动态重新计算；
+  - **悬浮按钮绝对定位双层重叠架构**：行号单元格采用绝对居中重叠容器，默认行号与悬浮展示的添加、复制、删除 3 项操作按钮组通过平滑 `opacity` 淡入淡出过渡，内容尺寸严格锁定在固定区域内，彻底杜绝悬浮显示操作按钮时整张表格右移闪动的现象（0 像素抖动）。
+
 ## [1.2.36] - 2026-09-30
 
 ### Fixed

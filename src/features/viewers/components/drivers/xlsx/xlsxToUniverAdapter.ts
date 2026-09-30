@@ -40,10 +40,12 @@ function parseMergeRange(rangeStr: string): IRange | null {
 export function convertOmniWorkbookToUniver(
   workbook: ParsedXlsxWorkbook,
   workbookName = 'OmniView Spreadsheet',
-  unitId = `omniview_sheet_${Date.now()}`
+  unitId = `omniview_sheet_${Date.now()}`,
+  isDarkTheme = false
 ): IWorkbookData {
   const sheetOrder: string[] = [];
   const sheets: Record<string, Partial<IWorksheetData>> = {};
+  const defaultDarkStyleId = 'ov-dark-cell';
 
   const sourceSheets = workbook.sheets && workbook.sheets.length > 0 ? workbook.sheets : [
     {
@@ -103,6 +105,7 @@ export function convertOmniWorkbookToUniver(
           v,
           t,
           f,
+          s: isDarkTheme ? defaultDarkStyleId : undefined,
         };
       });
     } else if (sheet.rows && sheet.rows.length > 0) {
@@ -120,6 +123,7 @@ export function convertOmniWorkbookToUniver(
           cellData[rIdx][cIdx] = {
             v: text,
             t: CellValueType.STRING,
+            s: isDarkTheme ? defaultDarkStyleId : undefined,
           };
         });
       });
@@ -171,7 +175,7 @@ export function convertOmniWorkbookToUniver(
     name: workbookName,
     appVersion: '1.0.2',
     locale: LocaleType.ZH_CN,
-    styles: {},
+    styles: isDarkTheme ? { [defaultDarkStyleId]: { cl: { rgb: '#e6edf3' } } } : {},
     sheets,
     resources: [],
   };

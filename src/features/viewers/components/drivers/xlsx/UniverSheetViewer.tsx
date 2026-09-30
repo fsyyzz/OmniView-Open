@@ -112,7 +112,7 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
       univer.registerPlugin(UniverSheetsNumfmtPlugin);
 
       // 6. 转换数据模型并装载工作簿
-      const univerData = convertOmniWorkbookToUniver(workbook, fileName);
+      const univerData = convertOmniWorkbookToUniver(workbook, fileName, undefined, isDarkTheme);
       univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerData);
 
       if (!isDisposed) {
@@ -144,10 +144,10 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
 
   if (initError) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center text-red-500 bg-[var(--ov-bg-secondary)]">
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center" style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text)' }}>
         <div className="p-4 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 max-w-md">
-          <p className="font-semibold text-sm mb-1">Univer 引擎加载异常</p>
-          <p className="text-xs opacity-80">{initError}</p>
+          <p className="font-semibold text-sm mb-1 text-red-400">Univer 引擎加载异常</p>
+          <p className="text-xs opacity-80 text-red-300">{initError}</p>
         </div>
         <p className="text-xs text-[var(--ov-text-secondary)]">
           您可以切换回「极速轻量预览」模式以保证正常阅读表格。
@@ -157,9 +157,9 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[var(--ov-bg-primary)]">
+    <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text)' }}>
       {!isReady && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[var(--ov-bg-primary)]/80 backdrop-blur-xs">
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center backdrop-blur-xs" style={{ backgroundColor: 'var(--ov-bg, rgba(20,20,20,0.85))' }}>
           <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
           <span className="text-xs text-[var(--ov-text-secondary)] font-mono">
             正在初始化 Univer 专业电子表格工作台...

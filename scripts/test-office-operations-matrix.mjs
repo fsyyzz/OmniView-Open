@@ -17,9 +17,7 @@ import {
   generateSamplePptxBytes,
 } from '../src/features/viewers/lib/pptxEngine.ts';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = process.cwd();
 
 async function testDocxOperations() {
   console.log('\n📄 ====== 开始 Word (.docx) 全部操作与交互能力可用性验证 ======');

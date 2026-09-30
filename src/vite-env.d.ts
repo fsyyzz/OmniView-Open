@@ -47,6 +47,7 @@ declare module 'docx-preview' {
     renderFooters?: boolean;
     renderFootnotes?: boolean;
     renderEndnotes?: boolean;
+    ignoreLastRenderedPageBreak?: boolean;
   }
   export function renderAsync(
     data: Blob | ArrayBuffer | Uint8Array,

@@ -289,19 +289,26 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
       ref={containerRef}
       className="flex flex-col h-full w-full select-none overflow-hidden"
       style={{
-        background: 'var(--ov-bg, #0d1117)',
-        color: 'var(--ov-fg, #e6edf3)',
+        backgroundColor: 'var(--ov-bg)',
+        color: 'var(--ov-text)',
       }}
     >
       {/* 顶部工具栏 */}
-      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] shrink-0 gap-2 z-10">
+      <header
+        style={{
+          backgroundColor: 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text)',
+        }}
+        className="flex items-center justify-between px-3 py-2 border-b shrink-0 gap-2 z-10"
+      >
         <div className="flex items-center gap-2 min-w-0">
           <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <FileSpreadsheet className="w-4 h-4" />
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-xs truncate max-w-[200px]" title={fileName}>
+              <span className="font-semibold text-xs truncate max-w-[200px]" style={{ color: 'var(--ov-text)' }} title={fileName}>
                 {fileName}
               </span>
               {currentSheet && (
@@ -310,7 +317,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-400">
+            <div className="flex items-center gap-2 text-[10px]" style={{ color: 'var(--ov-text-secondary)' }}>
               <span>{workbook?.sheets.length || 0} 个工作表</span>
               <span>•</span>
               <span>{dataRows.length} 数据行</span>
@@ -323,14 +330,20 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
         {/* 中间：双模引擎切换与检索 */}
         <div className="flex items-center gap-2 flex-1 max-w-xl justify-center">
           {/* 双模引擎无缝切换 (极速轻量 vs Univer 专业 Canvas) */}
-          <div className="flex items-center rounded border border-[var(--ov-border,#30363d)] bg-[var(--ov-bg,#0d1117)] p-0.5 shrink-0">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center rounded border p-0.5 shrink-0"
+          >
             <button
               onClick={() => setViewEngine('fast')}
-              className={`px-2 py-0.5 text-xs rounded transition flex items-center gap-1 ${
-                viewEngine === 'fast'
-                  ? 'bg-emerald-600 text-white font-medium shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                color: viewEngine === 'fast' ? '#ffffff' : 'var(--ov-text-secondary)',
+                backgroundColor: viewEngine === 'fast' ? 'var(--ov-accent, #10b981)' : 'transparent',
+              }}
+              className="px-2 py-0.5 text-xs rounded transition flex items-center gap-1 font-medium"
               title="极速轻量预览：毫秒秒开、内存低、支持列画像与快速检索"
             >
               <Table className="w-3 h-3" />
@@ -338,11 +351,11 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
             </button>
             <button
               onClick={() => setViewEngine('univer')}
-              className={`px-2 py-0.5 text-xs rounded transition flex items-center gap-1 ${
-                viewEngine === 'univer'
-                  ? 'bg-emerald-600 text-white font-medium shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                color: viewEngine === 'univer' ? '#ffffff' : 'var(--ov-text-secondary)',
+                backgroundColor: viewEngine === 'univer' ? 'var(--ov-accent, #10b981)' : 'transparent',
+              }}
+              className="px-2 py-0.5 text-xs rounded transition flex items-center gap-1 font-medium"
               title="Univer 专业工作台：Canvas 2D 60FPS 虚拟滚动、公式栏、复杂选区与单元格就地编辑"
             >
               <Sparkles className="w-3 h-3 text-amber-300" />
@@ -353,7 +366,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           {viewEngine === 'fast' && (
             <>
               <div className="relative w-full max-w-xs">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--ov-text-muted)' }} />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -363,12 +376,18 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                     setPage(1);
                   }}
                   placeholder="搜索单元格数据... (Ctrl+F)"
-                  className="w-full pl-8 pr-3 py-1 text-xs rounded bg-[var(--ov-bg,#0d1117)] border border-[var(--ov-border,#30363d)] focus:border-emerald-500 focus:outline-none placeholder:text-slate-500 text-slate-200"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                  className="w-full pl-8 pr-3 py-1 text-xs rounded border focus:border-emerald-500 focus:outline-none placeholder:text-[var(--ov-text-muted)]"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    style={{ color: 'var(--ov-text-muted)' }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 hover:text-[var(--ov-text)] transition"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -377,11 +396,12 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
 
               <button
                 onClick={() => setUseFirstRowAsHeader(!useFirstRowAsHeader)}
-                className={`px-2 py-1 text-[11px] rounded border transition flex items-center gap-1 shrink-0 ${
-                  useFirstRowAsHeader
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-medium'
-                    : 'bg-[var(--ov-bg,#0d1117)] border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200'
-                }`}
+                style={{
+                  backgroundColor: useFirstRowAsHeader ? 'rgba(16, 185, 129, 0.15)' : 'var(--ov-surface)',
+                  borderColor: useFirstRowAsHeader ? 'rgba(16, 185, 129, 0.4)' : 'var(--ov-border)',
+                  color: useFirstRowAsHeader ? '#6ee7b7' : 'var(--ov-text-secondary)',
+                }}
+                className="px-2 py-1 text-[11px] rounded border transition flex items-center gap-1 shrink-0 font-medium"
                 title="切换是否使用第一行作为列标题"
               >
                 <Table className="w-3 h-3" />
@@ -394,27 +414,39 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
         {/* 右侧：缩放、导出、属性与全屏 */}
         <div className="flex items-center gap-1 shrink-0">
           {/* 缩放控制器 */}
-          <div className="flex items-center border border-[var(--ov-border,#30363d)] rounded bg-[var(--ov-bg,#0d1117)] px-1 py-0.5">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="flex items-center border rounded px-1 py-0.5"
+          >
             <button
               onClick={() => setZoom(z => Math.max(0.7, Number((z - 0.1).toFixed(1))))}
-              className="p-1 hover:text-white text-slate-400 transition"
+              style={{ color: 'var(--ov-text-secondary)' }}
+              className="p-1 hover:text-[var(--ov-text)] transition"
               title="缩小网格"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[10px] w-8 text-center font-mono text-slate-300">
+            <span className="text-[10px] w-8 text-center font-mono" style={{ color: 'var(--ov-text)' }}>
               {Math.round(zoom * 100)}%
             </span>
             <button
               onClick={() => setZoom(z => Math.min(1.5, Number((z + 0.1).toFixed(1))))}
-              className="p-1 hover:text-white text-slate-400 transition"
+              style={{ color: 'var(--ov-text-secondary)' }}
+              className="p-1 hover:text-[var(--ov-text)] transition"
               title="放大网格"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setZoom(1.0)}
-              className="p-1 hover:text-white text-slate-400 transition ml-0.5 border-l border-[var(--ov-border,#30363d)]"
+              style={{
+                color: 'var(--ov-text-secondary)',
+                borderLeftColor: 'var(--ov-border)',
+              }}
+              className="p-1 hover:text-[var(--ov-text)] transition ml-0.5 border-l"
               title="还原缩放 (100%)"
             >
               <RotateCcw className="w-3 h-3" />
@@ -425,7 +457,12 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[var(--ov-border,#30363d)] hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))] text-slate-300 transition"
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded border hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition"
               title="导出当前工作表"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
@@ -434,35 +471,44 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
 
             {showExportMenu && (
               <div
-                className="absolute right-0 top-full mt-1 w-36 rounded-md shadow-xl border border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] py-1 z-50 text-xs text-slate-200"
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="absolute right-0 top-full mt-1 w-36 rounded-md shadow-xl border py-1 z-50 text-xs backdrop-blur"
                 onClick={() => setShowExportMenu(false)}
               >
                 <button
                   onClick={() => handleExport('csv')}
-                  className="w-full text-left px-3 py-1.5 hover:bg-emerald-500/20 hover:text-emerald-300 flex items-center gap-2"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] flex items-center gap-2 transition"
                 >
-                  <FileText className="w-3.5 h-3.5" />
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   <span>导出为 CSV</span>
                 </button>
                 <button
                   onClick={() => handleExport('tsv')}
-                  className="w-full text-left px-3 py-1.5 hover:bg-emerald-500/20 hover:text-emerald-300 flex items-center gap-2"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] flex items-center gap-2 transition"
                 >
-                  <FileText className="w-3.5 h-3.5" />
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   <span>导出为 TSV</span>
                 </button>
                 <button
                   onClick={() => handleExport('json')}
-                  className="w-full text-left px-3 py-1.5 hover:bg-emerald-500/20 hover:text-emerald-300 flex items-center gap-2"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] flex items-center gap-2 transition"
                 >
-                  <Code className="w-3.5 h-3.5" />
+                  <Code className="w-3.5 h-3.5 text-blue-400" />
                   <span>导出为 JSON</span>
                 </button>
                 <button
                   onClick={() => handleExport('md')}
-                  className="w-full text-left px-3 py-1.5 hover:bg-emerald-500/20 hover:text-emerald-300 flex items-center gap-2"
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] flex items-center gap-2 transition"
                 >
-                  <Table className="w-3.5 h-3.5" />
+                  <Table className="w-3.5 h-3.5 text-amber-400" />
                   <span>导出为 Markdown</span>
                 </button>
               </div>
@@ -472,11 +518,12 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           {/* 工作簿属性与信息 */}
           <button
             onClick={() => setShowInfo(!showInfo)}
-            className={`p-1.5 rounded border transition ${
-              showInfo
-                ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                : 'border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))]'
-            }`}
+            style={{
+              borderColor: showInfo ? 'rgba(59, 130, 246, 0.4)' : 'var(--ov-border)',
+              backgroundColor: showInfo ? 'rgba(59, 130, 246, 0.15)' : 'var(--ov-surface)',
+              color: showInfo ? '#60a5fa' : 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:text-[var(--ov-text)]"
             title="查看工作簿元数据与出版属性"
           >
             <Info className="w-3.5 h-3.5" />
@@ -485,7 +532,12 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           {/* 全屏放映 */}
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded border border-[var(--ov-border,#30363d)] text-slate-400 hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))] transition"
+            style={{
+              borderColor: 'var(--ov-border)',
+              backgroundColor: 'var(--ov-surface)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            className="p-1.5 rounded border transition hover:text-[var(--ov-text)]"
             title={isFullscreen ? '退出全屏' : '全屏展开数据网格'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -494,11 +546,11 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
       </header>
 
       {/* 主工作区 */}
-      <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden" style={{ backgroundColor: 'var(--ov-bg)' }}>
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--ov-bg,#0d1117)]/80 backdrop-blur z-30">
+          <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur z-30" style={{ backgroundColor: 'var(--ov-bg, rgba(20,20,20,0.85))' }}>
             <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
-            <p className="text-xs text-slate-300">正在解析 Excel 工作簿与构建数据网格...</p>
+            <p className="text-xs" style={{ color: 'var(--ov-text-secondary)' }}>正在解析 Excel 工作簿与构建数据网格...</p>
           </div>
         )}
 
@@ -508,7 +560,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
               <FileSpreadsheet className="w-8 h-8" />
             </div>
             <h3 className="text-sm font-medium text-red-400 mb-1">工作簿解析异常</h3>
-            <p className="text-xs text-slate-400 max-w-md mb-4">{error}</p>
+            <p className="text-xs max-w-md mb-4" style={{ color: 'var(--ov-text-secondary)' }}>{error}</p>
             <button
               onClick={loadWorkbook}
               className="px-3 py-1.5 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition"
@@ -523,9 +575,9 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
             <div className="flex-1 min-h-0 w-full h-full overflow-hidden">
               <React.Suspense
                 fallback={
-                  <div className="flex flex-col items-center justify-center h-full bg-[var(--ov-bg,#0d1117)]">
+                  <div className="flex flex-col items-center justify-center h-full" style={{ backgroundColor: 'var(--ov-bg)' }}>
                     <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-xs font-mono" style={{ color: 'var(--ov-text-secondary)' }}>
                       正在动态装载 Univer 专业表格引擎...
                     </span>
                   </div>
@@ -541,13 +593,34 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
               </React.Suspense>
             </div>
           ) : currentSheet ? (
-            <div className="flex-1 min-h-0 overflow-auto relative" style={{ fontSize: `${zoom * 12}px` }}>
+            <div
+              className="flex-1 min-h-0 overflow-auto relative"
+              style={{
+                fontSize: `${zoom * 12}px`,
+                backgroundColor: 'var(--ov-bg)',
+                color: 'var(--ov-text)',
+              }}
+            >
             <table className="w-full border-collapse border-spacing-0 text-left">
               {/* 表头 */}
-              <thead className="sticky top-0 z-20 bg-[var(--ov-panel-bg,#161b22)] shadow-xs">
+              <thead
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="sticky top-0 z-20 shadow-xs"
+              >
                 <tr>
                   {/* 行号表头 */}
-                  <th className="w-12 min-w-[48px] px-2 py-1.5 text-center font-mono text-[10px] text-slate-500 border-b border-r border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] sticky left-0 z-30 select-none">
+                  <th
+                    style={{
+                      backgroundColor: 'var(--ov-surface-header)',
+                      borderColor: 'var(--ov-border)',
+                      color: 'var(--ov-text-muted)',
+                    }}
+                    className="w-12 min-w-[48px] px-2 py-1.5 text-center font-mono text-[10px] border-b border-r sticky left-0 z-30 select-none"
+                  >
                     #
                   </th>
 
@@ -558,14 +631,19 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                     return (
                       <th
                         key={colIdx}
-                        className="px-3 py-1.5 font-medium text-slate-200 border-b border-r border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] whitespace-nowrap group hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.04))] transition"
+                        style={{
+                          backgroundColor: 'var(--ov-surface-header)',
+                          borderColor: 'var(--ov-border)',
+                          color: 'var(--ov-text)',
+                        }}
+                        className="px-3 py-1.5 font-medium border-b border-r whitespace-nowrap group hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.08))] transition"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div
                             className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0"
                             onClick={() => handleSort(colIdx)}
                           >
-                            <span className="font-semibold truncate" title={header}>
+                            <span className="font-semibold truncate" style={{ color: 'var(--ov-text)' }} title={header}>
                               {header}
                             </span>
                             {isSorted ? (
@@ -575,7 +653,10 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                                 <ArrowDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               )
                             ) : (
-                              <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 shrink-0 transition" />
+                              <ArrowUpDown
+                                style={{ color: 'var(--ov-text-muted)' }}
+                                className="w-3 h-3 opacity-0 group-hover:opacity-100 shrink-0 transition"
+                              />
                             )}
                           </div>
 
@@ -592,7 +673,8 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                                   e.stopPropagation();
                                   setSelectedProfileCol(colIdx);
                                 }}
-                                className="p-0.5 rounded text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition"
+                                style={{ color: 'var(--ov-text-muted)' }}
+                                className="p-0.5 rounded hover:text-emerald-400 hover:bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition"
                                 title="查看该列数据画像与分布统计"
                               >
                                 <BarChart2 className="w-3 h-3" />
@@ -607,12 +689,18 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
               </thead>
 
               {/* 表体 */}
-              <tbody className="divide-y divide-[var(--ov-border,#30363d)] font-mono text-[11px]">
+              <tbody
+                style={{
+                  borderColor: 'var(--ov-border)',
+                }}
+                className="divide-y font-mono text-[11px]"
+              >
                 {currentPageRows.length === 0 ? (
                   <tr>
                     <td
                       colSpan={displayHeaders.length + 1}
-                      className="py-12 text-center text-slate-500 text-xs"
+                      style={{ color: 'var(--ov-text-muted)' }}
+                      className="py-12 text-center text-xs"
                     >
                       未匹配到符合搜索条件的数据
                     </td>
@@ -623,10 +711,20 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                     return (
                       <tr
                         key={rowIdx}
-                        className="hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.03))] transition"
+                        style={{
+                          borderColor: 'var(--ov-border)',
+                        }}
+                        className="hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.06))] transition"
                       >
                         {/* 左侧固定行号 */}
-                        <td className="w-12 min-w-[48px] px-2 py-1 text-center font-mono text-[10px] text-slate-500 border-r border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] sticky left-0 z-10 select-none">
+                        <td
+                          style={{
+                            backgroundColor: 'var(--ov-surface)',
+                            borderColor: 'var(--ov-border)',
+                            color: 'var(--ov-text-muted)',
+                          }}
+                          className="w-12 min-w-[48px] px-2 py-1 text-center font-mono text-[10px] border-r sticky left-0 z-10 select-none"
+                        >
                           {actualRowNum}
                         </td>
 
@@ -643,14 +741,26 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                             <td
                               key={colIdx}
                               onClick={() => handleCopyCell(cellVal, refKey)}
-                              className={`px-3 py-1.5 border-r border-[var(--ov-border,#30363d)] truncate max-w-xs cursor-pointer group/cell relative transition ${
-                                isMatch ? 'bg-amber-500/15 text-amber-200 font-medium' : ''
-                              }`}
+                              style={{
+                                borderColor: 'var(--ov-border)',
+                                color: isMatch ? '#fef08a' : 'var(--ov-text)',
+                                backgroundColor: isMatch ? 'rgba(245, 158, 11, 0.18)' : undefined,
+                              }}
+                              className="px-3 py-1.5 border-r truncate max-w-xs cursor-pointer group/cell relative transition"
                               title={`[${refKey}] ${cellVal}\n(点击复制)`}
                             >
                               <div className="flex items-center justify-between gap-1">
-                                <span className="truncate">{cellVal || <span className="text-slate-600 font-sans italic">空</span>}</span>
-                                <span className="opacity-0 group-hover/cell:opacity-100 text-slate-400 hover:text-white shrink-0">
+                                <span className="truncate" style={{ color: 'inherit' }}>
+                                  {cellVal || (
+                                    <span style={{ color: 'var(--ov-text-muted)' }} className="font-sans italic opacity-70">
+                                      空
+                                    </span>
+                                  )}
+                                </span>
+                                <span
+                                  style={{ color: 'var(--ov-text-muted)' }}
+                                  className="opacity-0 group-hover/cell:opacity-100 hover:text-[var(--ov-text)] shrink-0 transition"
+                                >
                                   {isCopied ? (
                                     <Check className="w-3 h-3 text-emerald-400" />
                                   ) : (
@@ -674,7 +784,14 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
 
       {/* 底部多工作表 Tab 栏与分页状态条 (仅在 fast 极速模式下展示) */}
       {viewEngine === 'fast' && (
-        <footer className="flex items-center justify-between px-3 py-1.5 border-t border-[var(--ov-border,#30363d)] bg-[var(--ov-panel-bg,#161b22)] shrink-0 gap-2 z-10">
+        <footer
+          style={{
+            backgroundColor: 'var(--ov-surface-header)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text)',
+          }}
+          className="flex items-center justify-between px-3 py-1.5 border-t shrink-0 gap-2 z-10"
+        >
           {/* 左侧：工作表 (Sheets) Tab 列表 */}
           <div className="flex items-center gap-1 overflow-x-auto min-w-0 max-w-xl py-0.5">
             {workbook?.sheets.map((sheet, idx) => {
@@ -687,16 +804,23 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                     setPage(1);
                     setSortCol(null);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs whitespace-nowrap font-medium transition border ${
-                    isActive
-                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
-                      : 'bg-[var(--ov-bg,#0d1117)] text-slate-400 border-[var(--ov-border,#30363d)] hover:text-slate-200 hover:bg-[var(--ov-hover-bg,rgba(255,255,255,0.05))]'
-                  }`}
+                  style={{
+                    backgroundColor: isActive ? 'var(--ov-accent, #10b981)' : 'var(--ov-surface)',
+                    borderColor: isActive ? 'var(--ov-accent, #10b981)' : 'var(--ov-border)',
+                    color: isActive ? '#ffffff' : 'var(--ov-text-secondary)',
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded text-xs whitespace-nowrap font-medium transition border shadow-xs"
                   title={`工作表: ${sheet.name} (${sheet.rowCount} 行, ${sheet.colCount} 列)`}
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate max-w-[120px]">{sheet.name}</span>
-                  <span className={`text-[10px] px-1 py-0.2 rounded ${isActive ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-800 text-slate-400'}`}>
+                  <span
+                    style={{
+                      backgroundColor: isActive ? 'rgba(0,0,0,0.2)' : 'var(--ov-bg)',
+                      color: isActive ? '#ffffff' : 'var(--ov-text-muted)',
+                    }}
+                    className="text-[10px] px-1 py-0.2 rounded"
+                  >
                     {sheet.rowCount}
                   </span>
                 </button>
@@ -705,7 +829,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
           </div>
 
           {/* 右侧：分页控制器 */}
-          <div className="flex items-center gap-2 text-xs text-slate-400 shrink-0">
+          <div className="flex items-center gap-2 text-xs shrink-0" style={{ color: 'var(--ov-text-secondary)' }}>
             <div className="flex items-center gap-1">
               <span>每页</span>
               <select
@@ -714,7 +838,12 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                   setPageSize(Number(e.target.value));
                   setPage(1);
                 }}
-                className="px-1.5 py-0.5 rounded bg-[var(--ov-bg,#0d1117)] border border-[var(--ov-border,#30363d)] text-slate-200 text-xs focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="px-1.5 py-0.5 rounded border text-xs focus:outline-none"
               >
                 <option value={20}>20 行</option>
                 <option value={50}>50 行</option>
@@ -723,22 +852,30 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
               </select>
             </div>
 
-            <div className="flex items-center gap-1 border border-[var(--ov-border,#30363d)] rounded bg-[var(--ov-bg,#0d1117)] px-1 py-0.5">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="flex items-center gap-1 border rounded px-1 py-0.5"
+            >
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="p-1 hover:text-[var(--ov-text)] disabled:opacity-30 transition"
                 title="上一页"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[11px] font-mono px-1 text-slate-300">
+              <span className="text-[11px] font-mono px-1" style={{ color: 'var(--ov-text)' }}>
                 {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="p-1 hover:text-[var(--ov-text)] disabled:opacity-30 transition"
                 title="下一页"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -773,60 +910,85 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
 
       {/* 工作簿属性与出版元数据抽屉 */}
       {showInfo && workbook && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-[var(--ov-panel-bg,#161b22)] border border-[var(--ov-border,#30363d)] rounded-lg shadow-2xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--ov-border,#30363d)]">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+            className="w-full max-w-md border rounded-lg shadow-2xl overflow-hidden flex flex-col"
+          >
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="flex items-center justify-between px-4 py-3 border-b"
+            >
               <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Excel 工作簿属性 (Workbook Metadata)</span>
               </div>
               <button
                 onClick={() => setShowInfo(false)}
-                className="text-slate-400 hover:text-slate-200"
+                style={{ color: 'var(--ov-text-muted)' }}
+                className="hover:text-[var(--ov-text)] transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 space-y-3 text-xs text-slate-300">
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">文档标题</span>
-                <span className="col-span-2 font-medium text-slate-200 truncate">
+            <div className="p-4 space-y-3 text-xs" style={{ color: 'var(--ov-text)' }}>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border-subtle, rgba(128,128,128,0.2))' }}>
+                <span style={{ color: 'var(--ov-text-secondary)' }}>文档标题</span>
+                <span className="col-span-2 font-medium truncate" style={{ color: 'var(--ov-text)' }}>
                   {workbook.metadata.title || fileName}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">作者 / 创建者</span>
-                <span className="col-span-2 text-slate-200">{workbook.metadata.creator || '未署名'}</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border-subtle, rgba(128,128,128,0.2))' }}>
+                <span style={{ color: 'var(--ov-text-secondary)' }}>作者 / 创建者</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{workbook.metadata.creator || '未署名'}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">最后修订人</span>
-                <span className="col-span-2 text-slate-200">{workbook.metadata.lastModifiedBy || '未记录'}</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border-subtle, rgba(128,128,128,0.2))' }}>
+                <span style={{ color: 'var(--ov-text-secondary)' }}>最后修订人</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{workbook.metadata.lastModifiedBy || '未记录'}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">生成应用程序</span>
-                <span className="col-span-2 text-slate-200 truncate">{workbook.metadata.application || 'Microsoft Excel / OmniView'}</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border-subtle, rgba(128,128,128,0.2))' }}>
+                <span style={{ color: 'var(--ov-text-secondary)' }}>生成应用程序</span>
+                <span className="col-span-2 truncate" style={{ color: 'var(--ov-text)' }}>{workbook.metadata.application || 'Microsoft Excel / OmniView'}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">创建时间</span>
-                <span className="col-span-2 text-slate-200">{workbook.metadata.created || '无'}</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border-subtle, rgba(128,128,128,0.2))' }}>
+                <span style={{ color: 'var(--ov-text-secondary)' }}>创建时间</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{workbook.metadata.created || '无'}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 py-1 border-b border-[var(--ov-border,#30363d)]/50">
-                <span className="text-slate-400">修改时间</span>
-                <span className="col-span-2 text-slate-200">{workbook.metadata.modified || '无'}</span>
+              <div className="grid grid-cols-3 gap-2 py-1 border-b" style={{ borderColor: 'var(--ov-border-subtle, rgba(128,128,128,0.2))' }}>
+                <span style={{ color: 'var(--ov-text-secondary)' }}>修改时间</span>
+                <span className="col-span-2" style={{ color: 'var(--ov-text)' }}>{workbook.metadata.modified || '无'}</span>
               </div>
               <div className="grid grid-cols-3 gap-2 py-1">
-                <span className="text-slate-400">包含工作表</span>
+                <span style={{ color: 'var(--ov-text-secondary)' }}>包含工作表</span>
                 <span className="col-span-2 text-emerald-400 font-medium">
                   {workbook.sheets.map(s => s.name).join(', ')}
                 </span>
               </div>
             </div>
 
-            <div className="px-4 py-2.5 bg-[var(--ov-bg,#0d1117)] border-t border-[var(--ov-border,#30363d)] flex justify-end">
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+              }}
+              className="px-4 py-2.5 border-t flex justify-end"
+            >
               <button
                 onClick={() => setShowInfo(false)}
-                className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium transition"
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="px-3 py-1 rounded border text-xs font-medium hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] transition"
               >
                 关闭
               </button>
