@@ -64,7 +64,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [tocItems, setTocItems] = useState<DocxTocItem[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'fluid' | 'paged'>('paged'); // 默认按真实物理页数分页阅读
+  const [viewMode, setViewMode] = useState<'fluid' | 'paged'>('fluid'); // 默认采用现代化无缝流式排版阅读，杜绝断头截肢与吞字
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [pageInputVal, setPageInputVal] = useState<string>('1');
@@ -658,25 +658,25 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
         {/* 右侧：视图模式切换、纸张主题、打印与元数据 */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* 视图模式切换：A4 原始物理分页 (默认) vs 紧凑流式 */}
+          {/* 视图模式切换：现代流式排版 (默认推荐) vs 物理分页 */}
           <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-md p-0.5 border border-[var(--ov-border)]">
-            <button
-              onClick={() => setViewMode('paged')}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                viewMode === 'paged' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
-              }`}
-              title="A4 原始物理分页阅读：根据文档原始真实页数与 A4 纸张排版（默认推荐）"
-            >
-              分页
-            </button>
             <button
               onClick={() => setViewMode('fluid')}
               className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
                 viewMode === 'fluid' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
               }`}
-              title="紧凑流式阅读：无缝连续滚动、适应分屏宽度"
+              title="现代化无缝流式阅读：无截断、无大段空白，长文表格丝滑展开（默认推荐）"
             >
               流式
+            </button>
+            <button
+              onClick={() => setViewMode('paged')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
+                viewMode === 'paged' ? 'bg-blue-600 text-white shadow-xs' : 'opacity-70 hover:opacity-100'
+              }`}
+              title="A4 物理分页排版：模拟实体纸张排版"
+            >
+              分页
             </button>
           </div>
 
@@ -853,7 +853,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   position: relative !important;
                   box-sizing: border-box !important;
                   margin: 0 auto 28px auto !important;
-                  overflow: hidden !important;
+                  overflow: visible !important;
                 }
                 .docx-page-number-badge {
                   position: absolute;
@@ -871,10 +871,10 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
                   z-index: 10;
                 }
-                /* 现代高效流式排版模式 (mode-fluid) */
+                /* 现代高效流式排版模式 (mode-fluid，默认推荐) */
                 .docx-viewport-root.mode-fluid {
                   width: 100%;
-                  max-width: 900px;
+                  max-width: 860px;
                   margin: 0 auto;
                 }
                 .docx-viewport-root.mode-fluid section,
@@ -883,10 +883,13 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   width: 100% !important;
                   max-width: 100% !important;
                   min-height: auto !important;
-                  padding: 28px 36px !important;
-                  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
-                  border-radius: 8px !important;
-                  margin-bottom: 20px !important;
+                  padding: 36px 48px !important;
+                  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08) !important;
+                  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+                  border-radius: 6px !important;
+                  margin-bottom: 24px !important;
+                  background: #ffffff !important;
+                  color: #1a1a1a !important;
                 }
                 .docx-viewport-root.mode-fluid .docx_page {
                   width: 100% !important;
@@ -896,11 +899,25 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   border: none !important;
                   padding: 0 !important;
                   margin-bottom: 0 !important;
+                  background: transparent !important;
                 }
                 .docx-viewport-root.mode-fluid .docx_page_break {
-                  border-top: 1px dashed rgba(0, 0, 0, 0.15);
-                  margin: 24px 0;
+                  position: relative;
+                  border-top: 1px dashed rgba(100, 116, 139, 0.35);
+                  margin: 28px 0;
                   height: 1px;
+                }
+                .docx-viewport-root.mode-fluid .docx_page_break::after {
+                  content: '分页符 (Page Break)';
+                  position: absolute;
+                  right: 0;
+                  top: -8px;
+                  font-size: 10px;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  color: #94a3b8;
+                  background: #ffffff;
+                  padding: 0 6px;
+                  border-radius: 3px;
                 }
                 @media print {
                   header, aside, .docx-toc-sidebar {

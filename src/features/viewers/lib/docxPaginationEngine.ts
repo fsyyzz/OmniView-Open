@@ -229,10 +229,10 @@ function createPageSheetElement(params: {
   const sheet = document.createElement('section');
   sheet.className = `${params.sectionClass} docx_page docx-paged-sheet`;
   
-  // 保留原始 inline style，并明确限制宽高为标准单页
+  // 保留原始 inline style，确保单页自适应且绝不吞字截断
   sheet.setAttribute(
     'style',
-    `${params.inlineStyle}; width: 100% !important; max-width: ${params.width}px !important; min-height: ${params.height}px !important; box-sizing: border-box !important; position: relative !important; overflow: hidden !important; margin: 0 auto 28px auto !important;`
+    `${params.inlineStyle}; width: 100% !important; max-width: ${params.width}px !important; min-height: ${params.height}px !important; box-sizing: border-box !important; position: relative !important; margin: 0 auto 28px auto !important;`
   );
   sheet.setAttribute('data-page-number', String(params.pageNumber));
 
@@ -241,11 +241,10 @@ function createPageSheetElement(params: {
     sheet.appendChild(params.header.cloneNode(true));
   }
 
-  // 创建正文容器
+  // 创建正文容器，允许自然流式承载，彻底杜绝内容截断
   const article = document.createElement('article');
   article.className = 'docx-page-article';
   article.style.minHeight = `${params.height - params.padTop - params.padBottom - 48}px`;
-  article.style.overflow = 'hidden';
   article.style.boxSizing = 'border-box';
   sheet.appendChild(article);
 
