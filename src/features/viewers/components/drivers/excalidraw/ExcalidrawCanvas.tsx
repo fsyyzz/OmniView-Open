@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Excalidraw, restoreElements, restoreAppState, useHandleLibrary, loadLibraryFromBlob } from '@excalidraw/excalidraw';
-import '@excalidraw/excalidraw/index.css';
 import { Locale } from '../../../../../shared/lib/i18n';
-import { ExcalidrawParsedData } from './excalidrawEngine';
+import { ExcalidrawParsedData, renderExcalidrawToSvgString } from './excalidrawEngine';
+import { ZoomIn, ZoomOut, RotateCcw, PenTool } from 'lucide-react';
 
 export interface ExcalidrawCanvasProps {
   initialParsedData: ExcalidrawParsedData;
@@ -27,219 +26,119 @@ export const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({
   onApiReady,
   onLibraryLoaded,
 }) => {
-  const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
-  const isInternalChangeRef = useRef<boolean>(false);
-  const debounceTimerRef = useRef<any>(null);
+  const [svgHtml, setSvgHtml] = useState<string>('');
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // 初始化数据安全准备 (经 restoreElements 与 restoreAppState 标准化填充)
-  const initialData = useMemo(() => {
-    try {
-      const rawElements = initialParsedData?.elements || [];
-      const restoredElements = restoreElements(rawElements, null);
-      const restoredAppState = restoreAppState(
-        {
-          ...(initialParsedData?.appState || {}),
-          theme: (isDarkTheme ? 'dark' : 'light') as 'dark' | 'light',
-          exportWithDarkMode: isDarkTheme,
-          gridSize: showGrid ? 20 : null,
-          zenModeEnabled: isZenMode,
-          viewModeEnabled: isViewOnly,
-        },
-        null
-      );
-      return {
-        elements: restoredElements,
-        appState: restoredAppState,
-        files: initialParsedData?.files || {},
-      };
-    } catch {
-      return {
-        elements: [],
-        appState: {
-          theme: (isDarkTheme ? 'dark' : 'light') as 'dark' | 'light',
-          exportWithDarkMode: isDarkTheme,
-          gridSize: showGrid ? 20 : null,
-        },
-        files: {},
-      };
-    }
-  }, []);
-
-  // 本地素材库持久化适配器（支持跨会话记忆与 Excalidraw 官方社区回跳导入）
-  const libraryAdapter = useMemo(
-    () => ({
-      load: async () => {
-        try {
-          const saved = localStorage.getItem('omniview_excalidraw_library');
-          if (saved) return JSON.parse(saved);
-        } catch {
-          // ignore
-        }
-        return null;
-      },
-      save: async (data: any) => {
-        try {
-          localStorage.setItem('omniview_excalidraw_library', JSON.stringify(data));
-        } catch {
-          // ignore
-        }
-      },
-    }),
-    []
-  );
-
-  // 挂载 Excalidraw 官方素材库接收协议 (支持 URL #addLibrary=... 路由及社区素材无缝回写)
-  useHandleLibrary({
-    excalidrawAPI,
-    adapter: libraryAdapter,
-  });
-
-  // 绑定 API 回调
-  const handleApiRef = useCallback(
-    (api: any) => {
-      setExcalidrawAPI(api);
-      onApiReady?.(api);
-    },
-    [onApiReady]
-  );
-
-  // 监听画布变动，防抖回写
-  const handleChange = useCallback(
-    (elements: readonly any[], appState: any, files: any) => {
-      if (!onDocChange) return;
-
-      isInternalChangeRef.current = true;
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-
-      debounceTimerRef.current = setTimeout(() => {
-        try {
-          const doc = {
-            type: 'excalidraw',
-            version: 2,
-            source: 'https://omniview.dev',
-            elements: (elements || []).filter((el) => el && !el.isDeleted),
-            appState: {
-              viewBackgroundColor: appState?.viewBackgroundColor || (isDarkTheme ? '#121212' : '#ffffff'),
-              gridSize: appState?.gridSize ?? (showGrid ? 20 : null),
-            },
-            files: files || {},
-          };
-          const jsonStr = JSON.stringify(doc, null, 2);
-          onDocChange(jsonStr);
-        } catch {
-          // 防御性忽略异常
-        } finally {
-          setTimeout(() => {
-            isInternalChangeRef.current = false;
-          }, 50);
-        }
-      }, 250);
-    },
-    [onDocChange, isDarkTheme, showGrid]
-  );
-
-  // 支持直接向画布拖入 .excalidrawlib 离线素材文件
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
-
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      const files = Array.from(e.dataTransfer?.files || []);
-      const libFile = files.find(
-        (f) => f.name.endsWith('.excalidrawlib') || f.name.endsWith('.json')
-      );
-      if (libFile && excalidrawAPI) {
-        try {
-          e.preventDefault();
-          e.stopPropagation();
-          const items = await loadLibraryFromBlob(libFile, 'published');
-          await excalidrawAPI.updateLibrary({
-            libraryItems: items,
-            merge: true,
-            openLibraryMenu: true,
-            defaultStatus: 'published',
-          });
-          onLibraryLoaded?.(Array.isArray(items) ? items.length : 1);
-        } catch {
-          // 容错处理
-        }
-      }
-    },
-    [excalidrawAPI, onLibraryLoaded]
-  );
-
-  // 当外部数据变动时（非画布自身触发），调用 updateScene 同步
   useEffect(() => {
-    if (!excalidrawAPI || isInternalChangeRef.current) return;
-    if (!initialParsedData?.isValid) return;
+    let active = true;
+    renderExcalidrawToSvgString(initialParsedData, { isDarkTheme }).then(({ svgString }) => {
+      if (active) setSvgHtml(svgString);
+    });
+    return () => {
+      active = false;
+    };
+  }, [initialParsedData, isDarkTheme]);
 
-    try {
-      const rawElements = initialParsedData?.elements || [];
-      const restoredElements = restoreElements(rawElements, null);
-      const restoredAppState = restoreAppState(
-        {
-          ...(initialParsedData?.appState || {}),
-          theme: isDarkTheme ? 'dark' : 'light',
-          gridSize: showGrid ? 20 : null,
-          zenModeEnabled: isZenMode,
-          viewModeEnabled: isViewOnly,
-        },
-        null
-      );
-      excalidrawAPI.updateScene({
-        elements: restoredElements,
-        appState: restoredAppState,
-      });
-    } catch {
-      // 容错处理
-    }
-  }, [initialParsedData, excalidrawAPI, isDarkTheme, showGrid, isZenMode, isViewOnly]);
-
-  // 同步外部主题、网格与视图模式到 API
   useEffect(() => {
-    if (!excalidrawAPI) return;
-    try {
-      excalidrawAPI.updateScene({
-        appState: {
-          theme: isDarkTheme ? 'dark' : 'light',
-          exportWithDarkMode: isDarkTheme,
-          gridSize: showGrid ? 20 : null,
-          zenModeEnabled: isZenMode,
-        },
-      });
-    } catch {
-      // 容错
+    onApiReady?.({
+      scrollToContent: () => {
+        setPan({ x: 0, y: 0 });
+        setZoom(1);
+      },
+      updateScene: () => {},
+      getSceneElements: () => initialParsedData.elements,
+    });
+  }, [onApiReady, initialParsedData]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0 || e.button === 1) {
+      setIsPanning(true);
+      startPanRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     }
-  }, [isDarkTheme, showGrid, isZenMode, excalidrawAPI]);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({
+        x: e.clientX - startPanRef.current.x,
+        y: e.clientY - startPanRef.current.y,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(prev => Math.min(Math.max(prev + delta, 0.2), 3));
+    }
+  };
 
   return (
     <div
-      className="w-full h-full relative select-none overflow-hidden"
-      style={{ minHeight: '380px' }}
-      id="omniview-excalidraw-canvas-container"
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+      className="relative w-full h-full overflow-hidden select-none cursor-grab active:cursor-grabbing flex items-center justify-center"
+      style={{
+        backgroundColor: isDarkTheme ? '#121212' : '#ffffff',
+        backgroundImage: showGrid ? `radial-gradient(${isDarkTheme ? '#333333' : '#e0e0e0'} 1px, transparent 1px)` : undefined,
+        backgroundSize: showGrid ? '20px 20px' : undefined,
+      }}
     >
-      <Excalidraw
-        excalidrawAPI={handleApiRef}
-        initialData={initialData}
-        onChange={handleChange}
-        theme={isDarkTheme ? 'dark' : 'light'}
-        langCode={locale === 'zh-CN' ? 'zh-CN' : 'en'}
-        viewModeEnabled={isViewOnly}
-        zenModeEnabled={isZenMode}
-        gridModeEnabled={showGrid}
-        UIOptions={{
-          canvasActions: {
-            loadScene: false,
-            saveToActiveFile: false,
-            export: false,
-          },
+      <div
+        className="transition-transform duration-75"
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: 'center center',
+          width: '90%',
+          height: '90%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
+        dangerouslySetInnerHTML={{ __html: svgHtml }}
       />
+
+      {/* 快捷画布浮动工具 */}
+      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 p-1 rounded-lg bg-[var(--ov-surface)]/90 backdrop-blur-md border border-[var(--ov-border)] shadow-md text-xs">
+        <button
+          onClick={() => setZoom(prev => Math.min(prev + 0.15, 3))}
+          className="p-1 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)]"
+          title="放大 (Zoom In)"
+        >
+          <ZoomIn size={14} />
+        </button>
+        <span className="font-mono text-[11px] px-1 text-[var(--ov-text-muted)]">{Math.round(zoom * 100)}%</span>
+        <button
+          onClick={() => setZoom(prev => Math.max(prev - 0.15, 0.2))}
+          className="p-1 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)]"
+          title="缩小 (Zoom Out)"
+        >
+          <ZoomOut size={14} />
+        </button>
+        <button
+          onClick={() => {
+            setZoom(1);
+            setPan({ x: 0, y: 0 });
+          }}
+          className="p-1 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)]"
+          title="重置视口 (Reset Viewport)"
+        >
+          <RotateCcw size={14} />
+        </button>
+      </div>
     </div>
   );
 };
+
+export default ExcalidrawCanvas;

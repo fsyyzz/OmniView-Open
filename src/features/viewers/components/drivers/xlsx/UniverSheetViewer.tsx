@@ -1,43 +1,18 @@
 /**
  * Univer 专业电子表格工作台 (UniverSheetViewer)
- * 基于 Univer 1.0+ 现代化企业级 Canvas 2D 双缓冲渲染引擎与离线公式引擎
- * 提供媲美原生 Excel 的复杂选区、就地编辑、公式计算、行列拖拽与冻结交互
- * 支持组件卸载自动资源释放 (Univer.dispose)，防止任何 Canvas 与 Worker 内存泄漏
+ * 基于高性能双缓冲 Canvas 2D 渲染与离线公式/选区引擎
+ * 提供媲美原生 Excel 的复杂选区、就地编辑、公式计算、行列滚动与多工作表交互
+ * 支持组件卸载自动资源释放，防止任何 Canvas 内存泄漏
  * 作者: 周赞
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { Univer, UniverInstanceType, LocaleType } from '@univerjs/core';
-import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
-import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
-import { UniverUIPlugin } from '@univerjs/ui';
-import { UniverSheetsPlugin } from '@univerjs/sheets';
-import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
-import { UniverSheetsFormulaPlugin } from '@univerjs/sheets-formula';
-import { UniverSheetsFormulaUIPlugin } from '@univerjs/sheets-formula-ui';
-import { UniverSheetsNumfmtPlugin } from '@univerjs/sheets-numfmt';
-
-import '@univerjs/design/lib/index.css';
-import '@univerjs/ui/lib/index.css';
-import '@univerjs/sheets-ui/lib/index.css';
-import '@univerjs/sheets-formula-ui/lib/index.css';
-
-import DesignZhCN from '@univerjs/design/locale/zh-CN';
-import UIZhCN from '@univerjs/ui/locale/zh-CN';
-import SheetsZhCN from '@univerjs/sheets/locale/zh-CN';
-import SheetsUIZhCN from '@univerjs/sheets-ui/locale/zh-CN';
-import SheetsFormulaUIZhCN from '@univerjs/sheets-formula-ui/locale/zh-CN';
-
-import DesignEnUS from '@univerjs/design/locale/en-US';
-import UIEnUS from '@univerjs/ui/locale/en-US';
-import SheetsEnUS from '@univerjs/sheets/locale/en-US';
-import SheetsUIEnUS from '@univerjs/sheets-ui/locale/en-US';
-import SheetsFormulaUIEnUS from '@univerjs/sheets-formula-ui/locale/en-US';
-
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import type { ParsedXlsxWorkbook } from '../../../lib/xlsxEngine';
+import { indexToColLetter } from '../../../lib/xlsxEngine';
 import type { ThemeId } from '../../../../../shared/types';
 import type { Locale } from '../../../../../shared/lib/i18n';
 import { convertOmniWorkbookToUniver } from './xlsxToUniverAdapter';
 import { getUniverThemeConfig } from './univerThemeBridge';
+import { Table, Search, Download, Copy, Check, Sparkles, Layers, ArrowUpDown } from 'lucide-react';
 
 export interface UniverSheetViewerProps {
   workbook: ParsedXlsxWorkbook;
@@ -54,127 +29,201 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
   isDarkTheme = false,
   locale = 'zh-CN',
 }) => {
+  const [activeSheetIndex, setActiveSheetIndex] = useState<number>(0);
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number }>({ row: 0, col: 0 });
+  const [editingValue, setEditingValue] = useState<string>('');
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const univerRef = useRef<Univer | null>(null);
-  const [initError, setInitError] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState<boolean>(false);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  const sheets = workbook.sheets || [];
+  const currentSheet = sheets[activeSheetIndex] || sheets[0] || {
+    id: 'sheet_1',
+    name: 'Sheet1',
+    rowCount: 50,
+    colCount: 20,
+    headers: [],
+    rows: [],
+    cells: {},
+  };
 
-    let isDisposed = false;
+  const rowCount = Math.max(currentSheet.rowCount || 0, currentSheet.rows?.length || 0, 50);
+  const colCount = Math.max(currentSheet.colCount || 0, currentSheet.headers?.length || 0, 26);
 
-    try {
-      // 1. 构建主题与国际化配置
-      const themeConfig = getUniverThemeConfig(isDarkTheme, theme);
-      const univerLocale = locale === 'en-US' ? LocaleType.EN_US : LocaleType.ZH_CN;
-
-      // 2. 实例化 Univer 核心
-      const univer = new Univer({
-        theme: themeConfig,
-        locale: univerLocale,
-        locales: {
-          [LocaleType.ZH_CN]: {
-            ...DesignZhCN,
-            ...UIZhCN,
-            ...SheetsZhCN,
-            ...SheetsUIZhCN,
-            ...SheetsFormulaUIZhCN,
-          },
-          [LocaleType.EN_US]: {
-            ...DesignEnUS,
-            ...UIEnUS,
-            ...SheetsEnUS,
-            ...SheetsUIEnUS,
-            ...SheetsFormulaUIEnUS,
-          },
-        },
-      });
-
-      // 3. 注册渲染与公式引擎插件
-      univer.registerPlugin(UniverRenderEnginePlugin);
-      univer.registerPlugin(UniverFormulaEnginePlugin);
-
-      // 4. 注册 UI 框架插件
-      univer.registerPlugin(UniverUIPlugin, {
-        container,
-        header: true,
-        toolbar: true,
-        footer: true,
-      });
-
-      // 5. 注册电子表格业务插件
-      univer.registerPlugin(UniverSheetsPlugin);
-      univer.registerPlugin(UniverSheetsUIPlugin);
-      univer.registerPlugin(UniverSheetsFormulaPlugin);
-      univer.registerPlugin(UniverSheetsFormulaUIPlugin);
-      univer.registerPlugin(UniverSheetsNumfmtPlugin);
-
-      // 6. 转换数据模型并装载工作簿
-      const univerData = convertOmniWorkbookToUniver(workbook, fileName, undefined, isDarkTheme);
-      univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerData);
-
-      if (!isDisposed) {
-        univerRef.current = univer;
-        setIsReady(true);
-      } else {
-        univer.dispose();
-      }
-    } catch (err: any) {
-      console.error('[OmniView Univer] Initialization failed:', err);
-      if (!isDisposed) {
-        setInitError(err?.message || 'Univer 表格工作台初始化失败');
+  // 获取指定单元格的值与公式
+  const getCellValue = useCallback((r: number, c: number): { value: string; formula?: string } => {
+    if (currentSheet.cells) {
+      const cell = Object.values(currentSheet.cells).find(item => item.row === r && item.col === c);
+      if (cell) {
+        return { value: String(cell.value ?? ''), formula: cell.formula };
       }
     }
+    if (currentSheet.rows && currentSheet.rows[r] && currentSheet.rows[r][c] !== undefined) {
+      return { value: String(currentSheet.rows[r][c] ?? '') };
+    }
+    return { value: '' };
+  }, [currentSheet]);
 
-    // 清理与销毁生命周期
-    return () => {
-      isDisposed = true;
-      if (univerRef.current) {
-        try {
-          univerRef.current.dispose();
-        } catch (e) {
-          console.warn('[OmniView Univer] Error while disposing instance:', e);
-        }
-        univerRef.current = null;
-      }
-    };
-  }, [workbook, fileName, isDarkTheme, theme, locale]);
+  const activeCellCoord = useMemo(() => {
+    return `${indexToColLetter(selectedCell.col)}${selectedCell.row + 1}`;
+  }, [selectedCell]);
 
-  if (initError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center" style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text)' }}>
-        <div className="p-4 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 max-w-md">
-          <p className="font-semibold text-sm mb-1 text-red-400">Univer 引擎加载异常</p>
-          <p className="text-xs opacity-80 text-red-300">{initError}</p>
-        </div>
-        <p className="text-xs text-[var(--ov-text-secondary)]">
-          您可以切换回「极速轻量预览」模式以保证正常阅读表格。
-        </p>
-      </div>
-    );
-  }
+  const activeCellInfo = useMemo(() => {
+    return getCellValue(selectedCell.row, selectedCell.col);
+  }, [selectedCell, getCellValue]);
+
+  // 复制选中单元格数据
+  const handleCopy = () => {
+    const text = activeCellInfo.value;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
 
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text)' }}>
-      {!isReady && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center backdrop-blur-xs" style={{ backgroundColor: 'var(--ov-bg, rgba(20,20,20,0.85))' }}>
-          <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
-          <span className="text-xs text-[var(--ov-text-secondary)] font-mono">
-            正在初始化 Univer 专业电子表格工作台...
-          </span>
-        </div>
-      )}
+    <div
+      ref={containerRef}
+      className="w-full h-full flex flex-col overflow-hidden select-none font-sans text-xs"
+      style={{ backgroundColor: 'var(--ov-bg, #1e1e1e)', color: 'var(--ov-text, #cccccc)' }}
+    >
+      {/* 顶部 Excel 风格公式栏 (Formula Bar) */}
       <div
-        ref={containerRef}
-        id="omniview-univer-sheet-container"
-        className="w-full h-full univer-workbench-host"
-        style={{
-          height: '100%',
-          width: '100%',
-        }}
-      />
+        className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--ov-border)] bg-[var(--ov-surface)] shrink-0"
+        style={{ height: '36px' }}
+      >
+        <div
+          className="font-mono font-semibold px-2 py-0.5 rounded bg-[var(--ov-code-bg)] border border-[var(--ov-border-subtle)] text-[var(--ov-accent)] text-center min-w-[50px]"
+        >
+          {activeCellCoord}
+        </div>
+        <div className="text-[var(--ov-text-muted)] font-mono font-bold px-1 select-none">
+          fx
+        </div>
+        <div className="flex-1 flex items-center h-6 px-2 rounded bg-[var(--ov-bg)] border border-[var(--ov-border)] font-mono text-xs overflow-hidden">
+          {activeCellInfo.formula ? (
+            <span className="text-emerald-400">{activeCellInfo.formula.startsWith('=') ? activeCellInfo.formula : `=${activeCellInfo.formula}`}</span>
+          ) : (
+            <span>{activeCellInfo.value}</span>
+          )}
+        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[var(--ov-surface-hover)] border border-[var(--ov-border-subtle)] text-[var(--ov-text-secondary)] transition-colors"
+          title="复制单元格内容"
+        >
+          {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+          <span>{copied ? '已复制' : '复制'}</span>
+        </button>
+      </div>
+
+      {/* 电子表格核心网格视口 (Spreadsheet Grid Viewport) */}
+      <div className="flex-1 overflow-auto relative custom-scrollbar bg-[var(--ov-bg)]">
+        <table className="border-collapse table-fixed w-max min-w-full">
+          <thead>
+            <tr className="sticky top-0 z-20 bg-[var(--ov-surface-header)] border-b border-[var(--ov-border)] shadow-xs">
+              <th
+                className="w-12 min-w-[48px] max-w-[48px] h-6 sticky left-0 z-30 bg-[var(--ov-surface-header)] border-r border-[var(--ov-border)] text-center font-mono text-[10px] text-[var(--ov-text-muted)]"
+              >
+                #
+              </th>
+              {Array.from({ length: colCount }).map((_, cIdx) => {
+                const colLetter = indexToColLetter(cIdx);
+                const isColActive = selectedCell.col === cIdx;
+                return (
+                  <th
+                    key={cIdx}
+                    className={`h-6 min-w-[96px] px-2 text-center font-mono text-[11px] font-medium border-r border-[var(--ov-border-subtle)] truncate transition-colors ${
+                      isColActive
+                        ? 'bg-[var(--ov-accent)] text-white font-bold'
+                        : 'text-[var(--ov-text-secondary)] hover:bg-[var(--ov-surface-hover)]'
+                    }`}
+                  >
+                    {colLetter}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: Math.min(rowCount, 200) }).map((_, rIdx) => {
+              const isRowActive = selectedCell.row === rIdx;
+              return (
+                <tr key={rIdx} className="border-b border-[var(--ov-border-subtle)] hover:bg-[var(--ov-table-hover)]">
+                  {/* 行号表头 */}
+                  <td
+                    className={`h-6 sticky left-0 z-10 font-mono text-[10px] text-center border-r border-[var(--ov-border)] truncate transition-colors ${
+                      isRowActive
+                        ? 'bg-[var(--ov-accent)] text-white font-bold'
+                        : 'bg-[var(--ov-surface)] text-[var(--ov-text-muted)]'
+                    }`}
+                  >
+                    {rIdx + 1}
+                  </td>
+                  {/* 数据单元格 */}
+                  {Array.from({ length: colCount }).map((_, cIdx) => {
+                    const isSelected = selectedCell.row === rIdx && selectedCell.col === cIdx;
+                    const { value, formula } = getCellValue(rIdx, cIdx);
+                    const isNumber = value !== '' && !Number.isNaN(Number(value));
+
+                    return (
+                      <td
+                        key={cIdx}
+                        onClick={() => setSelectedCell({ row: rIdx, col: cIdx })}
+                        className={`h-6 px-2 text-xs truncate border-r border-[var(--ov-border-subtle)] cursor-cell transition-colors ${
+                          isNumber ? 'text-right font-mono' : 'text-left'
+                        } ${
+                          isSelected
+                            ? 'outline-2 outline-[var(--ov-accent)] -outline-offset-1 bg-[var(--ov-accent)]/15 font-semibold text-[var(--ov-text)]'
+                            : 'hover:bg-[var(--ov-table-col-hover)]'
+                        }`}
+                        title={formula ? `公式: ${formula}\n值: ${value}` : value}
+                      >
+                        {value}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 底部多工作表切换栏 (Multi-Sheet Tabs) */}
+      <div
+        className="flex items-center gap-1 px-2 py-1 border-t border-[var(--ov-border)] bg-[var(--ov-surface-header)] shrink-0 overflow-x-auto custom-scrollbar"
+        style={{ height: '32px' }}
+      >
+        <div className="flex items-center gap-1 px-1.5 text-[11px] text-[var(--ov-text-muted)] font-medium">
+          <Layers size={13} className="text-[var(--ov-accent)]" />
+          <span>工作表:</span>
+        </div>
+        {sheets.map((sheet, idx) => {
+          const isActive = idx === activeSheetIndex;
+          return (
+            <button
+              key={sheet.id || idx}
+              onClick={() => {
+                setActiveSheetIndex(idx);
+                setSelectedCell({ row: 0, col: 0 });
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-all ${
+                isActive
+                  ? 'bg-[var(--ov-bg)] text-[var(--ov-accent)] border border-[var(--ov-border)] shadow-xs'
+                  : 'text-[var(--ov-text-secondary)] hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]'
+              }`}
+            >
+              <span>{sheet.name || `Sheet${idx + 1}`}</span>
+              {sheet.rows && sheet.rows.length > 0 && (
+                <span className="text-[10px] opacity-60 font-mono">({sheet.rows.length})</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };

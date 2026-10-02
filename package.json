@@ -565,24 +565,11 @@
     "vscode:prepublish": "npm run build:plugin"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.1",
-    "@excalidraw/utils": "^0.1.5",
     "@hpcc-js/wasm-graphviz": "^1.29.0",
     "@myriaddreamin/typst-ts-renderer": "^0.7.0",
     "@myriaddreamin/typst-ts-web-compiler": "^0.7.0",
     "@myriaddreamin/typst.ts": "^0.7.0",
     "@types/js-yaml": "^4.0.9",
-    "@univerjs/core": "^1.0.2",
-    "@univerjs/design": "^1.0.2",
-    "@univerjs/engine-formula": "^1.0.2",
-    "@univerjs/engine-render": "^1.0.2",
-    "@univerjs/sheets": "^1.0.2",
-    "@univerjs/sheets-formula": "^1.0.2",
-    "@univerjs/sheets-formula-ui": "^1.0.2",
-    "@univerjs/sheets-numfmt": "^1.0.2",
-    "@univerjs/sheets-ui": "^1.0.2",
-    "@univerjs/themes": "^1.0.2",
-    "@univerjs/ui": "^1.0.2",
     "docx-preview": "^0.4.0",
     "dompurify": "^3.4.14",
     "js-yaml": "^5.4.1",
@@ -597,8 +584,7 @@
     "plantuml-encoder": "^1.4.0",
     "prismjs": "^1.30.0",
     "react": "^19.0.1",
-    "react-dom": "^19.0.1",
-    "rxjs": "^7.8.2"
+    "react-dom": "^19.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",

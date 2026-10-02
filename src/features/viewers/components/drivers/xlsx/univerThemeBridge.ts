@@ -4,8 +4,33 @@
  * 保持无刺眼白边、无色彩断层且与 --ov-* 变量像素级融合
  * 作者: 周赞
  */
-import { defaultTheme, darkBlueTheme } from '@univerjs/themes';
 import type { ThemeId } from '../../../../../shared/types';
+
+export const defaultTheme = {
+  colorBgLayout: '#ffffff',
+  colorBgContainer: '#ffffff',
+  colorBgElevated: '#f5f5f5',
+  colorText: '#1f2328',
+  colorTextSecondary: '#656d76',
+  colorTextTertiary: '#8c959f',
+  colorBorder: '#d0d7de',
+  colorBorderSecondary: '#e1e4e8',
+  colorPrimary: '#0969da',
+  colorPrimaryHover: '#0550ae',
+};
+
+export const darkBlueTheme = {
+  colorBgLayout: '#0d1117',
+  colorBgContainer: '#161b22',
+  colorBgElevated: '#21262d',
+  colorText: '#e6edf3',
+  colorTextSecondary: '#8b949e',
+  colorTextTertiary: '#6e7681',
+  colorBorder: '#30363d',
+  colorBorderSecondary: '#21262d',
+  colorPrimary: '#2f81f7',
+  colorPrimaryHover: '#58a6ff',
+};
 
 /**
  * 根据 OmniView 的当前主题与暗色状态构建 Univer 主题覆盖对象

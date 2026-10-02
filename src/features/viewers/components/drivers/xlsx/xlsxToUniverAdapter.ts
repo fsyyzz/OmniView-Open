@@ -4,10 +4,71 @@
  * 保持 100% 离线、纯前端转换，零网络与企业版商业授权依赖
  * 作者: 周赞
  */
-import type { IWorkbookData, IWorksheetData, ICellData, IRange } from '@univerjs/core';
-import { CellValueType, LocaleType } from '@univerjs/core';
 import type { ParsedXlsxWorkbook } from '../../../lib/xlsxEngine';
 import { colLetterToIndex } from '../../../lib/xlsxEngine';
+
+export enum CellValueType {
+  STRING = 1,
+  NUMBER = 2,
+  BOOLEAN = 3,
+  FORCE_STRING = 4,
+}
+
+export enum LocaleType {
+  ZH_CN = 'zh-CN',
+  EN_US = 'en-US',
+  RU_RU = 'ru-RU',
+  VI_VN = 'vi-VN',
+  ZH_TW = 'zh-TW',
+}
+
+export interface IRange {
+  startRow: number;
+  endRow: number;
+  startColumn: number;
+  endColumn: number;
+}
+
+export interface ICellData {
+  v?: string | number | boolean;
+  t?: CellValueType;
+  f?: string;
+  s?: string | Record<string, any>;
+  p?: any;
+}
+
+export interface IWorksheetData {
+  id: string;
+  name: string;
+  tabColor?: string;
+  hidden?: number;
+  rowCount?: number;
+  columnCount?: number;
+  zoomRatio?: number;
+  scrollTop?: number;
+  scrollLeft?: number;
+  defaultColumnWidth?: number;
+  defaultRowHeight?: number;
+  cellData: Record<number, Record<number, ICellData>>;
+  rowData?: Record<number, any>;
+  columnData?: Record<number, any>;
+  showGridlines?: number;
+  mergeData?: IRange[];
+  rowHeader?: { width: number; hidden: number };
+  columnHeader?: { height: number; hidden: number };
+  rightToLeft?: number;
+}
+
+export interface IWorkbookData {
+  id: string;
+  sheetOrder: string[];
+  name: string;
+  appVersion?: string;
+  locale?: LocaleType;
+  styles?: Record<string, any>;
+  sheets: Record<string, Partial<IWorksheetData>>;
+  resources?: any[];
+}
 
 /**
  * 解析如 "A1:C3" 的合并单元格字符串为 Univer IRange 对象

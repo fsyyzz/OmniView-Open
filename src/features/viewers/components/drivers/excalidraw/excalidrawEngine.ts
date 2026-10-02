@@ -566,7 +566,7 @@ export function convertMermaidToExcalidraw(mermaidCode: string): {
 }
 
 /**
- * 客户端浏览器异步渲染 Excalidraw 为 SVG 字符串并进行 DOMPurify 清洗
+ * 客户端浏览器异步渲染 Excalidraw 为 SVG 字符串并进行 DOMPurify 清洗 (纯原生高性能矢量生成器)
  */
 export async function renderExcalidrawToSvgString(
   parsedData: ExcalidrawParsedData,
@@ -576,7 +576,6 @@ export async function renderExcalidrawToSvgString(
   } = {}
 ): Promise<{ svgString: string; rawSvgElement?: SVGSVGElement }> {
   if (!parsedData.isValid || !parsedData.elements || parsedData.elements.length === 0) {
-    // 渲染极简空白板骨架
     const emptySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
       <rect width="100%" height="100%" fill="${options.isDarkTheme ? '#1e1e24' : '#fafafa'}" />
       <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="${options.isDarkTheme ? '#64748b' : '#94a3b8'}" font-family="system-ui, sans-serif" font-size="14">
@@ -586,45 +585,103 @@ export async function renderExcalidrawToSvgString(
     return { svgString: emptySvg };
   }
 
-  // 动态按需加载 @excalidraw/utils 避免污染其他文档的首屏体积
-  const { exportToSvg } = await import('@excalidraw/utils');
-
   const isDark = options.isDarkTheme ?? false;
+  const padding = options.padding ?? 30;
+  const elements = parsedData.elements.filter((el) => !el.isDeleted);
+
+  if (elements.length === 0) {
+    return {
+      svgString: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%"><rect width="100%" height="100%" fill="${isDark ? '#1e1e24' : '#fafafa'}" /></svg>`,
+    };
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  elements.forEach((el) => {
+    const x = el.x || 0;
+    const y = el.y || 0;
+    const w = el.width || 0;
+    const h = el.height || 0;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  });
+
+  if (!Number.isFinite(minX)) minX = 0;
+  if (!Number.isFinite(minY)) minY = 0;
+  if (!Number.isFinite(maxX)) maxX = 400;
+  if (!Number.isFinite(maxY)) maxY = 300;
+
+  const viewX = minX - padding;
+  const viewY = minY - padding;
+  const viewW = Math.max(maxX - minX + padding * 2, 100);
+  const viewH = Math.max(maxY - minY + padding * 2, 100);
+
   const bgColor = isDark
     ? (parsedData.appState?.viewBackgroundColor && parsedData.appState.viewBackgroundColor !== '#ffffff' ? parsedData.appState.viewBackgroundColor : '#121212')
     : (parsedData.appState?.viewBackgroundColor || '#ffffff');
 
-  const svgNode = await exportToSvg({
-    data: {
-      elements: parsedData.elements,
-      appState: {
-        ...parsedData.appState,
-        exportWithDarkMode: isDark,
-        exportBackground: true,
-        exportPadding: options.padding ?? 30,
-        viewBackgroundColor: bgColor,
-      },
-      files: parsedData.files,
-    },
-    config: {
-      renderEmbeddables: true,
-      skipInliningFonts: true,
-    } as any,
+  let svgElements = '';
+
+  elements.forEach((el) => {
+    const stroke = el.strokeColor || (isDark ? '#e6edf3' : '#1e1e1e');
+    const fill = el.backgroundColor === 'transparent' ? 'none' : (el.backgroundColor || 'none');
+    const strokeWidth = el.strokeWidth || 1;
+    const opacity = (el.opacity ?? 100) / 100;
+    const strokeDash = el.strokeStyle === 'dashed' ? 'stroke-dasharray="6,6"' : el.strokeStyle === 'dotted' ? 'stroke-dasharray="2,4"' : '';
+    const transform = el.angle ? `transform="rotate(${(el.angle * 180) / Math.PI} ${el.x + el.width / 2} ${el.y + el.height / 2})"` : '';
+
+    if (el.type === 'rectangle') {
+      const rx = el.roundness ? 8 : 0;
+      svgElements += `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" ${strokeDash} ${transform} />\n`;
+    } else if (el.type === 'ellipse') {
+      const cx = el.x + el.width / 2;
+      const cy = el.y + el.height / 2;
+      svgElements += `<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" ${strokeDash} ${transform} />\n`;
+    } else if (el.type === 'diamond') {
+      const p1 = `${el.x + el.width / 2},${el.y}`;
+      const p2 = `${el.x + el.width},${el.y + el.height / 2}`;
+      const p3 = `${el.x + el.width / 2},${el.y + el.height}`;
+      const p4 = `${el.x},${el.y + el.height / 2}`;
+      svgElements += `<polygon points="${p1} ${p2} ${p3} ${p4}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" ${strokeDash} ${transform} />\n`;
+    } else if (el.type === 'line' || el.type === 'arrow') {
+      const pts = (el.points || [[0, 0], [el.width, el.height]]).map((p: number[]) => `${el.x + p[0]},${el.y + p[1]}`).join(' ');
+      const marker = el.type === 'arrow' ? 'marker-end="url(#ov-arrow)"' : '';
+      svgElements += `<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" ${strokeDash} ${marker} ${transform} />\n`;
+    } else if (el.type === 'freedraw') {
+      const pts = el.points || [[0, 0]];
+      const d = pts.map((p: number[], idx: number) => `${idx === 0 ? 'M' : 'L'} ${el.x + p[0]} ${el.y + p[1]}`).join(' ');
+      svgElements += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" stroke-linecap="round" stroke-linejoin="round" ${transform} />\n`;
+    } else if (el.type === 'text') {
+      const fontSize = el.fontSize || 16;
+      const fontFamily = el.fontFamily === 2 ? 'monospace' : el.fontFamily === 3 ? 'serif' : 'sans-serif';
+      const lines = String(el.text || '').split('\n');
+      const textLines = lines.map((line: string, idx: number) => `<tspan x="${el.x}" dy="${idx === 0 ? 0 : fontSize * 1.2}">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</tspan>`).join('');
+      svgElements += `<text x="${el.x}" y="${el.y + fontSize * 0.8}" font-size="${fontSize}" font-family="${fontFamily}" fill="${stroke}" opacity="${opacity}" ${transform}>${textLines}</text>\n`;
+    }
   });
 
-  if (!svgNode) {
-    throw new Error('Excalidraw exportToSvg 未返回有效 SVG');
-  }
+  const rawXml = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewX} ${viewY} ${viewW} ${viewH}" width="100%" height="100%">
+    <defs>
+      <marker id="ov-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="${isDark ? '#e6edf3' : '#1e1e1e'}" />
+      </marker>
+    </defs>
+    <rect x="${viewX}" y="${viewY}" width="${viewW}" height="${viewH}" fill="${bgColor}" />
+    ${svgElements}
+  </svg>`;
 
-  const rawXml = new XMLSerializer().serializeToString(svgNode);
   const sanitized = DOMPurify.sanitize(rawXml, {
     USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_ATTR: ['dominant-baseline', 'text-anchor', 'stroke-linejoin', 'stroke-linecap'],
+    ADD_ATTR: ['dominant-baseline', 'text-anchor', 'stroke-linejoin', 'stroke-linecap', 'stroke-dasharray', 'marker-end'],
   });
 
   return {
     svgString: sanitized,
-    rawSvgElement: svgNode,
   };
 }
 
