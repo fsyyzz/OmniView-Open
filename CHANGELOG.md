@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [1.2.38] - 2026-10-02
+
+### Changed
+
+- **CI/CD 自动化流水线演化与 VS Code 插件市场发布支持 (Marketplace Automated Release Workflow)**:
+  - **发布引擎升级**：构建与发布阶段全面迁移至 `@vscode/vsce` 官方标准套件，并显式注入 `--pat` 认证凭证；
+  - **双通道触发支持**：Release 工作流支持 Git Tag (`v*.*.*`) 自动触发与 `workflow_dispatch` 手动输入版本号一键触发发布；
+  - **发布状态感知增强**：精简流水线错误忽略机制，使插件市场发布状态与错误诊断具有完整的可观测性与精准告警。
+
 ## [1.2.37] - 2026-09-30
 
 ### Fixed

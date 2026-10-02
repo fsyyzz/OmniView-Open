@@ -94,7 +94,7 @@ jobs:
   publish-marketplace:
     name: Publish to VS Code Marketplace
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -103,16 +103,14 @@ jobs:
         with:
           name: omniview-${{ github.sha }}
           path: ./dist
-        continue-on-error: true
 
-      - name: Publish via vsce
+      - name: Publish via @vscode/vsce
         run: |
           VSIX_FILE=$(ls ./dist/omniview-*.vsix 2>/dev/null | head -n 1)
           if [ -z "$VSIX_FILE" ]; then
             VSIX_FILE="./dist/omniview-${{ needs.build.outputs.version }}.vsix"
           fi
           echo "Publishing $VSIX_FILE to VS Code Marketplace..."
-          npx vsce publish --packagePath "$VSIX_FILE" --no-dependencies
+          npx @vscode/vsce publish --packagePath "$VSIX_FILE" --no-dependencies --pat "$VSCE_PAT"
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        continue-on-error: true
