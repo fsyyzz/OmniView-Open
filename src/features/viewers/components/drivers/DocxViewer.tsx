@@ -31,6 +31,7 @@ import { paginateDocxContainer } from '../../lib/docxPaginationEngine';
 import { docxDomToMarkdown } from '../../lib/docxMarkdownConverter';
 import { DocxTocSidebar } from './docx/DocxTocSidebar';
 import { highlightSearchMatches, clearSearchHighlights, activateMatch } from '../../lib/domSearchHighlighter';
+import { aggregateSearchMatchesByToc, type DocxSectionSearchMatch } from '../../lib/docxSearchAggregator';
 import { requestPrintHtml } from '../../../../shared/lib/printBridge';
 import { getVsCodeApi } from '../../../../shared/lib/vscode';
 import type { ThemeId } from '../../../../shared/types';
@@ -72,6 +73,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [matchCount, setMatchCount] = useState<number>(0);
   const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
+  const [searchGroups, setSearchGroups] = useState<Map<string, DocxSectionSearchMatch[]>>(new Map());
   const [mdCopied, setMdCopied] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -197,13 +199,14 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     });
   }, [docData, fileName]);
 
-  // 搜索关键字高亮
+  // 搜索关键字高亮与大纲就地热力聚类
   useEffect(() => {
     if (!docxMountRef.current) return;
     if (!searchQuery.trim()) {
       clearSearchHighlights(docxMountRef.current);
       setMatchCount(0);
       setActiveMatchIndex(-1);
+      setSearchGroups(new Map());
       return;
     }
 
@@ -212,15 +215,19 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       const count = highlightSearchMatches(docxMountRef.current, searchQuery);
       setMatchCount(count);
       if (count > 0) {
+        setShowNavigation(true); // 自动展开大纲热力导航窗口
         setActiveMatchIndex(0);
         activateMatch(docxMountRef.current, 0, false);
+        const aggRes = aggregateSearchMatchesByToc(docxMountRef.current, tocItems);
+        setSearchGroups(aggRes.groups);
       } else {
         setActiveMatchIndex(-1);
+        setSearchGroups(new Map());
       }
     }, 180);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, tocItems]);
 
   const handleNavigateMatch = (backwards = false) => {
     if (!docxMountRef.current || matchCount === 0) return;
@@ -232,6 +239,13 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       return next;
     });
   };
+
+  // 点击左侧导航栏匹配卡片，直接高亮并精准跳转到对应位置
+  const handleSelectMatch = useCallback((targetMatchIndex: number) => {
+    if (!docxMountRef.current) return;
+    setActiveMatchIndex(targetMatchIndex);
+    activateMatch(docxMountRef.current, targetMatchIndex, true);
+  }, []);
 
   // 跳转至指定页码
   const handleJumpToPage = useCallback((pageNum: number) => {
@@ -258,6 +272,14 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }, 50);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
+        // 拦截 Ctrl+R / Cmd+R 默认刷新行为，聚焦检索输入框并自动展开大纲热力导航面板
+        e.preventDefault();
+        setShowNavigation(true);
         setTimeout(() => {
           searchInputRef.current?.focus();
           searchInputRef.current?.select();
@@ -749,13 +771,18 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
       {/* 主体工作区（导航侧边栏 + 画布 + 元数据抽屉） */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* 左侧导航窗口 */}
+        {/* 左侧导航窗口 (融合多级大纲与全文检索热力聚类) */}
         <DocxTocSidebar
           showNavigation={showNavigation}
           tocItems={tocItems}
           activeHeadingId={activeHeadingId}
+          searchQuery={searchQuery}
+          totalMatchesCount={matchCount}
+          activeMatchIndex={activeMatchIndex}
+          searchGroups={searchGroups}
           onClose={() => setShowNavigation(false)}
           onSelectHeading={handleSelectHeading}
+          onSelectMatch={handleSelectMatch}
         />
 
         {/* 主画布滚动区域 */}
