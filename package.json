@@ -6,6 +6,7 @@
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
   "license": "MIT",
+  "icon": "assets/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/fsyyzz/OmniView-Open"
