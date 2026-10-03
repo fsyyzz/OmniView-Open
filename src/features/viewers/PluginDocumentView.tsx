@@ -21,6 +21,7 @@ import { KeyboardShortcutsModal } from './components/HelpShortcutsModal';
 import { ExternalLink, Save, Check, Loader2, Keyboard, Settings } from 'lucide-react';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../shared/lib/i18n';
 import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './lib/domSearchHighlighter';
+import { aggregateSearchMatchesByDocumentToc, type DocumentSectionSearchMatch } from './lib/documentSearchAggregator';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
 import { INITIAL_FILES } from '../../shared/data/sampleFiles';
 
@@ -404,6 +405,7 @@ const MarkdownPluginView: React.FC<{
   const [searchText, setSearchText] = useState('');
   const [matchCount, setMatchCount] = useState<number>(0);
   const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
+  const [searchGroups, setSearchGroups] = useState<Map<string, DocumentSectionSearchMatch[]>>(() => new Map());
   const [contentWidth, setContentWidth] = useState<ContentWidthMode>(initialSettings.contentWidth || 'standard');
   const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize || 15);
   const [focusMode, setFocusMode] = useState(false);
@@ -599,6 +601,7 @@ const MarkdownPluginView: React.FC<{
       clearSearchHighlights(canvas);
       setMatchCount(0);
       setActiveMatchIndex(-1);
+      setSearchGroups(new Map());
       return;
     }
 
@@ -609,13 +612,17 @@ const MarkdownPluginView: React.FC<{
       if (count > 0) {
         setActiveMatchIndex(0);
         activateMatch(target, 0, false); // 仅高亮当前匹配项，不滚动视口
+        setOutlineOpen(true); // 搜索命中时自动展开大纲热力导航面板
+        const aggRes = aggregateSearchMatchesByDocumentToc(target, headings);
+        setSearchGroups(aggRes.groups);
       } else {
         setActiveMatchIndex(-1);
+        setSearchGroups(new Map());
       }
     }, 180);
 
     return () => clearTimeout(timer);
-  }, [searchText, getSearchCanvas]);
+  }, [searchText, headings, getSearchCanvas]);
 
   // 工具栏显隐等无关重渲染后，若 <mark> 被冲掉则立即补回（不滚动）
   useLayoutEffect(() => {
@@ -650,9 +657,15 @@ const MarkdownPluginView: React.FC<{
           if (count > 0) activateMatch(canvas, next, false);
           return count > 0 ? next : -1;
         });
+        if (count > 0) {
+          const aggRes = aggregateSearchMatchesByDocumentToc(canvas, headings);
+          setSearchGroups(aggRes.groups);
+        } else {
+          setSearchGroups(new Map());
+        }
       });
     });
-  }, [searchText, getSearchCanvas]);
+  }, [searchText, headings, getSearchCanvas]);
 
   // 搜索前进/后退导航（用户主动按键/点击触发，平滑滚动至目标项）
   const handleFindText = useCallback((backwards = false) => {
@@ -675,6 +688,14 @@ const MarkdownPluginView: React.FC<{
       return nextIndex;
     });
   }, [searchText, matchCount, getSearchCanvas]);
+
+  // 点击大纲中的搜索匹配卡片，直接高亮并精准跳转到对应位置
+  const handleSelectMatch = useCallback((targetMatchIndex: number) => {
+    const canvas = getSearchCanvas();
+    if (!canvas) return;
+    setActiveMatchIndex(targetMatchIndex);
+    activateMatch(canvas, targetMatchIndex, true);
+  }, [getSearchCanvas]);
 
   // Copy operations
   const handleCopyRawMarkdown = async () => {
@@ -1063,6 +1084,11 @@ const MarkdownPluginView: React.FC<{
             onClose={handleToggleOutline}
             width={outlineWidth}
             onWidthChange={handleOutlineWidthChange}
+            searchQuery={searchText}
+            totalMatchesCount={matchCount}
+            activeMatchIndex={activeMatchIndex}
+            searchGroups={searchGroups}
+            onSelectMatch={handleSelectMatch}
           />
         )}
 
