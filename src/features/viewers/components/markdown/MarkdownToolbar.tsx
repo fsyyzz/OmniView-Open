@@ -32,6 +32,7 @@ import {
   Presentation,
   Keyboard,
   Replace,
+  X,
 } from 'lucide-react';
 import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
@@ -222,7 +223,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           <List size={14} />
         </button>
 
-        <div className="flex items-center gap-1 min-w-0">
+        <div className="relative flex items-center min-w-0">
           <div className="markdown-search-box flex items-center">
             <Search size={14} className="shrink-0" />
             <input
@@ -278,15 +279,20 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             )}
           </div>
 
-          {/* 展开的替换输入与动作栏 */}
+          {/* 悬浮在查询框正下方的独立替换面板 */}
           {showReplace && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-700 animate-in fade-in-50 duration-150">
+            <div
+              id="omniview-markdown-replace-panel"
+              className="absolute left-0 top-full mt-1.5 z-50 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg shadow-2xl border animate-in fade-in-50 slide-in-from-top-1 duration-150 select-none whitespace-nowrap"
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+                boxShadow: 'var(--ov-shadow, 0 10px 25px -5px rgba(0, 0, 0, 0.35))',
+              }}
+            >
+              <span className="text-xs opacity-50 shrink-0 select-none">⇄</span>
               <input
-                ref={r => {
-                  if (r && showReplace) {
-                    // 展开时聚焦
-                  }
-                }}
                 id="omniview-markdown-replace-input"
                 type="text"
                 value={replaceText}
@@ -302,16 +308,24 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                   } else if (e.key === 'Escape') {
                     e.preventDefault();
                     onToggleReplace?.();
+                  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                    e.preventDefault();
+                    document.getElementById('omniview-markdown-search-input')?.focus();
                   }
                 }}
                 placeholder={t('replacePlaceholder', locale)}
-                className="w-24 sm:w-32 bg-transparent text-xs text-slate-100 placeholder:text-slate-500 outline-none"
+                className="w-32 sm:w-44 border rounded px-2 py-0.5 text-xs focus:outline-hidden font-sans"
+                style={{
+                  background: 'var(--ov-code-bg)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
               />
               <button
                 type="button"
                 onClick={onReplaceSingle}
                 disabled={!searchText.trim() || matchCount === 0}
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-800 hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-200 hover:text-white transition cursor-pointer"
+                className="px-2 py-0.5 rounded text-[11px] font-medium border border-blue-600 bg-blue-600 hover:bg-blue-500 text-white cursor-pointer disabled:opacity-40 transition"
                 title={t('replaceTooltip', locale)}
               >
                 {t('replace', locale)}
@@ -320,7 +334,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                 type="button"
                 onClick={onReplaceAll}
                 disabled={!searchText.trim() || matchCount === 0}
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-800 hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-200 hover:text-white transition cursor-pointer"
+                className="px-2 py-0.5 rounded text-[11px] font-medium border border-[var(--ov-border)] bg-[var(--ov-surface-hover)] hover:bg-blue-600 hover:text-white cursor-pointer disabled:opacity-40 transition"
                 title={t('replaceAllTooltip', locale)}
               >
                 {t('replaceAll', locale)}
@@ -329,14 +343,24 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                 <button
                   type="button"
                   onClick={onToggleMatchCase}
-                  className={`px-1 py-0.5 rounded text-[10px] font-mono transition border cursor-pointer ${
-                    matchCase ? 'bg-blue-600 text-white border-blue-500 shadow-2xs font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition cursor-pointer ${
+                    matchCase
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs font-bold'
+                      : 'border-[var(--ov-border)] text-[var(--ov-text-secondary)] hover:bg-[var(--ov-surface-hover)]'
                   }`}
                   title={t('matchCase', locale)}
                 >
                   Aa
                 </button>
               )}
+              <button
+                type="button"
+                onClick={onToggleReplace}
+                className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)] transition ml-0.5"
+                title="收起替换面板 (Esc)"
+              >
+                <X size={13} />
+              </button>
             </div>
           )}
         </div>

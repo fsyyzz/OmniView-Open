@@ -1096,16 +1096,19 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       {/* 浮动查找与替换工作台 (Ctrl+F / Ctrl+H) */}
       {isSearching && (
         <div
-          id="ov-codeviewer-search-bar"
-          className="absolute top-10 right-4 z-40 rounded-lg shadow-xl px-2.5 py-1.5 flex flex-col gap-1.5 text-xs border select-none animate-in fade-in-50 duration-150"
-          style={{
-            background: 'var(--ov-surface)',
-            borderColor: 'var(--ov-border)',
-            color: 'var(--ov-text)',
-          }}
+          id="ov-codeviewer-search-wrapper"
+          className="absolute top-10 right-4 z-40 flex flex-col items-end gap-1.5 select-none animate-in fade-in-50 duration-150"
         >
-          {/* 第一行：查找行 */}
-          <div className="flex items-center gap-1.5">
+          {/* 查询主条 */}
+          <div
+            id="ov-codeviewer-search-bar"
+            className="rounded-lg shadow-xl px-2.5 py-1.5 flex items-center gap-1.5 text-xs border"
+            style={{
+              background: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+              color: 'var(--ov-text)',
+            }}
+          >
             <button
               type="button"
               onClick={() => setShowReplace(prev => !prev)}
@@ -1209,10 +1212,19 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             </div>
           </div>
 
-          {/* 第二行：替换行 (展开态) */}
+          {/* 独立悬浮在查询面板下方的替换条 */}
           {showReplace && (
-            <div className="flex items-center gap-1.5 pt-1 border-t border-[var(--ov-border)] animate-in fade-in-50 duration-150">
-              <span className="w-5 text-center text-xs opacity-50 shrink-0 select-none">⇄</span>
+            <div
+              id="ov-codeviewer-replace-panel"
+              className="rounded-lg shadow-2xl px-2.5 py-1.5 flex items-center gap-1.5 text-xs border animate-in slide-in-from-top-1 fade-in-50 duration-150"
+              style={{
+                background: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+                boxShadow: 'var(--ov-shadow, 0 10px 25px -5px rgba(0, 0, 0, 0.35))',
+              }}
+            >
+              <span className="w-4 text-center text-xs opacity-50 shrink-0 select-none">⇄</span>
               <input
                 ref={replaceInputRef}
                 id="ov-codeviewer-replace-input"
@@ -1231,6 +1243,9 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
                   } else if (e.key === 'Escape') {
                     e.preventDefault();
                     setShowReplace(false);
+                  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                    e.preventDefault();
+                    searchInputRef.current?.focus();
                   }
                 }}
                 className="w-36 sm:w-48 border rounded px-2 py-0.5 text-[11px] focus:outline-hidden font-sans"
@@ -1258,12 +1273,21 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               >
                 {t('replaceAll', locale)}
               </button>
+              <button
+                type="button"
+                onClick={() => setShowReplace(false)}
+                className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                title="收起替换面板 (Esc)"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
           {/* 轻提示反馈信息 */}
           {replaceMessage && (
-            <div className="text-[10px] text-emerald-500 font-medium px-1 animate-in fade-in duration-100">
+            <div className="text-[10px] text-emerald-500 font-medium px-1 animate-in fade-in duration-100 self-end">
               {replaceMessage}
             </div>
           )}
