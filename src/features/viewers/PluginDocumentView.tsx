@@ -406,6 +406,9 @@ const MarkdownPluginView: React.FC<{
   const [matchCount, setMatchCount] = useState<number>(0);
   const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
   const [searchGroups, setSearchGroups] = useState<Map<string, DocumentSectionSearchMatch[]>>(() => new Map());
+  const [replaceText, setReplaceText] = useState('');
+  const [showReplace, setShowReplace] = useState(false);
+  const [matchCase, setMatchCase] = useState(false);
   const [contentWidth, setContentWidth] = useState<ContentWidthMode>(initialSettings.contentWidth || 'standard');
   const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize || 15);
   const [focusMode, setFocusMode] = useState(false);
@@ -607,7 +610,7 @@ const MarkdownPluginView: React.FC<{
 
     const timer = setTimeout(() => {
       const target = getSearchCanvas();
-      const count = highlightSearchMatches(target, searchText);
+      const count = highlightSearchMatches(target, searchText, { caseSensitive: matchCase });
       setMatchCount(count);
       if (count > 0) {
         setActiveMatchIndex(0);
@@ -622,7 +625,7 @@ const MarkdownPluginView: React.FC<{
     }, 180);
 
     return () => clearTimeout(timer);
-  }, [searchText, headings, getSearchCanvas]);
+  }, [searchText, headings, matchCase, getSearchCanvas]);
 
   // 工具栏显隐等无关重渲染后，若 <mark> 被冲掉则立即补回（不滚动）
   useLayoutEffect(() => {
@@ -630,7 +633,7 @@ const MarkdownPluginView: React.FC<{
     const canvas = getSearchCanvas();
     if (!canvas) return;
     if (canvas.querySelectorAll('mark.ov-search-match').length > 0) return;
-    const count = highlightSearchMatches(canvas, searchText);
+    const count = highlightSearchMatches(canvas, searchText, { caseSensitive: matchCase });
     setMatchCount(count);
     if (count > 0) {
       setActiveMatchIndex(prev => {
@@ -650,7 +653,7 @@ const MarkdownPluginView: React.FC<{
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const canvas = getSearchCanvas();
-        const count = highlightSearchMatches(canvas, searchText);
+        const count = highlightSearchMatches(canvas, searchText, { caseSensitive: matchCase });
         setMatchCount(count);
         setActiveMatchIndex(prev => {
           const next = Math.min(prev < 0 ? 0 : prev, Math.max(count - 1, 0));
@@ -696,6 +699,60 @@ const MarkdownPluginView: React.FC<{
     setActiveMatchIndex(targetMatchIndex);
     activateMatch(canvas, targetMatchIndex, true);
   }, [getSearchCanvas]);
+
+  // Markdown 预览态单处替换
+  const handleReplaceSingle = useCallback(() => {
+    if (!searchText.trim() || matchCount === 0) return;
+    const occurrences: Array<{ start: number; end: number }> = [];
+    const target = matchCase ? documentContent : documentContent.toLowerCase();
+    const query = matchCase ? searchText : searchText.toLowerCase();
+    let pos = 0;
+    while (pos < target.length) {
+      const idx = target.indexOf(query, pos);
+      if (idx === -1) break;
+      occurrences.push({ start: idx, end: idx + query.length });
+      pos = idx + Math.max(1, query.length);
+    }
+    if (occurrences.length === 0) return;
+
+    const targetIdx = activeMatchIndex >= 0 && activeMatchIndex < occurrences.length ? activeMatchIndex : 0;
+    const match = occurrences[targetIdx];
+    const newContent = documentContent.substring(0, match.start) + replaceText + documentContent.substring(match.end);
+
+    setDocumentContent(newContent);
+    onContentChange?.(newContent);
+    if (vscode) {
+      vscode.postMessage({ type: 'document-change', path: activeFile.path, content: newContent });
+    }
+  }, [searchText, replaceText, matchCase, matchCount, activeMatchIndex, documentContent, onContentChange, vscode, activeFile.path]);
+
+  // Markdown 预览态全部替换
+  const handleReplaceAll = useCallback(() => {
+    if (!searchText.trim() || matchCount === 0) return;
+    const occurrences: Array<{ start: number; end: number }> = [];
+    const target = matchCase ? documentContent : documentContent.toLowerCase();
+    const query = matchCase ? searchText : searchText.toLowerCase();
+    let pos = 0;
+    while (pos < target.length) {
+      const idx = target.indexOf(query, pos);
+      if (idx === -1) break;
+      occurrences.push({ start: idx, end: idx + query.length });
+      pos = idx + Math.max(1, query.length);
+    }
+    if (occurrences.length === 0) return;
+
+    let newContent = documentContent;
+    for (let i = occurrences.length - 1; i >= 0; i--) {
+      const m = occurrences[i];
+      newContent = newContent.substring(0, m.start) + replaceText + newContent.substring(m.end);
+    }
+
+    setDocumentContent(newContent);
+    onContentChange?.(newContent);
+    if (vscode) {
+      vscode.postMessage({ type: 'document-change', path: activeFile.path, content: newContent });
+    }
+  }, [searchText, replaceText, matchCase, matchCount, documentContent, onContentChange, vscode, activeFile.path]);
 
   // Copy operations
   const handleCopyRawMarkdown = async () => {
@@ -863,6 +920,42 @@ const MarkdownPluginView: React.FC<{
           if (searchInput) {
             searchInput.focus();
             searchInput.select();
+          }
+        }, 50);
+        return;
+      }
+
+      // Ctrl+H / Cmd+H: 替换模式快捷键
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const codeCanvas = document.getElementById('code-viewer-canvas');
+        const codeSearchBtn = document.getElementById('btn-code-search') as HTMLButtonElement | null;
+        const isCodeView =
+          viewMode === 'source' ||
+          Boolean(activeEl?.closest('.ov-code-editor, #code-viewer-canvas, [data-driver="code"]')) ||
+          (Boolean(codeCanvas) && !activeEl?.closest('#omniview-markdown-search-input, .markdown-toolbar'));
+
+        if (isCodeView && codeSearchBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const codeReplaceInput = document.getElementById('ov-codeviewer-replace-input') as HTMLInputElement | null;
+          if (codeReplaceInput) {
+            codeReplaceInput.focus();
+            codeReplaceInput.select();
+          } else {
+            codeSearchBtn.click();
+          }
+          return;
+        }
+
+        e.preventDefault();
+        setToolbarVisible(true);
+        setShowReplace(true);
+        setTimeout(() => {
+          const replaceInput = document.getElementById('omniview-markdown-replace-input') as HTMLInputElement | null;
+          if (replaceInput) {
+            replaceInput.focus();
+            replaceInput.select();
           }
         }, 50);
         return;
@@ -1041,6 +1134,15 @@ const MarkdownPluginView: React.FC<{
         searchText={searchText}
         onSearchTextChange={setSearchText}
         onFindText={handleFindText}
+        replaceText={replaceText}
+        onReplaceTextChange={setReplaceText}
+        showReplace={showReplace}
+        onToggleReplace={() => setShowReplace(v => !v)}
+        onReplaceSingle={handleReplaceSingle}
+        onReplaceAll={handleReplaceAll}
+        matchCase={matchCase}
+        onToggleMatchCase={() => setMatchCase(v => !v)}
+        matchCount={matchCount}
         theme={theme}
         onThemeChange={onThemeChange}
         density={density}

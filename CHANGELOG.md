@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [1.2.44] - 2026-10-03
+
+### Added
+
+- **Markdown 视图与代码视图查找与替换工作台 (Markdown & Code View Find & Replace Workbench)**:
+  - **Markdown 就地静默替换 (In-place Silent Replace)**：在 Markdown 渲染预览态下支持就地静默替换，实现单处精准替换与倒序全部无偏替换，自动触发文档更新、热重载持久化与大纲热力刷新，杜绝切屏打断；
+  - **轻量实用型双轨替换界面**：
+    - **CodeViewer 浮动替换工作台**：支持 `Ctrl+H` 快捷呼出、划选文本智能注入、`Aa` 大小写敏感切换、单处替换与全部替换，深度联动 `useTextHistory` 撤销/重做栈；
+    - **MarkdownToolbar 顶栏折叠替换条**：无缝集成折叠式替换条与操作按钮组，未唤起时保持极简，唤起后与全文高亮检索完全协同；
+  - **检索高亮引擎增强与全局路由分流**：`domSearchHighlighter` 引入 `caseSensitive` 大小写敏感匹配选项，`PluginDocumentView` 对 `Ctrl+H` 实施精准分流，彻底杜绝快捷键抢焦。
+
 ## [1.2.43] - 2026-10-03
 
 ### Changed

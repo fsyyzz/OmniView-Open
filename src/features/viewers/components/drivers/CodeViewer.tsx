@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
-import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles, MoreHorizontal, Search, X, ChevronUp, ChevronDown, Settings, Keyboard } from 'lucide-react';
+import { Copy, Check, FileCode, Save, Eye, Edit3, CheckCircle2, Loader2, Undo2, Redo2, ExternalLink, Sparkles, MoreHorizontal, Search, X, ChevronUp, ChevronDown, Settings, Keyboard, Replace } from 'lucide-react';
 import Prism from 'prismjs';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { ThemeId, DensityMode } from '../../../../shared/types';
@@ -121,12 +121,17 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     reset: resetHistory,
   } = useTextHistory(content, { maxDepth: 150, mergeThresholdMs: 600 });
 
-  // 查找与高亮导航状态
+  // 查找与替换状态
   const [isSearching, setIsSearching] = useState(false);
+  const [showReplace, setShowReplace] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [replaceQuery, setReplaceQuery] = useState('');
+  const [caseSensitive, setCaseSensitive] = useState(false);
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [searchMatchCount, setSearchMatchCount] = useState(0);
+  const [replaceMessage, setReplaceMessage] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
   const codeBodyRef = useRef<HTMLDivElement>(null);
 
   // Sync external content changes if file changes or loaded externally
@@ -169,9 +174,10 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
 
   // 编辑模式搜索匹配区间计算
   const editMatches = useMemo(() => {
-    if (!isEditing || !isSearching || !searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    const text = editValue.toLowerCase();
+    if (!isSearching || !searchQuery.trim()) return [];
+    const source = isEditing ? editValue : content;
+    const q = caseSensitive ? searchQuery : searchQuery.toLowerCase();
+    const text = caseSensitive ? source : source.toLowerCase();
     const list: Array<{ start: number; end: number }> = [];
     let pos = 0;
     while (pos < text.length) {
@@ -181,7 +187,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       pos = idx + Math.max(1, q.length);
     }
     return list;
-  }, [isEditing, isSearching, searchQuery, editValue]);
+  }, [isSearching, searchQuery, isEditing, editValue, content, caseSensitive]);
 
   useEffect(() => {
     if (isEditing && isSearching) {
@@ -231,16 +237,84 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
 
   const handleCloseSearch = useCallback(() => {
     setIsSearching(false);
+    setShowReplace(false);
     setSearchQuery('');
+    setReplaceQuery('');
     setSearchMatchCount(0);
     setSearchMatchIndex(0);
+    setReplaceMessage(null);
     if (!isEditing) {
       clearSearchHighlights(codeBodyRef.current);
     }
   }, [isEditing]);
 
-  // 打开并聚焦搜索框 (支持自动带入当前划选文本)
-  const openSearchWithSelection = useCallback(() => {
+  // 单处替换当前匹配项
+  const handleReplaceSingle = useCallback(() => {
+    if (!searchQuery || editMatches.length === 0) return;
+    if (!isEditing) {
+      setIsEditing(true);
+    }
+
+    const currentMatch = editMatches[searchMatchIndex] || editMatches[0];
+    if (!currentMatch) return;
+
+    const baseText = isEditing ? editValue : content;
+    const before = baseText.substring(0, currentMatch.start);
+    const after = baseText.substring(currentMatch.end);
+    const newText = before + replaceQuery + after;
+    const newCursor = before.length + replaceQuery.length;
+
+    setEditValue(newText);
+    setIsSaved(false);
+    recordChange(newText, newCursor, newCursor, true);
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      lastEmittedRef.current = newText;
+      onContentChange?.(newText);
+    }, 250);
+
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursor, newCursor);
+      }
+    });
+  }, [searchQuery, replaceQuery, editMatches, searchMatchIndex, isEditing, editValue, content, recordChange, onContentChange]);
+
+  // 全部替换所有匹配项
+  const handleReplaceAll = useCallback(() => {
+    if (!searchQuery || editMatches.length === 0) return;
+    if (!isEditing) {
+      setIsEditing(true);
+    }
+
+    const baseText = isEditing ? editValue : content;
+    const count = editMatches.length;
+
+    let newText = baseText;
+    for (let i = editMatches.length - 1; i >= 0; i--) {
+      const m = editMatches[i];
+      newText = newText.substring(0, m.start) + replaceQuery + newText.substring(m.end);
+    }
+
+    setEditValue(newText);
+    setIsSaved(false);
+    recordChange(newText, 0, 0, true);
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      lastEmittedRef.current = newText;
+      onContentChange?.(newText);
+    }, 250);
+
+    const msg = t('replacedCount', locale).replace('{count}', String(count));
+    setReplaceMessage(msg);
+    setTimeout(() => setReplaceMessage(null), 2500);
+  }, [searchQuery, replaceQuery, editMatches, isEditing, editValue, content, recordChange, onContentChange, locale]);
+
+  // 打开并聚焦搜索/替换框 (支持自动带入当前划选文本)
+  const openSearchWithSelection = useCallback((withReplace = false) => {
     let selectedText = '';
     if (isEditing && textareaRef.current) {
       const ta = textareaRef.current;
@@ -261,30 +335,46 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     }
 
     setIsSearching(true);
+    if (withReplace) {
+      setShowReplace(true);
+    }
 
-    const focusInput = () => {
-      const input = searchInputRef.current || (document.getElementById('ov-codeviewer-search-input') as HTMLInputElement | null);
-      if (input) {
-        input.focus();
-        input.select();
+    const focusTarget = () => {
+      if (withReplace && selectedText) {
+        replaceInputRef.current?.focus();
+        replaceInputRef.current?.select();
+      } else {
+        const input = searchInputRef.current || (document.getElementById('ov-codeviewer-search-input') as HTMLInputElement | null);
+        if (input) {
+          input.focus();
+          input.select();
+        }
       }
     };
 
-    requestAnimationFrame(focusInput);
-    setTimeout(focusInput, 30);
-    setTimeout(focusInput, 80);
+    requestAnimationFrame(focusTarget);
+    setTimeout(focusTarget, 30);
+    setTimeout(focusTarget, 80);
   }, [isEditing]);
 
-  // 全局 Ctrl+F 快捷激活
+  // 全局 Ctrl+F / Ctrl+H 快捷激活
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+        const activeEl = document.activeElement;
+        if (activeEl?.closest('.ov-modal-backdrop, [role="dialog"]')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openSearchWithSelection(true);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         const activeEl = document.activeElement;
         // 若焦点在外部独立弹窗则不强行夺焦
         if (activeEl?.closest('.ov-modal-backdrop, [role="dialog"]')) return;
         e.preventDefault();
         e.stopPropagation();
-        openSearchWithSelection();
+        openSearchWithSelection(false);
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -525,11 +615,19 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       return;
     }
 
+    // Ctrl+H / Cmd+H: Toggle replace
+    if (isModifier && e.key.toLowerCase() === 'h') {
+      e.preventDefault();
+      e.stopPropagation();
+      openSearchWithSelection(true);
+      return;
+    }
+
     // Ctrl+F / Cmd+F: Toggle search
     if (isModifier && e.key.toLowerCase() === 'f') {
       e.preventDefault();
       e.stopPropagation();
-      openSearchWithSelection();
+      openSearchWithSelection(false);
       return;
     }
 
@@ -593,13 +691,13 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       setSearchMatchIndex(0);
       return;
     }
-    const count = highlightSearchMatches(codeBodyRef.current, searchQuery);
+    const count = highlightSearchMatches(codeBodyRef.current, searchQuery, { caseSensitive });
     setSearchMatchCount(count);
     setSearchMatchIndex(count > 0 ? 0 : 0);
     if (count > 0) {
       activateMatch(codeBodyRef.current, 0, true);
     }
-  }, [isSearching, searchQuery, isEditing, highlightedCode, activeContent]);
+  }, [isSearching, searchQuery, isEditing, highlightedCode, activeContent, caseSensitive]);
 
   // 响应式级别判定 (基于当前容器实际渲染宽度，完全免疫全局窗口视口影响)
   // >= 620: 宽裕态 (全部文字 + 快捷键)
@@ -995,86 +1093,180 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
         </div>
       </div>
 
-      {/* 浮动查找面板 (Ctrl+F) */}
+      {/* 浮动查找与替换工作台 (Ctrl+F / Ctrl+H) */}
       {isSearching && (
         <div
           id="ov-codeviewer-search-bar"
-          className="absolute top-10 right-4 z-40 rounded-lg shadow-xl px-2.5 py-1.5 flex items-center gap-2 text-xs border select-none"
+          className="absolute top-10 right-4 z-40 rounded-lg shadow-xl px-2.5 py-1.5 flex flex-col gap-1.5 text-xs border select-none animate-in fade-in-50 duration-150"
           style={{
             background: 'var(--ov-surface)',
             borderColor: 'var(--ov-border)',
             color: 'var(--ov-text)',
           }}
         >
-          <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--ov-text-muted)' }} />
-          <input
-            ref={searchInputRef}
-            id="ov-codeviewer-search-input"
-            type="text"
-            placeholder="搜索文本 (Enter 下一个)..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => {
-              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-                e.preventDefault();
-                e.stopPropagation();
-                e.currentTarget.select();
-                return;
-              }
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                if (e.shiftKey) {
-                  handlePrevMatch();
-                } else {
-                  handleNextMatch();
+          {/* 第一行：查找行 */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowReplace(prev => !prev)}
+              className={`p-1 rounded cursor-pointer transition ${
+                showReplace ? 'bg-blue-600 text-white' : 'text-[var(--ov-text-secondary)] hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              title={t('toggleReplace', locale)}
+            >
+              <Replace className="w-3.5 h-3.5" />
+            </button>
+            <input
+              ref={searchInputRef}
+              id="ov-codeviewer-search-input"
+              type="text"
+              placeholder="搜索文本 (Enter 下一个)..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => {
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowReplace(true);
+                  setTimeout(() => {
+                    replaceInputRef.current?.focus();
+                    replaceInputRef.current?.select();
+                  }, 30);
+                  return;
                 }
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                handleCloseSearch();
-              }
-            }}
-            className="w-36 sm:w-48 border rounded px-2 py-0.5 text-[11px] focus:outline-hidden font-sans"
-            style={{
-              background: 'var(--ov-code-bg)',
-              borderColor: 'var(--ov-border)',
-              color: 'var(--ov-text)',
-            }}
-          />
-          <span className="text-[10px] shrink-0 min-w-[40px] text-center font-mono" style={{ color: 'var(--ov-text-secondary)' }}>
-            {searchQuery.trim()
-              ? searchMatchCount > 0
-                ? `${searchMatchIndex + 1}/${searchMatchCount}`
-                : '无匹配'
-              : ''}
-          </span>
-          <div className="flex items-center gap-0.5 border-l pl-1" style={{ borderColor: 'var(--ov-border)' }}>
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                  return;
+                }
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (e.shiftKey) {
+                    handlePrevMatch();
+                  } else {
+                    handleNextMatch();
+                  }
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  handleCloseSearch();
+                }
+              }}
+              className="w-36 sm:w-48 border rounded px-2 py-0.5 text-[11px] focus:outline-hidden font-sans"
+              style={{
+                background: 'var(--ov-code-bg)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+            />
+            {/* 大小写敏感开关 */}
             <button
-              onClick={handlePrevMatch}
-              disabled={searchMatchCount === 0}
-              className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
-              style={{ color: 'var(--ov-text-secondary)' }}
-              title="上一个 (Shift+Enter)"
+              type="button"
+              onClick={() => setCaseSensitive(prev => !prev)}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition cursor-pointer ${
+                caseSensitive
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-2xs font-bold'
+                  : 'border-[var(--ov-border)] text-[var(--ov-text-secondary)] hover:bg-[var(--ov-surface-hover)]'
+              }`}
+              title={t('matchCase', locale)}
             >
-              <ChevronUp className="w-3.5 h-3.5" />
+              Aa
             </button>
-            <button
-              onClick={handleNextMatch}
-              disabled={searchMatchCount === 0}
-              className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
-              style={{ color: 'var(--ov-text-secondary)' }}
-              title="下一个 (Enter)"
-            >
-              <ChevronDown className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={handleCloseSearch}
-              className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
-              style={{ color: 'var(--ov-text-secondary)' }}
-              title="关闭 (Esc)"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <span className="text-[10px] shrink-0 min-w-[36px] text-center font-mono" style={{ color: 'var(--ov-text-secondary)' }}>
+              {searchQuery.trim()
+                ? searchMatchCount > 0
+                  ? `${searchMatchIndex + 1}/${searchMatchCount}`
+                  : '无匹配'
+                : ''}
+            </span>
+            <div className="flex items-center gap-0.5 border-l pl-1" style={{ borderColor: 'var(--ov-border)' }}>
+              <button
+                onClick={handlePrevMatch}
+                disabled={searchMatchCount === 0}
+                className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)] disabled:opacity-30"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                title="上一个 (Shift+Enter)"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleNextMatch}
+                disabled={searchMatchCount === 0}
+                className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)] disabled:opacity-30"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                title="下一个 (Enter)"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleCloseSearch}
+                className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+                style={{ color: 'var(--ov-text-secondary)' }}
+                title="关闭 (Esc)"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
+
+          {/* 第二行：替换行 (展开态) */}
+          {showReplace && (
+            <div className="flex items-center gap-1.5 pt-1 border-t border-[var(--ov-border)] animate-in fade-in-50 duration-150">
+              <span className="w-5 text-center text-xs opacity-50 shrink-0 select-none">⇄</span>
+              <input
+                ref={replaceInputRef}
+                id="ov-codeviewer-replace-input"
+                type="text"
+                placeholder={t('replacePlaceholder', locale)}
+                value={replaceQuery}
+                onChange={e => setReplaceQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (e.ctrlKey || e.metaKey || e.altKey) {
+                      handleReplaceAll();
+                    } else {
+                      handleReplaceSingle();
+                    }
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setShowReplace(false);
+                  }
+                }}
+                className="w-36 sm:w-48 border rounded px-2 py-0.5 text-[11px] focus:outline-hidden font-sans"
+                style={{
+                  background: 'var(--ov-code-bg)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleReplaceSingle}
+                disabled={!searchQuery.trim() || searchMatchCount === 0}
+                className="px-2 py-0.5 rounded text-[10px] font-medium border border-blue-600 bg-blue-600 hover:bg-blue-500 text-white cursor-pointer disabled:opacity-40 disabled:hover:bg-blue-600 transition"
+                title={t('replaceTooltip', locale)}
+              >
+                {t('replace', locale)}
+              </button>
+              <button
+                type="button"
+                onClick={handleReplaceAll}
+                disabled={!searchQuery.trim() || searchMatchCount === 0}
+                className="px-2 py-0.5 rounded text-[10px] font-medium border border-[var(--ov-border)] bg-[var(--ov-surface-hover)] hover:bg-blue-600 hover:text-white cursor-pointer disabled:opacity-40 transition"
+                title={t('replaceAllTooltip', locale)}
+              >
+                {t('replaceAll', locale)}
+              </button>
+            </div>
+          )}
+
+          {/* 轻提示反馈信息 */}
+          {replaceMessage && (
+            <div className="text-[10px] text-emerald-500 font-medium px-1 animate-in fade-in duration-100">
+              {replaceMessage}
+            </div>
+          )}
         </div>
       )}
 

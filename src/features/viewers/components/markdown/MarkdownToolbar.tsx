@@ -31,6 +31,7 @@ import {
   Settings,
   Presentation,
   Keyboard,
+  Replace,
 } from 'lucide-react';
 import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
@@ -47,6 +48,15 @@ interface MarkdownToolbarProps {
   searchText: string;
   onSearchTextChange: (text: string) => void;
   onFindText: (backwards?: boolean) => void;
+  replaceText?: string;
+  onReplaceTextChange?: (text: string) => void;
+  showReplace?: boolean;
+  onToggleReplace?: () => void;
+  onReplaceSingle?: () => void;
+  onReplaceAll?: () => void;
+  matchCase?: boolean;
+  onToggleMatchCase?: () => void;
+  matchCount?: number;
   theme: ThemeId;
   onThemeChange: (theme: ThemeId) => void;
   density: DensityMode;
@@ -104,6 +114,15 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   searchText,
   onSearchTextChange,
   onFindText,
+  replaceText = '',
+  onReplaceTextChange,
+  showReplace = false,
+  onToggleReplace,
+  onReplaceSingle,
+  onReplaceAll,
+  matchCase = false,
+  onToggleMatchCase,
+  matchCount = 0,
   theme,
   onThemeChange,
   density,
@@ -203,43 +222,123 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           <List size={14} />
         </button>
 
-        <div className="markdown-search-box">
-          <Search size={14} />
-          <input
-            id="omniview-markdown-search-input"
-            value={searchText}
-            onChange={e => onSearchTextChange(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                onFindText(e.shiftKey);
-              } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                onFindText(false);
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                onFindText(true);
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                onSearchTextChange('');
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            placeholder={`${t('searchPlaceholder', locale)} (Ctrl+F)`}
-            aria-label={t('searchPlaceholder', locale)}
-          />
-          {searchText && (
-            <button
-              type="button"
-              onClick={() => onSearchTextChange('')}
-              className="text-slate-400 hover:text-slate-200 text-xs px-1"
-              title="清除搜索 (Esc)"
-            >
-              ×
-            </button>
+        <div className="flex items-center gap-1 min-w-0">
+          <div className="markdown-search-box flex items-center">
+            <Search size={14} className="shrink-0" />
+            <input
+              id="omniview-markdown-search-input"
+              value={searchText}
+              onChange={e => onSearchTextChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onFindText(e.shiftKey);
+                } else if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  onFindText(false);
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  onFindText(true);
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onSearchTextChange('');
+                  (e.target as HTMLInputElement).blur();
+                } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+                  e.preventDefault();
+                  onToggleReplace?.();
+                }
+              }}
+              placeholder={`${t('searchPlaceholder', locale)} (Ctrl+F)`}
+              aria-label={t('searchPlaceholder', locale)}
+            />
+            {searchText && (
+              <button
+                type="button"
+                onClick={() => onSearchTextChange('')}
+                className="text-slate-400 hover:text-slate-200 text-xs px-1"
+                title="清除搜索 (Esc)"
+              >
+                ×
+              </button>
+            )}
+            <button type="button" onClick={() => onFindText(true)} title={`${t('prevMatch', locale)} (Shift+Enter / ↑)`}>↑</button>
+            <button type="button" onClick={() => onFindText(false)} title={`${t('nextMatch', locale)} (Enter / ↓)`}>↓</button>
+            {onToggleReplace && (
+              <button
+                type="button"
+                id="btn-markdown-toggle-replace"
+                onClick={onToggleReplace}
+                className={`p-1 rounded text-xs transition ${
+                  showReplace ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title={t('toggleReplace', locale)}
+              >
+                <Replace size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* 展开的替换输入与动作栏 */}
+          {showReplace && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-700 animate-in fade-in-50 duration-150">
+              <input
+                ref={r => {
+                  if (r && showReplace) {
+                    // 展开时聚焦
+                  }
+                }}
+                id="omniview-markdown-replace-input"
+                type="text"
+                value={replaceText}
+                onChange={e => onReplaceTextChange?.(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (e.ctrlKey || e.metaKey || e.altKey) {
+                      onReplaceAll?.();
+                    } else {
+                      onReplaceSingle?.();
+                    }
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    onToggleReplace?.();
+                  }
+                }}
+                placeholder={t('replacePlaceholder', locale)}
+                className="w-24 sm:w-32 bg-transparent text-xs text-slate-100 placeholder:text-slate-500 outline-none"
+              />
+              <button
+                type="button"
+                onClick={onReplaceSingle}
+                disabled={!searchText.trim() || matchCount === 0}
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-800 hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-200 hover:text-white transition cursor-pointer"
+                title={t('replaceTooltip', locale)}
+              >
+                {t('replace', locale)}
+              </button>
+              <button
+                type="button"
+                onClick={onReplaceAll}
+                disabled={!searchText.trim() || matchCount === 0}
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-800 hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-200 hover:text-white transition cursor-pointer"
+                title={t('replaceAllTooltip', locale)}
+              >
+                {t('replaceAll', locale)}
+              </button>
+              {onToggleMatchCase && (
+                <button
+                  type="button"
+                  onClick={onToggleMatchCase}
+                  className={`px-1 py-0.5 rounded text-[10px] font-mono transition border cursor-pointer ${
+                    matchCase ? 'bg-blue-600 text-white border-blue-500 shadow-2xs font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                  title={t('matchCase', locale)}
+                >
+                  Aa
+                </button>
+              )}
+            </div>
           )}
-          <button type="button" onClick={() => onFindText(true)} title={`${t('prevMatch', locale)} (Shift+Enter / ↑)`}>↑</button>
-          <button type="button" onClick={() => onFindText(false)} title={`${t('nextMatch', locale)} (Enter / ↓)`}>↓</button>
         </div>
 
         <div className="markdown-toolbar-title items-center gap-1.5" title={filePath}>

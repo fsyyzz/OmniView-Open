@@ -59,11 +59,19 @@ export function clearSearchHighlights(container: HTMLElement | null): void {
   });
 }
 
+export interface HighlightSearchOptions {
+  caseSensitive?: boolean;
+}
+
 /**
  * 在容器中搜索关键字并高亮所有命中项
  * 返回命中总数
  */
-export function highlightSearchMatches(container: HTMLElement | null, keyword: string): number {
+export function highlightSearchMatches(
+  container: HTMLElement | null,
+  keyword: string,
+  options?: HighlightSearchOptions
+): number {
   if (!container) return 0;
   clearSearchHighlights(container);
 
@@ -83,7 +91,8 @@ export function highlightSearchMatches(container: HTMLElement | null, keyword: s
     currentNode = walker.nextNode();
   }
 
-  const regex = new RegExp(`(${cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const flags = options?.caseSensitive ? 'g' : 'gi';
+  const regex = new RegExp(`(${cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, flags);
   let matchCount = 0;
 
   for (const textNode of textNodes) {
