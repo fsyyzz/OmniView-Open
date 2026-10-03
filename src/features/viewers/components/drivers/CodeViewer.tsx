@@ -239,6 +239,42 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     }
   }, [isEditing]);
 
+  // 打开并聚焦搜索框 (支持自动带入当前划选文本)
+  const openSearchWithSelection = useCallback(() => {
+    let selectedText = '';
+    if (isEditing && textareaRef.current) {
+      const ta = textareaRef.current;
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      if (end > start) {
+        selectedText = ta.value.substring(start, end).trim();
+      }
+    } else {
+      const sel = window.getSelection();
+      if (sel && sel.toString().trim()) {
+        selectedText = sel.toString().trim();
+      }
+    }
+
+    if (selectedText && selectedText.length > 0 && selectedText.length <= 100 && !selectedText.includes('\n')) {
+      setSearchQuery(selectedText);
+    }
+
+    setIsSearching(true);
+
+    const focusInput = () => {
+      const input = searchInputRef.current || (document.getElementById('ov-codeviewer-search-input') as HTMLInputElement | null);
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    };
+
+    requestAnimationFrame(focusInput);
+    setTimeout(focusInput, 30);
+    setTimeout(focusInput, 80);
+  }, [isEditing]);
+
   // 全局 Ctrl+F 快捷激活
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -248,16 +284,12 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
         if (activeEl?.closest('.ov-modal-backdrop, [role="dialog"]')) return;
         e.preventDefault();
         e.stopPropagation();
-        setIsSearching(true);
-        setTimeout(() => {
-          searchInputRef.current?.focus();
-          searchInputRef.current?.select();
-        }, 50);
+        openSearchWithSelection();
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
+  }, [openSearchWithSelection]);
 
   const activeContent = isEditing ? editValue : content;
   const lines = activeContent.split('\n');
@@ -497,11 +529,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     if (isModifier && e.key.toLowerCase() === 'f') {
       e.preventDefault();
       e.stopPropagation();
-      setIsSearching(true);
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      }, 50);
+      openSearchWithSelection();
       return;
     }
 
@@ -775,18 +803,11 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
             <button
               id="btn-code-search"
               onClick={() => {
-                setIsSearching(prev => {
-                  const next = !prev;
-                  if (next) {
-                    setTimeout(() => {
-                      searchInputRef.current?.focus();
-                      searchInputRef.current?.select();
-                    }, 50);
-                  } else {
-                    handleCloseSearch();
-                  }
-                  return next;
-                });
+                if (isSearching) {
+                  handleCloseSearch();
+                } else {
+                  openSearchWithSelection();
+                }
               }}
               className={`flex items-center gap-1 ${
                 showSecondaryBtnText ? 'px-2 py-1' : 'p-1.5'
@@ -977,6 +998,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
       {/* 浮动查找面板 (Ctrl+F) */}
       {isSearching && (
         <div
+          id="ov-codeviewer-search-bar"
           className="absolute top-10 right-4 z-40 rounded-lg shadow-xl px-2.5 py-1.5 flex items-center gap-2 text-xs border select-none"
           style={{
             background: 'var(--ov-surface)',
@@ -987,11 +1009,18 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
           <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--ov-text-muted)' }} />
           <input
             ref={searchInputRef}
+            id="ov-codeviewer-search-input"
             type="text"
             placeholder="搜索文本 (Enter 下一个)..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             onKeyDown={e => {
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.currentTarget.select();
+                return;
+              }
               if (e.key === 'Enter') {
                 e.preventDefault();
                 if (e.shiftKey) {

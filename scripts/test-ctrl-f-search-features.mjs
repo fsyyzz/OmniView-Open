@@ -56,6 +56,11 @@ console.log('--- 测试 6: domSearchHighlighter 节点安全隔离 ---');
 assert.ok(domHighlighterSrc.includes('.katex'), '高亮引擎必须保护 KaTeX 公式子树');
 assert.ok(domHighlighterSrc.includes('svg'), '高亮引擎必须保护 SVG 矢量子树');
 assert.ok(domHighlighterSrc.includes('.markdown-diagram'), '高亮引擎必须保护图表子树');
-console.log('✅ domSearchHighlighter 节点安全隔离测试通过');
+// 7. 测试 CodeViewer Ctrl+F 搜索框精准自动命中与防劫持
+console.log('--- 测试 7: CodeViewer Ctrl+F 搜索框精准自动命中与防劫持 ---');
+assert.ok(codeViewerSrc.includes('id="ov-codeviewer-search-input"'), 'CodeViewer 必须提供明确的 ov-codeviewer-search-input ID');
+assert.ok(codeViewerSrc.includes('openSearchWithSelection'), 'CodeViewer 必须具备提取选中文本并自动聚焦的 openSearchWithSelection');
+assert.ok(pluginDocViewSrc.includes('ov-codeviewer-search-input'), 'PluginDocumentView 在代码视图必须让位/分流至 CodeViewer 搜索框');
+console.log('✅ CodeViewer Ctrl+F 搜索框精准自动命中与防劫持测试通过');
 
-console.log('🎉 全部 6 组 Ctrl+F 检索与高亮全景测试用例 100% 通过！\n');
+console.log('🎉 全部 7 组 Ctrl+F 检索与高亮全景测试用例 100% 通过！\n');

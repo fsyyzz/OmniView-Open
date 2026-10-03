@@ -832,6 +832,27 @@ const MarkdownPluginView: React.FC<{
 
       // Ctrl+F / Cmd+F: 全局唤起并聚焦搜索框
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const codeCanvas = document.getElementById('code-viewer-canvas');
+        const codeSearchBtn = document.getElementById('btn-code-search') as HTMLButtonElement | null;
+        const isCodeView =
+          viewMode === 'source' ||
+          Boolean(activeEl?.closest('.ov-code-editor, #code-viewer-canvas, [data-driver="code"]')) ||
+          (Boolean(codeCanvas) && !activeEl?.closest('#omniview-markdown-search-input, .markdown-toolbar'));
+
+        if (isCodeView && codeSearchBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const codeSearchInput = document.getElementById('ov-codeviewer-search-input') as HTMLInputElement | null;
+          if (codeSearchInput) {
+            codeSearchInput.focus();
+            codeSearchInput.select();
+          } else {
+            codeSearchBtn.click();
+          }
+          return;
+        }
+
         e.preventDefault();
         setToolbarVisible(true);
         setTimeout(() => {
@@ -865,7 +886,7 @@ const MarkdownPluginView: React.FC<{
     };
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, []);
+  }, [viewMode, handleReloadDocument]);
 
   const handleSettingsChange = useCallback(
     (updated: WorkbenchSettings) => {

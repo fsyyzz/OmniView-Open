@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [1.2.43] - 2026-10-03
+
+### Changed
+
+- **代码视图 (CodeViewer) Ctrl+F 搜索框精准自动聚焦与防劫持 (Code View Search Hotkey Routing)**:
+  - **外层快捷键精准分流**：修复 `PluginDocumentView` 在源码模式 (`viewMode === 'source'`) 或焦点位于代码编辑器内部时，按 `Ctrl+F` 错误唤起 Markdown 顶栏并抢夺焦点的冲突缺陷，精准分流至代码视图专用搜索工作流；
+  - **划选文本智能提取注入**：在代码编辑或只读浏览时划选关键词（变量、函数名等）按 `Ctrl+F`，自动将选中文本带入搜索框并全选聚焦；
+  - **多重异步聚焦保障**：为代码浮动搜索条注入固定 ID (`ov-codeviewer-search-input`)，通过 `requestAnimationFrame` 及双重延迟重试确保输入框 100% 聚焦选中文本。
+
 ## [1.2.42] - 2026-10-03
 
 ### Added
