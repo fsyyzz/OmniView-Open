@@ -680,11 +680,23 @@ export function findLineInSource(
 }
 
 /**
- * 为 SVG 图元注入 data-omni-id 索引，支持点选高亮
+ * 为 SVG 图元注入 data-omni-id 索引，支持点选高亮与多选
  */
-export function tagSvgWithNodeIds(svgText: string, selectedIndex?: number | null): string {
+export function tagSvgWithNodeIds(
+  svgText: string,
+  selectedIndices?: number | number[] | Set<number> | null
+): string {
   const trimmed = svgText.trim();
   if (!trimmed) return svgText;
+
+  const selectedSet = new Set<number>();
+  if (typeof selectedIndices === 'number') {
+    selectedSet.add(selectedIndices);
+  } else if (Array.isArray(selectedIndices)) {
+    selectedIndices.forEach(idx => selectedSet.add(idx));
+  } else if (selectedIndices instanceof Set) {
+    selectedIndices.forEach(idx => selectedSet.add(idx));
+  }
 
   if (typeof DOMParser !== 'undefined') {
     try {
@@ -693,7 +705,7 @@ export function tagSvgWithNodeIds(svgText: string, selectedIndex?: number | null
       const elements = getSvgTargetElements(doc);
       elements.forEach((el, idx) => {
         el.setAttribute('data-omni-id', String(idx));
-        if (selectedIndex === idx) {
+        if (selectedSet.has(idx)) {
           el.setAttribute('data-omni-selected', 'true');
           el.classList.add('omni-selected');
         }
@@ -707,7 +719,7 @@ export function tagSvgWithNodeIds(svgText: string, selectedIndex?: number | null
     let idx = 0;
     return trimmed.replace(/<(path|rect|circle|ellipse|line|polyline|polygon|text|tspan|g|image|use)\b([^>]*)>/gi, (_match, tag, attrs) => {
       const currentIdx = idx++;
-      const isSelected = selectedIndex === currentIdx;
+      const isSelected = selectedSet.has(currentIdx);
       const extra = `data-omni-id="${currentIdx}"${isSelected ? ' data-omni-selected="true" class="omni-selected"' : ''}`;
       return `<${tag} ${extra} ${attrs}>`.replace(/\s+/g, ' ').replace(' >', '>');
     });
@@ -2595,4 +2607,591 @@ export function addNewPolylineToSvg(
   }
   return svgText + `\n<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">\n${newPathTag}</svg>`;
 }
+
+/**
+ * 计算多个图元包围盒的联合联合外接矩形 (Union BBox)
+ */
+export function calculateUnionBBox(bboxes: ElementBBox[]): ElementBBox | null {
+  const valid = bboxes.filter(b => b && typeof b.x === 'number' && !isNaN(b.x));
+  if (valid.length === 0) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const b of valid) {
+    if (b.x < minX) minX = b.x;
+    if (b.y < minY) minY = b.y;
+    if (b.x + b.width > maxX) maxX = b.x + b.width;
+    if (b.y + b.height > maxY) maxY = b.y + b.height;
+  }
+
+  const round2 = (num: number) => Math.round(num * 100) / 100;
+  return {
+    x: round2(minX),
+    y: round2(minY),
+    width: round2(Math.max(0, maxX - minX)),
+    height: round2(Math.max(0, maxY - minY)),
+  };
+}
+
+/**
+ * 内部辅助函数：对单个 DOM 元素应用增量平移几何参数
+ */
+function applyDeltaToDomElement(el: Element, deltaX: number, deltaY: number): void {
+  const tagName = el.tagName.toLowerCase();
+  const round2 = (num: number) => Math.round(num * 100) / 100;
+
+  switch (tagName) {
+    case 'rect':
+    case 'text':
+    case 'tspan':
+    case 'image':
+    case 'use': {
+      const curX = parseFloat(el.getAttribute('x') || '0');
+      const curY = parseFloat(el.getAttribute('y') || '0');
+      el.setAttribute('x', String(round2(curX + deltaX)));
+      el.setAttribute('y', String(round2(curY + deltaY)));
+      break;
+    }
+    case 'circle': {
+      const curCx = parseFloat(el.getAttribute('cx') || '0');
+      const curCy = parseFloat(el.getAttribute('cy') || '0');
+      el.setAttribute('cx', String(round2(curCx + deltaX)));
+      el.setAttribute('cy', String(round2(curCy + deltaY)));
+      break;
+    }
+    case 'ellipse': {
+      const curCx = parseFloat(el.getAttribute('cx') || '0');
+      const curCy = parseFloat(el.getAttribute('cy') || '0');
+      el.setAttribute('cx', String(round2(curCx + deltaX)));
+      el.setAttribute('cy', String(round2(curCy + deltaY)));
+      break;
+    }
+    case 'line': {
+      const x1 = parseFloat(el.getAttribute('x1') || '0');
+      const y1 = parseFloat(el.getAttribute('y1') || '0');
+      const x2 = parseFloat(el.getAttribute('x2') || '0');
+      const y2 = parseFloat(el.getAttribute('y2') || '0');
+      el.setAttribute('x1', String(round2(x1 + deltaX)));
+      el.setAttribute('y1', String(round2(y1 + deltaY)));
+      el.setAttribute('x2', String(round2(x2 + deltaX)));
+      el.setAttribute('y2', String(round2(y2 + deltaY)));
+      break;
+    }
+    default: {
+      const curTransform = el.getAttribute('transform') || '';
+      const translateMatch = curTransform.match(/translate\(\s*([-\d.]+)[,\s]+([-\d.]+)\s*\)/i);
+      let tx = 0;
+      let ty = 0;
+      if (translateMatch) {
+        tx = parseFloat(translateMatch[1]) || 0;
+        ty = parseFloat(translateMatch[2]) || 0;
+        const newTranslate = `translate(${round2(tx + deltaX)}, ${round2(ty + deltaY)})`;
+        el.setAttribute('transform', curTransform.replace(/translate\([^)]+\)/i, newTranslate));
+      } else if (curTransform.trim()) {
+        el.setAttribute('transform', `${curTransform} translate(${round2(deltaX)}, ${round2(deltaY)})`);
+      } else {
+        el.setAttribute('transform', `translate(${round2(deltaX)}, ${round2(deltaY)})`);
+      }
+      break;
+    }
+  }
+}
+
+/**
+ * 批量平移多个图元的几何位置 (单次 DOM 遍历，60FPS 极速)
+ */
+export function batchMoveSvgElements(
+  svgText: string,
+  targetIndices: number[],
+  deltaX: number,
+  deltaY: number
+): string {
+  const trimmed = svgText.trim();
+  if (!trimmed || targetIndices.length === 0 || (deltaX === 0 && deltaY === 0)) {
+    return svgText;
+  }
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+
+      targetIndices.forEach(idx => {
+        const el = elements[idx];
+        if (el) {
+          applyDeltaToDomElement(el, deltaX, deltaY);
+        }
+      });
+
+      cleanOmniAttributes(doc);
+      return prettifySvg(new XMLSerializer().serializeToString(doc));
+    } catch {
+      return svgText;
+    }
+  } else {
+    // Node.js 回退按次序平移
+    let currentCode = svgText;
+    for (const idx of targetIndices) {
+      currentCode = moveSvgElementGeometry(currentCode, idx, deltaX, deltaY);
+    }
+    return currentCode;
+  }
+}
+
+/**
+ * 批量删除多个选中的图元 (一次性安全移除并刷新索引)
+ */
+export function batchDeleteSvgElements(
+  svgText: string,
+  targetIndices: number[]
+): string {
+  const trimmed = svgText.trim();
+  if (!trimmed || targetIndices.length === 0) return svgText;
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+
+      targetIndices.forEach(idx => {
+        const el = elements[idx];
+        if (el && el.parentElement) {
+          el.parentElement.removeChild(el);
+        }
+      });
+
+      cleanOmniAttributes(doc);
+      return prettifySvg(new XMLSerializer().serializeToString(doc));
+    } catch {
+      return svgText;
+    }
+  } else {
+    // Node.js 回退：按索引降序依次删除，防止索引漂移
+    const sortedDesc = [...new Set(targetIndices)].sort((a, b) => b - a);
+    let currentCode = svgText;
+    for (const idx of sortedDesc) {
+      currentCode = removeSvgElement(currentCode, idx);
+    }
+    return currentCode;
+  }
+}
+
+/**
+ * 批量修改多个图元的外观与样式属性 (填充/描边/透明度等)
+ */
+export function batchUpdateSvgElementsStyle(
+  svgText: string,
+  targetIndices: number[],
+  updates: Partial<SvgElementInfo>
+): string {
+  const trimmed = svgText.trim();
+  if (!trimmed || targetIndices.length === 0) return svgText;
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+
+      targetIndices.forEach(idx => {
+        const target = elements[idx];
+        if (!target) return;
+
+        const setOrRemove = (attr: string, val: string | undefined) => {
+          if (val === undefined) return;
+          if (val === '' || val === 'none') {
+            if (val === 'none') target.setAttribute(attr, 'none');
+            else target.removeAttribute(attr);
+          } else {
+            target.setAttribute(attr, val);
+          }
+        };
+
+        setOrRemove('fill', updates.fill);
+        setOrRemove('stroke', updates.stroke);
+        setOrRemove('stroke-width', updates.strokeWidth);
+        setOrRemove('stroke-dasharray', updates.strokeDasharray);
+        setOrRemove('opacity', updates.opacity);
+        setOrRemove('font-size', updates.fontSize);
+        setOrRemove('font-family', updates.fontFamily);
+      });
+
+      cleanOmniAttributes(doc);
+      return prettifySvg(new XMLSerializer().serializeToString(doc));
+    } catch {
+      return svgText;
+    }
+  } else {
+    // Node.js 回退
+    let currentCode = svgText;
+    for (const idx of targetIndices) {
+      currentCode = updateSvgElement(currentCode, idx, updates);
+    }
+    return currentCode;
+  }
+}
+
+/**
+ * 批量联合对齐：以所有选中图元的联合外包围盒 (Union BBox) 为基准进行对齐
+ */
+export function batchAlignSvgElements(
+  svgText: string,
+  targetIndices: number[],
+  alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom',
+  elementBBoxes: Record<number, ElementBBox>
+): string {
+  const trimmed = svgText.trim();
+  if (!trimmed || targetIndices.length < 2) return svgText;
+
+  const validBBoxes = targetIndices
+    .map(idx => elementBBoxes[idx])
+    .filter(Boolean);
+  const unionBBox = calculateUnionBBox(validBBoxes);
+  if (!unionBBox) return svgText;
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+
+      targetIndices.forEach(idx => {
+        const el = elements[idx];
+        const bbox = elementBBoxes[idx];
+        if (!el || !bbox) return;
+
+        let deltaX = 0;
+        let deltaY = 0;
+
+        switch (alignment) {
+          case 'left':
+            deltaX = unionBBox.x - bbox.x;
+            break;
+          case 'center':
+            deltaX = (unionBBox.x + unionBBox.width / 2) - (bbox.x + bbox.width / 2);
+            break;
+          case 'right':
+            deltaX = (unionBBox.x + unionBBox.width) - (bbox.x + bbox.width);
+            break;
+          case 'top':
+            deltaY = unionBBox.y - bbox.y;
+            break;
+          case 'middle':
+            deltaY = (unionBBox.y + unionBBox.height / 2) - (bbox.y + bbox.height / 2);
+            break;
+          case 'bottom':
+            deltaY = (unionBBox.y + unionBBox.height) - (bbox.y + bbox.height);
+            break;
+        }
+
+        if (deltaX !== 0 || deltaY !== 0) {
+          applyDeltaToDomElement(el, deltaX, deltaY);
+        }
+      });
+
+      cleanOmniAttributes(doc);
+      return prettifySvg(new XMLSerializer().serializeToString(doc));
+    } catch {
+      return svgText;
+    }
+  } else {
+    let currentCode = svgText;
+    for (const idx of targetIndices) {
+      const bbox = elementBBoxes[idx];
+      if (!bbox) continue;
+      let deltaX = 0;
+      let deltaY = 0;
+      switch (alignment) {
+        case 'left':
+          deltaX = unionBBox.x - bbox.x;
+          break;
+        case 'center':
+          deltaX = (unionBBox.x + unionBBox.width / 2) - (bbox.x + bbox.width / 2);
+          break;
+        case 'right':
+          deltaX = (unionBBox.x + unionBBox.width) - (bbox.x + bbox.width);
+          break;
+        case 'top':
+          deltaY = unionBBox.y - bbox.y;
+          break;
+        case 'middle':
+          deltaY = (unionBBox.y + unionBBox.height / 2) - (bbox.y + bbox.height / 2);
+          break;
+        case 'bottom':
+          deltaY = (unionBBox.y + unionBBox.height) - (bbox.y + bbox.height);
+          break;
+      }
+      currentCode = moveSvgElementGeometry(currentCode, idx, deltaX, deltaY);
+    }
+    return currentCode;
+  }
+}
+
+/**
+ * 批量等距分布：在首尾图元之间，对中间图元进行水平或垂直等距排列
+ */
+export function batchDistributeSvgElements(
+  svgText: string,
+  targetIndices: number[],
+  direction: 'horizontal' | 'vertical',
+  elementBBoxes: Record<number, ElementBBox>
+): string {
+  const trimmed = svgText.trim();
+  if (!trimmed || targetIndices.length < 3) return svgText;
+
+  const validItems = targetIndices
+    .map(idx => ({ idx, bbox: elementBBoxes[idx] }))
+    .filter(item => !!item.bbox);
+
+  if (validItems.length < 3) return svgText;
+
+  // 排序
+  if (direction === 'horizontal') {
+    validItems.sort((a, b) => a.bbox.x - b.bbox.x);
+  } else {
+    validItems.sort((a, b) => a.bbox.y - b.bbox.y);
+  }
+
+  const len = validItems.length;
+  const first = validItems[0];
+  const last = validItems[len - 1];
+
+  // 计算两端边界与总图元跨度
+  const deltas: Record<number, { dx: number; dy: number }> = {};
+
+  if (direction === 'horizontal') {
+    const firstRight = first.bbox.x + first.bbox.width;
+    const lastLeft = last.bbox.x;
+    let midTotalWidth = 0;
+    for (let i = 1; i < len - 1; i++) {
+      midTotalWidth += validItems[i].bbox.width;
+    }
+    const gap = (lastLeft - firstRight - midTotalWidth) / (len - 1);
+
+    let curX = firstRight + gap;
+    for (let i = 1; i < len - 1; i++) {
+      const item = validItems[i];
+      const dx = curX - item.bbox.x;
+      deltas[item.idx] = { dx, dy: 0 };
+      curX += item.bbox.width + gap;
+    }
+  } else {
+    const firstBottom = first.bbox.y + first.bbox.height;
+    const lastTop = last.bbox.y;
+    let midTotalHeight = 0;
+    for (let i = 1; i < len - 1; i++) {
+      midTotalHeight += validItems[i].bbox.height;
+    }
+    const gap = (lastTop - firstBottom - midTotalHeight) / (len - 1);
+
+    let curY = firstBottom + gap;
+    for (let i = 1; i < len - 1; i++) {
+      const item = validItems[i];
+      const dy = curY - item.bbox.y;
+      deltas[item.idx] = { dx: 0, dy };
+      curY += item.bbox.height + gap;
+    }
+  }
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+
+      Object.entries(deltas).forEach(([idxStr, d]) => {
+        const idx = parseInt(idxStr, 10);
+        const el = elements[idx];
+        if (el && (d.dx !== 0 || d.dy !== 0)) {
+          applyDeltaToDomElement(el, d.dx, d.dy);
+        }
+      });
+
+      cleanOmniAttributes(doc);
+      return prettifySvg(new XMLSerializer().serializeToString(doc));
+    } catch {
+      return svgText;
+    }
+  } else {
+    let currentCode = svgText;
+    for (const [idxStr, d] of Object.entries(deltas)) {
+      const idx = parseInt(idxStr, 10);
+      currentCode = moveSvgElementGeometry(currentCode, idx, d.dx, d.dy);
+    }
+    return currentCode;
+  }
+}
+
+/**
+ * 将选中的多个图元编组为一个新的 <g> 容器并返回更新后的代码及新 <g> 索引
+ */
+export function groupSvgElements(
+  svgText: string,
+  targetIndices: number[]
+): { code: string; newGroupIndex: number } {
+  const trimmed = svgText.trim();
+  const fallback = { code: svgText, newGroupIndex: targetIndices[0] ?? -1 };
+  if (!trimmed || targetIndices.length < 2) return fallback;
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+
+      const targetEls = targetIndices
+        .map(i => elements[i])
+        .filter(el => Boolean(el) && Boolean(el.parentElement));
+
+      if (targetEls.length < 2) return fallback;
+
+      // 找到在 DOM 树中最后一个出现的选中的元素，作为插入锚点
+      const lastTarget = targetEls[targetEls.length - 1];
+      const parent = lastTarget.parentElement;
+      if (!parent) return fallback;
+
+      const groupEl = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+      groupEl.setAttribute('id', `group_${Date.now().toString(36)}`);
+
+      // 在 lastTarget 后面插入新 group
+      if (lastTarget.nextSibling) {
+        parent.insertBefore(groupEl, lastTarget.nextSibling);
+      } else {
+        parent.appendChild(groupEl);
+      }
+
+      // 将选中的元素依次放入 group 容器中
+      targetEls.forEach(el => {
+        groupEl.appendChild(el);
+      });
+
+      cleanOmniAttributes(doc);
+      const updatedElements = getSvgTargetElements(doc);
+      const newGroupIndex = updatedElements.indexOf(groupEl);
+
+      return {
+        code: prettifySvg(new XMLSerializer().serializeToString(doc)),
+        newGroupIndex: newGroupIndex >= 0 ? newGroupIndex : 0,
+      };
+    } catch {
+      return fallback;
+    }
+  } else {
+    // Node.js 运行环境回退：通过标签匹配构造编组
+    const regex = /<(path|rect|circle|ellipse|line|polyline|polygon|text|tspan|g|image|use)\b[^>]*(\/>|>.*?<\/\1>)/gis;
+    const matches: Array<{ code: string; start: number; end: number; index: number }> = [];
+    let m: RegExpExecArray | null;
+    let idx = 0;
+    while ((m = regex.exec(trimmed)) !== null) {
+      matches.push({ code: m[0], start: m.index, end: m.index + m[0].length, index: idx++ });
+    }
+
+    const selectedMatches = matches.filter(item => targetIndices.includes(item.index));
+    if (selectedMatches.length < 2) return fallback;
+
+    const lastMatch = selectedMatches[selectedMatches.length - 1];
+    const groupXml = `<g id="group_${Date.now().toString(36)}">\n  ${selectedMatches.map(s => s.code).join('\n  ')}\n</g>`;
+
+    // 从后往前替换，避免偏移
+    let result = trimmed;
+    // 扣除前面选中的块
+    for (let i = selectedMatches.length - 2; i >= 0; i--) {
+      const cur = selectedMatches[i];
+      result = result.slice(0, cur.start) + result.slice(cur.end);
+    }
+
+    // 重新在最后一个元素位置替换为编组
+    const lastTargetSnippet = lastMatch.code;
+    const lastIdx = result.indexOf(lastTargetSnippet);
+    if (lastIdx >= 0) {
+      result = result.slice(0, lastIdx) + groupXml + result.slice(lastIdx + lastTargetSnippet.length);
+    }
+
+    return {
+      code: prettifySvg(result),
+      newGroupIndex: 0,
+    };
+  }
+
+  return fallback;
+}
+
+/**
+ * 将选中的 <g> 编组容器解组 (Ungroup)，释放其子图元至原有层级
+ */
+export function ungroupSvgElement(
+  svgText: string,
+  targetIndex: number
+): { code: string; newIndices: number[] } {
+  const trimmed = svgText.trim();
+  const fallback = { code: svgText, newIndices: [targetIndex] };
+  if (!trimmed || targetIndex < 0) return fallback;
+
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, 'image/svg+xml');
+      const elements = getSvgTargetElements(doc);
+      const targetEl = elements[targetIndex];
+
+      if (!targetEl || targetEl.tagName.toLowerCase() !== 'g' || !targetEl.parentElement) {
+        return fallback;
+      }
+
+      const parent = targetEl.parentElement;
+      const children = Array.from(targetEl.children);
+      if (children.length === 0) {
+        parent.removeChild(targetEl);
+        cleanOmniAttributes(doc);
+        return {
+          code: prettifySvg(new XMLSerializer().serializeToString(doc)),
+          newIndices: [],
+        };
+      }
+
+      // 将子节点依次提到 targetEl 前方
+      children.forEach(child => {
+        parent.insertBefore(child, targetEl);
+      });
+      parent.removeChild(targetEl);
+
+      cleanOmniAttributes(doc);
+      const updatedElements = getSvgTargetElements(doc);
+      const newIndices = children
+        .map(c => updatedElements.indexOf(c as Element))
+        .filter(i => i >= 0);
+
+      return {
+        code: prettifySvg(new XMLSerializer().serializeToString(doc)),
+        newIndices,
+      };
+    } catch {
+      return fallback;
+    }
+  } else {
+    // Node.js 运行环境回退：解构 <g>
+    const regex = /<g\b[^>]*>(.*?)<\/g>/gis;
+    let m: RegExpExecArray | null;
+    let currentIdx = 0;
+    while ((m = regex.exec(trimmed)) !== null) {
+      if (currentIdx === targetIndex || trimmed.indexOf(m[0]) >= 0) {
+        const inner = m[1];
+        const replaced = trimmed.slice(0, m.index) + inner + trimmed.slice(m.index + m[0].length);
+        return {
+          code: prettifySvg(replaced),
+          newIndices: [],
+        };
+      }
+      currentIdx++;
+    }
+  }
+
+  return fallback;
+}
+
 

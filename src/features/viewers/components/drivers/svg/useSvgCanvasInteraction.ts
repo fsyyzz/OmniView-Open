@@ -18,11 +18,13 @@ import {
   calculateResizeBBox,
   calculateConstrainedLineEndpoint,
   parseSvgPathNodes,
+  calculateUnionBBox,
 } from './svgUtils';
 
 export type DragMode =
   | 'none'
   | 'pan'
+  | 'marquee'
   | 'element'
   | 'line-p1'
   | 'line-p2'
@@ -55,12 +57,18 @@ export interface UseSvgCanvasInteractionOptions {
   validation: SvgValidationResult;
   inspectorActive: boolean;
   selectedElementIndex: number | null;
+  selectedElementIndices?: number[];
   selectedElementInfo: SvgElementInfo | null;
   onSelectElement: (index: number | null) => void;
+  onSelectElements?: (indices: number[]) => void;
   onUpdateElement: (updates: Partial<SvgElementInfo>) => void;
   onDeleteElement: () => void;
+  onBatchDeleteElements?: (indices: number[]) => void;
   onMoveElementGeometry: (deltaX: number, deltaY: number) => void;
+  onBatchMoveElements?: (indices: number[], deltaX: number, deltaY: number) => void;
   onResizeElementGeometry?: (newBBox: CalculatedResizeBBox, initialBBox: ElementBBox) => void;
+  onGroupElements?: () => void;
+  onUngroupElement?: () => void;
   activeTool?: 'select' | 'node' | 'pen';
   onChangeActiveTool?: (tool: 'select' | 'node' | 'pen') => void;
   snap15Deg?: boolean;
@@ -92,12 +100,18 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     validation,
     inspectorActive,
     selectedElementIndex,
+    selectedElementIndices = [],
     selectedElementInfo,
     onSelectElement,
+    onSelectElements,
     onUpdateElement,
     onDeleteElement,
+    onBatchDeleteElements,
     onMoveElementGeometry,
+    onBatchMoveElements,
     onResizeElementGeometry,
+    onGroupElements,
+    onUngroupElement,
     activeTool = 'select',
     onChangeActiveTool,
     snap15Deg = false,
@@ -109,7 +123,18 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     containerRef,
   } = options;
 
-  // 拖拽、平移与大小调整状态 (包含 Inkscape 风格的弯曲弧度、节点手柄拖拽与笔刷绘制)
+  // 规范化当前有效选中的所有图元索引列表
+  const effectiveSelectedIndices = useMemo(() => {
+    if (selectedElementIndices && selectedElementIndices.length > 0) {
+      return selectedElementIndices;
+    }
+    if (selectedElementIndex !== null) {
+      return [selectedElementIndex];
+    }
+    return [];
+  }, [selectedElementIndices, selectedElementIndex]);
+
+  // 拖拽、平移与大小调整状态 (包含框选矩形、弯曲弧度、手柄拖拽与笔刷)
   const [dragMode, setDragMode] = useState<DragMode>('none');
   const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandleDirection | null>(null);
   const [resizePreviewBBox, setResizePreviewBBox] = useState<CalculatedResizeBBox | null>(null);
@@ -117,6 +142,10 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
   const [dragDelta, setDragDelta] = useState({ x: 0, y: 0 });
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
   const dragMovedRef = useRef(false);
+
+  // 画布自由拖拽框选矩形 (Marquee Selection Box)
+  const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const marqueeSelectedIndicesRef = useRef<number[]>([]);
 
   // 智能吸附、网格状态与 Inkscape 修饰键 (Ctrl 15°锁定 / Alt 锁定方向 / Shift 对称)
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -172,16 +201,66 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     lastValidSvgRef.current = svgContent;
   }
 
-  // 统一测量函数：同时测量 SVG 内部空间 BBox 与视口屏幕真实物理像素坐标
+  // 统一测量函数：同时测量 SVG 内部空间 BBox 与视口屏幕真实物理像素坐标 (支持多选联合包围盒)
   const updateMeasurements = useCallback(() => {
-    if (selectedElementIndex === null || !containerRef.current || !surfaceRef.current) {
+    if (effectiveSelectedIndices.length === 0 || !containerRef.current || !surfaceRef.current) {
       setMeasuredBBox(null);
       setScreenBBox(null);
       setScreenLineCoords(null);
       return;
     }
 
-    const el = surfaceRef.current.querySelector(`[data-omni-id="${selectedElementIndex}"]`);
+    const containerRect = containerRef.current.getBoundingClientRect();
+
+    // 0. 多选状态：计算所有被选图元的联合外包围盒 (Union BBox)
+    if (effectiveSelectedIndices.length > 1) {
+      const allBBoxes: ElementBBox[] = [];
+      let minLeft = Infinity;
+      let minTop = Infinity;
+      let maxRight = -Infinity;
+      let maxBottom = -Infinity;
+
+      effectiveSelectedIndices.forEach(idx => {
+        const el = surfaceRef.current?.querySelector(`[data-omni-id="${idx}"]`);
+        if (el) {
+          if ('getBBox' in el) {
+            try {
+              const b = (el as SVGGraphicsElement).getBBox();
+              allBBoxes.push({
+                x: b.x,
+                y: b.y,
+                width: b.width,
+                height: b.height,
+                id: el.getAttribute('id') || undefined,
+                tagName: el.tagName.toLowerCase(),
+              });
+            } catch {}
+          }
+          const rect = el.getBoundingClientRect();
+          if (rect.left < minLeft) minLeft = rect.left;
+          if (rect.top < minTop) minTop = rect.top;
+          if (rect.right > maxRight) maxRight = rect.right;
+          if (rect.bottom > maxBottom) maxBottom = rect.bottom;
+        }
+      });
+
+      const union = calculateUnionBBox(allBBoxes);
+      setMeasuredBBox(union);
+      if (minLeft !== Infinity) {
+        setScreenBBox({
+          x: minLeft - containerRect.left,
+          y: minTop - containerRect.top,
+          width: Math.max(0, maxRight - minLeft),
+          height: Math.max(0, maxBottom - minTop),
+        });
+      }
+      setScreenLineCoords(null);
+      setScreenControlPoint(null);
+      setIsCurved(false);
+      return;
+    }
+
+    const el = surfaceRef.current.querySelector(`[data-omni-id="${effectiveSelectedIndices[0]}"]`);
     if (!el) {
       setMeasuredBBox(null);
       setScreenBBox(null);
@@ -210,7 +289,6 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     }
 
     // 2. 测量在视口屏幕中的精确物理像素 BBox (直接抹平 padding、flex 居中、viewBox 缩放与 CSS 变换)
-    const containerRect = containerRef.current.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
 
     setScreenBBox({
@@ -372,17 +450,22 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     [scale, position]
   );
 
-  // 收集兄弟节点及画布几何
+  // 收集兄弟节点及画布几何 (排除所有当前选中的图元，避免选区自吸附)
   const prepareDragContext = useCallback(
-    (targetIndex: number) => {
+    (targetIndex?: number) => {
       canvasBoundsRef.current = parseSvgDimensions(svgContent);
 
       if (!surfaceRef.current) return;
       const siblings: ElementBBox[] = [];
       const allElements = surfaceRef.current.querySelectorAll('[data-omni-id]');
+      const excludedSet = new Set<string>(effectiveSelectedIndices.map(String));
+      if (targetIndex !== undefined) {
+        excludedSet.add(String(targetIndex));
+      }
+
       allElements.forEach(node => {
         const omniId = node.getAttribute('data-omni-id');
-        if (omniId !== String(targetIndex) && 'getBBox' in node) {
+        if (omniId && !excludedSet.has(omniId) && 'getBBox' in node) {
           try {
             const b = (node as SVGGraphicsElement).getBBox();
             if (b.width > 0 || b.height > 0) {
@@ -400,7 +483,7 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
       });
       siblingBBoxesRef.current = siblings;
     },
-    [svgContent]
+    [svgContent, effectiveSelectedIndices]
   );
 
   // 滚轮缩放：以鼠标指针光标当前所在物理位置为焦点进行动态缩放 (Zoom toward Cursor)
@@ -597,41 +680,69 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
       const omniIdStr = omniElement?.getAttribute('data-omni-id');
       const targetIndex = omniIdStr !== null && omniIdStr !== undefined ? parseInt(omniIdStr, 10) : null;
 
-      // 如果点击的是已经选中的图元，或者直接点击了选框 Gizmo：进入图元拖拽模式！
-      if (isGizmoClick || (targetIndex !== null && targetIndex === selectedElementIndex)) {
+      const isModifierActive = e.shiftKey || e.ctrlKey || e.metaKey || isShiftPressed || isCtrlPressed;
+
+      // 5.1 按住 Shift/Ctrl 进行加选/减选切换
+      if (isModifierActive && targetIndex !== null) {
+        let nextIndices: number[];
+        if (effectiveSelectedIndices.includes(targetIndex)) {
+          // 减选
+          nextIndices = effectiveSelectedIndices.filter(i => i !== targetIndex);
+        } else {
+          // 加选
+          nextIndices = [...effectiveSelectedIndices, targetIndex];
+        }
+        onSelectElements?.(nextIndices);
+        onSelectElement(nextIndices.length > 0 ? nextIndices[nextIndices.length - 1] : null);
+        return;
+      }
+
+      // 5.2 如果点击的是已经选中的图元集合之一，或者直接点击了选框 Gizmo：进入图元拖拽模式！
+      const isTargetInSelection = targetIndex !== null && effectiveSelectedIndices.includes(targetIndex);
+      if (isGizmoClick || isTargetInSelection) {
         setDragMode('element');
         dragMovedRef.current = false;
         dragStartMouseRef.current = { x: e.clientX, y: e.clientY };
         setDragDelta({ x: 0, y: 0 });
         setScreenDragOffset({ x: 0, y: 0 });
 
-        const currentTargetIndex = isGizmoClick ? selectedElementIndex! : targetIndex!;
-        const el = surfaceRef.current?.querySelector(`[data-omni-id="${currentTargetIndex}"]`);
-        if (el && 'getBBox' in el) {
-          try {
-            const b = (el as SVGGraphicsElement).getBBox();
-            const bbox: ElementBBox = {
-              x: b.x,
-              y: b.y,
-              width: b.width,
-              height: b.height,
-              id: el.getAttribute('id') || undefined,
-              tagName: el.tagName.toLowerCase(),
-            };
-            initialBBoxRef.current = bbox;
-            setMeasuredBBox(bbox);
-          } catch {}
-        }
+        const primaryTargetIndex = isGizmoClick
+          ? (selectedElementIndex ?? effectiveSelectedIndices[0] ?? 0)
+          : targetIndex!;
 
-        prepareDragContext(currentTargetIndex);
+        prepareDragContext(primaryTargetIndex);
+        return;
+      }
+
+      // 5.3 如果点击了未选中的图元（无修饰键）：单选该图元并立即进入拖拽准备
+      if (targetIndex !== null) {
+        onSelectElements?.([targetIndex]);
+        onSelectElement(targetIndex);
+        setDragMode('element');
+        dragMovedRef.current = false;
+        dragStartMouseRef.current = { x: e.clientX, y: e.clientY };
+        setDragDelta({ x: 0, y: 0 });
+        setScreenDragOffset({ x: 0, y: 0 });
+        prepareDragContext(targetIndex);
         return;
       }
     }
 
-    // 6. 其它情况：进入画布平移拖拽
-    setDragMode('pan');
+    // 6. 其它情况：点击空白画布区域
+    // 如果是鼠标中键 (e.button === 1) 或按住 Alt/Space：进入画布平移拖拽
+    if (e.button === 1 || e.altKey || isAltPressed) {
+      setDragMode('pan');
+      dragMovedRef.current = false;
+      dragStartMouseRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+      return;
+    }
+
+    // 默认左键点击空白处：开启自由矩形框选 (Marquee Selection)
+    setDragMode('marquee');
     dragMovedRef.current = false;
-    dragStartMouseRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+    dragStartMouseRef.current = { x: e.clientX, y: e.clientY };
+    setMarqueeRect(null);
+    marqueeSelectedIndicesRef.current = [];
   };
 
   // 鼠标移动
@@ -657,6 +768,55 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
         x: e.clientX - dragStartMouseRef.current.x,
         y: e.clientY - dragStartMouseRef.current.y,
       });
+      return;
+    }
+
+    // A1. 画布空白处拖拽框选 (Marquee Selection)
+    if (dragMode === 'marquee') {
+      dragMovedRef.current = true;
+      const startX = dragStartMouseRef.current.x;
+      const startY = dragStartMouseRef.current.y;
+      const currentX = e.clientX;
+      const currentY = e.clientY;
+
+      const minX = Math.min(startX, currentX);
+      const minY = Math.min(startY, currentY);
+      const maxX = Math.max(startX, currentX);
+      const maxY = Math.max(startY, currentY);
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (containerRect) {
+        setMarqueeRect({
+          x: minX - containerRect.left,
+          y: minY - containerRect.top,
+          width,
+          height,
+        });
+      }
+
+      // 执行 AABB 碰撞检测，动态找出框选覆盖的所有图元
+      if (width > 3 || height > 3) {
+        const hitIndices: number[] = [];
+        const allElements = surfaceRef.current?.querySelectorAll('[data-omni-id]');
+        allElements?.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          const isHit = !(
+            rect.right < minX ||
+            rect.left > maxX ||
+            rect.bottom < minY ||
+            rect.top > maxY
+          );
+          if (isHit) {
+            const omniId = el.getAttribute('data-omni-id');
+            if (omniId !== null) {
+              hitIndices.push(parseInt(omniId, 10));
+            }
+          }
+        });
+        marqueeSelectedIndicesRef.current = hitIndices;
+      }
       return;
     }
 
@@ -688,8 +848,8 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
       return;
     }
 
-    // D. 图元位置拖拽调整 (带智能吸附、网格吸附与 0 延迟实时 live 跟随)
-    if (dragMode === 'element' && selectedElementIndex !== null) {
+    // D. 图元位置拖拽调整 (支持多选整体拖拽、智能吸附、网格吸附与 0 延迟实时 live 跟随)
+    if (dragMode === 'element' && effectiveSelectedIndices.length > 0) {
       dragMovedRef.current = true;
       const mouseDx = e.clientX - dragStartMouseRef.current.x;
       const mouseDy = e.clientY - dragStartMouseRef.current.y;
@@ -735,13 +895,15 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
         setScreenDragOffset({ x: finalDeltaX * scale, y: finalDeltaY * scale });
       }
 
-      // 实时让被选中的 SVG DOM 元素与选框 100% 同步平移，彻底告别脱节感
-      const activeEl = surfaceRef.current?.querySelector(`[data-omni-id="${selectedElementIndex}"]`) as SVGGraphicsElement | null;
-      if (activeEl) {
-        activeEl.style.transform = `translate(${finalDeltaX}px, ${finalDeltaY}px)`;
-        activeEl.style.opacity = '0.85';
-        activeEl.style.transition = 'none';
-      }
+      // 实时让所有被选中的 SVG DOM 元素与选框 100% 同步平移，彻底告别脱节感
+      effectiveSelectedIndices.forEach(idx => {
+        const activeEl = surfaceRef.current?.querySelector(`[data-omni-id="${idx}"]`) as SVGGraphicsElement | null;
+        if (activeEl) {
+          activeEl.style.transform = `translate(${finalDeltaX}px, ${finalDeltaY}px)`;
+          activeEl.style.opacity = '0.85';
+          activeEl.style.transition = 'none';
+        }
+      });
       return;
     }
 
@@ -880,20 +1042,44 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     const currentMode = dragMode;
     const moved = dragMovedRef.current;
 
-    // 清理 DOM 元素的临时内联变换样式
-    if (selectedElementIndex !== null && surfaceRef.current) {
-      const activeEl = surfaceRef.current.querySelector(`[data-omni-id="${selectedElementIndex}"]`) as SVGGraphicsElement | null;
-      if (activeEl) {
-        activeEl.style.transform = '';
-        activeEl.style.opacity = '';
-        activeEl.style.transition = '';
-        activeEl.style.transformOrigin = '';
-      }
+    // 清理 DOM 元素的临时内联变换样式 (支持所有当前被选图元)
+    if (surfaceRef.current) {
+      effectiveSelectedIndices.forEach(idx => {
+        const activeEl = surfaceRef.current?.querySelector(`[data-omni-id="${idx}"]`) as SVGGraphicsElement | null;
+        if (activeEl) {
+          activeEl.style.transform = '';
+          activeEl.style.opacity = '';
+          activeEl.style.transition = '';
+          activeEl.style.transformOrigin = '';
+        }
+      });
     }
 
     setDragMode('none');
     setActiveGuides([]);
     setScreenDragOffset({ x: 0, y: 0 });
+
+    // 0. 框选拖拽完成 (Marquee Selection)
+    if (currentMode === 'marquee') {
+      setMarqueeRect(null);
+      const hit = marqueeSelectedIndicesRef.current;
+      const isModifier = e.shiftKey || e.ctrlKey || e.metaKey || isShiftPressed || isCtrlPressed;
+
+      if (!moved || hit.length === 0) {
+        // 单纯点击空白处且无命中的图元：取消全选
+        if (!isModifier) {
+          onSelectElements?.([]);
+          onSelectElement(null);
+        }
+      } else {
+        const finalIndices = isModifier
+          ? Array.from(new Set([...effectiveSelectedIndices, ...hit]))
+          : hit;
+        onSelectElements?.(finalIndices);
+        onSelectElement(finalIndices.length > 0 ? finalIndices[0] : null);
+      }
+      return;
+    }
 
     // 1. Inkscape 弯曲拖拽完成：将直线转为曲线并应用弧度
     if (currentMode === 'line-curve') {
@@ -962,10 +1148,14 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
       return;
     }
 
-    // 6. 图元拖拽完成：将吸附与微调结果持久化写入
-    if (currentMode === 'element' && selectedElementIndex !== null) {
+    // 6. 图元拖拽完成：将吸附与微调结果持久化写入 (支持多选批量位移)
+    if (currentMode === 'element' && effectiveSelectedIndices.length > 0) {
       if (moved && (Math.abs(dragDelta.x) > 0.4 || Math.abs(dragDelta.y) > 0.4)) {
-        onMoveElementGeometry(dragDelta.x, dragDelta.y);
+        if (effectiveSelectedIndices.length > 1 && onBatchMoveElements) {
+          onBatchMoveElements(effectiveSelectedIndices, dragDelta.x, dragDelta.y);
+        } else if (selectedElementIndex !== null) {
+          onMoveElementGeometry(dragDelta.x, dragDelta.y);
+        }
       }
       setDragDelta({ x: 0, y: 0 });
       return;
@@ -1079,11 +1269,25 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
         const omniId = omniTarget.getAttribute('data-omni-id');
         if (omniId !== null) {
           const parsed = parseInt(omniId, 10);
-          onSelectElement(parsed);
+          const isModifier = e.shiftKey || e.ctrlKey || e.metaKey || isShiftPressed || isCtrlPressed;
+          if (isModifier) {
+            let next: number[];
+            if (effectiveSelectedIndices.includes(parsed)) {
+              next = effectiveSelectedIndices.filter(i => i !== parsed);
+            } else {
+              next = [...effectiveSelectedIndices, parsed];
+            }
+            onSelectElements?.(next);
+            onSelectElement(next.length > 0 ? next[next.length - 1] : null);
+          } else {
+            onSelectElements?.([parsed]);
+            onSelectElement(parsed);
+          }
           return;
         }
       } else {
         // 仅当用户明确点击画布空白区域（非任何 UI 浮层）时，才取消选中
+        onSelectElements?.([]);
         onSelectElement(null);
       }
     }
@@ -1146,7 +1350,7 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     };
   }, [penPoints, onChangeActiveTool, onAddNewLine, onAddNewPolyline]);
 
-  // 键盘快捷键微调支持 (方向键 ±1px / ±10px 键盘微调，S 键吸附开关，Delete 删除)
+  // 键盘快捷键微调支持 (方向键 ±1px / ±10px 键盘微调，S 键吸附开关，Delete 删除，Ctrl+A 全选，Ctrl+G 编组/解组)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 避免在文本输入框中拦截按键
@@ -1156,38 +1360,97 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
       }
 
       // S 键切换智能吸附
-      if (e.key === 's' || e.key === 'S') {
+      if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
         setSnapEnabled(prev => !prev);
         return;
       }
 
-      if (selectedElementIndex === null) return;
+      // Ctrl+A / Cmd+A 全选所有图元
+      if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const allNodes = surfaceRef.current?.querySelectorAll('[data-omni-id]');
+        if (allNodes && allNodes.length > 0) {
+          const allIndices = Array.from(allNodes).map((_, i) => i);
+          onSelectElements?.(allIndices);
+          onSelectElement(allIndices[0]);
+        }
+        return;
+      }
+
+      // Ctrl+G / Cmd+G 编组与解组
+      if ((e.key === 'g' || e.key === 'G') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // 解组
+          onUngroupElement?.();
+        } else {
+          // 编组
+          if (effectiveSelectedIndices.length > 1) {
+            onGroupElements?.();
+          }
+        }
+        return;
+      }
+
+      if (effectiveSelectedIndices.length === 0) return;
 
       const step = e.shiftKey ? 10 : 1;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        onMoveElementGeometry(-step, 0);
+        if (effectiveSelectedIndices.length > 1 && onBatchMoveElements) {
+          onBatchMoveElements(effectiveSelectedIndices, -step, 0);
+        } else if (selectedElementIndex !== null) {
+          onMoveElementGeometry(-step, 0);
+        }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        onMoveElementGeometry(step, 0);
+        if (effectiveSelectedIndices.length > 1 && onBatchMoveElements) {
+          onBatchMoveElements(effectiveSelectedIndices, step, 0);
+        } else if (selectedElementIndex !== null) {
+          onMoveElementGeometry(step, 0);
+        }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        onMoveElementGeometry(0, -step);
+        if (effectiveSelectedIndices.length > 1 && onBatchMoveElements) {
+          onBatchMoveElements(effectiveSelectedIndices, 0, -step);
+        } else if (selectedElementIndex !== null) {
+          onMoveElementGeometry(0, -step);
+        }
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        onMoveElementGeometry(0, step);
+        if (effectiveSelectedIndices.length > 1 && onBatchMoveElements) {
+          onBatchMoveElements(effectiveSelectedIndices, 0, step);
+        } else if (selectedElementIndex !== null) {
+          onMoveElementGeometry(0, step);
+        }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        onDeleteElement();
+        if (effectiveSelectedIndices.length > 1 && onBatchDeleteElements) {
+          onBatchDeleteElements(effectiveSelectedIndices);
+        } else {
+          onDeleteElement();
+        }
       } else if (e.key === 'Escape') {
         e.preventDefault();
+        onSelectElements?.([]);
         onSelectElement(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElementIndex, onMoveElementGeometry, onDeleteElement, onSelectElement]);
+  }, [
+    effectiveSelectedIndices,
+    selectedElementIndex,
+    onMoveElementGeometry,
+    onBatchMoveElements,
+    onDeleteElement,
+    onBatchDeleteElements,
+    onSelectElement,
+    onSelectElements,
+    onGroupElements,
+    onUngroupElement,
+  ]);
 
   // 计算视口顶层选框的实时屏幕物理位置 (联动图元拖拽偏移或 8 向缩放尺寸)
   const displayScreenBBox = useMemo(() => {
@@ -1235,6 +1498,8 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     setActiveGuides,
     hoveredTag,
     setHoveredTag,
+    marqueeRect,
+    effectiveSelectedIndices,
     penPoints,
     penCursor,
     screenPathNodes,

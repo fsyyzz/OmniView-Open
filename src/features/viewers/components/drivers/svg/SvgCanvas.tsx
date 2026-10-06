@@ -14,6 +14,7 @@ import {
   LinePresetType,
 } from './svgUtils';
 import { SvgInspectorPanel } from './SvgInspectorPanel';
+import { SvgBatchInspectorPanel } from './SvgBatchInspectorPanel';
 import { SvgSelectionGizmo } from './SvgSelectionGizmo';
 import { SvgLineHandles } from './SvgLineHandles';
 import { SvgPathNodeHandles } from './SvgPathNodeHandles';
@@ -35,15 +36,24 @@ interface SvgCanvasProps {
   // Scheme B: 检视微调系统属性
   inspectorActive: boolean;
   selectedElementIndex: number | null;
+  selectedElementIndices?: number[];
   selectedElementInfo: SvgElementInfo | null;
   onSelectElement: (index: number | null) => void;
+  onSelectElements?: (indices: number[]) => void;
   onUpdateElement: (updates: Partial<SvgElementInfo>) => void;
   onDeleteElement: () => void;
+  onBatchDeleteElements?: (indices: number[]) => void;
   onMoveElementLayer: (direction: 'front' | 'back') => void;
   onLocateInCode: () => void;
   onMoveElementGeometry: (deltaX: number, deltaY: number) => void;
+  onBatchMoveElements?: (indices: number[], deltaX: number, deltaY: number) => void;
   onResizeElementGeometry?: (newBBox: CalculatedResizeBBox, initialBBox: ElementBBox) => void;
   onAlignElement: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', bbox: ElementBBox) => void;
+  onBatchAlignElements?: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
+  onBatchDistributeElements?: (direction: 'horizontal' | 'vertical') => void;
+  onBatchUpdateStyle?: (updates: Partial<SvgElementInfo>) => void;
+  onGroupElements?: () => void;
+  onUngroupElement?: () => void;
   onAlignLineOrthogonal: (mode: 'horizontal' | 'vertical') => void;
   onReverseLine?: () => void;
   onConvertToStepLine?: (mode: 'hv' | 'vh') => void;
@@ -77,15 +87,24 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
   isPanningActive = false,
   inspectorActive,
   selectedElementIndex,
+  selectedElementIndices = [],
   selectedElementInfo,
   onSelectElement,
+  onSelectElements,
   onUpdateElement,
   onDeleteElement,
+  onBatchDeleteElements,
   onMoveElementLayer,
   onLocateInCode,
   onMoveElementGeometry,
+  onBatchMoveElements,
   onResizeElementGeometry,
   onAlignElement,
+  onBatchAlignElements,
+  onBatchDistributeElements,
+  onBatchUpdateStyle,
+  onGroupElements,
+  onUngroupElement,
   onAlignLineOrthogonal,
   onReverseLine,
   onConvertToStepLine,
@@ -107,7 +126,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
 
-  // 将全部交互逻辑（拖拽/平移/缩放/手柄/钢笔/节点/键盘/测量）下沉到独立 Hook
+  // 将全部交互逻辑（拖拽/平移/缩放/手柄/钢笔/节点/键盘/测量/框选）下沉到独立 Hook
   const {
     dragMode,
     setDragMode,
@@ -126,6 +145,8 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
     setActiveGuides,
     hoveredTag,
     setHoveredTag,
+    marqueeRect,
+    effectiveSelectedIndices,
     penPoints,
     penCursor,
     screenPathNodes,
@@ -154,12 +175,18 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
     validation,
     inspectorActive,
     selectedElementIndex,
+    selectedElementIndices,
     selectedElementInfo,
     onSelectElement,
+    onSelectElements,
     onUpdateElement,
     onDeleteElement,
+    onBatchDeleteElements,
     onMoveElementGeometry,
+    onBatchMoveElements,
     onResizeElementGeometry,
+    onGroupElements,
+    onUngroupElement,
     activeTool,
     onChangeActiveTool,
     snap15Deg,
@@ -181,7 +208,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
     containerRef,
   });
 
-  // 经过 DOMPurify 严格安全净化的 SVG 内容，并按需注入 data-omni-id 供检视器点选
+  // 经过 DOMPurify 严格安全净化的 SVG 内容，并按需注入 data-omni-id 与 data-omni-selected 供检视器点选高亮
   const sanitizedMarkup = useMemo(() => {
     const rawContent = (validation.valid ? svgContent : lastValidSvgRef.current) || svgContent || '';
     if (!rawContent || !rawContent.trim()) return '';
@@ -195,9 +222,9 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
 
     if (!targetContent) return '';
 
-    const needsTag = inspectorActive || selectedElementIndex !== null || hoverElementIndex !== null;
+    const needsTag = inspectorActive || effectiveSelectedIndices.length > 0 || hoverElementIndex !== null;
     const taggedContent = needsTag
-      ? tagSvgWithNodeIds(targetContent, selectedElementIndex)
+      ? tagSvgWithNodeIds(targetContent, effectiveSelectedIndices)
       : targetContent;
 
     let sanitized = DOMPurify.sanitize(taggedContent, {
@@ -428,12 +455,27 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         </div>
       )}
 
-      {/* 视口顶层像素级精准选框与 8 向调整手柄 (100% 贴合屏幕物理像素，绝无错位) */}
-      {selectedElementIndex !== null && displayScreenBBox && (
+      {/* 鼠标自由拖拽框选半透明选框 (Marquee Selection Box) */}
+      {marqueeRect && (
+        <div
+          data-canvas-ui="true"
+          className="absolute pointer-events-none z-30 border border-blue-500 border-dashed bg-blue-500/15 rounded-xs shadow-[0_0_8px_rgba(59,130,246,0.3)] transition-none"
+          style={{
+            left: `${marqueeRect.x}px`,
+            top: `${marqueeRect.y}px`,
+            width: `${marqueeRect.width}px`,
+            height: `${marqueeRect.height}px`,
+          }}
+        />
+      )}
+
+      {/* 视口顶层像素级精准选框与 8 向调整手柄 (100% 贴合屏幕物理像素，支持多选联合选框) */}
+      {effectiveSelectedIndices.length > 0 && displayScreenBBox && (
         <SvgSelectionGizmo
           displayScreenBBox={displayScreenBBox}
           dragMode={dragMode}
           selectedElementInfo={selectedElementInfo}
+          selectedCount={effectiveSelectedIndices.length}
           resizeHandles={resizeHandles}
           resizePreviewBBox={resizePreviewBBox}
           measuredBBox={measuredBBox}
@@ -595,8 +637,23 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
         </div>
       )}
 
-      {/* 属性微调检视器悬浮面板 (Scheme B) */}
-      {selectedElementInfo && (
+      {/* 属性微调检视器悬浮面板 (多选批量面板 vs 单图元精细属性面板) */}
+      {effectiveSelectedIndices.length > 1 ? (
+        <SvgBatchInspectorPanel
+          selectedCount={effectiveSelectedIndices.length}
+          unionBBox={measuredBBox}
+          onBatchAlign={alignment => onBatchAlignElements?.(alignment)}
+          onBatchDistribute={direction => onBatchDistributeElements?.(direction)}
+          onBatchUpdateStyle={updates => onBatchUpdateStyle?.(updates)}
+          onBatchDelete={() => onBatchDeleteElements?.(effectiveSelectedIndices)}
+          onGroup={onGroupElements}
+          onUngroup={onUngroupElement}
+          onClose={() => {
+            onSelectElements?.([]);
+            onSelectElement(null);
+          }}
+        />
+      ) : selectedElementInfo ? (
         <SvgInspectorPanel
           element={selectedElementInfo}
           bbox={measuredBBox}
@@ -614,9 +671,12 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
           isCurved={isCurved}
           snapEnabled={snapEnabled}
           onToggleSnap={() => setSnapEnabled(prev => !prev)}
-          onClose={() => onSelectElement(null)}
+          onClose={() => {
+            onSelectElements?.([]);
+            onSelectElement(null);
+          }}
         />
-      )}
+      ) : null}
 
       {/* 底部交互辅助指示与吸附开关状态栏 */}
       <SvgStatusBar

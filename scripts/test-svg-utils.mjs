@@ -31,6 +31,14 @@ import {
   applyLinePreset,
   ensureSvgMarkers,
   calculateResizeBBox,
+  calculateUnionBBox,
+  batchMoveSvgElements,
+  batchDeleteSvgElements,
+  batchUpdateSvgElementsStyle,
+  batchAlignSvgElements,
+  batchDistributeSvgElements,
+  groupSvgElements,
+  ungroupSvgElement,
 } from '../src/features/viewers/components/drivers/svg/svgUtils.ts';
 
 console.log('🧪 开始 SVG 开发者工程工具与转换引擎单元测试...');
@@ -292,4 +300,63 @@ assert.strictEqual(centerResize.x, 200 - 240 / 2, 'Alt 中心缩放后，中心�
 assert.strictEqual(centerResize.y, 150 - 120 / 2, 'Alt 中心缩放后，中心点 Y 应保持 150，新 Y 为 90');
 console.log('✅ 图元常规拉伸与 Alt 几何中心对称缩放测试通过');
 
-console.log('🎉 全部 20 组 SVG 开发者工程引擎、线条微调、拓扑转换、智能吸附与中心缩放测试用例 100% 通过！\n');
+// --- 测试 21: SVG 多选与批量操作生态 (多选打标/联合包围盒/批量位移/批量样式/联合对齐/等距分布/编组解组) ---
+console.log('--- 测试 21: SVG 多选与批量操作生态 ---');
+const multiSelectSvg = `<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <rect id="r1" x="10" y="10" width="40" height="40" fill="#ff0000" />
+  <rect id="r2" x="100" y="50" width="50" height="50" fill="#00ff00" />
+  <rect id="r3" x="250" y="80" width="60" height="60" fill="#0000ff" />
+</svg>`;
+
+// 21.1 多选打标注入
+const taggedMulti = tagSvgWithNodeIds(multiSelectSvg, [0, 2]);
+assert.ok(taggedMulti.includes('data-omni-id="0" data-omni-selected="true"'), '第 0 个图元应被标记为选中');
+assert.ok(taggedMulti.includes('data-omni-id="1"') && !taggedMulti.includes('data-omni-id="1" data-omni-selected="true"'), '第 1 个图元不应被标记为选中');
+assert.ok(taggedMulti.includes('data-omni-id="2" data-omni-selected="true"'), '第 2 个图元应被标记为选中');
+
+// 21.2 联合包围盒计算
+const bboxes = [
+  { x: 10, y: 10, width: 40, height: 40 },
+  { x: 100, y: 50, width: 50, height: 50 },
+  { x: 250, y: 80, width: 60, height: 60 },
+];
+const unionBBox = calculateUnionBBox(bboxes);
+assert.strictEqual(unionBBox.x, 10, '联合 BBox X 应为 min(x)=10');
+assert.strictEqual(unionBBox.y, 10, '联合 BBox Y 应为 min(y)=10');
+assert.strictEqual(unionBBox.width, 300, '联合 BBox 宽度应为 310 - 10 = 300');
+assert.strictEqual(unionBBox.height, 130, '联合 BBox 高度应为 140 - 10 = 130');
+
+// 21.3 批量位移
+const movedMulti = batchMoveSvgElements(multiSelectSvg, [0, 1], 15, 20);
+assert.ok(movedMulti.includes('x="25"'), 'r1 的 X 应从 10 增至 25');
+assert.ok(movedMulti.includes('y="30"'), 'r1 的 Y 应从 10 增至 30');
+assert.ok(movedMulti.includes('x="115"'), 'r2 的 X 应从 100 增至 115');
+assert.ok(movedMulti.includes('x="250"'), '未选中的 r3 X 应保持 250');
+
+// 21.4 批量样式修改
+const styledMulti = batchUpdateSvgElementsStyle(multiSelectSvg, [0, 1], {
+  fill: '#10b981',
+  opacity: '0.8',
+});
+assert.ok(styledMulti.includes('fill="#10b981"'), '选中的图元应批量更新为新填充色');
+
+// 21.5 联合左对齐
+const bboxMap = { 0: bboxes[0], 1: bboxes[1], 2: bboxes[2] };
+const alignedMulti = batchAlignSvgElements(multiSelectSvg, [0, 1, 2], 'left', bboxMap);
+assert.ok(alignedMulti.includes('id="r2" x="10"'), '联合左对齐后 r2 的 X 应变为 10');
+assert.ok(alignedMulti.includes('id="r3" x="10"'), '联合左对齐后 r3 的 X 应变为 10');
+
+// 21.6 批量删除
+const deletedMulti = batchDeleteSvgElements(multiSelectSvg, [0, 2]);
+assert.ok(!deletedMulti.includes('id="r1"'), 'r1 应被删除');
+assert.ok(deletedMulti.includes('id="r2"'), '未被删除的 r2 应保留');
+assert.ok(!deletedMulti.includes('id="r3"'), 'r3 应被删除');
+
+// 21.7 编组与解组
+const groupRes = groupSvgElements(multiSelectSvg, [0, 1]);
+assert.ok(groupRes.code.includes('<g'), '编组后应包含 <g> 容器');
+const ungroupRes = ungroupSvgElement(groupRes.code, groupRes.newGroupIndex);
+assert.ok(ungroupRes.code.includes('id="r1"'), '解组后 r1 应恢复为独立子节点');
+console.log('✅ SVG 多选打标、联合包围盒、批量位移、批量样式、联合对齐、批量删除与编组解组测试全部通过');
+
+console.log('🎉 全部 21 组 SVG 开发者工程引擎、多选批处理、拓扑转换与智能吸附测试用例 100% 通过！\n');

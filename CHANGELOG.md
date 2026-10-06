@@ -4,6 +4,29 @@
 
 ## [Unreleased]
 
+## [1.2.52] - 2026-10-06
+
+### Added
+
+- **SVG 画布多选与批量编辑生态 (SVG Multi-Element Canvas Selection & Batch Editing Ecosystem)**:
+  - **画布自由矩形框选 (Marquee Selection)**：
+    - 支持在画布空白处自由拖拽出半透明虚线框选矩形，动态 AABB 碰撞检测快速框选目标图元集合；
+  - **键盘修饰键加减选 (Shift / Ctrl Multi-Select)**：
+    - 按住 `Shift` 或 `Ctrl` / `Cmd` 键点选图元，支持加选与减选切换；
+    - 支持 `Ctrl+A` / `Cmd+A` 一键全选画布所有有效矢量图元；
+  - **多选整体同步拖拽移动与微调**：
+    - 针对多选集执行 0 延迟实时 DOM 平移，拖拽跟随丝滑流畅；支持键盘方向键（`Arrow` ±1px / `Shift+Arrow` ±10px）批量微调；
+  - **联合对齐与等间距分布工具 (Align & Distribute)**：
+    - 以所有选中图元的联合外包围盒 (Union BBox) 为基准，提供左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐；
+    - 支持在首尾图元之间对中间所有图元进行水平/垂直等间距自动排列（Space Evenly）；
+  - **批量外观与样式设置 (Batch Appearance & Styling)**：
+    - 专责多选面板 (`SvgBatchInspectorPanel.tsx`) 提供一键批量修改所有选中图元的填充色、描边色、描边粗细与透明度；
+  - **一键编组与解组 (Group & Ungroup)**：
+    - 支持快捷键 `Ctrl+G` / 按钮将多个选中图元一次性封装为 `<g>` 编组容器；
+    - 支持快捷键 `Ctrl+Shift+G` / 按钮一键拆解 `<g>` 编组恢复为独立图元；
+  - **批量删除**：
+    - 支持快捷键 `Delete` / `Backspace` 或面板按钮批量删除所有选中的图元。
+
 ## [1.2.51] - 2026-10-06
 
 ### Added

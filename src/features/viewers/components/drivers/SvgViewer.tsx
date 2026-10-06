@@ -33,6 +33,13 @@ import {
   insertNodeIntoPath,
   deleteNodeFromPath,
   updateSvgPathNode,
+  batchMoveSvgElements,
+  batchDeleteSvgElements,
+  batchUpdateSvgElementsStyle,
+  batchAlignSvgElements,
+  batchDistributeSvgElements,
+  groupSvgElements,
+  ungroupSvgElement,
 } from './svg/svgUtils';
 import { SvgCanvas, SvgBgMode } from './svg/SvgCanvas';
 import { SvgCodeEditor } from './svg/SvgCodeEditor';
@@ -72,6 +79,7 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
     return true; // 默认开启检视器微调体验
   });
   const [selectedElementIndex, setSelectedElementIndex] = useState<number | null>(null);
+  const [selectedElementIndices, setSelectedElementIndices] = useState<number[]>([]);
   const [highlightLine, setHighlightLine] = useState<number | null>(null);
 
   // 代码行 hover → 画布图元反向高亮映射
@@ -171,16 +179,36 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
     });
   }, []);
 
-  // Scheme B: 选中图元
+  // Scheme B: 选中单图元与多图元联动
   const handleSelectElement = useCallback(
     (index: number | null) => {
       setSelectedElementIndex(index);
+      setSelectedElementIndices(index !== null ? [index] : []);
       if (index !== null) {
         const info = getSvgElementInfo(code, index);
         if (info && info.lineInSource) {
           setHighlightLine(info.lineInSource);
         }
       } else {
+        setHighlightLine(null);
+      }
+    },
+    [code]
+  );
+
+  // 多选图元回调
+  const handleSelectElements = useCallback(
+    (indices: number[]) => {
+      setSelectedElementIndices(indices);
+      if (indices.length > 0) {
+        const primary = indices[0];
+        setSelectedElementIndex(primary);
+        const info = getSvgElementInfo(code, primary);
+        if (info && info.lineInSource) {
+          setHighlightLine(info.lineInSource);
+        }
+      } else {
+        setSelectedElementIndex(null);
         setHighlightLine(null);
       }
     },
@@ -197,14 +225,126 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
     [code, selectedElementIndex, handleCodeChange]
   );
 
+  // 批量修改样式
+  const handleBatchUpdateStyle = useCallback(
+    (updates: Partial<SvgElementInfo>) => {
+      if (selectedElementIndices.length === 0) return;
+      const updatedCode = batchUpdateSvgElementsStyle(code, selectedElementIndices, updates);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndices, handleCodeChange]
+  );
+
+  // 批量位移
+  const handleBatchMoveElements = useCallback(
+    (indices: number[], deltaX: number, deltaY: number) => {
+      if (indices.length === 0 || (deltaX === 0 && deltaY === 0)) return;
+      const updatedCode = batchMoveSvgElements(code, indices, deltaX, deltaY);
+      handleCodeChange(updatedCode);
+    },
+    [code, handleCodeChange]
+  );
+
   // Scheme B: 删除图元
   const handleDeleteElement = useCallback(() => {
     if (selectedElementIndex === null) return;
     const updatedCode = removeSvgElement(code, selectedElementIndex);
     handleCodeChange(updatedCode);
     setSelectedElementIndex(null);
+    setSelectedElementIndices([]);
     setHighlightLine(null);
   }, [code, selectedElementIndex, handleCodeChange]);
+
+  // 批量删除图元
+  const handleBatchDeleteElements = useCallback(
+    (indices: number[]) => {
+      if (indices.length === 0) return;
+      const updatedCode = batchDeleteSvgElements(code, indices);
+      handleCodeChange(updatedCode);
+      setSelectedElementIndex(null);
+      setSelectedElementIndices([]);
+      setHighlightLine(null);
+    },
+    [code, handleCodeChange]
+  );
+
+  // 批量对齐
+  const handleBatchAlignElements = useCallback(
+    (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+      if (selectedElementIndices.length < 2) return;
+      // 提取被选图元的 BBox 映射
+      const bboxMap: Record<number, ElementBBox> = {};
+      const surface = document.getElementById('svg-render-surface');
+      selectedElementIndices.forEach(idx => {
+        const el = surface?.querySelector(`[data-omni-id="${idx}"]`);
+        if (el && 'getBBox' in el) {
+          try {
+            const b = (el as SVGGraphicsElement).getBBox();
+            bboxMap[idx] = {
+              x: b.x,
+              y: b.y,
+              width: b.width,
+              height: b.height,
+              id: el.getAttribute('id') || undefined,
+              tagName: el.tagName.toLowerCase(),
+            };
+          } catch {}
+        }
+      });
+
+      const updatedCode = batchAlignSvgElements(code, selectedElementIndices, alignment, bboxMap);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndices, handleCodeChange]
+  );
+
+  // 批量等距分布
+  const handleBatchDistributeElements = useCallback(
+    (direction: 'horizontal' | 'vertical') => {
+      if (selectedElementIndices.length < 3) return;
+      const bboxMap: Record<number, ElementBBox> = {};
+      const surface = document.getElementById('svg-render-surface');
+      selectedElementIndices.forEach(idx => {
+        const el = surface?.querySelector(`[data-omni-id="${idx}"]`);
+        if (el && 'getBBox' in el) {
+          try {
+            const b = (el as SVGGraphicsElement).getBBox();
+            bboxMap[idx] = {
+              x: b.x,
+              y: b.y,
+              width: b.width,
+              height: b.height,
+              id: el.getAttribute('id') || undefined,
+              tagName: el.tagName.toLowerCase(),
+            };
+          } catch {}
+        }
+      });
+
+      const updatedCode = batchDistributeSvgElements(code, selectedElementIndices, direction, bboxMap);
+      handleCodeChange(updatedCode);
+    },
+    [code, selectedElementIndices, handleCodeChange]
+  );
+
+  // 一键编组
+  const handleGroupElements = useCallback(() => {
+    if (selectedElementIndices.length < 2) return;
+    const result = groupSvgElements(code, selectedElementIndices);
+    handleCodeChange(result.code);
+    setSelectedElementIndex(result.newGroupIndex);
+    setSelectedElementIndices([result.newGroupIndex]);
+  }, [code, selectedElementIndices, handleCodeChange]);
+
+  // 一键解组
+  const handleUngroupElement = useCallback(() => {
+    const targetIdx = selectedElementIndex ?? (selectedElementIndices.length > 0 ? selectedElementIndices[0] : null);
+    if (targetIdx === null) return;
+    const result = ungroupSvgElement(code, targetIdx);
+    handleCodeChange(result.code);
+    setSelectedElementIndices(result.newIndices);
+    setSelectedElementIndex(result.newIndices.length > 0 ? result.newIndices[0] : null);
+  }, [code, selectedElementIndex, selectedElementIndices, handleCodeChange]);
 
   // Scheme B: 调整图元层级 (置顶 / 置底，并自动跟踪更新后的图元索引，确保属性面板持续展示)
   const handleMoveElementLayer = useCallback(
@@ -600,15 +740,24 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
               validation={validation}
               inspectorActive={inspectorActive}
               selectedElementIndex={selectedElementIndex}
+              selectedElementIndices={selectedElementIndices}
               selectedElementInfo={selectedElementInfo}
               onSelectElement={handleSelectElement}
+              onSelectElements={handleSelectElements}
               onUpdateElement={handleUpdateElement}
               onDeleteElement={handleDeleteElement}
+              onBatchDeleteElements={handleBatchDeleteElements}
               onMoveElementLayer={handleMoveElementLayer}
               onLocateInCode={handleLocateInCode}
               onMoveElementGeometry={handleMoveElementGeometry}
+              onBatchMoveElements={handleBatchMoveElements}
               onResizeElementGeometry={handleResizeElementGeometry}
               onAlignElement={handleAlignElement}
+              onBatchAlignElements={handleBatchAlignElements}
+              onBatchDistributeElements={handleBatchDistributeElements}
+              onBatchUpdateStyle={handleBatchUpdateStyle}
+              onGroupElements={handleGroupElements}
+              onUngroupElement={handleUngroupElement}
               onAlignLineOrthogonal={handleAlignLineOrthogonal}
               onReverseLine={handleReverseLine}
               onConvertToStepLine={handleConvertToStepLine}

@@ -12,6 +12,7 @@ export interface SvgSelectionGizmoProps {
   displayScreenBBox: ElementBBox;
   dragMode: 'none' | 'element' | 'pan' | 'resize' | 'line-p1' | 'line-p2' | 'line-curve' | 'line-cp' | 'path-node' | 'path-cp' | string;
   selectedElementInfo: SvgElementInfo | null;
+  selectedCount?: number;
   resizeHandles: Array<{ direction: ResizeHandleDirection; cursor: string; className: string }>;
   resizePreviewBBox?: ElementBBox | null;
   measuredBBox?: ElementBBox | null;
@@ -23,12 +24,15 @@ export const SvgSelectionGizmo: React.FC<SvgSelectionGizmoProps> = ({
   displayScreenBBox,
   dragMode,
   selectedElementInfo,
+  selectedCount = 1,
   resizeHandles,
   resizePreviewBBox,
   measuredBBox,
   scale,
   isShiftPressed,
 }) => {
+  const isMultiSelect = selectedCount > 1;
+
   return (
     <div
       data-selected-gizmo="true"
@@ -47,12 +51,15 @@ export const SvgSelectionGizmo: React.FC<SvgSelectionGizmoProps> = ({
             ? 'border-dashed border-cyan-400 bg-cyan-500/10'
             : dragMode === 'resize'
             ? 'border-dashed border-pink-400 bg-pink-500/10'
+            : isMultiSelect
+            ? 'border-blue-500 border-dashed bg-blue-500/10'
             : 'border-blue-500 bg-blue-500/5'
         } shadow-[0_0_10px_rgba(59,130,246,0.6)] pointer-events-auto cursor-move transition-colors`}
       />
 
-      {/* 8 向 Resize 大小调整手柄 (对非 line 图元全面开放) */}
-      {selectedElementInfo?.tagName !== 'line' &&
+      {/* 8 向 Resize 大小调整手柄 (单选且对非 line 图元全面开放) */}
+      {!isMultiSelect &&
+        selectedElementInfo?.tagName !== 'line' &&
         resizeHandles.map(h => (
           <div
             key={h.direction}
@@ -62,20 +69,24 @@ export const SvgSelectionGizmo: React.FC<SvgSelectionGizmoProps> = ({
           />
         ))}
 
-      {/* 尺寸提示与等比缩放浮标 */}
+      {/* 尺寸提示与多选计数浮标 */}
       <div
         style={{
           backgroundColor: 'var(--ov-surface)',
           color: 'var(--ov-text)',
           borderColor: 'var(--ov-border)',
         }}
-        className="absolute -bottom-6.5 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded border font-mono text-[10px] whitespace-nowrap shadow-lg backdrop-blur-xs pointer-events-none"
+        className="absolute -bottom-6.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded border font-mono text-[10px] whitespace-nowrap shadow-lg backdrop-blur-xs pointer-events-none"
       >
-        <span>
-          {Math.round(resizePreviewBBox?.width || measuredBBox?.width || displayScreenBBox.width / scale)} ×{' '}
-          {Math.round(resizePreviewBBox?.height || measuredBBox?.height || displayScreenBBox.height / scale)}
-        </span>
-        {(isShiftPressed || dragMode === 'resize') && (
+        {isMultiSelect ? (
+          <span className="font-semibold text-blue-400">已选 {selectedCount} 个图元</span>
+        ) : (
+          <span>
+            {Math.round(resizePreviewBBox?.width || measuredBBox?.width || displayScreenBBox.width / scale)} ×{' '}
+            {Math.round(resizePreviewBBox?.height || measuredBBox?.height || displayScreenBBox.height / scale)}
+          </span>
+        )}
+        {!isMultiSelect && (isShiftPressed || dragMode === 'resize') && (
           <span className={`px-1 rounded text-[9px] ${isShiftPressed ? 'bg-amber-500/30 text-amber-300 font-semibold' : 'text-slate-400'}`}>
             {isShiftPressed ? '等比锁定' : 'Shift:等比'}
           </span>
