@@ -1601,52 +1601,82 @@ export function calculateResizeBBox(
   deltaX: number,
   deltaY: number,
   lockAspectRatio = false,
-  minSize = 4
+  minSize = 4,
+  centerScale = false
 ): CalculatedResizeBBox {
   let { x, y, width, height } = initialBBox;
   const initialAspect = initialBBox.width / (initialBBox.height || 1);
+  const cx = initialBBox.x + initialBBox.width / 2;
+  const cy = initialBBox.y + initialBBox.height / 2;
 
-  // 1. 处理 X 轴方向位移
-  if (handle.includes('e')) {
-    width = Math.max(minSize, initialBBox.width + deltaX);
-  } else if (handle.includes('w')) {
-    const rawW = initialBBox.width - deltaX;
-    if (rawW >= minSize) {
-      width = rawW;
-      x = initialBBox.x + deltaX;
-    } else {
-      width = minSize;
-      x = initialBBox.x + initialBBox.width - minSize;
+  if (centerScale) {
+    // 中心对称缩放：以图元自身几何中心为固定不动点
+    if (handle.includes('e')) {
+      width = Math.max(minSize, initialBBox.width + deltaX * 2);
+    } else if (handle.includes('w')) {
+      width = Math.max(minSize, initialBBox.width - deltaX * 2);
     }
-  }
 
-  // 2. 处理 Y 轴方向位移
-  if (handle.includes('s')) {
-    height = Math.max(minSize, initialBBox.height + deltaY);
-  } else if (handle.includes('n')) {
-    const rawH = initialBBox.height - deltaY;
-    if (rawH >= minSize) {
-      height = rawH;
-      y = initialBBox.y + deltaY;
-    } else {
-      height = minSize;
-      y = initialBBox.y + initialBBox.height - minSize;
+    if (handle.includes('s')) {
+      height = Math.max(minSize, initialBBox.height + deltaY * 2);
+    } else if (handle.includes('n')) {
+      height = Math.max(minSize, initialBBox.height - deltaY * 2);
     }
-  }
 
-  // 3. 处理等比锁定 (如按住 Shift 或角手柄等比)
-  if (lockAspectRatio && (handle === 'nw' || handle === 'ne' || handle === 'sw' || handle === 'se')) {
-    // 依据变化较大的一侧同步另一侧
-    const aspect = initialAspect || 1;
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      height = Math.max(minSize, width / aspect);
-      if (handle.includes('n')) {
-        y = initialBBox.y + initialBBox.height - height;
+    if (lockAspectRatio && (handle === 'nw' || handle === 'ne' || handle === 'sw' || handle === 'se')) {
+      const aspect = initialAspect || 1;
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        height = Math.max(minSize, width / aspect);
+      } else {
+        width = Math.max(minSize, height * aspect);
       }
-    } else {
-      width = Math.max(minSize, height * aspect);
-      if (handle.includes('w')) {
-        x = initialBBox.x + initialBBox.width - width;
+    }
+
+    x = cx - width / 2;
+    y = cy - height / 2;
+  } else {
+    // 常规对角锚点缩放
+    // 1. 处理 X 轴方向位移
+    if (handle.includes('e')) {
+      width = Math.max(minSize, initialBBox.width + deltaX);
+    } else if (handle.includes('w')) {
+      const rawW = initialBBox.width - deltaX;
+      if (rawW >= minSize) {
+        width = rawW;
+        x = initialBBox.x + deltaX;
+      } else {
+        width = minSize;
+        x = initialBBox.x + initialBBox.width - minSize;
+      }
+    }
+
+    // 2. 处理 Y 轴方向位移
+    if (handle.includes('s')) {
+      height = Math.max(minSize, initialBBox.height + deltaY);
+    } else if (handle.includes('n')) {
+      const rawH = initialBBox.height - deltaY;
+      if (rawH >= minSize) {
+        height = rawH;
+        y = initialBBox.y + deltaY;
+      } else {
+        height = minSize;
+        y = initialBBox.y + initialBBox.height - minSize;
+      }
+    }
+
+    // 3. 处理等比锁定 (如按住 Shift 或角手柄等比)
+    if (lockAspectRatio && (handle === 'nw' || handle === 'ne' || handle === 'sw' || handle === 'se')) {
+      const aspect = initialAspect || 1;
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        height = Math.max(minSize, width / aspect);
+        if (handle.includes('n')) {
+          y = initialBBox.y + initialBBox.height - height;
+        }
+      } else {
+        width = Math.max(minSize, height * aspect);
+        if (handle.includes('w')) {
+          x = initialBBox.x + initialBBox.width - width;
+        }
       }
     }
   }

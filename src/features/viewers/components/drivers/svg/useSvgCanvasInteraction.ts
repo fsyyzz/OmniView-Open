@@ -403,11 +403,49 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     [svgContent]
   );
 
-  // 滚轮缩放
+  // 滚轮缩放：以鼠标指针光标当前所在物理位置为焦点进行动态缩放 (Zoom toward Cursor)
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-    setScale(prev => Math.min(8, Math.max(0.08, prev * zoomFactor)));
+    const container = containerRef.current;
+    if (!container) {
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      setScale(prev => Math.min(8, Math.max(0.08, prev * zoomFactor)));
+      return;
+    }
+
+    // 1. 获取视口容器尺寸与屏幕中心坐标
+    const rect = container.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    // 2. 计算当前鼠标指针相对于容器中心点的偏移向量
+    const mouseOffsetX = e.clientX - centerX;
+    const mouseOffsetY = e.clientY - centerY;
+
+    // 3. 计算缩放因子：触控板捏合 (ctrlKey) 平滑连续缩放，鼠标滚轮阶梯缩放
+    let zoomFactor: number;
+    if (e.ctrlKey) {
+      zoomFactor = Math.exp(-e.deltaY * 0.01);
+    } else {
+      zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+    }
+
+    const oldScale = scale;
+    const newScale = Math.min(8, Math.max(0.08, oldScale * zoomFactor));
+
+    if (Math.abs(newScale - oldScale) < 1e-5) return;
+
+    const ratio = newScale / oldScale;
+
+    // 4. 精确几何变换：保证鼠标光标所指的画布内容在缩放前后位于屏幕绝对同一物理像素点
+    const newPosX = mouseOffsetX - (mouseOffsetX - position.x) * ratio;
+    const newPosY = mouseOffsetY - (mouseOffsetY - position.y) * ratio;
+
+    setScale(newScale);
+    setPosition({
+      x: Math.round(newPosX * 10) / 10,
+      y: Math.round(newPosY * 10) / 10,
+    });
   };
 
   // 鼠标按下：区分 Inkscape 钢笔工具、路径节点/控制柄、线条弧度手柄、Resize 手柄、图元拖动与画布平移
@@ -720,12 +758,15 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
         deltaY = mouseDx * currentInvCtmRef.current.b + mouseDy * currentInvCtmRef.current.d;
       }
 
+      const isAlt = e.altKey || isAltPressed;
       let calculated = calculateResizeBBox(
         initialBBoxRef.current,
         activeResizeHandle,
         deltaX,
         deltaY,
-        e.shiftKey || isShiftPressed
+        e.shiftKey || isShiftPressed,
+        4,
+        isAlt
       );
 
       // 网格吸附调整

@@ -30,6 +30,7 @@ import {
   convertLineToStepPath,
   applyLinePreset,
   ensureSvgMarkers,
+  calculateResizeBBox,
 } from '../src/features/viewers/components/drivers/svg/svgUtils.ts';
 
 console.log('🧪 开始 SVG 开发者工程工具与转换引擎单元测试...');
@@ -273,4 +274,22 @@ const bomStats = parseSvgStats(bomSvg);
 assert.strictEqual(bomStats.viewBox, '0 0 100 100', 'BOM SVG 应正确提取 viewBox');
 console.log('✅ UTF-8 BOM 与 HTML 实体容错清洗测试通过');
 
-console.log('🎉 全部 19 组 SVG 开发者工程引擎、线条微调、拓扑转换与智能吸附测试用例 100% 通过！\n');
+// --- 测试 20: 图元拉伸手柄几何计算 (常规对角固定 vs Alt 几何中心对称缩放) ---
+console.log('--- 测试 20: 图元拉伸几何计算 (常规对角 vs Alt 几何中心对称缩放) ---');
+const testBBox = { x: 100, y: 100, width: 200, height: 100 };
+// 20.1 常规拖拽右下角 (se): 左上角 (100, 100) 固定，宽高增加
+const standardResize = calculateResizeBBox(testBBox, 'se', 20, 10, false, 4, false);
+assert.strictEqual(standardResize.x, 100, '常规右下角拖拽，X 坐标应保持 100 不变');
+assert.strictEqual(standardResize.y, 100, '常规右下角拖拽，Y 坐标应保持 100 不变');
+assert.strictEqual(standardResize.width, 220, '常规右下角拖拽，宽度应增加 20');
+assert.strictEqual(standardResize.height, 110, '常规右下角拖拽，高度应增加 10');
+
+// 20.2 按住 Alt 键拖拽右下角 (se): 几何中心 (200, 150) 保持不动，向四周对称扩张
+const centerResize = calculateResizeBBox(testBBox, 'se', 20, 10, false, 4, true);
+assert.strictEqual(centerResize.width, 240, 'Alt 中心缩放时，宽度应对称增加 40 (20 * 2)');
+assert.strictEqual(centerResize.height, 120, 'Alt 中心缩放时，高度应对称增加 20 (10 * 2)');
+assert.strictEqual(centerResize.x, 200 - 240 / 2, 'Alt 中心缩放后，中心点 X 应保持 200，新 X 为 80');
+assert.strictEqual(centerResize.y, 150 - 120 / 2, 'Alt 中心缩放后，中心点 Y 应保持 150，新 Y 为 90');
+console.log('✅ 图元常规拉伸与 Alt 几何中心对称缩放测试通过');
+
+console.log('🎉 全部 20 组 SVG 开发者工程引擎、线条微调、拓扑转换、智能吸附与中心缩放测试用例 100% 通过！\n');
