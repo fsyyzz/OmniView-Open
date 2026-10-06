@@ -307,7 +307,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
     }
 
     return sanitized;
-  }, [svgContent, validation.valid, inspectorActive, selectedElementIndex, hoverElementIndex]);
+  }, [svgContent, validation.valid, inspectorActive, selectedElementIndex, effectiveSelectedIndices, hoverElementIndex]);
 
   // 8 向手柄定义配置
   const resizeHandles: Array<{ direction: ResizeHandleDirection; cursor: string; className: string }> = [

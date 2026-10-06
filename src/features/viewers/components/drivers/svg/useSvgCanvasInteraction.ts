@@ -2,7 +2,7 @@
  * OmniView SVG 矢量画布交互逻辑 Hook (SvgCanvas Interaction Logic)
  */
 import * as React from 'react';
-import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useState, useRef, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
 import {
   SvgValidationResult,
   SvgElementInfo,
@@ -135,7 +135,13 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
   }, [selectedElementIndices, selectedElementIndex]);
 
   // 拖拽、平移与大小调整状态 (包含框选矩形、弯曲弧度、手柄拖拽与笔刷)
-  const [dragMode, setDragMode] = useState<DragMode>('none');
+  const [dragMode, setDragModeState] = useState<DragMode>('none');
+  const dragModeRef = useRef<DragMode>('none');
+  const setDragMode = useCallback((mode: DragMode) => {
+    dragModeRef.current = mode;
+    setDragModeState(mode);
+  }, []);
+
   const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandleDirection | null>(null);
   const [resizePreviewBBox, setResizePreviewBBox] = useState<CalculatedResizeBBox | null>(null);
   const dragStartMouseRef = useRef({ x: 0, y: 0 });
@@ -430,7 +436,12 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
       setIsCurved(false);
       setScreenPathNodes([]);
     }
-  }, [selectedElementIndex, activeTool]);
+  }, [effectiveSelectedIndices, selectedElementIndex, activeTool]);
+
+  // 挂载与依赖变动时，实时自动执行包围盒与屏幕像素测量，驱动 Gizmo 与属性面板就绪
+  useLayoutEffect(() => {
+    updateMeasurements();
+  }, [updateMeasurements, effectiveSelectedIndices, svgContent, scale, position]);
 
   // 坐标转换辅助：将视口物理像素转换为当前 SVG 用户内部坐标
   const clientToSvg = useCallback(
@@ -537,10 +548,11 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
 
     const target = e.target as HTMLElement;
 
-    // 0. 如果点击的是属性检视面板、底部状态栏、或任何带 data-canvas-ui 的控件，直接忽略，不开启平移拖拽
+    // 0. 如果点击的是属性检视面板、多选批量面板、底部状态栏、或任何带 data-canvas-ui 的控件，直接忽略，不开启平移拖拽
     if (
       target.closest('#svg-inspector-panel') ||
       target.closest('[data-inspector-panel]') ||
+      target.closest('#svg-batch-inspector-panel') ||
       target.closest('#canvas-statusbar') ||
       target.closest('[data-canvas-ui]')
     ) {
@@ -1039,7 +1051,7 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
 
   // 鼠标释放
   const handleMouseUp = (e: React.MouseEvent) => {
-    const currentMode = dragMode;
+    const currentMode = dragModeRef.current;
     const moved = dragMovedRef.current;
 
     // 清理 DOM 元素的临时内联变换样式 (支持所有当前被选图元)
@@ -1149,7 +1161,8 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
     }
 
     // 6. 图元拖拽完成：将吸附与微调结果持久化写入 (支持多选批量位移)
-    if (currentMode === 'element' && effectiveSelectedIndices.length > 0) {
+    // 无论是否发生实际位移，点击图元后的释放绝不取消选中，确保属性面板持续稳定展示
+    if (currentMode === 'element') {
       if (moved && (Math.abs(dragDelta.x) > 0.4 || Math.abs(dragDelta.y) > 0.4)) {
         if (effectiveSelectedIndices.length > 1 && onBatchMoveElements) {
           onBatchMoveElements(effectiveSelectedIndices, dragDelta.x, dragDelta.y);
@@ -1244,14 +1257,15 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
       return;
     }
 
-    // 8. 点击点选图元逻辑（未发生大距离拖拽平移时）
+    // 8. 兜底图元点选（如果由于特殊情况未进入上述分支）
     if (!moved && inspectorActive) {
       const target = e.target as HTMLElement;
 
-      // 如果点击落在属性检视面板、底部状态栏、选框 Gizmo、手柄、或任何 UI 交互浮层上，绝不能取消选中！
+      // 如果点击落在属性检视面板、多选批量面板、底部状态栏、选框 Gizmo、手柄、或任何 UI 交互浮层上，绝不能取消选中！
       const isUiClick = !!(
         target.closest('#svg-inspector-panel') ||
         target.closest('[data-inspector-panel]') ||
+        target.closest('#svg-batch-inspector-panel') ||
         target.closest('#canvas-statusbar') ||
         target.closest('[data-canvas-ui]') ||
         target.closest('[data-selected-gizmo]') ||
@@ -1285,10 +1299,6 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
           }
           return;
         }
-      } else {
-        // 仅当用户明确点击画布空白区域（非任何 UI 浮层）时，才取消选中
-        onSelectElements?.([]);
-        onSelectElement(null);
       }
     }
   };

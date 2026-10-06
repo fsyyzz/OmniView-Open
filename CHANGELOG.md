@@ -4,7 +4,15 @@
 
 ## [Unreleased]
 
-## [1.2.52] - 2026-10-06
+## [1.2.53] - 2026-10-06
+
+### Fixed
+
+- **SVG 画布属性面板与图元选中状态持久保活 (SVG Canvas Element Selection & Inspector Panel Persistence Fix)**:
+  - **修复属性面板在点击后瞬间消失的缺陷**：
+    - 引入 `dragModeRef` 同步即时跟踪拖拽与交互模式，彻底解决 React 批处理与闭包异步陈旧读导致的模式失步；
+    - 在图元点击与释放（`handleMouseUp`）中坚决保障选中态稳定持有，移除非空白点击场景下的误杀清空逻辑；
+    - 激活 `useLayoutEffect` 驱动测量引擎自动就绪，确保图元包围盒（BBox）与精准高亮 Gizmo（`SvgSelectionGizmo`）稳定跟随，单选与多选属性检视面板持续持久展示。
 
 ### Added
 
