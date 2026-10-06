@@ -4,6 +4,8 @@
 import { validateGraphvizSource, sanitizeGraphvizSvg } from './graphvizSanitizer';
 import type { WorkerRequest, WorkerResponse } from '../workers/graphviz.worker';
 import { Graphviz, type Engine } from '@hpcc-js/wasm-graphviz';
+import { persistentGraphvizCache, makeDeterministicCacheKey } from './diagramCache';
+import { appLogger } from '../../../shared/lib/appLogger';
 
 export type GraphvizEngine = Engine;
 
@@ -129,13 +131,16 @@ class GraphvizRendererService {
     // 1. 前置安全与语法长度校验
     const validation = validateGraphvizSource(source);
     if (!validation.valid) {
-      throw new Error(validation.error || '无效的 Graphviz 源码');
+      const err = validation.error || '无效的 Graphviz 源码';
+      appLogger.warn('render:graphviz', err, source);
+      throw new Error(err);
     }
 
-    // 2. 检查缓存命中
-    const cacheKey = this.getCacheKey(source, engine);
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
+    // 2. 检查双层持久化缓存命中 (0ms 内存 + IndexedDB 磁盘回填)
+    const cacheKey = makeDeterministicCacheKey(`graphviz:${engine}`, source, 'dark', 'svg');
+    const cached = await persistentGraphvizCache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     // 3. 尝试 Worker 渲染或沙箱直接降级
@@ -149,11 +154,7 @@ class GraphvizRendererService {
     // 若无法使用 Worker（如 VS Code Webview 沙箱跨源策略拦截），直接走内存 WASM
     if (!worker) {
       const cleanSvg = await this.renderDirectly(source, engine);
-      if (this.cache.size >= this.maxCacheSize) {
-        const firstKey = this.cache.keys().next().value;
-        if (firstKey) this.cache.delete(firstKey);
-      }
-      this.cache.set(cacheKey, cleanSvg);
+      void persistentGraphvizCache.set(cacheKey, cleanSvg, 'svg');
       return cleanSvg;
     }
 
@@ -169,7 +170,7 @@ class GraphvizRendererService {
           // 超时后自动尝试直接渲染降级
           this.renderDirectly(source, engine)
             .then((svg) => {
-              this.cache.set(cacheKey, svg);
+              void persistentGraphvizCache.set(cacheKey, svg, 'svg');
               resolve(svg);
             })
             .catch(reject);
@@ -178,11 +179,7 @@ class GraphvizRendererService {
 
       this.pendingTasks.set(requestId, {
         resolve: (svg: string) => {
-          if (this.cache.size >= this.maxCacheSize) {
-            const firstKey = this.cache.keys().next().value;
-            if (firstKey) this.cache.delete(firstKey);
-          }
-          this.cache.set(cacheKey, svg);
+          void persistentGraphvizCache.set(cacheKey, svg, 'svg');
           resolve(svg);
         },
         reject,
@@ -203,7 +200,7 @@ class GraphvizRendererService {
         // postMessage 失败时立即自动走直接渲染
         this.renderDirectly(source, engine)
           .then((svg) => {
-            this.cache.set(cacheKey, svg);
+            void persistentGraphvizCache.set(cacheKey, svg, 'svg');
             resolve(svg);
           })
           .catch(reject);

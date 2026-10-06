@@ -20,6 +20,7 @@ import { getPlantUmlSvgUrl, getPlantUmlPngUrl, hasRenderablePlantUmlCode, withPl
 import { analyzePlantUmlError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill';
+import { persistentPlantUmlCache, makeDeterministicCacheKey } from '../../../lib/diagramCache';
 
 interface PlantUmlBlockProps {
   id: string;
@@ -72,19 +73,77 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   const [isCopyingImage, setIsCopyingImage] = React.useState<boolean>(false);
   const activeCode = editedCode !== undefined ? editedCode : code;
   const canRender = hasRenderablePlantUmlCode(activeCode);
+
+  // 1. 确定性复合缓存键
+  const cacheKey = React.useMemo(() => {
+    if (!canRender) return '';
+    return makeDeterministicCacheKey('plantuml', activeCode, isDarkTheme, 'svg');
+  }, [canRender, activeCode, isDarkTheme]);
+
+  // 2. 离线缓存数据状态 (内存同步快照优先)
+  const [cachedSvg, setCachedSvg] = React.useState<string | null>(() => {
+    if (!cacheKey) return null;
+    return persistentPlantUmlCache.getSync(cacheKey) || null;
+  });
+
   const activeSvgUrl = canRender ? withPlantUmlCacheBust(getPlantUmlSvgUrl(activeCode, undefined, isDarkTheme), renderNonce) : '';
   const activePngUrl = canRender ? withPlantUmlCacheBust(getPlantUmlPngUrl(activeCode, undefined, isDarkTheme), renderNonce) : '';
+
+  // 3. 异步探测并加载持久化缓存
+  React.useEffect(() => {
+    let isCancelled = false;
+    if (!canRender || !cacheKey) {
+      setCachedSvg(null);
+      return;
+    }
+
+    persistentPlantUmlCache.get(cacheKey).then((cached) => {
+      if (!isCancelled && cached) {
+        setCachedSvg(cached);
+        setHasError(false);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [cacheKey, canRender]);
 
   React.useEffect(() => {
     setHasError(false);
     setRenderNonce(n => n + 1);
   }, [activeCode, isDarkTheme]);
 
+  // 4. 远程加载成功后，静默拉取 SVG 源码沉淀到 IndexedDB 离线缓存池
+  const handleRemoteSvgLoad = React.useCallback(async () => {
+    if (!cacheKey || cachedSvg || !activeSvgUrl) return;
+    try {
+      const resp = await fetch(activeSvgUrl);
+      if (resp.ok) {
+        const text = await resp.text();
+        if (text && text.includes('<svg')) {
+          setCachedSvg(text);
+          await persistentPlantUmlCache.set(cacheKey, text, 'svg');
+        }
+      }
+    } catch {
+      // 离线环境静默忽略
+    }
+  }, [cacheKey, cachedSvg, activeSvgUrl]);
+
+  // 5. 优先使用本地离线 Data URI 保证断网秒开
+  const effectiveImgSrc = React.useMemo(() => {
+    if (cachedSvg) {
+      return `data:image/svg+xml;utf8,${encodeURIComponent(cachedSvg)}`;
+    }
+    return activeSvgUrl;
+  }, [cachedSvg, activeSvgUrl]);
+
   const handleCopyImage = async () => {
     if (!canRender || isCopyingImage) return;
     setIsCopyingImage(true);
     // 优先尝试直接请求 PNG URL，如果不可用自动通过 SVG 转 Canvas 栅格化
-    const targetUrl = activePngUrl || activeSvgUrl;
+    const targetUrl = activePngUrl || effectiveImgSrc;
     const success = await copySvgOrImageToClipboard(targetUrl, true, '#ffffff');
     setIsCopyingImage(false);
     if (success) {
@@ -204,8 +263,13 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
               </a>
             </>
           ) : (
-            <span className="text-[11px] text-purple-400/80 font-mono px-1">
-              ⚡ Live
+            <span
+              className={`text-[11px] font-mono px-1 flex items-center gap-1 ${
+                cachedSvg ? 'text-emerald-400' : 'text-purple-400/80'
+              }`}
+              title={cachedSvg ? '本地 IndexedDB 离线持久化快照已就绪 (断网无忧)' : '在线实时渲染中'}
+            >
+              {cachedSvg ? '⚡ 离线就绪' : '⚡ Live'}
             </span>
           )}
 
@@ -258,13 +322,16 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
               title={t('fullScreen', locale)}
             >
               <img
-                key={activeSvgUrl}
-                src={activeSvgUrl}
+                key={effectiveImgSrc}
+                src={effectiveImgSrc}
                 alt="PlantUML Diagram"
                 className={`max-w-full h-auto max-h-[550px] object-contain rounded shadow-xs ${isDarkTheme ? 'p-1.5' : 'bg-white/95 p-1.5'}`}
                 loading="lazy"
+                onLoad={handleRemoteSvgLoad}
                 onError={() => {
-                  setHasError(true);
+                  if (!cachedSvg) {
+                    setHasError(true);
+                  }
                 }}
               />
             </div>

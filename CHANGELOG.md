@@ -4,6 +4,98 @@
 
 ## [Unreleased]
 
+## [1.2.51] - 2026-10-06
+
+### Added
+
+- **设置中心日志管理专区与多格式导出中枢 (Settings Log Management Hub & Multi-Format Exports)**:
+  - **设置中心独立一级选项卡 (`activeTab === 'logs'`)**：
+    - 新增「运行日志」专属管理面板，提供日志总条数、存储占用、错误数、警告数与 VS Code OutputChannel 联动状态看板；
+    - 内置「最近实时日志流 (Top 100)」快速检视窗口，支持关键词实时过滤与分级（全部/错误/警告/信息）切换；
+  - **多格式专业诊断导出中枢 (Multi-format Export Hub)**：
+    - **标准日志文件 (`.log`) 导出**：导出带有时间戳、模块来源、分级标签的标准文本日志文件；
+    - **结构化原始数据 (`.json`) 导出**：导出包含对象堆栈、序列化元数据的完整 JSON 诊断数组；
+    - **系统全景体检与排障诊断报告 (`.md`)**：一键生成 Markdown 格式报告，包含运行宿主（VS Code / 独立浏览器）、客户端 UA、IndexedDB 5 大仓库容量指标、最近异常追踪；
+    - **一键复制诊断文本**：支持过滤后的日志一键复制至剪贴板，方便人类反馈提交 Issue；
+  - **全屏日志分析抽屉 (`LogViewerModal.tsx`) 同步升级**：
+    - 引入实时关键词全文检索框；
+    - 导出按钮扩展为包含 `.log`、`.json`、系统全景报告与复制日志的下拉组合。
+
+## [1.2.50] - 2026-10-06
+
+### Added
+
+- **应用运行与诊断日志中枢生态：IndexedDB 持久化、自动容量淘汰与 VS Code Output 双向桥接 (App Logger Hub & Persistent Diagnostics)**:
+  - **IndexedDB 数据库升级至 V4 (`logs`)**：
+    - 新增 `STORE_LOGS` 对象仓库，带有 `timestamp`、`level`、`source` 索引，实现日志安全离线落盘；
+    - 严格容量守护：最多保留 1000 条日志，超过自动基于时间戳升序游标淘汰至 800 条，杜绝磁盘溢出；
+  - **统一前端日志中枢 (`appLogger.ts`)**：
+    - 维护内存环形缓冲区 (最近 200 条，0ms 响应)，支持响应式事件订阅与 UI 刷新；
+    - 500ms 批量防抖持久化落盘，避免高频 I/O 阻塞主线程；
+    - 宿主 IPC 联动：自动将 Webview 内的 warning / error 通过 `postMessage` 实时上报至 VS Code 原生 `OmniView OutputChannel`；
+  - **设置中心全景存储看板升级（第 6 分区）与诊断日志查看器 (`LogViewerModal.tsx`)**：
+    - 存储看版新增「运行与诊断日志 (App Logs)」卡片，支持独立清空日志库；
+    - 提供专用日志诊断抽屉：支持全部/错误/警告/信息按级别高亮过滤、一键「复制诊断日志」、一键「导出 .log 文件」与实时刷新。
+
+## [1.2.49] - 2026-10-06
+
+### Added
+
+- **全景持久化存储生态升级：查看器阅读交互记忆与重型矢量快照全覆盖 (Viewer States Memory & Comprehensive Render Snapshots)**:
+  - **IndexedDB 数据库升级至 V3 (`viewer_states`)**：
+    - 新增 `STORE_VIEWER_STATES` 交互状态仓库，索引 `fileId`、`viewerType` 与 `updatedAt`；
+    - 提供 `idbGetViewerState`、`idbSetViewerState`、`idbClearViewerStates` 等强类型 API，支持跨会话记忆阅读进度与视图偏好；
+  - **PDF 工业级阅读器阅读进度记忆与批注持久化 (`PdfViewer.tsx`)**：
+    - 打开 PDF 文档时自动读取历史状态，无缝跳回上次阅读页码、排版模式（单页/双页/连续）与缩放比例，并提供友好恢复 Toast 提示；
+    - 将彩色高亮与批注从 LocalStorage 迁移持久化至 IndexedDB，彻底解除浏览器 5MB 配额瓶颈；
+  - **CSV / TSV 数据网格偏好记忆 (`useCsvGrid.ts`)**：
+    - 自动持久化并还原用户自定义排序列、升降序规则、每页显示行数与网格/源码视图模式；
+  - **Mermaid & Graphviz 深度接入双层持久化快照池 (`render_cache`)**：
+    - Markdown 内嵌代码块与独立工作室全面接入 `persistentMermaidCache` 与 `persistentGraphvizCache`；
+    - 渲染前优先读取 IndexedDB 离线快照，二次打开 0ms 瞬间上屏，跳过重复编译并降低 CPU 占用；
+  - **设置中心五大独立分区存储看版升级 (`WorkbenchSettingsModal.tsx`)**：
+    - 新增「阅读与交互记忆 (Viewer States)」统计看板，支持独立「重置阅读偏好」一键清理。
+
+## [1.2.48] - 2026-10-06
+
+### Added
+
+- **全景存储透视与精细化分区独立清理工作台 (Storage Inspection & Granular Cleanup Dashboard)**:
+  - **宿主存储沙箱总配额透视 (`getBrowserStorageEstimate`)**：基于 `navigator.storage.estimate` 实时探测浏览器/宿主环境分配的总配额与实际使用占比进度条；
+  - **四大独立分区存储看板**：
+    1. **图表离线快照 (Render Cache)**：展示渲染产物条目数、已用空间与 50MB 守护水位线，配备独立「清空快照缓存」按钮；
+    2. **二进制多媒体 (Blobs Store)**：展示本地缓存的 PDF/Office/大图片 ArrayBuffer 介质数，配备「清理媒体附件」按钮 (`idbClearBlobs`)；
+    3. **工作区文档 (Workspace Files)**：实时统计多篇文档占用字节数，配备「还原示例文档」按钮；
+    4. **配置偏好 (Settings & State)**：展示 LocalStorage 键数与 VS Code 属性对齐状态，配备「备份配置 JSON」；
+  - **精细化独立清理与实时刷新**：支持针对特定数据独立释放空间，每次清理后自动刷新统计数据并提供温和状态提示，杜绝误删文档。
+
+## [1.2.47] - 2026-10-06
+
+### Added
+
+- **离线图表渲染快照持久化缓存池与 50MB 空间配额守护 (Render Cache Persistence & LRU Quota Guard)**:
+  - **确定性复合哈希键生成器 (`makeDeterministicCacheKey`)**：统一 CRLF 与剪裁首尾空白，正交绑定 `engine`、`format`、`theme`（深浅色）与 32 位 `fastFnv1a` 摘要，杜绝哈希碰撞与跨主题污染，全局唯一；
+  - **双层门面与并发 Singleflight (`diagramCache.ts`)**：提供 `PersistentDiagramCache` 抽象，内存 LRU (0ms 响应) + IndexedDB 二级存储，通过 In-Flight 字典合并相同并发请求，避免冗余 I/O；
+  - **IndexedDB 智能 LRU 游标淘汰与 50MB 配额守护 (`indexedDbStorage.ts`)**：
+    - 数据库升级至 V2，新增 `render_cache` 仓库；
+    - 设定 50MB 硬上限配额与 45MB 高水位线、35MB 低水位线；
+    - 超限时后台基于 `lastAccessedAt` 索引升序游标，自动批量淘汰陈旧记录，确保磁盘空间永不溢出；
+  - **PlantUML 真正离线化与秒开 (`PlantUmlBlock.tsx`)**：优先读取本地离线快照，成功时自动拉取 SVG 沉淀至持久化池，断网状态下仍可秒开显示并提供「⚡ 离线就绪」徽标；
+  - **设置中心存储可观测性与一键清理 (`WorkbenchSettingsModal.tsx`)**：可视化呈现渲染缓存已用空间与条目数（带进度条），并支持一键清空快照缓存；
+  - **全链路自动化测试 (`scripts/test-render-cache-persistent.mjs`)**：新增 5 组自动化单测，全面覆盖规范化 Key、Mock IDB、Singleflight 幂等写入、双层回填与一键清空。
+
+## [1.2.46] - 2026-10-06
+
+### Added
+
+- **原生 IndexedDB 本地持久化与双层存储引擎 (Native IndexedDB Storage Engine & Dual-Layer Architecture)**:
+  - **IndexedDB 原生引擎落盘 (`indexedDbStorage.ts`)**：采用 0 外部依赖纯原生 TypeScript 封装，建立 `OmniViewDB` 数据库，实现 `files`（文件与元数据）与 `blobs`（二进制大对象）对象仓库，彻底打破 `localStorage` 5MB 配额瓶颈，支持数百 MB ~ 数 GB 级海量文档与图表持久化；
+  - **双层存储网关与内存热缓存 (`fileStorage.ts`)**：构建「内存高速缓存 (0ms 首屏响应) + 200ms 防抖后台异步落盘 (非阻塞 I/O)」双层架构，保持原有同步接口兼容性，免去组件重构负担；
+  - **无感平滑迁移机制 (Zero-Friction Migration)**：在首次初始化时自动检测并迁移 `localStorage` 中的旧版文件数据至 IndexedDB，迁移完成后释放 LocalStorage 空间；
+  - **异步水合与 Stale-While-Revalidate (`App.tsx`)**：React 根应用通过 `initStorageAsync` 实现首屏即刻加载与后台静默水合，完全杜绝主线程卡顿与闪烁；
+  - **配置中心存储卡片增强 (`WorkbenchSettingsModal.tsx`)**：可视化呈现 IndexedDB V2 异步引擎运行状态、已持久化文档计数与海量存储容量，清晰透视双层存储架构；
+  - **全链路测试覆盖 (`scripts/test-indexeddb-storage.mjs`)**：新增 6 组自动化单元测试，全面覆盖降级容错、事务批处理、Blob 存取、存储度量与版本平滑迁移。
+
 ## [1.2.45] - 2026-10-03
 
 ### Changed

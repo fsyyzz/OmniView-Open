@@ -9,13 +9,15 @@ import {
   serializeCsv,
 } from './csvUtils';
 import { profileAllColumns, ColumnProfile } from './csvProfiling';
+import { idbGetViewerState, idbSetViewerState } from '../../../../../shared/lib/indexedDbStorage';
 
 export interface UseCsvGridOptions {
   content: string;
+  fileName?: string;
   onContentChange?: (newContent: string) => void;
 }
 
-export function useCsvGrid({ content, onContentChange }: UseCsvGridOptions) {
+export function useCsvGrid({ content, fileName, onContentChange }: UseCsvGridOptions) {
   // Parse initial content
   const initialData = useMemo(() => parseCsv(content), [content]);
 
@@ -42,6 +44,40 @@ export function useCsvGrid({ content, onContentChange }: UseCsvGridOptions) {
   const [sortAsc, setSortAsc] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(20);
+
+  // 恢复表格偏好状态 (排序列、正倒序、分页大小、视图模式)
+  const hasRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!fileName || hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+
+    void idbGetViewerState<{
+      sortCol?: number | null;
+      sortAsc?: boolean;
+      pageSize?: number;
+      viewMode?: 'table' | 'raw';
+    }>('csv', fileName).then((saved) => {
+      if (!saved) return;
+      if (saved.sortCol !== undefined) setSortCol(saved.sortCol);
+      if (typeof saved.sortAsc === 'boolean') setSortAsc(saved.sortAsc);
+      if (typeof saved.pageSize === 'number' && saved.pageSize > 0) setPageSize(saved.pageSize);
+      if (saved.viewMode) setViewMode(saved.viewMode);
+    });
+  }, [fileName]);
+
+  // 持久化表格偏好状态 (防抖 400ms)
+  useEffect(() => {
+    if (!fileName) return;
+    const timer = setTimeout(() => {
+      void idbSetViewerState('csv', fileName, {
+        sortCol,
+        sortAsc,
+        pageSize,
+        viewMode,
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [fileName, sortCol, sortAsc, pageSize, viewMode]);
 
   // In-place Cell Editing
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; colIdx: number } | null>(null);

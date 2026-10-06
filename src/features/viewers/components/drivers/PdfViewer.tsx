@@ -43,6 +43,7 @@ import {
 import { requestPrintImage } from '../../../../shared/lib/printBridge';
 import { getVsCodeApi } from '../../../../shared/lib/vscode';
 import type { ThemeId } from '../../../../shared/types';
+import { idbGetViewerState, idbSetViewerState } from '../../../../shared/lib/indexedDbStorage';
 import type { Locale } from '../../../../shared/lib/i18n';
 import { PdfThumbnail } from './pdf/PdfThumbnail';
 import { PdfSearchBar } from './pdf/PdfSearchBar';
@@ -157,6 +158,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasRestoredProgressRef = useRef<boolean>(false);
 
   // 提示信息定时隐藏
   const showToast = useCallback((msg: string) => {
@@ -166,14 +168,54 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }, 2400);
   }, []);
 
-  // 持久化批注至 LocalStorage
+  // 文档成功载入后自动恢复历史阅读进度（页码、缩放、排版模式与高亮标注）
   useEffect(() => {
-    try {
-      localStorage.setItem(`ov_pdf_ann_${activeFileName}`, JSON.stringify(annotations));
-    } catch {
-      // ignore
-    }
-  }, [annotations, activeFileName]);
+    if (!pdfDoc || totalPages <= 0 || hasRestoredProgressRef.current) return;
+    hasRestoredProgressRef.current = true;
+
+    void idbGetViewerState<{
+      currentPage?: number;
+      zoom?: number;
+      viewMode?: ViewMode;
+      annotations?: PdfAnnotation[];
+    }>('pdf', activeFileName).then((saved) => {
+      if (!saved) return;
+
+      if (saved.currentPage && saved.currentPage > 1 && saved.currentPage <= totalPages) {
+        setCurrentPage(saved.currentPage);
+        setPageInput(String(saved.currentPage));
+        showToast(`已恢复至上次阅读进度: 第 ${saved.currentPage} / ${totalPages} 页`);
+      }
+      if (saved.zoom && saved.zoom >= 25 && saved.zoom <= 500) {
+        setZoom(saved.zoom);
+      }
+      if (saved.viewMode) {
+        setViewMode(saved.viewMode);
+      }
+      if (saved.annotations && Array.isArray(saved.annotations) && saved.annotations.length > 0) {
+        setAnnotations(saved.annotations);
+      }
+    });
+  }, [pdfDoc, totalPages, activeFileName, showToast]);
+
+  // 自动将阅读进度与状态持久化保存至 IndexedDB (防抖 500ms)
+  useEffect(() => {
+    if (isLoading || !pdfDoc) return;
+    const timer = setTimeout(() => {
+      void idbSetViewerState('pdf', activeFileName, {
+        currentPage,
+        zoom,
+        viewMode,
+        annotations,
+      });
+      // 保持 LocalStorage 轻量同步兜底
+      try {
+        localStorage.setItem(`ov_pdf_ann_${activeFileName}`, JSON.stringify(annotations));
+      } catch {}
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [currentPage, zoom, viewMode, annotations, activeFileName, isLoading, pdfDoc]);
 
   const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
   pdfDocRef.current = pdfDoc;

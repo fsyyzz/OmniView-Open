@@ -111,7 +111,7 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
     handleChangeDelimiter,
     handleRevert,
     handleRawTextChange,
-  } = useCsvGrid({ content, onContentChange });
+  } = useCsvGrid({ content, fileName, onContentChange });
 
   // Active Dropdowns / Modals
   const [showExportMenu, setShowExportMenu] = useState(false);

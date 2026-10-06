@@ -27,8 +27,9 @@ import {
   applyStepHighlightToSvg,
 } from '../../../lib/diagramPlaybackEngine';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
-import { mermaidRenderCache } from '../../../lib/diagramCache';
+import { persistentMermaidCache, makeDeterministicCacheKey } from '../../../lib/diagramCache';
 import { getMermaidConfig } from '../../../../../shared/lib/mermaidConfig';
+import { appLogger } from '../../../../../shared/lib/appLogger';
 
 interface MermaidBlockProps {
   id: string;
@@ -111,12 +112,14 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       return;
     }
 
-    // 优先命中 LRU 内存缓存，避免同代码重复编译（并绑定暗色/亮色主题维度）
+    // 优先命中双层持久化快照缓存（内存 0ms + IndexedDB 异步落盘）
     const themeSuffix = isDarkTheme ? 'dark' : 'light';
-    const cacheKey = mermaidRenderCache.makeKey('mermaid', activeCode, themeSuffix);
-    const cachedSvg = mermaidRenderCache.get(cacheKey);
-    if (cachedSvg) {
-      setLiveSvg(cachedSvg);
+    const cacheKey = makeDeterministicCacheKey('mermaid', activeCode, themeSuffix, 'svg');
+    
+    // 1. 同步内存级检查 (0ms)
+    const memCachedSvg = persistentMermaidCache.getSync(cacheKey);
+    if (memCachedSvg) {
+      setLiveSvg(memCachedSvg);
       setLiveError(undefined);
       setIsCompiling(false);
       return;
@@ -126,20 +129,31 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
     const count = ++renderCountRef.current;
     setIsCompiling(true);
 
+    // 2. 异步微任务检查 IndexedDB 持久化快照
+    void persistentMermaidCache.get(cacheKey).then(idbSvg => {
+      if (idbSvg && isCurrent && count === renderCountRef.current) {
+        setLiveSvg(idbSvg);
+        setLiveError(undefined);
+        setIsCompiling(false);
+      }
+    });
+
     const timer = setTimeout(async () => {
       try {
         mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
         const uniqueId = `mermaid-live-${Math.random().toString(36).substr(2, 9)}`;
         const { svg } = await mermaid.render(uniqueId, activeCode);
         if (isCurrent && count === renderCountRef.current) {
-          mermaidRenderCache.set(cacheKey, svg);
+          void persistentMermaidCache.set(cacheKey, svg, 'svg');
           setLiveSvg(svg);
           setLiveError(undefined);
           setIsCompiling(false);
         }
       } catch (err: any) {
         if (isCurrent && count === renderCountRef.current) {
-          setLiveError(err?.message || 'Mermaid Error');
+          const errMsg = err?.message || 'Mermaid Error';
+          appLogger.warn('render:mermaid', errMsg, activeCode);
+          setLiveError(errMsg);
           setIsCompiling(false);
         }
       }

@@ -208,6 +208,12 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
         log('Webview runtime error', message);
         return;
       }
+      if (message?.type === 'app-log') {
+        const level = String(message?.level || 'info').toUpperCase();
+        const src = message?.source ? `[${message.source}] ` : '';
+        log(`[Webview:${level}] ${src}${message?.message || ''}`, message?.details);
+        return;
+      }
       if (message?.type === 'reload-document') {
         log(`Manual reload requested from webview: ${document.uri.fsPath}`);
         await reloadAndPost(true);

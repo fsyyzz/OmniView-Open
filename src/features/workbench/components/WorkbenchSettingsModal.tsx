@@ -26,6 +26,13 @@ import {
   HelpCircle,
   Search,
   ExternalLink,
+  HardDrive,
+  Copy,
+  Trash2,
+  RefreshCw,
+  AlertCircle,
+  FileCode,
+  Activity,
 } from 'lucide-react';
 import {
   WorkbenchSettings,
@@ -46,7 +53,22 @@ import {
   importSettingsJson,
   getStorageStats,
 } from '../../../shared/lib/settingsStorage';
-import { resetStoredFiles } from '../../../shared/lib/fileStorage';
+import { resetStoredFiles, getStorageEngineInfo } from '../../../shared/lib/fileStorage';
+import {
+  idbGetStorageStats,
+  idbGetRenderCacheStats,
+  idbClearRenderCache,
+  idbClearBlobs,
+  idbClearViewerStates,
+  idbCountViewerStates,
+  idbClearLogs,
+  idbCountLogs,
+  getBrowserStorageEstimate,
+  type AppLogItem,
+  type LogLevel,
+} from '../../../shared/lib/indexedDbStorage';
+import { appLogger } from '../../../shared/lib/appLogger';
+import { LogViewerModal } from './LogViewerModal';
 import { Locale, getStoredLocale, saveStoredLocale, t } from '../../../shared/lib/i18n';
 import { PLANTUML_SERVER_PRESETS, setPlantUmlServerBase } from '../../../shared/lib/plantuml';
 import {
@@ -66,7 +88,7 @@ interface WorkbenchSettingsModalProps {
   initialTab?: TabKey;
 }
 
-type TabKey = 'appearance' | 'editor' | 'diagrams' | 'shortcuts' | 'storage';
+export type TabKey = 'appearance' | 'editor' | 'diagrams' | 'shortcuts' | 'storage' | 'logs';
 
 export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   isOpen,
@@ -84,6 +106,70 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   const [themeInfo, setThemeInfo] = useState(() => getVsCodeThemeInfo());
   const [activeSimulatedTheme, setActiveSimulatedTheme] = useState<string>('one-dark-pro');
 
+  const [idbStats, setIdbStats] = useState<{
+    supported: boolean;
+    fileCount: number;
+    blobCount: number;
+    renderCacheCount: number;
+    totalEstimatedBytes: number;
+    filesEstimatedBytes?: number;
+    renderCacheEstimatedBytes?: number;
+  }>({ supported: false, fileCount: 0, blobCount: 0, renderCacheCount: 0, totalEstimatedBytes: 0, filesEstimatedBytes: 0, renderCacheEstimatedBytes: 0 });
+
+  const [renderCacheStats, setRenderCacheStats] = useState<{
+    count: number;
+    totalKb: number;
+    maxBytes: number;
+    percentUsed: number;
+  }>({ count: 0, totalKb: 0, maxBytes: 50 * 1024 * 1024, percentUsed: 0 });
+
+  const [browserEstimate, setBrowserEstimate] = useState<{
+    supported: boolean;
+    quotaFormatted: string;
+    usageFormatted: string;
+    percentUsed: number;
+  }>({ supported: false, quotaFormatted: '', usageFormatted: '', percentUsed: 0 });
+
+  const [viewerStateStats, setViewerStateStats] = useState<{
+    count: number;
+    totalBytes: number;
+  }>({ count: 0, totalBytes: 0 });
+
+  const [logStats, setLogStats] = useState<{
+    count: number;
+    totalBytes: number;
+  }>({ count: 0, totalBytes: 0 });
+
+  const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
+  const [tabLogs, setTabLogs] = useState<AppLogItem[]>([]);
+  const [tabLogLoading, setTabLogLoading] = useState<boolean>(false);
+  const [tabLogLevel, setTabLogLevel] = useState<LogLevel | 'all'>('all');
+  const [tabLogSearch, setTabLogSearch] = useState<string>('');
+  const [tabLogCopied, setTabLogCopied] = useState<boolean>(false);
+
+  const storageEngineInfo = getStorageEngineInfo();
+
+  const fetchTabLogs = async () => {
+    setTabLogLoading(true);
+    try {
+      const list = await appLogger.loadLogs({ limit: 100 });
+      setTabLogs(list);
+    } catch {
+      setTabLogs([]);
+    } finally {
+      setTabLogLoading(false);
+    }
+  };
+
+  const refreshStorageData = () => {
+    setStorageStats(getStorageStats());
+    idbGetStorageStats().then(setIdbStats).catch(() => {});
+    idbGetRenderCacheStats().then(setRenderCacheStats).catch(() => {});
+    idbCountViewerStates().then(setViewerStateStats).catch(() => {});
+    idbCountLogs().then(setLogStats).catch(() => {});
+    getBrowserStorageEstimate().then(setBrowserEstimate).catch(() => {});
+  };
+
   useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
@@ -93,11 +179,98 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
       if (initialTab) {
         setActiveTab(initialTab);
       }
-      setStorageStats(getStorageStats());
+      refreshStorageData();
       setStatusMessage(null);
       setThemeInfo(getVsCodeThemeInfo());
     }
   }, [isOpen, initialTab]);
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'logs') {
+      void fetchTabLogs();
+      const unsub = appLogger.subscribe(() => {
+        void fetchTabLogs();
+      });
+      return unsub;
+    }
+  }, [isOpen, activeTab]);
+
+  const handleExportLogs = async (format: 'log' | 'json' | 'report') => {
+    try {
+      const dateTag = new Date().toISOString().replace(/[:.]/g, '-');
+      const levelFilter = tabLogLevel === 'all' ? undefined : tabLogLevel;
+      if (format === 'json') {
+        const text = await appLogger.exportLogsAsJson({ level: levelFilter });
+        appLogger.downloadFile(`omniview-logs-${dateTag}.json`, text, 'application/json;charset=utf-8');
+        setStatusMessage({ type: 'success', text: '已导出 JSON 结构化日志文件' });
+      } else if (format === 'report') {
+        const text = await appLogger.exportSystemDiagnostics();
+        appLogger.downloadFile(`omniview-diagnostics-report-${dateTag}.md`, text, 'text/markdown;charset=utf-8');
+        setStatusMessage({ type: 'success', text: '已生成并导出系统全景诊断报告 (.md)' });
+      } else {
+        const text = await appLogger.exportLogsAsText({ level: levelFilter });
+        appLogger.downloadFile(`omniview-diagnostics-${dateTag}.log`, text, 'text/plain;charset=utf-8');
+        setStatusMessage({ type: 'success', text: '已导出标准 .log 运行与诊断日志文件' });
+      }
+    } catch {
+      setStatusMessage({ type: 'error', text: '导出日志失败，请重试' });
+    }
+  };
+
+  const handleCopyLogsText = async () => {
+    try {
+      const text = await appLogger.exportLogsAsText({
+        level: tabLogLevel === 'all' ? undefined : tabLogLevel,
+      });
+      await navigator.clipboard.writeText(text);
+      setTabLogCopied(true);
+      setStatusMessage({ type: 'success', text: '已成功复制诊断日志到剪贴板' });
+      setTimeout(() => setTabLogCopied(false), 2500);
+    } catch {
+      setStatusMessage({ type: 'error', text: '复制失败，请重试' });
+    }
+  };
+
+  const handleClearRenderCache = async () => {
+    await idbClearRenderCache();
+    refreshStorageData();
+    setStatusMessage({ type: 'success', text: '已清空离线渲染快照缓存池，已释放存储空间' });
+  };
+
+  const handleClearBlobs = async () => {
+    if (window.confirm('确定要清空所有离线媒体大对象（PDF/Office/图片本地缓存）吗？')) {
+      await idbClearBlobs();
+      refreshStorageData();
+      setStatusMessage({ type: 'success', text: '已清空二进制多媒体附件缓存' });
+    }
+  };
+
+  const handleClearViewerStates = async () => {
+    if (window.confirm('确定要重置所有文件的阅读进度、表格排序列宽与播放记忆吗？文档本身不受影响。')) {
+      await idbClearViewerStates();
+      refreshStorageData();
+      setStatusMessage({ type: 'success', text: '已清空所有文件的交互偏好与历史阅读进度' });
+    }
+  };
+
+  const handleClearLogs = async () => {
+    if (window.confirm('确定要清空所有应用运行与诊断日志吗？已持久化到 IndexedDB 的记录也将被清除。')) {
+      await idbClearLogs();
+      await appLogger.clearLogs();
+      setTabLogs([]);
+      refreshStorageData();
+      setStatusMessage({ type: 'success', text: '已彻底清空应用运行与诊断日志库' });
+    }
+  };
+
+  const handleResetFilesOnly = () => {
+    if (window.confirm('确定要重置当前工作区文档为初始官方示范集合吗？自定义上传与修改将被重置。')) {
+      resetStoredFiles();
+      refreshStorageData();
+      onResetWorkspace?.();
+      setStatusMessage({ type: 'success', text: '已将工作区文档还原为初始示例模板' });
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -200,20 +373,20 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in-50 duration-150">
       <div
         id="workbench-settings-modal"
-        className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden text-slate-200"
+        className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col max-h-[88vh] overflow-hidden text-slate-200"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="h-13 px-5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/60">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+        <div className="h-14 px-6 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/70">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shadow-xs">
               <Settings className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-white">工作台偏好与持久化配置中心</h2>
-                <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                   VS Code 双向就绪
                 </span>
               </div>
@@ -240,70 +413,86 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center px-4 border-b border-slate-800 bg-slate-950/30 shrink-0 gap-1">
+        <div className="flex items-center px-4 border-b border-slate-800 bg-slate-950/40 shrink-0 gap-1 overflow-x-auto">
           <button
             onClick={() => setActiveTab('appearance')}
             title="外观与排版"
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap shrink-0 transition ${
               activeTab === 'appearance'
                 ? 'border-blue-500 text-blue-400 font-semibold'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">外观与排版</span>
+            <span>外观与排版</span>
           </button>
 
           <button
             onClick={() => setActiveTab('editor')}
             title="视图与分屏"
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap shrink-0 transition ${
               activeTab === 'editor'
                 ? 'border-blue-500 text-blue-400 font-semibold'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Layout className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">视图与分屏</span>
+            <span>视图与分屏</span>
           </button>
 
           <button
             onClick={() => setActiveTab('diagrams')}
             title="图表引擎服务"
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap shrink-0 transition ${
               activeTab === 'diagrams'
                 ? 'border-blue-500 text-blue-400 font-semibold'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">图表引擎服务</span>
+            <span>图表引擎服务</span>
           </button>
 
           <button
             onClick={() => setActiveTab('shortcuts')}
-            title="快捷键与帮助"
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
+            title="快捷键与指南"
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap shrink-0 transition ${
               activeTab === 'shortcuts'
                 ? 'border-blue-500 text-blue-400 font-semibold'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Keyboard className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">快捷键与指南</span>
+            <span>快捷键与指南</span>
           </button>
 
           <button
             onClick={() => setActiveTab('storage')}
             title="存储与备份"
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap shrink-0 transition ${
               activeTab === 'storage'
                 ? 'border-blue-500 text-blue-400 font-semibold'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">存储与备份</span>
+            <span>存储与备份</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('logs');
+              void fetchTabLogs();
+            }}
+            title="运行与诊断日志"
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap shrink-0 transition ${
+              activeTab === 'logs'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>运行日志</span>
           </button>
         </div>
 
@@ -857,19 +1046,263 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* 存储统计卡片 */}
-              <div className="p-3.5 bg-slate-850 rounded-xl border border-slate-800 flex items-center justify-between">
-                <div>
-                  <div className="text-[11px] text-slate-400">本地存储占用统计 (LocalStorage)</div>
-                  <div className="text-base font-bold text-white font-mono mt-0.5">
-                    {storageStats.usedKb} KB <span className="text-xs font-normal text-slate-500">/ 约 5MB 配额</span>
+              {/* 浏览器/宿主环境总配额估算条 */}
+              {browserEstimate.supported && (
+                <div className="p-3 bg-slate-850/90 rounded-xl border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300 font-medium flex items-center gap-1.5">
+                      <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+                      <span>宿主沙箱总配额估算 (Browser Storage Quota)</span>
+                    </span>
+                    <span className="font-mono text-slate-300 text-[11px]">
+                      已用 {browserEstimate.usageFormatted} / 配额上限 {browserEstimate.quotaFormatted} ({browserEstimate.percentUsed}%)
+                    </span>
                   </div>
-                  <div className="text-[10px] text-emerald-400 mt-0.5">
-                    ✓ 共已持久化 {storageStats.itemCount} 项 OmniView 状态与文件缓存
+                  <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                    <div
+                      className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(1, browserEstimate.percentUsed)}%` }}
+                    />
                   </div>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
-                  <Database className="w-5 h-5" />
+              )}
+
+              {/* 四大分区存储分析与独立清理控制台 */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>分区存储分析与精细化清理 (Storage Partition & Cleanup)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={refreshStorageData}
+                    className="text-[11px] text-blue-400 hover:text-blue-300 transition flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>刷新统计</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* 分区 1: 图表离线渲染快照 */}
+                  <div className="p-3 bg-slate-850 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                          <span>图表离线快照 (Render Cache)</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          50MB 守护
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-white font-mono mt-1">
+                        {renderCacheStats.totalKb} KB <span className="text-[11px] font-normal text-slate-500">/ 50 MB</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        共持久化 {renderCacheStats.count} 处 PlantUML / Mermaid / Graphviz 矢量产物
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] text-emerald-400 font-mono">断网秒开就绪</span>
+                      <button
+                        type="button"
+                        onClick={handleClearRenderCache}
+                        disabled={renderCacheStats.count === 0}
+                        className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800/60 rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        清空快照缓存
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 分区 2: 多媒体与二进制大对象 */}
+                  <div className="p-3 bg-slate-850 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                          <span>二进制多媒体 (Blobs Store)</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          IndexedDB
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-white font-mono mt-1">
+                        {idbStats.blobCount} 项媒体大对象
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        存储 PDF、Office、高保真图片等本地 ArrayBuffer 介质
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400">大文件安全隔离</span>
+                      <button
+                        type="button"
+                        onClick={handleClearBlobs}
+                        disabled={idbStats.blobCount === 0}
+                        className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800/60 rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        清理媒体附件
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 分区 3: 工作区文档内容 */}
+                  <div className="p-3 bg-slate-850 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-400" />
+                          <span>工作区文档 (Workspace Files)</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          双层引擎
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-white font-mono mt-1">
+                        {idbStats.supported ? `${Math.round((idbStats.filesEstimatedBytes || 0) / 1024 * 10) / 10} KB` : `${storageStats.usedKb} KB`}
+                        <span className="text-[11px] font-normal text-slate-400 ml-1.5">({idbStats.supported ? idbStats.fileCount : storageEngineInfo.hotCacheCount} 篇文档)</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        内存热缓存 (0ms) + IndexedDB 后台异步防抖自动落盘
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] text-blue-400 font-mono">无 5MB 上限</span>
+                      <button
+                        type="button"
+                        onClick={handleResetFilesOnly}
+                        className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-amber-950/40 text-slate-300 hover:text-amber-300 border border-slate-700 hover:border-amber-800/60 rounded transition"
+                      >
+                        还原示例文档
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 分区 4: 系统配置与 UI 偏好 */}
+                  <div className="p-3 bg-slate-850 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-purple-400" />
+                          <span>配置偏好 (Settings & State)</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          LocalStorage
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-white font-mono mt-1">
+                        {storageStats.usedKb} KB <span className="text-[11px] font-normal text-slate-500">/ 5MB 配额</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        已与 VS Code 宿主双向同步 {storageStats.itemCount} 项配置
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] text-purple-300 font-mono">双向热重载</span>
+                      <button
+                        type="button"
+                        onClick={handleExport}
+                        className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 rounded transition"
+                      >
+                        备份配置 JSON
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 分区 5: 查看器交互与阅读偏好状态 */}
+                  <div className="p-3 bg-slate-850 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-400" />
+                          <span>阅读与交互记忆 (Viewer States)</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          V3 仓库
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-white font-mono mt-1">
+                        {viewerStateStats.count} 份文档状态
+                        <span className="text-[11px] font-normal text-slate-400 ml-1.5">({Math.round((viewerStateStats.totalBytes || 0) / 1024 * 10) / 10} KB)</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        记忆 PDF 阅读页码/批注、CSV 排序/分页大小等交互偏好
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] text-amber-400/90 font-mono">跨会话记忆</span>
+                      <button
+                        type="button"
+                        onClick={handleClearViewerStates}
+                        disabled={viewerStateStats.count === 0}
+                        className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800/60 rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        重置阅读偏好
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 分区 6: 应用运行与诊断日志 */}
+                  <div className="p-3 bg-slate-850 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-400" />
+                          <span>运行与诊断日志 (App Logs)</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          V4 仓库
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-white font-mono mt-1">
+                        {logStats.count} 条日志
+                        <span className="text-[11px] font-normal text-slate-400 ml-1.5">({Math.round((logStats.totalBytes || 0) / 1024 * 10) / 10} KB)</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        记录运行时异常与警告，最多保留 1000 条并自动 LRU 淘汰
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsLogModalOpen(true)}
+                          className="px-2 py-0.8 text-[10px] font-medium bg-blue-950/40 hover:bg-blue-900/60 text-blue-300 border border-blue-800/60 rounded transition"
+                        >
+                          检视
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExportLogs('log')}
+                          disabled={logStats.count === 0}
+                          className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 rounded transition disabled:opacity-40"
+                          title="快速导出为 .log 文件"
+                        >
+                          .log
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExportLogs('json')}
+                          disabled={logStats.count === 0}
+                          className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 rounded transition disabled:opacity-40"
+                          title="快速导出为 .json 文件"
+                        >
+                          .json
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearLogs}
+                        disabled={logStats.count === 0}
+                        className="px-2 py-0.8 text-[10px] font-medium bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800/60 rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        清空
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1051,6 +1484,261 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* TAB 6: 运行与诊断日志 */}
+          {activeTab === 'logs' && (
+            <div className="space-y-4">
+              {/* 顶部总览卡片 */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 bg-slate-850 rounded-xl border border-slate-800">
+                  <div className="text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>持久化日志</span>
+                    <FileText className="w-3.5 h-3.5 text-blue-400" />
+                  </div>
+                  <div className="text-base font-bold text-white font-mono mt-1">
+                    {logStats.count} <span className="text-xs font-normal text-slate-400">条</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    占用 ~{Math.round((logStats.totalBytes || 0) / 1024 * 10) / 10} KB
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-850 rounded-xl border border-slate-800">
+                  <div className="text-[11px] text-rose-300 flex items-center justify-between">
+                    <span>异常捕获 (Error)</span>
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                  </div>
+                  <div className="text-base font-bold text-rose-400 font-mono mt-1">
+                    {tabLogs.filter((l) => l.level === 'error').length} <span className="text-xs font-normal text-slate-400">项</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    IndexedDB 自动拦截持久化
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-850 rounded-xl border border-slate-800">
+                  <div className="text-[11px] text-amber-300 flex items-center justify-between">
+                    <span>警告提示 (Warn)</span>
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <div className="text-base font-bold text-amber-400 font-mono mt-1">
+                    {tabLogs.filter((l) => l.level === 'warn').length} <span className="text-xs font-normal text-slate-400">项</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    渲染降级与状态兼容提示
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-850 rounded-xl border border-slate-800">
+                  <div className="text-[11px] text-emerald-300 flex items-center justify-between">
+                    <span>宿主管道联动</span>
+                    <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                  <div className="text-xs font-semibold text-emerald-400 mt-1.5 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>OutputChannel 激活</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    VS Code 视图实时同频
+                  </div>
+                </div>
+              </div>
+
+              {/* 导出与核心操作中心 */}
+              <div className="p-3.5 bg-slate-850 rounded-xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-white flex items-center gap-2">
+                      <Download className="w-4 h-4 text-blue-400" />
+                      <span>诊断日志导出中枢</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      支持导出标准纯文本日志、结构化 JSON 数据以及包含软硬件与存储状态的完整体检报告
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-700">
+                      硬上限: 1000 条 (LRU 自动修剪)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleExportLogs('log')}
+                    disabled={logStats.count === 0}
+                    className="p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center gap-2 text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                    <div className="text-left truncate">
+                      <div className="font-medium text-xs truncate">导出 .log 文件</div>
+                      <div className="text-[10px] text-slate-400 truncate">标准日志文本行</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExportLogs('json')}
+                    disabled={logStats.count === 0}
+                    className="p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center gap-2 text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <FileCode className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div className="text-left truncate">
+                      <div className="font-medium text-xs truncate">导出 .json 数据</div>
+                      <div className="text-[10px] text-slate-400 truncate">结构化原始字段</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExportLogs('report')}
+                    disabled={logStats.count === 0}
+                    className="p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center gap-2 text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Activity className="w-4 h-4 text-purple-400 shrink-0" />
+                    <div className="text-left truncate">
+                      <div className="font-medium text-xs truncate">系统诊断报告</div>
+                      <div className="text-[10px] text-slate-400 truncate">全景排障 Markdown</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyLogsText}
+                    disabled={logStats.count === 0}
+                    className="p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center gap-2 text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {tabLogCopied ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <Copy className="w-4 h-4 text-amber-400 shrink-0" />}
+                    <div className="text-left truncate">
+                      <div className="font-medium text-xs truncate">{tabLogCopied ? '已复制成功' : '复制诊断文本'}</div>
+                      <div className="text-[10px] text-slate-400 truncate">直接粘贴反馈</div>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsLogModalOpen(true)}
+                      className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg transition flex items-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>打开全屏检视抽屉</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={fetchTabLogs}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg transition flex items-center gap-1"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${tabLogLoading ? 'animate-spin text-blue-400' : ''}`} />
+                      <span>刷新</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleClearLogs}
+                    disabled={logStats.count === 0}
+                    className="px-2.5 py-1 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-transparent hover:border-rose-900/60 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>清空日志库</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 实时日志流快速预览与检索 */}
+              <div className="p-3.5 bg-slate-850 rounded-xl border border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-semibold text-slate-200 flex items-center gap-2">
+                    <span>最近实时日志流</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-900 text-slate-400 border border-slate-800">
+                      Top 100
+                    </span>
+                  </div>
+
+                  {/* 级别过滤与搜索 */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                      {(['all', 'error', 'warn', 'info'] as const).map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => setTabLogLevel(lvl)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium transition ${
+                            tabLogLevel === lvl
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {lvl === 'all' ? '全部' : lvl.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="relative">
+                      <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="text"
+                        value={tabLogSearch}
+                        onChange={(e) => setTabLogSearch(e.target.value)}
+                        placeholder="过滤消息..."
+                        className="pl-6 pr-2 py-0.8 bg-slate-900 border border-slate-800 rounded-lg text-[11px] text-slate-200 placeholder-slate-500 w-32 focus:outline-none focus:border-blue-500/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 滚动日志预览列表 */}
+                <div className="max-h-60 overflow-y-auto space-y-1.5 font-mono text-[11px] pr-1">
+                  {tabLogs
+                    .filter((item) => {
+                      if (tabLogLevel !== 'all' && item.level !== tabLogLevel) return false;
+                      if (tabLogSearch.trim()) {
+                        const q = tabLogSearch.toLowerCase();
+                        return (
+                          item.message.toLowerCase().includes(q) ||
+                          item.source.toLowerCase().includes(q) ||
+                          (item.details && item.details.toLowerCase().includes(q))
+                        );
+                      }
+                      return true;
+                    })
+                    .map((item) => {
+                      const isErr = item.level === 'error';
+                      const isWarn = item.level === 'warn';
+                      return (
+                        <div
+                          key={item.id}
+                          className={`p-2 rounded-lg border text-[10px] leading-tight ${
+                            isErr
+                              ? 'bg-rose-950/25 border-rose-900/40 text-rose-200'
+                              : isWarn
+                              ? 'bg-amber-950/25 border-amber-900/40 text-amber-200'
+                              : 'bg-slate-900/60 border-slate-800 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-slate-400 text-[9px] mb-0.5">
+                            <span className="font-bold uppercase tracking-wider text-white">
+                              [{item.level}] [{item.source}]
+                            </span>
+                            <span>{new Date(item.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                          <div className="break-all whitespace-pre-wrap">{item.message}</div>
+                        </div>
+                      );
+                    })}
+                  {tabLogs.length === 0 && (
+                    <div className="py-8 text-center text-slate-500 text-xs">
+                      暂无日志记录
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -1071,6 +1759,13 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 诊断日志查看器抽屉/弹窗 */}
+      <LogViewerModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
+        onClearLogs={refreshStorageData}
+      />
     </div>
   );
 };

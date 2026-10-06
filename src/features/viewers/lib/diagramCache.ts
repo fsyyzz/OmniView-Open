@@ -1,7 +1,13 @@
 /**
- * 图表与复杂渲染块通用 LRU 内存缓存池 (Diagram & Math Content-Hash Cache)
- * 支持哈希索引、容量限制与命中统计，避免频繁编译导致的卡顿与 CPU 尖刺。
+ * 图表与复杂渲染块通用 LRU 内存缓存池与持久化门面 (Diagram & Math Content-Hash Cache)
+ * 1. 内存层：DiagramLruCache (0ms 快速响应)
+ * 2. 磁盘层：PersistentDiagramCache (结合 IndexedDB render_cache，带 50MB 配额守护与离线化)
  */
+import {
+  idbGetRenderCache,
+  idbSetRenderCache,
+  idbDeleteRenderCache,
+} from '../../../shared/lib/indexedDbStorage';
 
 export interface CacheStats {
   size: number;
@@ -21,6 +27,22 @@ export function fastFnv1a(str: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(36);
+}
+
+/**
+ * 生成全系统统一的确定性渲染快照唯一键
+ * 经过输入规范化（CRLF 统一与首尾裁剪），正交组合 engine、format、theme、hash
+ */
+export function makeDeterministicCacheKey(
+  engine: 'plantuml' | 'mermaid' | 'graphviz' | 'katex' | string,
+  code: string,
+  theme: string | boolean = 'dark',
+  format: 'svg' | 'png' = 'svg'
+): string {
+  const normalizedCode = code.replace(/\r\n/g, '\n').trim();
+  const themeStr = typeof theme === 'boolean' ? (theme ? 'dark' : 'light') : theme || 'dark';
+  const hash = fastFnv1a(normalizedCode);
+  return `cache:render:${engine}:${format}:${themeStr}:${hash}`;
 }
 
 export class DiagramLruCache<T = string> {
@@ -104,6 +126,92 @@ export class DiagramLruCache<T = string> {
   }
 }
 
+/**
+ * 融合双层缓存（内存 LRU + IndexedDB 持久化）的高级门面
+ */
+export class PersistentDiagramCache {
+  private memoryLru: DiagramLruCache<string>;
+  private engine: string;
+  private pendingReads = new Map<string, Promise<string | undefined>>();
+
+  constructor(engine: string, memoryMaxSize = 100) {
+    this.engine = engine;
+    this.memoryLru = new DiagramLruCache<string>(memoryMaxSize);
+  }
+
+  /**
+   * 优先查内存，未命中异步查 IndexedDB（查到后回填内存）
+   */
+  public async get(key: string): Promise<string | undefined> {
+    // 1. 内存层命中 (0ms)
+    const memVal = this.memoryLru.get(key);
+    if (memVal !== undefined) {
+      return memVal;
+    }
+
+    // 2. 避免并发击穿：复用正在读取中的同一 Promise
+    const pending = this.pendingReads.get(key);
+    if (pending) {
+      return pending;
+    }
+
+    const readPromise = (async () => {
+      try {
+        const idbVal = await idbGetRenderCache(key);
+        if (idbVal !== undefined) {
+          this.memoryLru.set(key, idbVal);
+          return idbVal;
+        }
+        return undefined;
+      } finally {
+        this.pendingReads.delete(key);
+      }
+    })();
+
+    this.pendingReads.set(key, readPromise);
+    return readPromise;
+  }
+
+  /**
+   * 同步直接获取内存中的缓存（用于无法 await 的同步渲染生命周期）
+   */
+  public getSync(key: string): string | undefined {
+    return this.memoryLru.get(key);
+  }
+
+  /**
+   * 写入缓存：立即写入内存，并后台非阻塞持久化至 IndexedDB
+   */
+  public async set(key: string, data: string, format = 'svg'): Promise<void> {
+    this.memoryLru.set(key, data);
+    try {
+      await idbSetRenderCache({
+        key,
+        engine: this.engine,
+        format,
+        data,
+      });
+    } catch {
+      // 存储失败静默降级，不阻断前端渲染流程
+    }
+  }
+
+  /**
+   * 删除指定条目
+   */
+  public async delete(key: string): Promise<void> {
+    this.memoryLru.set(key, '');
+    await idbDeleteRenderCache(key);
+  }
+
+  /**
+   * 清空内存缓存
+   */
+  public clearMemory(): void {
+    this.memoryLru.clear();
+  }
+}
+
 /** 全局共享单例：Mermaid 渲染缓存 */
 export const mermaidRenderCache = new DiagramLruCache<string>(100);
 
@@ -112,3 +220,12 @@ export const katexRenderCache = new DiagramLruCache<string>(150);
 
 /** 全局共享单例：Graphviz 渲染缓存 */
 export const graphvizRenderCache = new DiagramLruCache<string>(100);
+
+/** 全局共享持久化单例：PlantUML 在线渲染持久化快照缓存池 */
+export const persistentPlantUmlCache = new PersistentDiagramCache('plantuml', 100);
+
+/** 全局共享持久化单例：Mermaid 持久化快照缓存池 */
+export const persistentMermaidCache = new PersistentDiagramCache('mermaid', 100);
+
+/** 全局共享持久化单例：Graphviz 持久化快照缓存池 */
+export const persistentGraphvizCache = new PersistentDiagramCache('graphviz', 100);

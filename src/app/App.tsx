@@ -10,7 +10,7 @@ import { getVsCodeApi, VsCodeApi } from '../shared/lib/vscode';
 import { PluginDocumentView } from '../features/viewers/PluginDocumentView';
 import { RenderErrorBoundary } from '../features/viewers/components/common/RenderErrorBoundary';
 import { loadStoredSettings, saveStoredSettings, DEFAULT_SETTINGS } from '../shared/lib/settingsStorage';
-import { loadStoredFiles, saveStoredFiles, resetStoredFiles } from '../shared/lib/fileStorage';
+import { loadStoredFiles, saveStoredFiles, resetStoredFiles, initStorageAsync } from '../shared/lib/fileStorage';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../shared/lib/nativeTheme';
 import { useWorkbenchSettings } from './useWorkbenchSettings';
 
@@ -65,6 +65,18 @@ export default function App() {
       }
     }
   }, [theme, density]);
+
+  // IndexedDB 异步水合与无感平滑迁移 (Stale-While-Revalidate)
+  useEffect(() => {
+    if (embeddedInitial) return;
+    initStorageAsync().then((hydrated) => {
+      if (Array.isArray(hydrated) && hydrated.length > 0) {
+        setFiles(hydrated);
+      }
+    }).catch((err) => {
+      console.warn('[App] Failed to hydrate files from IndexedDB:', err);
+    });
+  }, [embeddedInitial]);
 
   // 2. 布局与主导航状态（双向持久化）
   const [currentView, setCurrentView] = useState<WorkbenchView>(initialSettings.currentView || 'editor');
