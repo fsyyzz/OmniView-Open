@@ -2,7 +2,55 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.2.54] - 2026-10-09
+
+### Fixed
+
+- **SVG v2 编组子节点重复 bug (SVG v2 Object Group Duplicate Child Fix)**:
+  - **修复 `object.group` 后图层 children 出现 Group ID 重复**（`[4, 4]`，导致图层树重复渲染行）：
+    - 根因：`appendToLayer` 已把新 Group 追加到 children 末位，`objectGroup` handler 又 `push(groupId)` 一次；
+    - 修复为对 `groupId` 去重的 filter（`core/commands/registry.ts`），编组后 children 精确包含原节点过滤结果 + 单个 Group；
+    - 由新增 `test-svg-v2-layers-batch.mjs` 的图层树用例暴露并回归锁定。
+
+- **SVG 画布属性面板滚轮缩放误触修复 (SVG Inspector Wheel Zoom Hijack Fix)**:
+  - **修复选中图元后右侧属性面板内滚动导致画布被错误缩放**：
+    - 在 `useSvgCanvasInteraction.ts` 的 `handleWheel` 入口处加入 UI 控件白名单检查（属性检视面板 `#svg-inspector-panel` / `[data-inspector-panel]`、批量检视面板 `#svg-batch-inspector-panel`、状态栏 `#canvas-statusbar`、`[data-canvas-ui]`、`input` / `select` / `textarea` / `[role="slider"]` / `[contenteditable]`），命中即直接 `return`，不调用 `preventDefault`；
+    - 行为对齐 `handleMouseDown` 的既有过滤策略（line 552-558），避免画布 zoom 拦截本应属于面板内部滚动的滚轮事件；
+    - 同时覆盖工具栏 `<input type="color">`、颜色选择器、文本输入、`<select>` 等控件的滚轮交互；
+    - SVG v2 引擎（SvgV2Studio）默认不绑定 wheel handler，无需此修复，但保留同源检测代码以防未来添加。
+  - **回归测试**：新增 `scripts/test-svg-v2-wheel-zoom-fix.mjs`（18 个契约用例：面板内连续滚 10 次 scale 不变、面板→画布切换正确响应、深层嵌套 input 阻止、画布元素正常缩放），已挂入 `npm run test`，SVG v2 测试总量 52 → **70**。
+
+### Added
+
+- **SVG v2 图层与批量增强 (SVG v2 Layers & Batch Enhancement — L2)**:
+  - **新命令 4 条**（`core/commands/registry.ts`，30 → **34 条**）：
+    - `object.align`：6 向对齐（left/centerH/right/top/centerV/bottom）× selection（选区包围盒）/ canvas（画布）双基准；
+    - `object.distribute`：水平/垂直等距分布（≥3 节点，首尾不动）；
+    - `object.setVisible` / `object.setLocked`：图元级显隐与锁定（对齐 `layer.*` 命名空间语义）；
+  - **重排命令扩展**：`layer.reorder` / `object.reorder` 新增可选 `toIndex` 参数（与 `direction` 互斥），支持拖拽排序一步到位落位；`object.reorder` 改为在**直接父容器**（Layer 或 Group）内重排（修复 Group 内节点重排无效的旧语义）；
+  - **几何/树纯函数层**（`core/model/bbox.ts` + `core/model/tree.ts`）：`nodeBBox`（AABB 仿射变换 + Group 递归聚合 + 环保护）、`alignDelta`、`distributeOffsets`、`flattenLayerTree`（编组树摊平 + 折叠集合）、`findParent`（直接父定位）、`planReorderDrop`（拖拽落点 → 重排计划，跨层/类型不匹配返回 null）；均经 barrel `core/index.ts` 导出；
+  - **图层面板升级**（拆分为独立 `SvgV2LayersPanel.tsx`，遵守大组件拆分阈值）：Layer/Group 编组树递归展示（深度缩进/展开折叠/子项计数）、HTML5 拖拽排序（层间 + 同层图元，落点上下半区提示）、双击行内重命名（Enter/blur 提交、Escape 取消）、行级显隐与锁定；
+  - **批量检视器**（拆分为独立 `SvgV2Inspector.tsx`）：多选（≥2）6 向对齐 + 批量填充 + 批量透明度 + 批量删除；多选（≥3）水平/垂直分布；对齐基准选择器（选区/画布）；
+  - **画布递归渲染**：Group 以 `<g>` 嵌套渲染子树，隐藏节点（含层/组链）不渲染，编组树所见即所得；
+  - **回归测试**：新增 `scripts/test-svg-v2-layers-batch.mjs`（27 用例，含拖拽排序纯函数准入测试与 toIndex 端到端撤销验证），已挂入 `npm run test`，SVG v2 测试 70 → **97**；
+  - **总验证门禁**：`npm run verify` → **461 ✅ / 0 ❌**；`lint:codex` / `check:structure` / `check:react-governance` / `check:doc-code-consistency` 全过。
+
+- **SVG 编辑引擎 v2 完整交付 (SVG Edit Engine v2 Full Delivery — ADR-0001)**:
+  - **核心架构层 (M2)**：不可变 Document 模型 + 结构共享快照（`src/features/viewers/components/drivers/svg/core/model/document.ts`）；SVG path d ↔ Anchor[] 编解码器（`core/model/path.ts`，支持 M/L/H/V/C/S/Q/A/Z 全套命令 + cubic Bézier 序列化）；19 个 model 层单测全过；
+  - **命令管线 + Runtime (M3)**：30 条核心命令（path.* 4、object.* 9、paint.* 4、layer.* 6、select.* 4、history.* 2、tool.* 1）通过 `core/commands/registry.ts` 统一注册；Runtime 实现 Begin/Preview/Commit/Cancel/Exec Action 状态机（参考 VectorCraft `crates/engine/src/lib.rs`），HistoryEntry 结构共享持久化 + Journal 命令日志；3 个 Tool 桩（select/node/pen）；21 个 Runtime 单测全过；
+  - **UI 迁移 (M4)**：`SvgV2Studio.tsx` 全新顶层组件 + `useSvgRuntime` React Hook；Feature Flag `omniview.svg.engine=v2` 双轨接入原 `SvgViewer.tsx`（默认 v1，配置切换到 v2 实验引擎）；
+  - **图层面板 + Inspector (M5)**：`SvgV2LayersPanel` 显隐/锁定/切换；`SvgV2Inspector` 填充色 + 包围盒 + 删除按钮；Undo/Redo 按钮挂在左侧工具栏；引擎切换器右下角；
+  - **Feature Flag + 自动备份 (M6)**：`omniview.svg.engine=v1|v2` localStorage 路由；`.bak.svg` 自动备份（仅首次切到 v2 引擎时写入，标记 `[omniview-v2-engine]`）；
+  - **E2E 集成测试 (M7)**：12 个端到端用例覆盖 SVG round-trip + 编辑往返一致性 + 撤销栈持久 + 异步边界 + 真实样例 fuzzing（rect/circle/line/path/polygon/g）+ 综合工作流 + Feature Flag + 备份策略；`test-svg-v2-core-model.mjs`（19）+ `test-svg-v2-runtime-commands.mjs`（21）+ `test-svg-v2-e2e.mjs`（12）= **52 个 SVG v2 测试全过**；
+  - **总验证门禁**：`npm run verify` → **416 ✅ / 0 ❌ / 0 错误**（比 v2 启动前 +52 测试）。
+
+### Architecture
+
+- **SVG 编辑引擎 v2 基础设施奠基 (SVG Edit Engine v2 Foundation Kick-off — ADR-0001)**:
+  - 通过 L3 严苛通道架构评审，落地 ADR-0001「SVG 编辑引擎 v2 — 引入文档模型与命令管线」（`docs/adr/0001-svg-edit-engine-v2-document-model.md`），完成 Proposed → Accepted；
+  - 锁定核心架构决策：仅 SVG 持久化、`usvg` → **自编译** WASM 解析栈（ADR §10 Addendum 修订：浏览器侧无现成 npm usvg-wasm 包，需自编译）、P1 仅基础范围、Feature Flag `omniview.svg.engine=v2` 双轨过渡、暂不接入 AI 驱动；
+  - 新增 `src/features/viewers/components/drivers/svg/core/` 编辑引擎层目录骨架，并交付 M0 接口契约：`core/model`（Document/Node/Selection/Snapshot）、`core/runtime`（Tool/Action/Command/Runtime/Journal）、`core/io`（SVG ↔ Document import/export）；
+  - 后续里程碑：M1 自编译 usvg-wasm 集成（含 toolchain 缺失自动回退 fallbackDomParse）、M2（Document + Snapshot）、M3（命令表 + Runtime）、M4（UI 迁移 select/node/pen）、M5（图层面板 + Undo UI）、M6（Feature Flag 灰度）、M7（红蓝对抗 + 全量门禁）。
 
 ## [1.2.53] - 2026-10-06
 

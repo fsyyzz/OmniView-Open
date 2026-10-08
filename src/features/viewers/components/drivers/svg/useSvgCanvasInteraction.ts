@@ -499,6 +499,24 @@ export function useSvgCanvasInteraction(options: UseSvgCanvasInteractionOptions)
 
   // 滚轮缩放：以鼠标指针光标当前所在物理位置为焦点进行动态缩放 (Zoom toward Cursor)
   const handleWheel = (e: React.WheelEvent) => {
+    // 0. 屏蔽来自属性检视面板、批量检视面板、状态栏、工具栏等 UI 控件的滚轮事件，
+    //    让这些面板的内部滚动正常工作，不要触发画布缩放（ADR-0001 修复：v1 遗留 bug）。
+    const wheelTarget = e.target as HTMLElement;
+    if (
+      wheelTarget.closest('#svg-inspector-panel') ||
+      wheelTarget.closest('[data-inspector-panel]') ||
+      wheelTarget.closest('#svg-batch-inspector-panel') ||
+      wheelTarget.closest('#canvas-statusbar') ||
+      wheelTarget.closest('[data-canvas-ui]') ||
+      wheelTarget.closest('input') ||
+      wheelTarget.closest('select') ||
+      wheelTarget.closest('textarea') ||
+      wheelTarget.closest('[role="slider"]') ||
+      wheelTarget.closest('[contenteditable]')
+    ) {
+      return;
+    }
+
     e.preventDefault();
     const container = containerRef.current;
     if (!container) {

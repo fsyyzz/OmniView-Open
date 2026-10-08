@@ -1,7 +1,12 @@
 /**
  * OmniView 矢量图形驱动与双向分屏编辑器 (SVG Vector Driver & Split Studio)
+ *
+ * ADR-0001：v1 / v2 引擎路由。当 localStorage.omniview.svg.engine === 'v2'
+ * 时切换到全新的 SvgV2Studio（基于不可变 Document + 命令管线）。
  */
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { getSvgEngineFlag } from './svg/core/featureFlag';
+import { SvgV2Studio } from './svg/SvgV2Studio';
 import {
   parseSvgStats,
   validateSvg,
@@ -59,6 +64,11 @@ export const SvgViewer: React.FC<SvgViewerProps> = ({
   fileSize = 0,
   onContentChange,
 }) => {
+  // ADR-0001 §2.2 Feature Flag：v2 实验引擎路由
+  if (getSvgEngineFlag() === 'v2') {
+    return <SvgV2Studio content={content} fileName={fileName} onContentChange={onContentChange} />;
+  }
+
   // 编辑态源码
   const [code, setCode] = useState<string>(content);
 
