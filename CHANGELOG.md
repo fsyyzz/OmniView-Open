@@ -2,6 +2,29 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.56] - 2026-10-11
+
+### Added
+
+- **Markdown 全套渲染图表与数据表格沉浸式折叠及顶栏开关联动 (Markdown Diagram & Table Toolbars Immersion Fold & Global Toggle — L2)**:
+  - **默认沉浸式阅读策略**：Markdown 正文中渲染的所有图形图表（Mermaid、PlantUML、Graphviz DOT、SVG、KaTeX 公式、Markmap 导图、Excalidraw 白板、Domain Storytelling）以及富交互数据表格（`TableBlock`）鼠标滑过时默认不再强行弹出全宽 Header/工具栏，彻底消除遮挡图表顶部与表头数据的痛点；
+  - **卡片级微型展开胶囊**：每个图表卡片与表格右上角悬停仅浮现微型半透明小药丸胶囊（带 `PanelTopOpen` 图标），点击即可按需单独展开该图表或表格的完整数据工具栏；
+  - **工具栏一键收回与智能状态保持**：展开工具栏右侧新增 `PanelTopClose`「收起」按钮，操作完毕后可随时一键收回恢复沉浸态；源码编辑模式（`is-code`）自动常驻保持，表格处于检索过滤、图表模式或 Pin 锁定状态时智能保持常显；
+  - **顶栏全局开关联动**：在 `MarkdownToolbar` 顶部工具栏增加图表工具栏显隐总开关（`PanelTop`），一键在「全局常开模式」与「默认微型折叠模式」之间自由切换，并通过 `localStorage` 智能记忆用户阅读偏好；
+  - **自动化测试防护**：新增 `scripts/test-diagram-toolbar-toggle.mjs` 挂载入流水线门禁，对顶栏总开关、根容器属性注入与 8 大图表 Block 及数据表格进行 100% 契约覆盖断言。
+
+- **图像查看器沉浸式工具栏折叠开关 (ImageViewer Immersion Toolbar Fold & Reveal — L2)**:
+  - **沉浸式默认策略**：图像预览场景默认关闭顶部重型工具栏，画布获得 100% 完整垂直视口，聚焦图片本身；
+  - **右上角半透明操作胶囊**：收起状态下，右上角浮动显示半透明磨砂胶囊（包含实时缩放百分比徽标与 `PanelTopOpen`「工具栏」展开入口），无缝保障滚轮缩放状态感知；
+  - **按需完整展开与一键收起**：点击展开后恢复完整图像工具栏（缩放比控制、四态底色切换、旋转/翻转、16x 十字像素放大镜取色器、EXIF 属性面板、原图/Base64 导出），工具栏右侧新增 `PanelTopClose`「收起」按钮随时收回；
+  - **设计令牌自适应**：浮动胶囊与操作按钮 100% 依托 `--ov-*` 语义化设计令牌，在浅色、深色、透明棋盘格及各类 VS Code 第三方主题下完美融合；
+  - **质量门禁与单测**：在 `scripts/test-image-engine.mjs` 中补充工具栏折叠状态与图标交互断言，自动化测试全部通过。
+
+- **图像示例套件与全真样例资产 (Image Examples Suite & Real-World Visual Assets — L2)**:
+  - **新增图片样例目录**：在 `examples/image/` 中提供高画质原生测试资产：`omniview-brand-logo.png` (1024×1024 真正 PNG，含透明通道与品牌渐变) 与 `cyberpunk-city-skyline.jpg` (1376×768 真实 JPEG 16:9 复杂夜景照片)；
+  - **图像工程说明与全景索引**：配套建立 `examples/image/README.md`，并在 `examples/README.md` 全格式导航中补充图像支持项；
+  - **沉浸式图像查看器联动验证**：为图像工作台（10%~3200% 极清自由缩放、16x 十字放大镜取色器、四态底色模式切换、EXIF 属性视窗与沉浸式工具栏折叠胶囊）提供开箱即用的真实验证场景。
+
 ## [1.2.54] - 2026-10-09
 
 ### Fixed

@@ -16,7 +16,9 @@ import {
   Eye,
   PlayCircle,
   Image as ImageIcon,
+  PanelTopClose,
 } from 'lucide-react';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 import { analyzeMermaidError } from '../../../lib/diagramDiagnostics';
@@ -88,6 +90,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   const [hoveredNodeInfo, setHoveredNodeInfo] = useState<{ label: string; line: number } | null>(null);
   const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
   const [isCopyingImage, setIsCopyingImage] = useState<boolean>(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState<boolean>(false);
   const renderCountRef = useRef<number>(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -259,7 +262,16 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   };
 
   return (
-    <div id={id} className="markdown-diagram markdown-diagram-mermaid group relative">
+    <div id={id} className={`markdown-diagram markdown-diagram-mermaid group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+      {/* 默认折叠微型展开胶囊 */}
+      {!isToolbarExpanded && viewMode !== 'code' && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* Card Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className="flex items-center gap-2 font-mono text-cyan-400">
@@ -413,6 +425,19 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
+
+          {/* 收起工具栏 */}
+          {viewMode !== 'code' && (
+            <button
+              type="button"
+              onClick={() => setIsToolbarExpanded(false)}
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              title={t('collapseDiagramToolbar', locale)}
+              aria-label={t('collapseDiagramToolbar', locale)}
+            >
+              <PanelTopClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

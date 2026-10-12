@@ -13,7 +13,9 @@ import {
   ExternalLink,
   Image as ImageIcon,
   RefreshCw,
+  PanelTopClose,
 } from 'lucide-react';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 import { getPlantUmlSvgUrl, getPlantUmlPngUrl, hasRenderablePlantUmlCode, withPlantUmlCacheBust } from '../../../../../shared/lib/plantuml';
@@ -71,6 +73,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   const [renderNonce, setRenderNonce] = React.useState(0);
   const [isCopiedImage, setIsCopiedImage] = React.useState<boolean>(false);
   const [isCopyingImage, setIsCopyingImage] = React.useState<boolean>(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = React.useState<boolean>(false);
   const activeCode = editedCode !== undefined ? editedCode : code;
   const canRender = hasRenderablePlantUmlCode(activeCode);
 
@@ -153,7 +156,16 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   };
 
   return (
-    <div id={id} className="markdown-diagram markdown-diagram-plantuml group relative">
+    <div id={id} className={`markdown-diagram markdown-diagram-plantuml group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+      {/* 默认折叠微型展开胶囊 */}
+      {!isToolbarExpanded && viewMode !== 'code' && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* Card Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className="flex items-center gap-2 font-mono text-purple-400">
@@ -284,6 +296,19 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
+
+          {/* 收起工具栏 */}
+          {viewMode !== 'code' && (
+            <button
+              type="button"
+              onClick={() => setIsToolbarExpanded(false)}
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              title={t('collapseDiagramToolbar', locale)}
+              aria-label={t('collapseDiagramToolbar', locale)}
+            >
+              <PanelTopClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

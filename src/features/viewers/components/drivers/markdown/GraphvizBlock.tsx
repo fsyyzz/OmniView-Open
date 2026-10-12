@@ -14,7 +14,9 @@ import {
   Code,
   Eye,
   Image as ImageIcon,
+  PanelTopClose,
 } from 'lucide-react';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 import { graphvizRenderer, GraphvizEngine } from '../../../lib/graphvizRenderer';
@@ -73,6 +75,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   const [isErrorCopied, setIsErrorCopied] = useState<boolean>(false);
   const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
   const [isCopyingImage, setIsCopyingImage] = useState<boolean>(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState<boolean>(false);
   const renderCountRef = useRef(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -141,7 +144,16 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   };
 
   return (
-    <div id={id} className="markdown-diagram markdown-diagram-graphviz group relative">
+    <div id={id} className={`markdown-diagram markdown-diagram-graphviz group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+      {/* 默认折叠微型展开胶囊 */}
+      {!isToolbarExpanded && viewMode !== 'code' && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* Card Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className="flex items-center gap-2 font-mono text-amber-400">
@@ -261,6 +273,19 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
+
+          {/* 收起工具栏 */}
+          {viewMode !== 'code' && (
+            <button
+              type="button"
+              onClick={() => setIsToolbarExpanded(false)}
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              title={t('collapseDiagramToolbar', locale)}
+              aria-label={t('collapseDiagramToolbar', locale)}
+            >
+              <PanelTopClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

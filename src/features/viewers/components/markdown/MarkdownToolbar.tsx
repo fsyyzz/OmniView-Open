@@ -33,6 +33,7 @@ import {
   Keyboard,
   Replace,
   X,
+  PanelTop,
 } from 'lucide-react';
 import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
@@ -98,6 +99,8 @@ interface MarkdownToolbarProps {
   onViewModeChange?: (mode: ViewMode) => void;
   enableOkf?: boolean;
   onToggleOkf?: () => void;
+  showDiagramToolbars?: boolean;
+  onToggleDiagramToolbars?: () => void;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
   onReloadDocument?: () => void;
@@ -164,6 +167,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   onViewModeChange,
   enableOkf = true,
   onToggleOkf,
+  showDiagramToolbars = false,
+  onToggleDiagramToolbars,
   onOpenSettings,
   onOpenShortcuts,
   onReloadDocument,
@@ -772,6 +777,28 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             aria-label={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
           >
             <Sparkles size={14} />
+          </button>
+        )}
+
+        {/* 图表工具栏全局显隐总开关 (微型折叠胶囊 vs 全局常开) */}
+        {onToggleDiagramToolbars && (
+          <button
+            type="button"
+            id="btn-markdown-toggle-diagram-toolbars"
+            className={`markdown-tool-button ${
+              showDiagramToolbars
+                ? 'is-active text-cyan-400 bg-cyan-950/40 border-cyan-600/40'
+                : 'text-slate-400'
+            }`}
+            onClick={onToggleDiagramToolbars}
+            title={
+              showDiagramToolbars
+                ? t('toggleDiagramToolbarsOn', locale)
+                : t('toggleDiagramToolbarsOff', locale)
+            }
+            aria-label={t('toggleDiagramToolbars', locale)}
+          >
+            <PanelTop size={14} className={showDiagramToolbars ? 'text-cyan-400' : ''} />
           </button>
         )}
 

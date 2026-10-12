@@ -120,6 +120,13 @@ async function testImageViewerThemeIntegration() {
   assert.match(source, /var\(--ov-border\)/, '边框必须使用 var(--ov-border)');
   assert.match(source, /var\(--ov-text\)/, '主要文本必须使用 var(--ov-text)');
 
+  // 5. 工具栏折叠机制与沉浸式默认策略校验 (方案 A: 默认收起 + 右上角微型展开胶囊 + 收起按钮)
+  assert.match(source, /useState<boolean>\(false\)/, '工具栏显隐状态 showToolbar 默认必须初始化为 false (沉浸式纯净看图)');
+  assert.match(source, /PanelTopOpen/, '右上角折叠态必须提供展开工具栏按钮与 PanelTopOpen 图标');
+  assert.match(source, /PanelTopClose/, '工具栏展开态必须提供收起工具栏按钮与 PanelTopClose 图标');
+  assert.match(source, /setShowToolbar\(true\)/, '必须提供触发展开工具栏的点击交互');
+  assert.match(source, /setShowToolbar\(false\)/, '必须提供触发收起工具栏的点击交互');
+
   console.log('  ✓ ImageViewer 全局主题自适应与语义设计令牌校验通过');
 }
 

@@ -15,7 +15,9 @@ import {
   Sigma,
   Download,
   FileCode2,
+  PanelTopClose,
 } from 'lucide-react';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { analyzeKatexError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
@@ -66,6 +68,7 @@ export const MathBlock: React.FC<MathBlockProps> = ({
   const [copiedType, setCopiedType] = useState<'latex' | 'mathml' | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
   const [canScrollRight, setCanScrollRight] = useState<boolean>(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState<boolean>(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const formulaRef = useRef<HTMLDivElement>(null);
@@ -189,7 +192,16 @@ export const MathBlock: React.FC<MathBlockProps> = ({
   };
 
   return (
-    <div id={id} className="markdown-diagram markdown-diagram-math group relative my-4">
+    <div id={id} className={`markdown-diagram markdown-diagram-math group relative my-4 ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+      {/* 默认折叠微型展开胶囊 */}
+      {!isToolbarExpanded && viewMode !== 'code' && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* Card Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className="flex items-center gap-2 font-mono text-emerald-400">
@@ -328,6 +340,19 @@ export const MathBlock: React.FC<MathBlockProps> = ({
               <Copy className="w-3.5 h-3.5" />
             )}
           </button>
+
+          {/* 收起工具栏 */}
+          {viewMode !== 'code' && (
+            <button
+              type="button"
+              onClick={() => setIsToolbarExpanded(false)}
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              title={t('collapseDiagramToolbar', locale)}
+              aria-label={t('collapseDiagramToolbar', locale)}
+            >
+              <PanelTopClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -18,7 +18,9 @@ import {
   Layers,
   Image as ImageIcon,
   RefreshCw,
+  PanelTopClose,
 } from 'lucide-react';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger.tsx';
 import { Locale, t } from '../../../../../shared/lib/i18n.ts';
 import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper.ts';
 import {
@@ -79,6 +81,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
   const [exportMenuOpen, setExportMenuOpen] = useState<boolean>(false);
   const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
   const [isCopyingImage, setIsCopyingImage] = useState<boolean>(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState<boolean>(false);
 
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -172,8 +175,17 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
       id={id}
       data-source-line={startLine}
       data-source-end-line={endLine}
-      className="markdown-diagram markdown-diagram-domainstory group relative"
+      className={`markdown-diagram markdown-diagram-domainstory group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}
     >
+      {/* 默认折叠微型展开胶囊 */}
+      {!isToolbarExpanded && viewMode !== 'code' && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className="flex items-center gap-2 font-mono text-slate-300 min-w-0 flex-1 overflow-hidden">
@@ -368,6 +380,19 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
+
+          {/* 收起工具栏 */}
+          {viewMode !== 'code' && (
+            <button
+              type="button"
+              onClick={() => setIsToolbarExpanded(false)}
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              title={t('collapseDiagramToolbar', locale)}
+              aria-label={t('collapseDiagramToolbar', locale)}
+            >
+              <PanelTopClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -23,6 +23,7 @@ import {
   Pin,
   PinOff,
   RotateCcw,
+  PanelTopClose,
 } from 'lucide-react';
 import {
   compareCellValues,
@@ -37,6 +38,7 @@ import {
 } from './tableUtils';
 import { TableChart } from './TableChart';
 import { TableLightboxModal } from './TableLightboxModal';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 
 export interface TableHeaderItem {
@@ -81,6 +83,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [density, setDensity] = useState<'compact' | 'standard'>('compact');
   const [showRowNumbers, setShowRowNumbers] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
@@ -531,6 +534,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   );
 
   const isToolbarActive =
+    isToolbarExpanded ||
     isPinned ||
     isSearchOpen ||
     searchQuery.trim().length > 0 ||
@@ -540,18 +544,29 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   return (
     <div
       id={id}
-      className="ov-table-block ov-table-wrapper rounded-lg border my-4 transition-all shadow-sm group relative"
+      className={`ov-table-block ov-table-wrapper rounded-lg border my-4 transition-all shadow-sm group relative ${
+        isToolbarExpanded ? 'is-toolbar-open' : ''
+      }`}
       style={{
         backgroundColor: 'var(--ov-surface)',
         borderColor: 'var(--ov-border)',
         color: 'var(--ov-text)',
       }}
     >
+      {/* 默认沉浸式阅读：右上角微型展开胶囊 */}
+      {!isToolbarActive && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* 顶部工具栏：与图表 diagram-header 同一套贴顶悬浮 Overlay */}
       <div
         data-clipboard-ignore="true"
         className={`ov-table-block-toolbar ov-clipboard-ignore table-block-toolbar flex flex-wrap items-center justify-between gap-2 text-xs select-none ${
-          isToolbarActive ? 'is-active' : ''
+          isToolbarActive ? 'is-active is-toolbar-open' : ''
         } ${isPinned ? 'is-pinned' : ''}`}
         style={{
           backgroundColor: 'var(--ov-surface-header, var(--ov-surface))',
@@ -847,6 +862,20 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
             title={isPinned ? t('tableUnpin', locale) : t('tablePin', locale)}
           >
             {isPinned ? <Pin className="w-3.5 h-3.5 rotate-45" style={{ color: 'var(--ov-accent)' }} /> : <PinOff className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* 收起工具栏 */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsToolbarExpanded(false);
+              setIsPinned(false);
+            }}
+            className="ov-table-btn p-1.5 rounded transition-colors"
+            title={t('collapseDiagramToolbar', locale)}
+            aria-label={t('collapseDiagramToolbar', locale)}
+          >
+            <PanelTopClose className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

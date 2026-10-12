@@ -1612,10 +1612,18 @@ body.vscode-high-contrast-light[data-theme="system"] {
   background-color: var(--ov-border, #334155) !important;
 }
 
-.markdown-diagram:hover .diagram-header {
+/* 全局开启态或单卡片手动展开态时，悬停展示完整工具栏 */
+[data-diagram-toolbars="visible"] .markdown-diagram:hover .diagram-header,
+.markdown-diagram.is-toolbar-open:hover .diagram-header,
+.markdown-diagram.is-toolbar-open .diagram-header {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+
+/* 当处于全局开启状态时，隐藏卡片上的微型折叠按钮，避免重复 */
+[data-diagram-toolbars="visible"] .diagram-compact-trigger {
+  display: none !important;
 }
 
 /* 源码编辑模式下固定常驻于卡片顶部 */
@@ -2223,7 +2231,11 @@ mark.ov-search-match.is-active-match {
               transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.ov-table-block:hover .table-block-toolbar,
+/* 全局开启态或表格卡片手动展开态、交互激活态、Pin 锁定态时，展示完整表格工具栏 */
+[data-diagram-toolbars="visible"] .ov-table-block:hover .table-block-toolbar,
+.ov-table-block.is-toolbar-open:hover .table-block-toolbar,
+.ov-table-block.is-toolbar-open .table-block-toolbar,
+.table-block-toolbar.is-toolbar-open,
 .table-block-toolbar.is-active,
 .table-block-toolbar.is-pinned {
   opacity: 1;

@@ -30,12 +30,14 @@
 | **[xlsx/](./xlsx/)** | `.xlsx`, `.xls` | OOXML + JSZip + XLSX Engine | Excel 多工作表数据报表、公式计算值检视、列特征画像、数据导出 |
 | **[domainstory/](./domainstory/)** | `.dst`, `.domainstory`, `.egn` | Domain Story Engine (WPS egon.io) | 领域故事讲授法、逐帧步进演播、业务活动序号、Polyglot SVG 双向还原 |
 | **[html/](./html/)** | `.html`, `.htm` | Native Web Sandbox Engine | 严格受控双层 iframe 沙箱、响应式设备仿真 (Desktop/Tablet/Mobile)、分屏编辑 |
+| **[image/](./image/)** | `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` | Native Canvas + EXIF Parser | 图像像素工作台、10%~3200% 极清矢量缩放、16x 十字放大镜取色器、四态底色、沉浸式工具栏折叠胶囊 |
 
 ---
 
 ## 🎯 推荐验证路径
 
-1. **白板、Office 文档、数据科学与领域驱动故事**：
+1. **图像工作台、白板、Office 文档与学术排版**：
+   - 打开 `image/omniview-brand-logo.png` 与 `image/cyberpunk-city-skyline.jpg` 体验沉浸式微型折叠工具栏、16x 像素十字放大镜取色、四态底色模式与极清缩放；
    - 打开 `docx/omniview-architecture-guide.docx` 体验 Word 高效流式阅读、A4 拟真分页与左侧大纲树导航；
    - 打开 `pptx/omniview-tech-presentation.pptx` 体验 PowerPoint 幻灯片多页演播与矢量形状渲染；
    - 打开 `xlsx/omniview-budget-report.xlsx` 体验 Excel 多工作表切换、公式检视与列特征画像；

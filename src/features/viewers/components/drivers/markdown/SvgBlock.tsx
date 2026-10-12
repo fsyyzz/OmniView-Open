@@ -14,7 +14,9 @@ import {
   Eye,
   Image as ImageIcon,
   RefreshCw,
+  PanelTopClose,
 } from 'lucide-react';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 
@@ -95,6 +97,7 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
   const activeCode = editedCode !== undefined ? editedCode : rawCode;
   const [isCopiedImage, setIsCopiedImage] = React.useState<boolean>(false);
   const [isCopyingImage, setIsCopyingImage] = React.useState<boolean>(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = React.useState<boolean>(false);
   const adaptiveSvgInfo = useMemo(() => {
     const sanitized = DOMPurify.sanitize(activeCode, DOMPURIFY_SVG_CONFIG) as string;
     return prepareAdaptiveSvg(sanitized);
@@ -138,7 +141,16 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
   };
 
   return (
-    <div id={id} className={`markdown-diagram markdown-diagram-svg ${modeBadge.border} group relative`}>
+    <div id={id} className={`markdown-diagram markdown-diagram-svg ${modeBadge.border} group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+      {/* 默认折叠微型展开胶囊 */}
+      {!isToolbarExpanded && viewMode !== 'code' && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* Card Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className={`flex items-center gap-2 font-mono ${modeBadge.accent}`}>
@@ -279,6 +291,7 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
           >
             <Download className="w-3.5 h-3.5" />
           </button>
+          {/* Copy Button */}
           <button
             onClick={onCopy}
             className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition"
@@ -287,6 +300,19 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
+
+          {/* 收起工具栏 */}
+          {viewMode !== 'code' && (
+            <button
+              type="button"
+              onClick={() => setIsToolbarExpanded(false)}
+              className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              title={t('collapseDiagramToolbar', locale)}
+              aria-label={t('collapseDiagramToolbar', locale)}
+            >
+              <PanelTopClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

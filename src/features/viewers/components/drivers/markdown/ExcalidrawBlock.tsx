@@ -13,7 +13,9 @@ import {
   Code,
   Eye,
   PenTool,
+  PanelTopClose,
 } from 'lucide-react';
+import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n.ts';
 import {
   parseExcalidrawJson,
@@ -62,6 +64,7 @@ export const ExcalidrawBlock: React.FC<ExcalidrawBlockProps> = React.memo(({
   const [zoom, setZoom] = useState<number>(1);
   const [svgContent, setSvgContent] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState<boolean>(false);
 
   // 解析并导出为静态紧凑 SVG 图片
   useEffect(() => {
@@ -110,8 +113,17 @@ export const ExcalidrawBlock: React.FC<ExcalidrawBlockProps> = React.memo(({
       id={id}
       data-source-line={startLine}
       data-source-end-line={endLine}
-      className="markdown-diagram markdown-diagram-excalidraw group relative"
+      className={`markdown-diagram markdown-diagram-excalidraw group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}
     >
+      {/* 默认折叠微型展开胶囊 */}
+      {!isToolbarExpanded && viewMode !== 'code' && (
+        <DiagramCompactTrigger
+          onExpand={() => setIsToolbarExpanded(true)}
+          title={t('expandDiagramToolbar', locale)}
+          label={t('expandDiagramToolbar', locale)}
+        />
+      )}
+
       {/* Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
         <div className="flex items-center gap-2 font-mono text-purple-400">
@@ -218,6 +230,19 @@ export const ExcalidrawBlock: React.FC<ExcalidrawBlockProps> = React.memo(({
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
+
+          {/* 收起工具栏 */}
+          {viewMode !== 'code' && (
+            <button
+              type="button"
+              onClick={() => setIsToolbarExpanded(false)}
+              className="p-1.5 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              title={t('collapseDiagramToolbar', locale)}
+              aria-label={t('collapseDiagramToolbar', locale)}
+            >
+              <PanelTopClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

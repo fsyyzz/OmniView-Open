@@ -27,6 +27,8 @@ import {
   X,
   FileCode,
   Layers,
+  PanelTopOpen,
+  PanelTopClose,
 } from 'lucide-react';
 import {
   rgbaToHex,
@@ -97,6 +99,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // 顶部工具栏显隐状态：默认不开启，沉浸式纯净看图，需要时展开
+  const [showToolbar, setShowToolbar] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -381,15 +386,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         color: 'var(--ov-text)',
       }}
     >
-      {/* 顶部工具栏 (依托设计令牌实现全主题像素级自适应) */}
-      <header
-        className="flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 z-20 transition-colors"
-        style={{
-          background: 'var(--ov-surface-header)',
-          borderColor: 'var(--ov-border)',
-          color: 'var(--ov-text)',
-        }}
-      >
+      {/* 顶部工具栏 (依托设计令牌实现全主题像素级自适应，支持显隐折叠) */}
+      {showToolbar && (
+        <header
+          className="flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 z-20 transition-colors"
+          style={{
+            background: 'var(--ov-surface-header)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-text)',
+          }}
+        >
         <div className="flex items-center gap-2 min-w-0">
           <div
             className="p-1.5 rounded border shrink-0"
@@ -706,8 +712,24 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
+
+          {/* 收起工具栏 */}
+          <button
+            onClick={() => setShowToolbar(false)}
+            className="p-1.5 rounded border hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
+            style={{
+              borderColor: 'var(--ov-border)',
+              background: 'var(--ov-surface)',
+              color: 'var(--ov-text-secondary)',
+            }}
+            title="收起工具栏 (恢复沉浸式看图)"
+            aria-label="收起工具栏"
+          >
+            <PanelTopClose className="w-3.5 h-3.5" />
+          </button>
         </div>
       </header>
+      )}
 
       {/* 主画布视口 */}
       <div
@@ -721,6 +743,36 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onMouseUp={handleMouseUp}
         onClick={handleCanvasClick}
       >
+        {/* 工具栏收起态：右上角极简半透明浮动操作胶囊 */}
+        {!showToolbar && (
+          <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 pointer-events-auto">
+            <div
+              className="px-2 py-1 text-[11px] font-mono rounded-md border shadow-xs backdrop-blur-md select-none transition-opacity opacity-80 hover:opacity-100"
+              style={{
+                borderColor: 'var(--ov-border)',
+                background: 'color-mix(in srgb, var(--ov-surface) 85%, transparent)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              title="当前缩放比例"
+            >
+              {Math.round(zoom * 100)}%
+            </div>
+            <button
+              onClick={() => setShowToolbar(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md border shadow-md backdrop-blur-md transition-all cursor-pointer hover:bg-[var(--ov-surface-hover)] hover:opacity-100 opacity-85"
+              style={{
+                borderColor: 'var(--ov-border)',
+                background: 'color-mix(in srgb, var(--ov-surface) 85%, transparent)',
+                color: 'var(--ov-text)',
+              }}
+              title="展开图像工具栏 (缩放/底色/旋转/取色/导出)"
+              aria-label="展开图像工具栏"
+            >
+              <PanelTopOpen className="w-3.5 h-3.5" style={{ color: 'var(--ov-accent)' }} />
+              <span className="font-medium text-[11px] select-none">工具栏</span>
+            </button>
+          </div>
+        )}
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--ov-bg,#0d1117)]/80 backdrop-blur z-30">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />

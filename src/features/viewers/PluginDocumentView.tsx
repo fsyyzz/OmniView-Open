@@ -398,6 +398,25 @@ const MarkdownPluginView: React.FC<{
     saveStoredSettings({ outlineDisplayMode: mode });
   }, []);
   const [toolbarVisible, setToolbarVisible] = useState(false);
+
+  // 图表工具栏全局显隐模式：默认 compact (微型折叠胶囊)，需要时全局开启
+  const [showDiagramToolbars, setShowDiagramToolbars] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('omniview.showDiagramToolbars') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleDiagramToolbars = useCallback(() => {
+    setShowDiagramToolbars(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('omniview.showDiagramToolbars', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
   const [zoom, setZoom] = useState(initialSettings.zoom ?? 1);
   const [copied, setCopied] = useState(false);
   const [copiedSection, setCopiedSection] = useState(false);
@@ -1117,6 +1136,7 @@ const MarkdownPluginView: React.FC<{
       data-density={density}
       data-width={contentWidth}
       data-font-size={fontSize}
+      data-diagram-toolbars={showDiagramToolbars ? 'visible' : 'compact'}
       onMouseMove={event => {
         const nextVisible = event.clientY <= 56;
         setToolbarVisible(prev => (prev === nextVisible ? prev : nextVisible));
@@ -1131,6 +1151,8 @@ const MarkdownPluginView: React.FC<{
         readingProgress={readingProgress}
         outlineOpen={outlineOpen}
         onToggleOutline={handleToggleOutline}
+        showDiagramToolbars={showDiagramToolbars}
+        onToggleDiagramToolbars={handleToggleDiagramToolbars}
         searchText={searchText}
         onSearchTextChange={setSearchText}
         onFindText={handleFindText}
