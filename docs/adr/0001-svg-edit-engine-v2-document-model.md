@@ -194,6 +194,7 @@ P1 阶段 `Document` 实现为**浅克隆不可变树**（参考 immer.js 风格
 | 2025-10-08 | M0 接口契约落地；M1 调研发现浏览器侧无现成 usvg-wasm npm 包 | architect-reviewer + AI-SE 协作 |
 | 2025-10-08 | **M2-M7 全部交付**：Document 模型 + 30 条命令 + Runtime + 3 个 Tool + useSvgRuntime Hook + SvgV2Studio 顶层组件 + Feature Flag + 自动备份 + 52 个测试全过 + `npm run verify` 416 ✅ / 0 ❌ | architect-reviewer + AI-SE 协作 |
 | 2026-10-09 | **L2 图层与批量增强**：新增 `object.align/distribute/setVisible/setLocked`（34 条命令）、`toIndex` 拖拽重排、`bbox/tree` 纯函数层、图层树面板（拖拽/重命名/编组树）、批量检视器、`object.group` 去重修复；SVG v2 测试 97 全过，`npm run verify` 461 ✅ / 0 ❌ | frontend-engineer + AI-SE 协作 |
+| 2026-10-12 | **P0 断链缺陷修复**（Addendum §11）：导入空画布 / 挂载回写清空文件 / 导出丢节点类型 / 事件管线半截 4 项 P0 + v1 A/S/T 路径损坏；新增 `usvgTreeToDocument`、`exportSync` 决策纯函数、`clientToCanvasPoint`、Runtime 手势状态与 `overlay()`；新增 `test-svg-v2-p0-fixes.mjs` 16 用例 | render-engineer + AI-SE 协作 |
 
 ---
 
@@ -243,3 +244,31 @@ CI / 本地构建需具备：
 - `npm run build:plugin` 在含 Rust 环境下零警告通过
 - `npm run build:plugin` 在不含 Rust 环境下输出 `[usvg-wasm] toolchain not detected, falling back to DOMParser` 并继续构建
 - 首次加载 wasm 后，`importSvg(svg)` round-trip 50 样例语义等价通过
+---
+
+## 11. Addendum：P0 断链缺陷修复（2026-10-12）
+
+### 11.1 缺陷清单与根因
+
+| ID | 现象 | 根因 | 修复落点 |
+|---|---|---|---|
+| P0-1 | 切 v2 打开真实 SVG → 空画布 | `fallbackDomParse` 占位 `treeToDocument` 返回空 Document | 新增 `core/io/usvgTreeToDocument.ts`（D1）；`primitiveToPathD` 修正 circle/ellipse 4 段贝塞尔与 rect 圆角；`readTransform` 扩展 `translate/rotate/scale/skewX/skewY` 组合链（此前仅 `matrix()`，22 处 translate 被静默丢弃） |
+| P0-2 | 挂载即回写 → 经 `document-change` 落盘**清空原文件** | revision 守卫使加载瞬间导出空文档并 `onContentChange` | 新增纯函数 `core/runtime/exportSync.ts`（`shouldExport` / `shouldReloadFromHost` / `decideBackup`）；`SvgV2Studio` 重构加载/回写时序：加载完成前禁止回写、加载基线不回写、仅新 Document 对象变更回写、echo 不重载 |
+| P0-3 | 导出丢失 Text/Image/Use 节点类型 | `serializeNodeWithDoc` 只序列化 Path/Group | 导出增 Text/Image/Use case + 根 `<svg>` 后回插 `metadata['omniview.rawDefs']`（D4）；画布 `renderNode` 同步渲染三类型与 `<defs>` 片段（DOMPurify 净化） |
+| P0-4 | 事件管线半截：只有 click→down，拖拽/键盘/框选全断 | UI 未映射 drag/up/键盘；Tool 无手势状态；无 overlay | 见 §11.2 契约修订 |
+| P0-5（v1） | 节点编辑含 A/S/T 的路径 → 静默丢段损坏 | `parseSvgPathNodes` 命令正则匹配但无 A/S/T 分支 | S/T 解析为等价 C/Q（反射控制点）、A 精确保留 `PathNodeInfo.arc?`；弧段中点加点禁用（D7） |
+| P0-6（v2） | 选中类命令污染撤销栈 | `execute`/`Commit` 无条件 `pushHistory` | D6：仅 `docBefore !== docAfter` 写历史 |
+
+### 11.2 交互管线契约修订（D5 / D6 / D9）
+
+- **D5 手势状态归 Runtime**：新增 `PointerGesture {kind:'move'|'marquee', startPoint, currentPoint, ids}`，由 `RuntimeImpl.dispatchPointer` 在 `down` 时按 `Begin.gestureMode` 建立、`up/cancel`/切工具清空，经可选字段 `ToolContext.gesture` 只读下发——Tool 保持纯函数（tools.ts 头注释契约）。
+- **D6 历史仅文档变更**：结构共享下引用比较即语义比较；点击选中、纯框选、Escape 取消均不产生历史条目；一次拖拽手势恰 1 条历史。
+- **D9 Runtime.overlay()**：Tool 产出 `OverlayElement[]`、Runtime 造 ctx，UI（`SvgV2Canvas`）每帧读取渲染框选虚线框。
+- **坐标反变换**：`useSvgV2PointerInput` 优先 `getScreenCTM().inverse()`，回退纯函数 `clientToCanvasPoint`（letterbox 数学，可单测）。
+- **组件拆分（D8）**：`SvgV2Studio`（编排外壳）→ `SvgV2Canvas.tsx`（渲染 + overlay）+ `useSvgV2PointerInput.ts`（pointer/keyboard 映射，`setPointerCapture`）。
+
+### 11.3 验证
+
+- 新增 `scripts/test-svg-v2-p0-fixes.mjs`（16 用例）：转换结构 / 导出保真 / 决策真值矩阵 / letterbox / 手势历史与取消 / Image 命中。
+- `scripts/test-svg-utils.mjs` 追加第 22 组（A/S/T round-trip、弧段插入禁用、混合路径段数守恒）。
+- 高交互 UI 准入（AGENTS 条款）：拖拽/框选以纯函数行为测试覆盖（Action 序列 + 坐标反变换 + 手势状态机）。

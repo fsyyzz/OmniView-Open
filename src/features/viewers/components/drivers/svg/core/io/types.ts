@@ -136,6 +136,9 @@ export interface UsvgPathNode extends UsvgNodeBase {
 export interface UsvgImageNode extends UsvgNodeBase {
   readonly kind: 'image';
   readonly href: string;
+  /** SVG `<image x y>` 几何属性（与 transform 分离保真）。 */
+  readonly x: number;
+  readonly y: number;
   readonly width: number;
   readonly height: number;
 }
@@ -147,12 +150,16 @@ export interface UsvgTextNode extends UsvgNodeBase {
   readonly y: number;
   readonly fontSize: number;
   readonly fontFamily: string;
+  readonly textAnchor?: 'start' | 'middle' | 'end';
   readonly fill: UsvgFill;
 }
 
 export interface UsvgUseNode extends UsvgNodeBase {
   readonly kind: 'use';
   readonly href: string;
+  /** SVG `<use x y>`（等价 translate；与 transform 分离保真）。 */
+  readonly x: number;
+  readonly y: number;
   readonly width: number;
   readonly height: number;
 }

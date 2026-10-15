@@ -38,7 +38,7 @@ import type {
  * - `Exec`：单步命令（无 Begin/Commit 配对），Runtime 直接落地为 1 条 HistoryEntry。
  */
 export type Action =
-  | { readonly kind: 'Begin'; readonly label: string }
+  | { readonly kind: 'Begin'; readonly label: string; /** P0：手势类别，Runtime 据此建 PointerGesture */ readonly gestureMode?: 'move' | 'marquee' }
   | { readonly kind: 'Preview'; readonly commandId: CommandId; readonly params: CommandParams }
   | { readonly kind: 'Commit' }
   | { readonly kind: 'Cancel' }
@@ -116,6 +116,8 @@ export interface Runtime {
   /** 把指针/键盘事件路由到当前 Tool。 */
   dispatchPointer(event: PointerEvent): void;
   dispatchKey(key: ToolKey, mods: { readonly shift: boolean; readonly alt: boolean; readonly meta: boolean; readonly ctrl: boolean }): void;
+  /** 当前工具的画布 overlay（框选手柄等）；UI 每次渲染读取。 */
+  overlay(): ReadonlyArray<OverlayElement>;
 
   // ---- 直接命令 ----
   /** 等价于把 [Exec] 灌入 handleActions（单步命令的便捷方法）。 */

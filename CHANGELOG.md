@@ -13,6 +13,26 @@
   - **表格单元格与独立数学块联动升级**：`tableUtils.ts` 与 `MathBlock.tsx` 同步接入公式安全清洗与容错渲染，独立段落 `$$ ... $$` 智能升级为包含源码切换、缩放与一键复制的完整 `MathBlock` 交互组件；
   - **自动化测试回归防护**：新增 `scripts/test-markdown-math.mjs`（覆盖真实用户报错案例、行号守恒、下划线保护、比较运算符、货币美元符号区分、矩阵对齐、孤立 `&` 容错及单条公式渲染 8 大场景）并挂载至 CI 自动化测试套件。
 
+## [1.2.58] - 2026-10-15
+
+### Fixed
+
+- **SVG v2 引擎 P0 断链缺陷修复 (SVG v2 P0 Broken-Link Defect Fixes — L2)**:
+  - **导入空画布 (P0-1)**：新增 `core/io/usvgTreeToDocument.ts` 真实转换器，替换占位空 Document；`circle/ellipse` 修正为 4 段三次贝塞尔、`rect rx/ry` 圆角路径；`readTransform` 扩展支持 `translate/rotate/scale/skewX/skewY` 组合链（此前仅 `matrix()`，真实样例中 22 处 translate 被静默丢弃）；
+  - **挂载回写清空原文件 (P0-2)**：新增纯函数 `core/runtime/exportSync.ts`（`shouldExport` / `shouldReloadFromHost` / `decideBackup`）重构加载/回写时序——加载完成前绝不回写、加载基线不回写、仅文档真实变更回写、宿主回灌 echo 不重载，从根上杜绝空文档经 `document-change` 落盘清空；
+  - **导出丢节点类型 (P0-3)**：导出序列化补齐 `Text` / `Image` / `Use`，`<defs>` 原始片段（存 `Document.metadata['omniview.rawDefs']`）原样回插，渐变/图案引用不断链；画布同步渲染三类型与净化后的 `<defs>`；
+  - **事件管线半截 (P0-4)**：Runtime 接管手势状态（`PointerGesture` + `ToolContext.gesture`）并新增 `overlay()`；框选虚线框、拖拽移动、键盘（撤销/重做/全选/删除/Escape 取消/方向键微移）全链路接通；历史仅在文档真实变更时写入，点击选中与纯框选不再污染撤销栈；新增 `SvgV2Canvas.tsx` + `useSvgV2PointerInput.ts`（`setPointerCapture` + `getScreenCTM` 坐标反变换，回退纯函数 `clientToCanvasPoint`）。
+- **SVG v1 节点编辑 A/S/T 路径损坏修复 (SVG v1 A/S/T Path Corruption Fix — 并入)**:
+  - `parseSvgPathNodes` 补齐 `A/a`（`PathNodeInfo.arc?` 精确保留弧参数，端点可拖）、`S/s`（反射控制点等价转 `C`）、`T/t`（等价转 `Q`），彻底消除节点编辑后静默丢段；
+  - 弧段中点加点禁用（线性中点不在弧上，插入会破坏路径），`SvgPathNodeHandles` 弧段不显示 `+` 手柄。
+
+### Added
+
+- **SVG v2 P0 回归测试套件 (SVG v2 P0 Regression Suite)**:
+  - 新增 `scripts/test-svg-v2-p0-fixes.mjs`（16 用例）：转换结构 / 导出保真 / 决策真值矩阵 / letterbox 坐标反变换 / select 手势历史与 Escape 取消 / Image 命中测试；
+  - `scripts/test-svg-utils.mjs` 追加第 22 组 A/S/T round-trip 与混合路径段数守恒断言；
+  - `npm run verify` 全绿：**482 ✅ / 0 ❌**。
+
 ## [1.2.56] - 2026-10-11
 
 ### Added

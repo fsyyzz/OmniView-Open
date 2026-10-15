@@ -2307,16 +2307,23 @@ export interface PathNodeInfo {
   type: 'corner' | 'smooth' | 'symmetric';
   x: number;
   y: number;
-  command: string; // 'M' | 'L' | 'Q' | 'C' | 'Z'
+  command: string; // 'M' | 'L' | 'Q' | 'C' | 'A' | 'Z'
   controlPoints?: Array<{ x: number; y: number; index: number }>;
   handleIn?: { x: number; y: number };
   handleOut?: { x: number; y: number };
+  /** 弧段参数（command='A' 时必有）：端点可拖拽，弧参数保持不变。 */
+  arc?: { rx: number; ry: number; xRotation: number; largeArc: boolean; sweep: boolean };
 }
 
 export type SvgPathNode = PathNodeInfo;
 
 /**
  * 解析 SVG 路径为带坐标和控制点的离散节点
+ *
+ * P0 修复（v1 路径损坏）：
+ * - `S/s` → 按反射控制点解析为 `command:'C'`（几何等价，不再静默丢段）
+ * - `T/t` → 反射控制点解析为 `command:'Q'`
+ * - `A/a` → `command:'A'` + `arc` 参数（端点可拖拽、弧参数保真）
  */
 export function parseSvgPathNodes(d: string): PathNodeInfo[] {
   if (!d) return [];
@@ -2328,6 +2335,13 @@ export function parseSvgPathNodes(d: string): PathNodeInfo[] {
   let currentX = 0;
   let currentY = 0;
   let nodeIdx = 0;
+  // 反射状态：上一曲线段的末控制点及其类别（C/S → 'C'；Q/T → 'Q'；直线 → null）
+  let lastCtrl: { x: number; y: number } | null = null;
+  let lastCtrlKind: 'C' | 'Q' | null = null;
+
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const reflect = (cx: number, cy: number): { x: number; y: number } =>
+    lastCtrl ? { x: r2(2 * cx - lastCtrl.x), y: r2(2 * cy - lastCtrl.y) } : { x: r2(cx), y: r2(cy) };
 
   while ((match = cmdRegex.exec(d)) !== null) {
     const cmd = match[1];
@@ -2349,12 +2363,14 @@ export function parseSvgPathNodes(d: string): PathNodeInfo[] {
           nodes.push({
             index: nodeIdx++,
             type: 'corner',
-            x: Math.round(px * 100) / 100,
-            y: Math.round(py * 100) / 100,
+            x: r2(px),
+            y: r2(py),
             command: i === 0 && upperCmd === 'M' ? 'M' : 'L',
           });
         }
       }
+      lastCtrl = null;
+      lastCtrlKind = null;
     } else if (upperCmd === 'H') {
       for (let i = 0; i < args.length; i++) {
         const px = isRel ? currentX + args[i] : args[i];
@@ -2362,11 +2378,13 @@ export function parseSvgPathNodes(d: string): PathNodeInfo[] {
         nodes.push({
           index: nodeIdx++,
           type: 'corner',
-          x: Math.round(px * 100) / 100,
-          y: Math.round(currentY * 100) / 100,
+          x: r2(px),
+          y: r2(currentY),
           command: 'L',
         });
       }
+      lastCtrl = null;
+      lastCtrlKind = null;
     } else if (upperCmd === 'V') {
       for (let i = 0; i < args.length; i++) {
         const py = isRel ? currentY + args[i] : args[i];
@@ -2374,11 +2392,13 @@ export function parseSvgPathNodes(d: string): PathNodeInfo[] {
         nodes.push({
           index: nodeIdx++,
           type: 'corner',
-          x: Math.round(currentX * 100) / 100,
-          y: Math.round(py * 100) / 100,
+          x: r2(currentX),
+          y: r2(py),
           command: 'L',
         });
       }
+      lastCtrl = null;
+      lastCtrlKind = null;
     } else if (upperCmd === 'Q') {
       // Q cpx cpy x y
       for (let i = 0; i < args.length; i += 4) {
@@ -2389,14 +2409,16 @@ export function parseSvgPathNodes(d: string): PathNodeInfo[] {
           const endY = isRel ? currentY + args[i + 3] : args[i + 3];
           currentX = endX;
           currentY = endY;
+          lastCtrl = { x: cpx, y: cpy };
+          lastCtrlKind = 'Q';
           nodes.push({
             index: nodeIdx++,
             type: 'smooth',
-            x: Math.round(endX * 100) / 100,
-            y: Math.round(endY * 100) / 100,
+            x: r2(endX),
+            y: r2(endY),
             command: 'Q',
-            controlPoints: [{ x: Math.round(cpx * 100) / 100, y: Math.round(cpy * 100) / 100, index: 0 }],
-            handleIn: { x: Math.round(cpx * 100) / 100, y: Math.round(cpy * 100) / 100 },
+            controlPoints: [{ x: r2(cpx), y: r2(cpy), index: 0 }],
+            handleIn: { x: r2(cpx), y: r2(cpy) },
           });
         }
       }
@@ -2412,21 +2434,99 @@ export function parseSvgPathNodes(d: string): PathNodeInfo[] {
           const endY = isRel ? currentY + args[i + 5] : args[i + 5];
           currentX = endX;
           currentY = endY;
+          lastCtrl = { x: cp2x, y: cp2y };
+          lastCtrlKind = 'C';
           nodes.push({
             index: nodeIdx++,
             type: 'smooth',
-            x: Math.round(endX * 100) / 100,
-            y: Math.round(endY * 100) / 100,
+            x: r2(endX),
+            y: r2(endY),
             command: 'C',
             controlPoints: [
-              { x: Math.round(cp1x * 100) / 100, y: Math.round(cp1y * 100) / 100, index: 0 },
-              { x: Math.round(cp2x * 100) / 100, y: Math.round(cp2y * 100) / 100, index: 1 },
+              { x: r2(cp1x), y: r2(cp1y), index: 0 },
+              { x: r2(cp2x), y: r2(cp2y), index: 1 },
             ],
-            handleIn: { x: Math.round(cp1x * 100) / 100, y: Math.round(cp1y * 100) / 100 },
-            handleOut: { x: Math.round(cp2x * 100) / 100, y: Math.round(cp2y * 100) / 100 },
+            handleIn: { x: r2(cp1x), y: r2(cp1y) },
+            handleOut: { x: r2(cp2x), y: r2(cp2y) },
           });
         }
       }
+    } else if (upperCmd === 'S') {
+      // S cp2x cp2y x y（cp1 = 前一 C/S 控制点关于当前点的反射）
+      for (let i = 0; i < args.length; i += 4) {
+        if (i + 3 < args.length) {
+          const cp2x = isRel ? currentX + args[i] : args[i];
+          const cp2y = isRel ? currentY + args[i + 1] : args[i + 1];
+          const endX = isRel ? currentX + args[i + 2] : args[i + 2];
+          const endY = isRel ? currentY + args[i + 3] : args[i + 3];
+          const cp1 = lastCtrlKind === 'C' ? reflect(currentX, currentY) : { x: r2(currentX), y: r2(currentY) };
+          currentX = endX;
+          currentY = endY;
+          lastCtrl = { x: cp2x, y: cp2y };
+          lastCtrlKind = 'C';
+          nodes.push({
+            index: nodeIdx++,
+            type: 'smooth',
+            x: r2(endX),
+            y: r2(endY),
+            command: 'C',
+            controlPoints: [
+              { x: r2(cp1.x), y: r2(cp1.y), index: 0 },
+              { x: r2(cp2x), y: r2(cp2y), index: 1 },
+            ],
+            handleIn: { x: r2(cp1.x), y: r2(cp1.y) },
+            handleOut: { x: r2(cp2x), y: r2(cp2y) },
+          });
+        }
+      }
+    } else if (upperCmd === 'T') {
+      // T x y（cp = 前一 Q/T 控制点关于当前点的反射；T 每段仅 2 参）
+      for (let i = 0; i + 1 < args.length; i += 2) {
+        const endX = isRel ? currentX + args[i] : args[i];
+        const endY = isRel ? currentY + args[i + 1] : args[i + 1];
+        const cp = lastCtrlKind === 'Q' ? reflect(currentX, currentY) : { x: r2(currentX), y: r2(currentY) };
+        currentX = endX;
+        currentY = endY;
+        lastCtrl = { x: cp.x, y: cp.y };
+        lastCtrlKind = 'Q';
+        nodes.push({
+          index: nodeIdx++,
+          type: 'smooth',
+          x: r2(endX),
+          y: r2(endY),
+          command: 'Q',
+          controlPoints: [{ x: r2(cp.x), y: r2(cp.y), index: 0 }],
+          handleIn: { x: r2(cp.x), y: r2(cp.y) },
+        });
+      }
+    } else if (upperCmd === 'A') {
+      // A rx ry x-axis-rotation large-arc-flag sweep-flag x y
+      for (let i = 0; i < args.length; i += 7) {
+        if (i + 6 < args.length) {
+          const rx = args[i];
+          const ry = args[i + 1];
+          const xRotation = args[i + 2];
+          const largeArc = !!args[i + 3];
+          const sweep = !!args[i + 4];
+          const endX = isRel ? currentX + args[i + 5] : args[i + 5];
+          const endY = isRel ? currentY + args[i + 6] : args[i + 6];
+          currentX = endX;
+          currentY = endY;
+          lastCtrl = null;
+          lastCtrlKind = null;
+          nodes.push({
+            index: nodeIdx++,
+            type: 'smooth',
+            x: r2(endX),
+            y: r2(endY),
+            command: 'A',
+            arc: { rx, ry, xRotation, largeArc, sweep },
+          });
+        }
+      }
+    } else if (upperCmd === 'Z') {
+      lastCtrl = null;
+      lastCtrlKind = null;
     }
   }
 
@@ -2435,6 +2535,9 @@ export function parseSvgPathNodes(d: string): PathNodeInfo[] {
 
 /**
  * 将 PathNode 列表重新序列化为标准的 SVG d 属性字符串
+ *
+ * P0：`command:'A'` 输出原弧命令（端点可拖、rx/ry/flags 保真）；
+ * `S`/`T` 已在解析期等价转换为 `C`/`Q`，此处照旧输出。
  */
 export function serializeSvgPathNodes(nodes: PathNodeInfo[], isClosed: boolean = false): string {
   if (nodes.length === 0) return '';
@@ -2444,6 +2547,11 @@ export function serializeSvgPathNodes(nodes: PathNodeInfo[], isClosed: boolean =
     const node = nodes[i];
     if (i === 0) {
       parts.push(`M ${node.x} ${node.y}`);
+    } else if (node.command === 'A' && node.arc) {
+      const a = node.arc;
+      parts.push(
+        `A ${a.rx} ${a.ry} ${a.xRotation} ${a.largeArc ? 1 : 0} ${a.sweep ? 1 : 0} ${node.x} ${node.y}`
+      );
     } else if (node.command === 'Q' && node.controlPoints && node.controlPoints.length > 0) {
       parts.push(`Q ${node.controlPoints[0].x} ${node.controlPoints[0].y} ${node.x} ${node.y}`);
     } else if (node.command === 'C' && node.controlPoints && node.controlPoints.length >= 2) {
@@ -2505,6 +2613,8 @@ export function insertNodeIntoPath(
 
   const prev = nodes[afterNodeIndex];
   const next = nodes[afterNodeIndex + 1];
+  // P0：弧段（A）禁用中点加点——线性中点不在曲线上，插入会破坏弧形
+  if (next.command === 'A') return svgText;
   const midX = Math.round(((prev.x + next.x) / 2) * 100) / 100;
   const midY = Math.round(((prev.y + next.y) / 2) * 100) / 100;
 

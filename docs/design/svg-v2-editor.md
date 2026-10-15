@@ -144,10 +144,20 @@ const {
 
 ### 5.2 顶层组件：SvgV2Studio
 
-`SvgV2Studio.tsx` 三栏布局（编排外壳，2026-10 起按大组件阈值拆分）：
+`SvgV2Studio.tsx` 三栏布局（编排外壳，2026-10 起按大组件阈值拆分；P0 起画布与输入独立成组件）：
 - **左**：工具栏（select / node / pen + Undo/Redo + 新建图层）；
-- **中**：画布（递归渲染 Layer > Group > Path 树，Group 以 `<g>` 嵌套）；
+- **中**：`SvgV2Canvas.tsx`（递归渲染 Layer > Group > Path/Text/Image/Use 树，Group 以 `<g>` 嵌套；`<defs>` 原始片段经 DOMPurify 后内联，渐变/图案引用不断链；渲染选中包围盒与 `runtime.overlay()` 框选虚线框）；
 - **右**：`SvgV2LayersPanel` + `SvgV2Inspector` + 引擎切换器。
+
+**`useSvgV2PointerInput.ts`（P0 交互接通）— 画布输入 Hook**：
+- pointer：`down`（`setPointerCapture`）→ `drag`（按键拖动）/ `move` → `up` / `cancel`，映射为 `runtime.dispatchPointer`；
+- 坐标反变换优先 `getScreenCTM().inverse()`，回退纯函数 `clientToCanvasPoint`（letterbox 数学）；
+- 键盘：Ctrl/Cmd+Z/Shift+Z/Y 撤销重做、Ctrl/Cmd+A 全选；工具键（Enter/Escape/Backspace/Delete/方向键/Tab/Home/End）映射 `ToolKey` 下发；输入控件内不拦截。
+
+**加载/回写时序（P0 数据安全，`core/runtime/exportSync.ts` 纯函数裁决）**：
+- 加载完成前（`loaded=false`）绝不回写；加载完成瞬间记「已导出基线」不回写（格式化差异不打脏宿主）；
+- 仅文档真实变更（新 Document 对象）→ 导出 → `onContentChange`；`content === lastExported`（echo）不重载，外部真实变更才重载；
+- 备份 `decideBackup` 仅在首次真实编辑触发一次（`backupOnceRef`）。
 
 **`SvgV2LayersPanel`（`SvgV2LayersPanel.tsx`）— 图层树面板**：
 - `flattenLayerTree` 递归展示 Layer/Group 编组树（深度缩进、展开/折叠、子项计数）；
@@ -192,7 +202,7 @@ omniview.svg.engine = 'v1' | 'v2'    # 默认 'v1'
 - `SvgViewer.tsx` 入口检查 flag，命中 v2 走 `SvgV2Studio`；否则走原 v1 路径；
 - v2 引擎 UI 右下角引擎切换器可实时切换（reload 页面生效）。
 
-## 8. 测试覆盖（97 用例 / 全过）
+## 8. 测试覆盖（113 用例 / 全过）
 
 | 测试套件 | 用例数 | 覆盖 |
 |---|---|---|
@@ -201,19 +211,22 @@ omniview.svg.engine = 'v1' | 'v2'    # 默认 'v1'
 | `test-svg-v2-e2e.mjs` | 12 | SVG round-trip / 编辑往返 / 撤销栈 / 异步边界 / 8 样例 fuzzing / 综合工作流 / Feature Flag / Backup |
 | `test-svg-v2-wheel-zoom-fix.mjs` | 18 | 滚轮缩放防误触契约：属性面板/批量面板/状态栏/UI 控件内的 wheel 不触发画布 zoom，画布上 wheel 正常缩放 |
 | `test-svg-v2-layers-batch.mjs` | 27 | 几何纯函数（transformRect/nodeBBox/alignDelta/distributeOffsets）/ object.align 双基准 / object.distribute / setVisible/setLocked / 图层树 flatten+折叠 / 拖拽推导 planReorderDrop（层间+同层+跨层拒绝）/ toIndex 端到端 / 编组子节点去重 |
+| `test-svg-v2-p0-fixes.mjs` | 16 | P0 回归：usvgTreeToDocument 结构（text/image/use/渐变/visibility/transform）/ 导出三类型 + defs 回插 / exportSync 决策真值矩阵 / clientToCanvasPoint letterbox / select 手势历史（拖拽 1 条、点击 0 条、框选 0 条、删除 1 条）/ Escape 取消 / overlay / Image bbox 命中 |
+
+另：`test-svg-utils.mjs` 第 22 组覆盖 v1 A/S/T 路径保真（解析-序列化 round-trip、弧段插入禁用、混合路径段数守恒）。
 
 ## 9. 已知边界与未来工作
 
 ### 9.1 P1 当前未覆盖
 
-- 文本 `<text>` 编辑（只读）
-- 图片 `<image>` 编辑（只读）
-- Symbol / Use 编辑（只读）
-- Pattern / Mask / ClipPath 烘焙（保留原始属性，浏览器渲染层处理）
+- 文本 `<text>` 内容编辑（P0 起可渲染/选中/移动/删除，不可改字）
+- 图片 `<image>` 内容替换（P0 起可渲染/选中/移动/删除）
+- Symbol / Use 编辑（P0 起可渲染/选中/移动/删除）
+- Pattern / Mask / ClipPath 烘焙（`<defs>` 原始片段经 DOMPurify 原样透传，浏览器渲染层处理）
 - 滤镜（filter）编辑（只读）
-- 真正的弧线近似（A 命令简化为直线）
 - 图元跨层拖拽（`planReorderDrop` 跨层返回 null，仅支持层间拖拽与同层内图元拖拽）
 - 分布仅支持选区基准（首尾不动等距；画布基准分布为 P2）
+- v2 画布视口缩放/平移（P0 固定 fit 视图；P2 引入）
 
 ### 9.2 后续 P2/P3 路线
 
@@ -230,9 +243,9 @@ omniview.svg.engine = 'v1' | 'v2'    # 默认 'v1'
 - [x] `npm run check:doc-code-consistency` 通过
 - [x] `npm run check:react-governance` 通过
 - [x] `npm run lint` (`tsc --noEmit`) 0 错误
-- [x] `npm run test` 全过（97 个 SVG v2 测试 + 既有 364 个）
+- [x] `npm run test` 全过（113 个 SVG v2 测试 + 全量既有套件）
 - [x] `npm run build:plugin` 0 错误
-- [x] `npm run verify` 综合门禁：**416 ✅ / 0 ❌**
+- [x] `npm run verify` 综合门禁：**482 ✅ / 0 ❌**
 - [x] Round-trip：编辑 → export → import 关键图元保持一致
 - [x] 撤销 100 步 + 重做 100 步结构共享保持稳定
 - [x] Feature Flag 默认 v1，可切到 v2 实验引擎

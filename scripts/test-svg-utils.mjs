@@ -39,6 +39,9 @@ import {
   batchDistributeSvgElements,
   groupSvgElements,
   ungroupSvgElement,
+  parseSvgPathNodes,
+  serializeSvgPathNodes,
+  insertNodeIntoPath,
 } from '../src/features/viewers/components/drivers/svg/svgUtils.ts';
 
 console.log('🧪 开始 SVG 开发者工程工具与转换引擎单元测试...');
@@ -359,4 +362,79 @@ const ungroupRes = ungroupSvgElement(groupRes.code, groupRes.newGroupIndex);
 assert.ok(ungroupRes.code.includes('id="r1"'), '解组后 r1 应恢复为独立子节点');
 console.log('✅ SVG 多选打标、联合包围盒、批量位移、批量样式、联合对齐、批量删除与编组解组测试全部通过');
 
-console.log('🎉 全部 21 组 SVG 开发者工程引擎、多选批处理、拓扑转换与智能吸附测试用例 100% 通过！\n');
+// ============================================================================
+// 22. A/S/T 路径编辑保真（P0 v1 路径损坏修复回归）
+// ============================================================================
+
+// 22.1 A（弧）解析：参数保真、端点独立
+const dArc = 'M0 0 A 50 50 0 0 1 100 0';
+const nodesArc = parseSvgPathNodes(dArc);
+assert.strictEqual(nodesArc.length, 2, 'A 路径应解析出 2 个节点（不再静默丢段）');
+assert.strictEqual(nodesArc[1].command, 'A');
+assert.deepStrictEqual(
+  nodesArc[1].arc,
+  { rx: 50, ry: 50, xRotation: 0, largeArc: false, sweep: true },
+  '弧参数应保真'
+);
+assert.strictEqual(serializeSvgPathNodes(nodesArc, false), 'M 0 0 A 50 50 0 0 1 100 0');
+
+// 22.2 A 端点拖拽后：段数不变、弧参数保持、仅端点变化
+nodesArc[1].x = 120;
+nodesArc[1].y = 10;
+const dArcEdited = serializeSvgPathNodes(nodesArc, false);
+assert.strictEqual((dArcEdited.match(/A /g) || []).length, 1, '编辑后弧段数量应保持 1');
+assert.ok(dArcEdited.includes('A 50 50 0 0 1 120 10'), '编辑后仅端点变化、弧参数不变');
+assert.strictEqual(dArcEdited.split(' ').filter((t) => /^[MLQCAZ]$/.test(t)).length, 2, '段命令总数应为 2');
+
+// 22.3 相对弧 a：端点转绝对、flags 保真
+const nodesArcRel = parseSvgPathNodes('M10 10 a 5 5 0 1 0 10 0');
+assert.strictEqual(nodesArcRel[1].command, 'A');
+assert.strictEqual(nodesArcRel[1].x, 20, '相对端点 x 应换算为绝对坐标');
+assert.strictEqual(nodesArcRel[1].y, 10, '相对端点 y 应换算为绝对坐标');
+assert.deepStrictEqual(nodesArcRel[1].arc, { rx: 5, ry: 5, xRotation: 0, largeArc: true, sweep: false });
+
+// 22.4 S（平滑三次）→ 等价 C：反射控制点正确、序列化不丢段
+const nodesS = parseSvgPathNodes('M0 0 C 10 0 20 0 30 0 S 50 0 60 0');
+assert.strictEqual(nodesS.length, 3, 'C+S 应解析出 3 个节点');
+assert.strictEqual(nodesS[2].command, 'C', 'S 应等价转换为 C');
+assert.strictEqual(nodesS[2].controlPoints.length, 2, 'S 应补全 2 个控制点');
+assert.strictEqual(nodesS[2].controlPoints[0].x, 40, 'cp1 应为前一 cp2 关于起点的反射 (2*30-20)');
+assert.strictEqual(nodesS[2].controlPoints[1].x, 50, 'cp2 应取 S 给定值');
+const dSerializedS = serializeSvgPathNodes(nodesS);
+assert.strictEqual((dSerializedS.match(/C /g) || []).length, 2, 'S 应序列化为 C 而非丢失');
+assert.ok(!dSerializedS.includes('S '), '不应输出未解析的 S 命令');
+
+// 22.5 S 前非曲线段：cp1 退化为当前点（规范行为）
+const nodesSNoPrev = parseSvgPathNodes('M0 0 L 10 10 S 20 10 30 10');
+assert.strictEqual(nodesSNoPrev.length, 3);
+assert.strictEqual(nodesSNoPrev[2].command, 'C');
+assert.strictEqual(nodesSNoPrev[2].controlPoints[0].x, 10, '无前曲线时 cp1 = 当前点');
+assert.strictEqual(nodesSNoPrev[2].controlPoints[0].y, 10);
+
+// 22.6 T（平滑二次）→ 等价 Q：反射控制点正确
+const nodesT = parseSvgPathNodes('M0 0 Q 10 20 20 0 T 40 0');
+assert.strictEqual(nodesT.length, 3, 'M+Q+T 应解析出 3 个节点');
+assert.strictEqual(nodesT[2].command, 'Q', 'T 应等价转换为 Q');
+assert.strictEqual(nodesT[2].controlPoints[0].x, 30, 'cp 应为前一 cp 关于起点的反射 (2*20-10)');
+assert.strictEqual(nodesT[2].controlPoints[0].y, -20, '反射 y = 2*0-20');
+const dSerializedT = serializeSvgPathNodes(nodesT);
+assert.strictEqual((dSerializedT.match(/Q /g) || []).length, 2, 'T 应序列化为 Q 而非丢失');
+assert.ok(!dSerializedT.includes('T '), '不应输出未解析的 T 命令');
+
+// 22.7 弧段中点插入禁用（线性中点不在弧上，插入会损坏路径）
+const svgArcCase = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0 A 50 50 0 0 1 100 0"/></svg>';
+const insertResult = insertNodeIntoPath(svgArcCase, 0, 0);
+assert.strictEqual(insertResult, svgArcCase, '弧段中点插入应被禁用（原样返回）');
+
+// 22.8 混合路径编辑后段数守恒（A+S+T+L 全保留）
+const dMixed = 'M0 0 L 10 0 A 5 5 0 0 1 20 0 C 25 0 30 5 30 10 S 35 15 40 10 Q 45 5 50 10 T 60 10';
+const nodesMixed = parseSvgPathNodes(dMixed);
+const countBefore = (dMixed.match(/[MLQCAST]/g) || []).length;
+const dMixedOut = serializeSvgPathNodes(nodesMixed);
+const countAfter = (dMixedOut.match(/[MLQCA]/g) || []).length;
+assert.strictEqual(countAfter, countBefore, `混合路径段数应守恒 (${countBefore} → ${countAfter})`);
+assert.ok(!/[ST](?=\s)/.test(dMixedOut), '输出不应残留 S/T 原命令（已等价转换）');
+
+console.log('✅ A/S/T 路径解析-序列化 round-trip、弧段插入禁用与编辑段数守恒测试全部通过');
+
+console.log('🎉 全部 22 组 SVG 开发者工程引擎、多选批处理、拓扑转换、智能吸附与 A/S/T 路径保真测试用例 100% 通过！\n');

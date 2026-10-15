@@ -202,8 +202,12 @@ export interface TextNode extends NodeBase {
   readonly kind: 'Text';
   readonly text: string;
   readonly appearance: Appearance;
-  /** P1 暂作只读；预留字段给 P2。 */
-  readonly _reserved?: never;
+  /** 文本锚点坐标（SVG `<text x y>`）。P0 导入/导出保真用；P2 起支持画布内编辑。 */
+  readonly x?: number;
+  readonly y?: number;
+  readonly fontSize?: number;
+  readonly fontFamily?: string;
+  readonly textAnchor?: 'start' | 'middle' | 'end';
 }
 
 export interface ImageNode extends NodeBase {
@@ -211,15 +215,22 @@ export interface ImageNode extends NodeBase {
   readonly href: string;
   readonly width: number;
   readonly height: number;
+  /** 图片左上角坐标（SVG `<image x y>`）。P0 导入/导出保真用。 */
+  readonly x?: number;
+  readonly y?: number;
   readonly appearance: Appearance;
-  readonly _reserved?: never;
 }
 
 export interface UseNode extends NodeBase {
   readonly kind: 'Use';
-  readonly symbolId: NodeId;
+  /** 符号引用（SVG `<use href="#id">`）。P0 起由 `symbolId: NodeId` 改为原始 href 字符串以保真。 */
+  readonly href: string;
+  /** `<use x y>`（等价 translate；与 transform 分离保真）。 */
+  readonly x?: number;
+  readonly y?: number;
+  readonly width?: number;
+  readonly height?: number;
   readonly appearance: Appearance;
-  readonly _reserved?: never;
 }
 
 export type Node = LayerNode | GroupNode | PathNode | TextNode | ImageNode | UseNode;
@@ -315,11 +326,25 @@ export interface ToolMods {
 
 /** 指针事件。 */
 export interface PointerEvent {
-  readonly kind: 'down' | 'drag' | 'up' | 'move' | 'doubleClick';
+  readonly kind: 'down' | 'drag' | 'up' | 'move' | 'doubleClick' | 'cancel';
   /** 画布坐标系（已应用 zoom/pan 反变换）。 */
   readonly point: Vec2;
   readonly mods: ToolMods;
   readonly pressure: number;
+}
+
+/**
+ * 进行中的指针手势（由 Runtime 持有；Tool 纯函数经 `ToolContext.gesture` 只读访问）。
+ *
+ * P0 修订：Tool 无内部状态，拖拽/框选所需的 down 时点信息统一落在 Runtime。
+ */
+export interface PointerGesture {
+  readonly kind: 'move' | 'marquee';
+  readonly startPoint: Vec2;
+  /** 最近一次 drag/move 的画布坐标（框选 overlay 用）。 */
+  readonly currentPoint: Vec2;
+  /** 手势起点时的选中集合（move 手势用；marquee 为空数组）。 */
+  readonly ids: ReadonlyArray<NodeId>;
 }
 
 /** 键盘事件（工具关心的键；其余由 UI 处理）。 */
@@ -339,4 +364,6 @@ export interface ToolContext {
   readonly snapToGrid: boolean;
   readonly snapToPoint: boolean;
   readonly snapTolerance: number;
+  /** 进行中的指针手势（Runtime 持有；无手势为 undefined）。 */
+  readonly gesture?: PointerGesture;
 }

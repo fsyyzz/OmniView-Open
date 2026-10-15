@@ -70,8 +70,42 @@ function localBBoxOf(node: Node, doc: Document, visited: Set<NodeId>): Rect | nu
     }
     return unionRects(rects);
   }
-  // Text / Image / Use：P1 无几何，返回 null（调用方跳过）
-  return null;
+  if (node.kind === 'Image') {
+    return { x: node.x ?? 0, y: node.y ?? 0, width: node.width, height: node.height };
+  }
+  if (node.kind === 'Use') {
+    const w = node.width ?? 0;
+    const h = node.height ?? 0;
+    if (w <= 0 && h <= 0) return null;
+    return { x: node.x ?? 0, y: node.y ?? 0, width: Math.max(w, 0), height: Math.max(h, 0) };
+  }
+  // Text：无度量引擎，按字号近似（CJK 全宽 / 拉丁半宽）；P2 接入真实文本测量。
+  return textLocalBBox(node);
+}
+
+/** 文本节点的近似局部包围盒（基线为 `y`）。 */
+function textLocalBBox(node: Extract<Node, { readonly kind: 'Text' }>): Rect | null {
+  const text = node.text ?? '';
+  if (text.length === 0) return null;
+  const fontSize = node.fontSize ?? 16;
+  let width = 0;
+  for (const ch of text) {
+    width += ch.codePointAt(0)! >= 0x2e80 ? fontSize : fontSize * 0.55;
+  }
+  const height = fontSize * 1.25;
+  const anchorX = node.x ?? 0;
+  const baselineY = node.y ?? 0;
+  const anchor = node.textAnchor ?? 'start';
+  const x0 = anchor === 'middle' ? anchorX - width / 2 : anchor === 'end' ? anchorX - width : anchorX;
+  return { x: x0, y: baselineY - fontSize * 0.8, width, height };
+}
+
+/**
+ * 节点在**自身局部坐标系**中的包围盒（不含 transform；Group 聚合子树并考虑子 transform）。
+ * 命中测试（父系坐标 → 局部坐标反变换后比较）用。
+ */
+export function localNodeBBox(node: Node, doc: Document): Rect | null {
+  return localBBoxOf(node, doc, new Set<NodeId>());
 }
 
 function nodeBBoxInParent(doc: Document, id: NodeId, visited: Set<NodeId>): Rect | null {

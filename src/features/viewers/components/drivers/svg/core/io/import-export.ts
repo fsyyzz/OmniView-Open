@@ -11,6 +11,7 @@
 import type { Document, Node, NodeId } from '../model/types';
 import type { LoadResult, ExportOptions } from '../runtime/types';
 import { fallbackDomParse } from './fallbackDomParse';
+import { RAW_DEFS_METADATA_KEY } from './usvgTreeToDocument';
 import { serializePathD } from '../model/path';
 
 export async function importSvg(svg: string): Promise<LoadResult> {
@@ -41,6 +42,12 @@ function documentToSvgString(doc: Document, opts: ExportOptions = {}): string {
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${doc.canvas.width}" height="${doc.canvas.height}" viewBox="${vb.x} ${vb.y} ${vb.width} ${vb.height}">`,
   );
+
+  // <defs> 原样回插（渐变 / clipPath / mask / filter 引用保真）
+  const rawDefs = doc.metadata[RAW_DEFS_METADATA_KEY];
+  if (rawDefs && rawDefs.trim().length > 0) {
+    parts.push(`<defs>${rawDefs}</defs>`);
+  }
 
   for (const layerId of visibleLayers) {
     const layer = doc.nodes.get(layerId);
@@ -95,6 +102,50 @@ function serializeNodeWithDoc(doc: Document, node: Node, indent: number, minimiz
       ].filter(Boolean);
       return `${pad}<g ${attrs.join(' ')}>\n${childParts.join('\n')}\n${pad}</g>`;
     }
+    case 'Text': {
+      const fill = node.appearance.items.find((it) => it.kind === 'fill');
+      const attrs = [
+        `${id}`,
+        `x="${node.x ?? 0}"`,
+        `y="${node.y ?? 0}"`,
+        `font-size="${node.fontSize ?? 16}"`,
+        `font-family="${escapeAttr(node.fontFamily ?? 'sans-serif')}"`,
+        node.textAnchor ? `text-anchor="${node.textAnchor}"` : '',
+        t ? `transform="${t}"` : '',
+        `opacity="${node.opacity}"`,
+        fill ? serializeFill(fill) : '',
+        'data-omniview-kind="Text"',
+      ].filter(Boolean);
+      return `${pad}<text ${attrs.join(' ')}>${escapeText(node.text)}</text>`;
+    }
+    case 'Image': {
+      const attrs = [
+        `${id}`,
+        `x="${node.x ?? 0}"`,
+        `y="${node.y ?? 0}"`,
+        `width="${node.width}"`,
+        `height="${node.height}"`,
+        `href="${escapeAttr(node.href)}"`,
+        t ? `transform="${t}"` : '',
+        `opacity="${node.opacity}"`,
+        'data-omniview-kind="Image"',
+      ].filter(Boolean);
+      return `${pad}<image ${attrs.join(' ')} />`;
+    }
+    case 'Use': {
+      const attrs = [
+        `${id}`,
+        `href="${escapeAttr(node.href)}"`,
+        node.x !== undefined ? `x="${node.x}"` : '',
+        node.y !== undefined ? `y="${node.y}"` : '',
+        node.width !== undefined ? `width="${node.width}"` : '',
+        node.height !== undefined ? `height="${node.height}"` : '',
+        t ? `transform="${t}"` : '',
+        `opacity="${node.opacity}"`,
+        'data-omniview-kind="Use"',
+      ].filter(Boolean);
+      return `${pad}<use ${attrs.join(' ')} />`;
+    }
     case 'Layer':
       return '';
     default:
@@ -126,4 +177,8 @@ function serializeStroke(item: any): string {
 
 function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeText(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

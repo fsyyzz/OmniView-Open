@@ -546,25 +546,18 @@ const layerReorder: CommandHandler = (doc, sel, params) => {
 const selectBox: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as SelectBoxParams;
   const matched: NodeId[] = [];
-  for (const id of doc.nodes.keys()) {
-    if (id === doc.layers[0]) continue;
-    const n = doc.nodes.get(id)!;
-    if (!n.visible || n.locked) continue;
-    if (n.kind === 'Layer') continue;
-    // 简化：用第一个 anchor 作为包围盒
-    let x = 0, y = 0, w = 0, h = 0;
-    if (n.kind === 'Path' && n.geometry.subPaths.length > 0 && n.geometry.subPaths[0].anchors.length > 0) {
-      const a = n.geometry.subPaths[0].anchors[0].point;
-      x = a.x; y = a.y; w = 1; h = 1;
-    } else if (n.kind === 'Group') {
-      x = n.transform.e; y = n.transform.f; w = 1; h = 1;
-    } else {
-      continue;
+  const intersects = (r: { x: number; y: number; width: number; height: number }): boolean =>
+    !(r.x + r.width < p.rect.x || r.x > p.rect.x + p.rect.width || r.y + r.height < p.rect.y || r.y > p.rect.y + p.rect.height);
+  // 仅匹配各图层直接子节点（组选组，不钻进子树）
+  for (const layerId of doc.layers) {
+    const layer = doc.nodes.get(layerId);
+    if (!layer || layer.kind !== 'Layer' || !layer.visible || layer.locked) continue;
+    for (const childId of layer.children) {
+      const n = doc.nodes.get(childId);
+      if (!n || !n.visible || n.locked) continue;
+      const bb = nodeBBox(doc, childId);
+      if (bb && intersects(bb)) matched.push(childId);
     }
-    const x2 = x + w;
-    const y2 = y + h;
-    const intersects = !(x2 < p.rect.x || x > p.rect.x + p.rect.width || y2 < p.rect.y || y > p.rect.y + p.rect.height);
-    if (intersects) matched.push(id);
   }
   if (matched.length === 0) return ok(doc, emptySelection());
   const ids = matched as NodeId[];

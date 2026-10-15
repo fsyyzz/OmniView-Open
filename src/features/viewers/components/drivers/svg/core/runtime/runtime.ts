@@ -16,17 +16,20 @@ import type {
   Journal,
   JournalEntry,
   LoadResult,
+  OverlayElement,
   Runtime,
   RuntimeListener,
   RuntimeSnapshot,
   ExportOptions,
   ToolId,
 } from './types';
+import type { PointerEvent } from '../model/types';
 import type { CommandError, CommandId, CommandParams, CommandResult } from '../commands/types';
 import type {
   Document,
   History,
   HistoryEntry,
+  PointerGesture,
   Selection,
   ToolContext,
 } from '../model/types';
@@ -56,6 +59,8 @@ export class RuntimeImpl implements Runtime {
   } | null = null;
   private _journal: JournalImpl;
   private _listeners = new Set<RuntimeListener>();
+  /** P0：进行中的指针手势（Tool 纯函数经 ToolContext 只读访问）。 */
+  private _gesture: PointerGesture | null = null;
 
   constructor(initial?: LoadResult) {
     this._doc = initial?.document ?? createEmptyDocument();
@@ -121,13 +126,16 @@ export class RuntimeImpl implements Runtime {
           // 再次执行确保最终结果
           const r2 = this.runCommand(this._interaction.snapshotDoc, this._interaction.snapshotSelection, lp.commandId, lp.params);
           if (r2.ok) {
-            this.pushHistory({
-              label: this._interaction.undoLabel,
-              docBefore: this._interaction.snapshotDoc,
-              docAfter: r2.doc,
-              selectionBefore: this._interaction.snapshotSelection,
-              selectionAfter: r2.selection,
-            });
+            // P0：仅文档真实变更写历史（框选/选中类手势不污染撤销栈）
+            if (r2.doc !== this._interaction.snapshotDoc) {
+              this.pushHistory({
+                label: this._interaction.undoLabel,
+                docBefore: this._interaction.snapshotDoc,
+                docAfter: r2.doc,
+                selectionBefore: this._interaction.snapshotSelection,
+                selectionAfter: r2.selection,
+              });
+            }
             this._doc = r2.doc;
             this._selection = r2.selection;
           }
@@ -161,21 +169,63 @@ export class RuntimeImpl implements Runtime {
   setActiveTool(id: ToolId): void {
     if (this._activeToolId === id) return;
     this._activeToolId = id;
+    this._gesture = null;
+    if (this._interaction) this.cancelInteraction();
     this.notify();
   }
 
-  dispatchPointer(event: Parameters<Runtime['dispatchPointer']>[0]): void {
+  dispatchPointer(event: PointerEvent): void {
+    if (event.kind === 'cancel') {
+      // 指针被捕获中断 → 取消手势并恢复快照
+      if (this._gesture || this._interaction) {
+        this.handleActions([{ kind: 'Cancel' }]);
+        this._gesture = null;
+      }
+      return;
+    }
     const ctx = this.makeToolContext();
     const tool = getTool(this._activeToolId);
     const actions = tool.pointer(ctx, event);
     this.handleActions(actions);
+
+    if (event.kind === 'down') {
+      const begin = actions.find(
+        (a): a is Extract<Action, { readonly kind: 'Begin' }> => a.kind === 'Begin',
+      );
+      this._gesture = begin
+        ? {
+            kind: begin.gestureMode ?? 'move',
+            startPoint: event.point,
+            currentPoint: event.point,
+            ids: begin.gestureMode === 'marquee' ? [] : [...this._selection.nodeIds],
+          }
+        : null;
+    } else if (event.kind === 'drag' || event.kind === 'move') {
+      if (this._gesture) {
+        this._gesture = { ...this._gesture, currentPoint: event.point };
+      }
+    } else if (event.kind === 'up') {
+      this._gesture = null;
+    }
   }
 
   dispatchKey(key: Parameters<Runtime['dispatchKey']>[0], mods: Parameters<Runtime['dispatchKey']>[1]): void {
+    // 手势进行中 Escape → 取消手势（优先于工具自身的 Escape 处理）
+    if (key === 'Escape' && (this._gesture || this._interaction)) {
+      this.handleActions([{ kind: 'Cancel' }]);
+      this._gesture = null;
+      return;
+    }
     const ctx = this.makeToolContext();
     const tool = getTool(this._activeToolId);
     const actions = tool.key(ctx, key, mods);
     this.handleActions(actions);
+  }
+
+  overlay(): ReadonlyArray<OverlayElement> {
+    const tool = getTool(this._activeToolId);
+    if (!tool.overlay) return [];
+    return tool.overlay(this.makeToolContext());
   }
 
   execute(commandId: CommandId, params: CommandParams): CommandResult {
@@ -194,14 +244,16 @@ export class RuntimeImpl implements Runtime {
 
     const r = this.runCommand(this._doc, this._selection, commandId, params);
     if (r.ok) {
-      // 单步 Exec 写历史
-      this.pushHistory({
-        label: spec.undoLabel,
-        docBefore: this._doc,
-        docAfter: r.doc,
-        selectionBefore: this._selection,
-        selectionAfter: r.selection,
-      });
+      // P0：仅文档真实变更写历史（select.*/tool.* 等选择类命令不入撤销栈）
+      if (r.doc !== this._doc) {
+        this.pushHistory({
+          label: spec.undoLabel,
+          docBefore: this._doc,
+          docAfter: r.doc,
+          selectionBefore: this._selection,
+          selectionAfter: r.selection,
+        });
+      }
       this._doc = r.doc;
       this._selection = r.selection;
       this.notify();
@@ -238,6 +290,8 @@ export class RuntimeImpl implements Runtime {
     this._doc = r.document;
     this._selection = emptySelection();
     this._history = { undo: [], redo: [], limit: HISTORY_LIMIT };
+    this._gesture = null;
+    this._interaction = null;
     this.notify();
     return r;
   }
@@ -300,6 +354,7 @@ export class RuntimeImpl implements Runtime {
       snapToGrid: false,
       snapToPoint: false,
       snapTolerance: 4,
+      gesture: this._gesture ?? undefined,
     };
   }
 

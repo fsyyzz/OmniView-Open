@@ -185,6 +185,8 @@ export const SvgPathNodeHandles: React.FC<SvgPathNodeHandlesProps> = ({
         activeNodes.map((node, i) => {
           if (i >= activeNodes.length - 1) return null;
           const next = activeNodes[i + 1];
+          // P0：弧段中点不显示加点按钮（线性中点不在弧上，插入会损坏路径）
+          if (next.command === 'A') return null;
           const midSvgX = (node.x + next.x) / 2;
           const midSvgY = (node.y + next.y) / 2;
           const midScreen = svgToScreen(midSvgX, midSvgY);

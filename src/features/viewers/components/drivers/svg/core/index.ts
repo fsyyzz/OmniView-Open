@@ -52,6 +52,7 @@ export type {
   PointerEvent,
   ToolKey,
   ToolContext,
+  PointerGesture,
 } from './model/types';
 
 // ---- Commands ----
@@ -147,6 +148,8 @@ export type {
 // ---- IO 实现回退（M1 阶段已落地，usvg-wasm 缺失时使用） ----
 export { fallbackDomParse } from './io/fallbackDomParse';
 export { fallbackDomSerialize } from './io/fallbackDomSerialize';
+export { usvgTreeToDocument, RAW_DEFS_METADATA_KEY } from './io/usvgTreeToDocument';
+export { importSvg, exportSvg } from './io/import-export';
 export { getSvgWasmBridge, createSvgWasmBridge } from './io/svgWasmBridge';
 export type { SvgWasmBridgeImpl, SvgWasmBridgeOptions } from './io/svgWasmBridge';
 
@@ -199,6 +202,7 @@ export {
   unionRect,
   unionRects,
   nodeBBox,
+  localNodeBBox,
   alignDelta,
   distributeOffsets,
 } from './model/bbox';
@@ -214,8 +218,11 @@ export type { LayerTreeRow, DropDrag, DropTarget, ReorderPlan } from './model/tr
 // ---- Runtime（M3 阶段） ----
 export { createRuntime, RuntimeImpl } from './runtime/runtime';
 export { commandRegistry } from './commands/registry';
-export { getTool } from './runtime/tools';
+export { getTool, hitTestTopmost } from './runtime/tools';
 export { useSvgRuntime } from './runtime/useSvgRuntime';
+export { shouldExport, shouldReloadFromHost, decideBackup } from './runtime/exportSync';
+export { clientToCanvasPoint } from './runtime/viewport';
+export type { ClientRectLike, ViewBoxLike, CanvasPoint } from './runtime/viewport';
 export { getSvgEngineFlag, setSvgEngineFlag, SVG_ENGINE_FLAG_KEY } from './featureFlag';
 export type { SvgEngineVersion } from './featureFlag';
 export { shouldWriteBackup, tagBackupContent, writeBackup, backupFileName } from './backup';

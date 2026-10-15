@@ -1,12 +1,17 @@
 /**
- * OmniView SVG v2 Studio Viewer (M4 + M5 + M6)
+ * OmniView SVG v2 Studio Viewer (M4 + M5 + M6 + P0 修复)
  *
  * 基于 v2 文档模型 + 命令管线的全新 SVG 编辑器。
  * 拥有撤销栈、图层面板、Inspector、改写后 SVG 输出。
  *
+ * P0-2 数据安全时序（详见 `core/runtime/exportSync.ts`）：
+ * - 加载完成前绝不回写；加载基线不回写（格式化差异不打脏宿主）；
+ * - 仅文档真实变更（新 Document 对象）导出并 `onContentChange`；
+ * - 宿主回灌自身输出（echo）不重复加载，外部真实变更才重载。
+ *
  * @see docs/adr/0001-svg-edit-engine-v2-document-model.md
  */
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Undo2,
   Redo2,
@@ -16,20 +21,20 @@ import {
   Circle,
 } from 'lucide-react';
 import {
+  decideBackup,
   getSvgEngineFlag,
-  serializePathD,
   setSvgEngineFlag,
+  shouldExport,
+  shouldReloadFromHost,
   shouldWriteBackup,
   tagBackupContent,
   useSvgRuntime,
   writeBackup,
   type Document as SvgDocument,
-  type Node,
-  type NodeId,
-  type Selection,
 } from './core';
 import { SvgV2LayersPanel } from './SvgV2LayersPanel';
 import { SvgV2Inspector } from './SvgV2Inspector';
+import { SvgV2Canvas } from './SvgV2Canvas';
 
 export interface SvgV2StudioProps {
   readonly content: string;
@@ -55,40 +60,64 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
     setActiveTool,
   } = useSvgRuntime();
 
-  const initialLoadedRef = useRef(false);
+  // ---- 加载状态（P0 数据安全关键）----
+  /** 加载状态 + 最近导出（或加载基线）的 Document 引用。 */
+  const loadedStateRef = useRef<{ loaded: boolean; doc: SvgDocument | null }>({ loaded: false, doc: null });
+  /** 自身上次导出的 SVG 文本（宿主回灌 echo 判定）。 */
+  const lastExportedContentRef = useRef<string | null>(null);
+  const backupOnceRef = useRef(false);
+  const exportCountRef = useRef(0);
+
+  // 1) 内容加载 / 外部真实变更重载
   useEffect(() => {
-    if (initialLoadedRef.current) return;
-    initialLoadedRef.current = true;
-    runtime.loadFromSvg(content).catch(() => { /* fallback */ });
+    if (!shouldReloadFromHost(lastExportedContentRef.current, content)) return;
+    loadedStateRef.current = { loaded: false, doc: null };
+    let cancelled = false;
+    runtime
+      .loadFromSvg(content)
+      .then(() => {
+        if (cancelled) return;
+        // 加载即视为「已导出基线」：不回写，避免格式化差异打脏宿主
+        loadedStateRef.current = { loaded: true, doc: runtime.currentDocument };
+        lastExportedContentRef.current = content;
+      })
+      .catch(() => {
+        /* 保持 loaded=false：宁可不导出也不误清文件 */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [runtime, content]);
 
-  // 内容变化时同步导出
-  const lastRevisionRef = useRef(-1);
+  // 2) 文档真实变更 → 导出回写 + 首次编辑一次性 .bak
   useEffect(() => {
-    if (lastRevisionRef.current === document._internal.revision) return;
-    lastRevisionRef.current = document._internal.revision;
-    runtime.exportToSvg().then((svg) => {
-      // 备份策略：第一次切到 v2 引擎时落 .bak.svg
-      if (shouldWriteBackup(content, getSvgEngineFlag())) {
-        const tagged = tagBackupContent(svg, document, content);
-        writeBackup({ originalContent: content, newContent: tagged, fileName, doc: document });
-      }
-      onContentChange?.(svg);
-    }).catch(() => { /* ignore */ });
+    const st = loadedStateRef.current;
+    if (!shouldExport({ loaded: st.loaded, lastExportedDoc: st.doc }, document)) return;
+    let cancelled = false;
+    runtime
+      .exportToSvg()
+      .then((svg) => {
+        if (cancelled) return;
+        const firstEdit = exportCountRef.current === 0;
+        exportCountRef.current += 1;
+        loadedStateRef.current = { loaded: true, doc: document };
+        lastExportedContentRef.current = svg;
+        if (
+          decideBackup(backupOnceRef.current, firstEdit, content, getSvgEngineFlag(), shouldWriteBackup)
+        ) {
+          backupOnceRef.current = true;
+          const tagged = tagBackupContent(svg, document, content);
+          writeBackup({ originalContent: content, newContent: tagged, fileName, doc: document });
+        }
+        if (svg !== content) onContentChange?.(svg);
+      })
+      .catch(() => {
+        /* 导出失败不回写 */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [document, runtime, content, fileName, onContentChange]);
-
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    const nodeIdAttr = target.closest('[data-omni-id]')?.getAttribute('data-omni-id');
-    const point = { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
-    runtime.dispatchPointer({
-      kind: 'down',
-      point,
-      mods: { shift: e.shiftKey, alt: e.altKey, meta: e.metaKey, ctrl: e.ctrlKey, space: false },
-      pressure: 1,
-    });
-    void nodeIdAttr; // 备用：可在此点击事件中提取 element id 加速 hit-test
-  }, [runtime]);
 
   return (
     <div className="flex h-full w-full bg-[var(--ov-bg)] text-[var(--ov-fg)]">
@@ -105,8 +134,13 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
       </aside>
 
       {/* 中央画布 */}
-      <main className="relative flex-1 overflow-hidden" onClick={handleCanvasClick}>
-        <SvgV2Canvas document={document} selection={selection} />
+      <main className="relative flex-1 overflow-hidden">
+        <SvgV2Canvas
+          document={document}
+          selection={selection}
+          runtime={runtime}
+          activeToolId={activeToolId}
+        />
       </main>
 
       {/* 右侧面板 */}
@@ -141,78 +175,6 @@ const ToolButton: React.FC<ToolButtonProps> = ({ icon, active, label, disabled, 
     {icon}
   </button>
 );
-
-interface SvgV2CanvasProps {
-  readonly document: SvgDocument;
-  readonly selection: Selection;
-}
-
-const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({ document: doc, selection }) => {
-  const elements = useMemo(() => {
-    const out: React.ReactNode[] = [];
-    for (const layerId of doc.layers) {
-      const layer = doc.nodes.get(layerId);
-      if (!layer || layer.kind !== 'Layer' || !layer.visible) continue;
-      for (const childId of layer.children) {
-        const child = doc.nodes.get(childId);
-        if (!child) continue;
-        const el = renderNode(child, doc, selection);
-        if (el) out.push(el);
-      }
-    }
-    return out;
-  }, [doc, selection]);
-
-  return (
-    <div className="flex h-full w-full items-center justify-center overflow-auto bg-[var(--ov-canvas-bg)] p-4">
-      <svg
-        viewBox={`0 0 ${doc.canvas.width} ${doc.canvas.height}`}
-        className="h-auto max-h-full max-w-full border border-[var(--ov-border)] bg-white"
-        style={{ aspectRatio: `${doc.canvas.width} / ${doc.canvas.height}` }}
-      >
-        {elements}
-      </svg>
-    </div>
-  );
-};
-
-function renderNode(node: Node, doc: SvgDocument, selection: Selection): React.ReactNode {
-  if (!node.visible) return null;
-  const isSelected = selection.nodeIds.includes(node.id);
-  if (node.kind === 'Group') {
-    return (
-      <g key={`g-${node.id}`} data-omni-id={node.id} opacity={node.opacity}>
-        {node.children.map((cid) => {
-          const child = doc.nodes.get(cid);
-          return child ? renderNode(child, doc, selection) : null;
-        })}
-      </g>
-    );
-  }
-  if (node.kind !== 'Path') return null;
-  const fill = node.appearance.items.find((it) => it.kind === 'fill');
-  const stroke = node.appearance.items.find((it) => it.kind === 'stroke');
-  const fillValue = fill && fill.fill.type === 'solid' ? fill.fill.color : fill && fill.fill.type === 'none' ? 'none' : '#000';
-  const strokeValue = stroke && stroke.stroke.paint.type === 'solid' ? stroke.stroke.paint.color : stroke && stroke.stroke.paint.type === 'none' ? 'none' : '#000';
-  const strokeWidth = stroke ? stroke.stroke.width : 0;
-  const t = node.transform;
-  const transform = t.a === 1 && t.b === 0 && t.c === 0 && t.d === 1 && t.e === 0 && t.f === 0
-    ? undefined
-    : `matrix(${t.a} ${t.b} ${t.c} ${t.d} ${t.e} ${t.f})`;
-  return (
-    <path
-      key={`p-${node.id}`}
-      data-omni-id={node.id}
-      d={serializePathD(node.geometry)}
-      fill={fillValue}
-      stroke={strokeValue}
-      strokeWidth={strokeWidth}
-      transform={transform}
-      opacity={node.opacity}
-      style={{ outline: isSelected ? '2px solid var(--ov-accent)' : undefined, cursor: 'default' }}
-    />
-  );
-}
 
 const SvgV2EngineSwitcher: React.FC = () => {
   const [engine, setEngine] = useState<'v1' | 'v2'>(() => getSvgEngineFlag());

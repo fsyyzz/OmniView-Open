@@ -36,6 +36,7 @@ import {
   pathGeometry,
 } from '../model/document';
 import { parsePathD } from '../model/path';
+import { RAW_DEFS_METADATA_KEY, usvgTreeToDocument } from './usvgTreeToDocument';
 
 // ============================================================================
 // 1. parseStringLight(svg: string): LoadResult
@@ -76,6 +77,8 @@ export function fallbackDomParse(svg: string): LoadResult {
   // 递归构建 UsvgTree
   const rootNode = readGroupLike(root);
   const defs = collectDefs(root);
+  // <defs> 原始片段 → metadata（导出时原样回插，保证渐变/clipPath/mask 引用不断裂）
+  const defsEl = root.querySelector(':scope > defs');
 
   const tree: UsvgTree = {
     size,
@@ -83,8 +86,12 @@ export function fallbackDomParse(svg: string): LoadResult {
     defs,
   };
 
+  const document = treeToDocument(tree);
+  const rawDefs = defsEl ? defsEl.innerHTML : '';
   return {
-    document: treeToDocument(tree),
+    document: rawDefs.trim().length > 0
+      ? { ...document, metadata: { ...document.metadata, [RAW_DEFS_METADATA_KEY]: rawDefs } }
+      : document,
     warnings,
   };
 }
@@ -120,13 +127,61 @@ function readSize(svg: Element): { width: number; height: number } {
 function readTransform(el: Element): number[] {
   const raw = el.getAttribute('transform') || '';
   if (!raw) return [1, 0, 0, 1, 0, 0];
-  // 简化处理：仅支持 matrix(a b c d e f)；其他形式（translate/rotate/scale）暂原样忽略
-  const m = raw.match(/matrix\s*\(\s*([-\d.\se,]+)\s*\)/i);
-  if (m && m[1]) {
-    const parts = m[1].split(/[\s,]+/).map(Number).filter((n) => Number.isFinite(n));
-    if (parts.length === 6) return parts;
+  const re = /(matrix|translate|scale|rotate|skewX|skewY)\s*\(([^)]*)\)/gi;
+  let m: number[] = [1, 0, 0, 1, 0, 0];
+  let matched = false;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(raw)) !== null) {
+    matched = true;
+    const args = (match[2] ?? '')
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(Number)
+      .filter((n) => Number.isFinite(n));
+    m = mulMatrix(m, transformToMatrix((match[1] ?? '').toLowerCase(), args));
   }
-  return [1, 0, 0, 1, 0, 0];
+  return matched ? m : [1, 0, 0, 1, 0, 0];
+}
+
+function transformToMatrix(kind: string, a: number[]): number[] {
+  switch (kind) {
+    case 'matrix':
+      return a.length >= 6 ? a.slice(0, 6) : [1, 0, 0, 1, 0, 0];
+    case 'translate':
+      return [1, 0, 0, 1, a[0] ?? 0, a[1] ?? 0];
+    case 'scale':
+      return [a[0] ?? 1, 0, 0, a[1] ?? a[0] ?? 1, 0, 0];
+    case 'rotate': {
+      const rad = ((a[0] ?? 0) * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const r = [cos, sin, -sin, cos, 0, 0];
+      if (a.length >= 3) {
+        const cx = a[1];
+        const cy = a[2];
+        return mulMatrix(mulMatrix([1, 0, 0, 1, cx, cy], r), [1, 0, 0, 1, -cx, -cy]);
+      }
+      return r;
+    }
+    case 'skewX':
+      return [1, 0, Math.tan(((a[0] ?? 0) * Math.PI) / 180), 1, 0, 0];
+    case 'skewY':
+      return [1, Math.tan(((a[0] ?? 0) * Math.PI) / 180), 0, 1, 0, 0];
+    default:
+      return [1, 0, 0, 1, 0, 0];
+  }
+}
+
+/** 矩阵乘法 `a · b`（b 先作用；与 SVG transform 列表左→右组合一致）。 */
+function mulMatrix(a: number[], b: number[]): number[] {
+  return [
+    a[0]! * b[0]! + a[2]! * b[1]!,
+    a[1]! * b[0]! + a[3]! * b[1]!,
+    a[0]! * b[2]! + a[2]! * b[3]!,
+    a[1]! * b[2]! + a[3]! * b[3]!,
+    a[0]! * b[4]! + a[2]! * b[5]! + a[4]!,
+    a[1]! * b[4]! + a[3]! * b[5]! + a[5]!,
+  ];
 }
 
 function readFill(el: Element): UsvgFill {
@@ -169,6 +224,11 @@ function readFillAttr(value: string): UsvgFill {
 function parseDashArray(raw: string | null): number[] | null {
   if (!raw || raw === 'none') return null;
   return raw.split(/[\s,]+/).map(Number).filter((n) => Number.isFinite(n));
+}
+
+function readTextAnchor(raw: string | null): 'start' | 'middle' | 'end' | undefined {
+  if (raw === 'middle' || raw === 'end' || raw === 'start') return raw;
+  return undefined;
 }
 
 function readGroupLike(el: Element): UsvgNode {
@@ -240,6 +300,8 @@ function readNode(el: Element): UsvgNode {
         ...base,
         kind: 'image',
         href: el.getAttribute('href') || el.getAttribute('xlink:href') || '',
+        x: Number(el.getAttribute('x') ?? '0') || 0,
+        y: Number(el.getAttribute('y') ?? '0') || 0,
         width: Number(el.getAttribute('width') ?? '0') || 0,
         height: Number(el.getAttribute('height') ?? '0') || 0,
       };
@@ -253,6 +315,7 @@ function readNode(el: Element): UsvgNode {
         y: Number(el.getAttribute('y') ?? '0') || 0,
         fontSize: Number(el.getAttribute('font-size') ?? '16') || 16,
         fontFamily: el.getAttribute('font-family') || 'sans-serif',
+        textAnchor: readTextAnchor(el.getAttribute('text-anchor')),
         fill: readFill(el),
       };
 
@@ -261,6 +324,8 @@ function readNode(el: Element): UsvgNode {
         ...base,
         kind: 'use',
         href: el.getAttribute('href') || el.getAttribute('xlink:href') || '',
+        x: Number(el.getAttribute('x') ?? '0') || 0,
+        y: Number(el.getAttribute('y') ?? '0') || 0,
         width: Number(el.getAttribute('width') ?? '0') || 0,
         height: Number(el.getAttribute('height') ?? '0') || 0,
       };
@@ -278,21 +343,25 @@ function primitiveToPathD(tag: string, el: Element): string {
       const y = Number(el.getAttribute('y') ?? '0');
       const w = Number(el.getAttribute('width') ?? '0');
       const h = Number(el.getAttribute('height') ?? '0');
-      return `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+      let rx = Number(el.getAttribute('rx') ?? 'NaN');
+      let ry = Number(el.getAttribute('ry') ?? 'NaN');
+      if (!Number.isFinite(rx) && !Number.isFinite(ry)) return rectPathD(x, y, w, h, 0, 0);
+      if (!Number.isFinite(rx)) rx = ry as number;
+      if (!Number.isFinite(ry)) ry = rx as number;
+      return rectPathD(x, y, w, h, Math.min(rx as number, w / 2), Math.min(ry as number, h / 2));
     }
     case 'circle': {
       const cx = Number(el.getAttribute('cx') ?? '0');
       const cy = Number(el.getAttribute('cy') ?? '0');
       const r = Number(el.getAttribute('r') ?? '0');
-      // 简化为矩形路径；M2 阶段切到真 Bézier 圆
-      return `M ${cx - r} ${cy} L ${cx + r} ${cy} Z`;
+      return ellipsePathD(cx, cy, r, r);
     }
     case 'ellipse': {
       const cx = Number(el.getAttribute('cx') ?? '0');
       const cy = Number(el.getAttribute('cy') ?? '0');
       const rx = Number(el.getAttribute('rx') ?? '0');
       const ry = Number(el.getAttribute('ry') ?? '0');
-      return `M ${cx - rx} ${cy} L ${cx + rx} ${cy} Z`;
+      return ellipsePathD(cx, cy, rx, ry);
     }
     case 'line': {
       const x1 = Number(el.getAttribute('x1') ?? '0');
@@ -317,6 +386,39 @@ function primitiveToPathD(tag: string, el: Element): string {
   }
 }
 
+/** 矩形路径（rx/ry = 0 时为直角；>0 时用二次贝塞尔圆角）。 */
+function rectPathD(x: number, y: number, w: number, h: number, rx: number, ry: number): string {
+  if (rx <= 0 || ry <= 0) {
+    return `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+  }
+  return [
+    `M ${x + rx} ${y}`,
+    `L ${x + w - rx} ${y}`,
+    `Q ${x + w} ${y} ${x + w} ${y + ry}`,
+    `L ${x + w} ${y + h - ry}`,
+    `Q ${x + w} ${y + h} ${x + w - rx} ${y + h}`,
+    `L ${x + rx} ${y + h}`,
+    `Q ${x} ${y + h} ${x} ${y + h - ry}`,
+    `L ${x} ${y + ry}`,
+    `Q ${x} ${y} ${x + rx} ${y}`,
+    'Z',
+  ].join(' ');
+}
+
+/** 椭圆路径：4 段三次贝塞尔近似（kappa = 0.5522847498）。 */
+function ellipsePathD(cx: number, cy: number, rx: number, ry: number): string {
+  const kx = rx * 0.5522847498307936;
+  const ky = ry * 0.5522847498307936;
+  return [
+    `M ${cx} ${cy - ry}`,
+    `C ${cx + kx} ${cy - ry} ${cx + rx} ${cy - ky} ${cx + rx} ${cy}`,
+    `C ${cx + rx} ${cy + ky} ${cx + kx} ${cy + ry} ${cx} ${cy + ry}`,
+    `C ${cx - kx} ${cy + ry} ${cx - rx} ${cy + ky} ${cx - rx} ${cy}`,
+    `C ${cx - rx} ${cy - ky} ${cx - kx} ${cy - ry} ${cx} ${cy - ry}`,
+    'Z',
+  ].join(' ');
+}
+
 function collectDefs(root: Element): UsvgNode[] {
   const defs: UsvgNode[] = [];
   const defsEl = root.querySelector(':scope > defs');
@@ -330,24 +432,11 @@ function collectDefs(root: Element): UsvgNode[] {
 }
 
 // ============================================================================
-// 3. treeToDocument：把 UsvgTree 包成 Document 形状（M2 阶段填充）
+// 3. treeToDocument：UsvgTree → Document（P0 实装：委托 usvgTreeToDocument）
 // ============================================================================
 
 function treeToDocument(tree: UsvgTree): LoadResult['document'] {
-  // 当前实现：仅产出占位 Document（M2 阶段填充实节点映射）
-  return {
-    canvas: {
-      width: tree.size.width,
-      height: tree.size.height,
-      unit: 'px',
-      viewBox: { x: 0, y: 0, width: tree.size.width, height: tree.size.height },
-    },
-    layers: [],
-    nodes: new Map(),
-    nextNodeId: 1,
-    metadata: {},
-    _internal: { revision: 0 },
-  } as unknown as LoadResult['document'];
+  return usvgTreeToDocument(tree);
 }
 
 // ============================================================================
