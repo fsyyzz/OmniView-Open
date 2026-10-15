@@ -22,6 +22,7 @@ import { Locale, t } from '../../../../../shared/lib/i18n';
 import { analyzeKatexError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 import { katexRenderCache } from '../../../lib/diagramCache';
+import { sanitizeMathFormula } from '../../../lib/markdownMath';
 
 interface MathBlockProps {
   id: string;
@@ -92,7 +93,8 @@ export const MathBlock: React.FC<MathBlockProps> = ({
   // 实时编译 KaTeX 数学公式 (支持 LRU 缓存与即时热响应)
   useEffect(() => {
     const trimmed = activeCode.trim();
-    const cacheKey = katexRenderCache.makeKey('katex', trimmed);
+    const sanitized = sanitizeMathFormula(trimmed);
+    const cacheKey = katexRenderCache.makeKey('katex', sanitized);
     const cached = katexRenderCache.get(cacheKey);
     if (cached) {
       setRenderedHtml(cached);
@@ -101,7 +103,7 @@ export const MathBlock: React.FC<MathBlockProps> = ({
     }
 
     try {
-      const html = katex.renderToString(trimmed, {
+      const html = katex.renderToString(sanitized, {
         displayMode: true,
         throwOnError: true,
         errorColor: '#f43f5e',
@@ -112,7 +114,7 @@ export const MathBlock: React.FC<MathBlockProps> = ({
     } catch (err: any) {
       try {
         // 尝试非严格模式容错标红渲染
-        const fallbackHtml = katex.renderToString(trimmed, {
+        const fallbackHtml = katex.renderToString(sanitized, {
           displayMode: true,
           throwOnError: false,
           errorColor: '#f43f5e',

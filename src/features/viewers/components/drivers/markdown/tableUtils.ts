@@ -5,6 +5,7 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
+import { renderInlineMath } from '../../../lib/markdownMath';
 
 /**
  * 尝试从单元格文本中提取数字标量（支持货币、千分位、百分比、存储与时间单位）
@@ -136,17 +137,9 @@ export function formatRichCellContent(rawText: string, searchTerm?: string): str
   let content = rawText;
 
   // 1. 解析 KaTeX 行内数学公式 $formula$
-  content = content.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (_match, formula) => {
-    if (/^\d+(\.\d+)?$/.test(formula.trim())) return _match;
-    try {
-      return `<span class="ov-katex-inline">${katex.renderToString(formula.trim(), {
-        displayMode: false,
-        throwOnError: false,
-        errorColor: '#f43f5e',
-      })}</span>`;
-    } catch {
-      return _match;
-    }
+  content = content.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (match, formula) => {
+    if (/^\d+(\.\d+)?$/.test(formula.trim())) return match;
+    return renderInlineMath(formula);
   });
 
   // 2. 转换复选框 [x] / [ ] 为现代化 SVG 图标样式的 span

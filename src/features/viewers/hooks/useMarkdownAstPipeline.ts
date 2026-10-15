@@ -10,6 +10,7 @@ import { parseOkfFrontmatter, type OkfParseResult } from '../lib/okfParser';
 import { processMarkdownFootnotes } from '../lib/markdownFootnotes';
 import { processMarkdownWikiLinks } from '../lib/markdownWikiLinks';
 import { processMarkdownDefinitionLists } from '../lib/markdownDefinitionLists';
+import { processMarkdownMath, restoreMarkdownMath } from '../lib/markdownMath';
 import { processEmojiShortcodes } from '../lib/markdownEmojiShortcodes';
 import { getPlantUmlSvgUrl } from '../../../shared/lib/plantuml';
 import { type Locale, t } from '../../../shared/lib/i18n';
@@ -225,8 +226,9 @@ export function useMarkdownAstPipeline({
       const { markdown: bodyWithFootnotes } = processMarkdownFootnotes(bodyWithDefLists, {
         sectionTitle: t('footnotes', locale),
       });
+      const { markdown: bodyWithMath, mathSlots } = processMarkdownMath(bodyWithFootnotes);
 
-      const tokens = marked.lexer(bodyWithFootnotes);
+      const tokens = marked.lexer(bodyWithMath);
       const parsedBlocks: RenderedBlock[] = [];
       let counter = 0;
       let runningLine = frontmatterLines + 1;
@@ -354,29 +356,10 @@ export function useMarkdownAstPipeline({
         return origListitem(itemOrText, task, checked);
       };
 
-      const renderKatexInHtml = (rawHtml: string): string => {
-        let res = rawHtml.replace(/\$\$([\s\S]+?)\$\$/g, (_match, formula) => {
-          try {
-            return `<div class="ov-katex-block">${katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, errorColor: '#f43f5e' })}</div>`;
-          } catch {
-            return _match;
-          }
-        });
-        res = res.replace(/(?<!\\)\$([^\s\$](?:[^\$\n]*?[^\s\$])?)(?<!\\)\$/g, (_match, formula) => {
-          if (/^\d+(\.\d+)?$/.test(formula.trim())) return _match;
-          try {
-            return `<span class="ov-katex-inline">${katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, errorColor: '#f43f5e' })}</span>`;
-          } catch {
-            return _match;
-          }
-        });
-        return res;
-      };
-
       const renderHtmlToken = (token: any, startLine: number, endLine: number) => {
         const startTime = typeof performance !== 'undefined' ? performance.now() : 0;
         const html = marked.parser([token], { renderer: customRenderer });
-        const htmlWithMath = renderKatexInHtml(html);
+        const htmlWithMath = restoreMarkdownMath(html, mathSlots);
         const duration = typeof performance !== 'undefined' ? performance.now() - startTime : 0;
         const blockId = `block-html-${counter++}`;
         renderTimeBudgetRegistry.recordTime(blockId, 'html', duration, startLine, endLine);
@@ -531,12 +514,16 @@ export function useMarkdownAstPipeline({
         } else if (
           token.type === 'paragraph' &&
           token.text &&
-          token.text.trim().startsWith('$$') &&
-          token.text.trim().endsWith('$$') &&
-          token.text.trim().length >= 4 &&
-          !token.text.trim().slice(2, -2).includes('$$')
+          (/^%%OV_MATH_BLOCK_(\d+)%%$/.test(token.text.trim()) ||
+            (token.text.trim().startsWith('$$') &&
+              token.text.trim().endsWith('$$') &&
+              token.text.trim().length >= 4 &&
+              !token.text.trim().slice(2, -2).includes('$$')))
         ) {
-          const mathFormula = token.text.trim().slice(2, -2).trim();
+          const match = token.text.trim().match(/^%%OV_MATH_BLOCK_(\d+)%%$/);
+          const mathFormula = match
+            ? (mathSlots[Number(match[1])]?.formula || '')
+            : token.text.trim().slice(2, -2).trim();
           parsedBlocks.push({
             id: `block-math-${counter++}`,
             type: 'math',

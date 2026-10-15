@@ -2,6 +2,17 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.57] - 2026-10-15
+
+### Fixed
+
+- **Markdown LaTeX 数学公式预处理与渲染管线防腐 (Markdown LaTeX Formula Preprocessing & Pipeline Protection — L2)**:
+  - **根本诱因根治**：彻底修复原先在 HTML 生成后通过正则后置提取公式导致的语法污染问题。此前 Marked 在生成 HTML 过程中，将公式中的 Markdown 语法与特殊符号错误转义（例如 `\&` 误转为 `&amp;`、多个下划线 `_` 误转为 `<em>`、比较运算符 `<` `>` 被转为 HTML 实体、`\\` 反斜杠被剥除），传给 KaTeX 解析时引发 `Expected 'EOF', got '&'` 等大面积红字报错；
+  - **数学公式前置提取与换行守恒**：新增 `markdownMath.ts` 专用模块，在进入 marked 词法解析前精准提取行内公式 `$formula$` 与块级公式 `$$formula$$` 为唯一标识占位符（`%%OV_MATH_INLINE_*%%` 与 `%%OV_MATH_BLOCK_*%%`），自动保护围栏代码块及行内代码不受影响，并严格保持原公式换行符数量，彻底阻断公式被 Markdown 解析器二次转义，同时确保双击跳转行号不发生任何偏移；
+  - **公式规范化与智能容错 (Sanitize & Tolerance)**：内置 `sanitizeMathFormula`，智能解码残留 HTML 实体，并在非对齐环境（非 matrix / align / cases 等）中将未转义的孤立 `&` 优雅容错为 `\&`，彻底根除位运算、逻辑与（`& 0xFF`）等工程公式的语法报错崩溃；
+  - **表格单元格与独立数学块联动升级**：`tableUtils.ts` 与 `MathBlock.tsx` 同步接入公式安全清洗与容错渲染，独立段落 `$$ ... $$` 智能升级为包含源码切换、缩放与一键复制的完整 `MathBlock` 交互组件；
+  - **自动化测试回归防护**：新增 `scripts/test-markdown-math.mjs`（覆盖真实用户报错案例、行号守恒、下划线保护、比较运算符、货币美元符号区分、矩阵对齐、孤立 `&` 容错及单条公式渲染 8 大场景）并挂载至 CI 自动化测试套件。
+
 ## [1.2.56] - 2026-10-11
 
 ### Added
