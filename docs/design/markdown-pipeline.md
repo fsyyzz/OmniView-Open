@@ -121,3 +121,22 @@ sequenceDiagram
 - **精确厘米级版心**: 严格遵循国家与国际标准 A4 规格（210mm × 297mm，标准边距 25.4mm）；
 - **动态跨页断页算法**: 智能探测段落与代码块高度，避免表格或图表在中间被生硬截断（`break-inside: avoid`）；
 - **页眉页脚与动态页码**: 自动注入文档标题、生成时间与 `第 X 页 / 共 Y 页` 打印标线。
+
+---
+
+## 6. 全图表与图片双击全屏与交互手势分流体系 (Double-Click Lightbox & Event Interception)
+
+为了给长文档阅读者提供无缝放大的图表检视体验，并彻底消除双击放大图表时误触源码跳转导致宿主编辑器抢焦的缺陷，系统设计了统一的**图表全屏双击协议与容器分流机制**：
+
+### 6.1 统一图表双击协议与视觉反馈
+1. **全图表类型覆盖**：Mermaid、PlantUML、Graphviz DOT、SVG、Markmap、Excalidraw、DomainStory 及 KaTeX 数学公式均在视觉预览视图中接入统一的双击处理器；
+2. **矢量无损捕捉 (Markmap SVG 序列化)**：对于 Markmap 等动态 DOM 渲染脑图，双击时通过 `XMLSerializer` 提取当前激活的 `<svg>` 节点，以矢量格式传入 `LightboxModal`，呈现无极缩放效果；
+3. **光标手势暗示**：图表与可放大图片悬停时自动显示 `cursor-zoom-in` 并附带本地化全屏提示。
+
+### 6.2 容器双击事件拦截与源码跳转隔离
+在 `useMarkdownScrollSync.ts` 的 `handleContainerDblClick` 监听器中实行分层防御：
+1. **普通图片 (`<img>`)**：自动遍历容器内所有可见图片组装全屏画廊，并调用 `stopPropagation()`；
+2. **独立内联 SVG**：直接打开矢量灯箱并阻止冒泡；
+3. **图表与画布区域拦截**：显式匹配 `.markdown-diagram, .diagram-block, .diagram-canvas, .markdown-diagram-svg-canvas, canvas`，阻止冒泡到外层 `[data-source-line]` 元素，严格禁止触发 `onOpenSourceAtLine`；
+4. **源码定位开关生效**：仅在普通文本段落且用户显式开启 `enableDoubleClickEdit` 时才激活 VS Code 源码高亮跳转。
+

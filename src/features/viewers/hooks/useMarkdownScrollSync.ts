@@ -179,12 +179,54 @@ export function useMarkdownScrollSync({
     };
 
     const handleContainerDblClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      // 1. 双击 Markdown 渲染的普通图片 -> 打开全屏画廊灯箱
+      const img = target.closest('img');
+      if (img && !img.classList.contains('ov-img-broken') && !img.closest('.diagram-block, .markdown-diagram')) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const allImgs = Array.from(
+          container.querySelectorAll<HTMLImageElement>('img:not(.ov-img-broken)')
+        ).filter(el => el.src && !el.closest('.ov-table-wrapper, .code-block-header'));
+
+        const galleryItems = allImgs.map(i => ({
+          title: i.alt || i.title || 'Image Preview',
+          url: i.src,
+        }));
+        const targetIndex = allImgs.findIndex(i => i === img);
+
+        onOpenLightbox?.({
+          title: img.alt || img.title || 'Image Preview',
+          url: img.src,
+          items: galleryItems.length > 1 ? galleryItems : undefined,
+          initialIndex: targetIndex >= 0 ? targetIndex : 0,
+        });
+        return;
+      }
+
+      // 2. 双击 Markdown 中的独立内联 SVG -> 打开全屏灯箱
+      const svg = target.closest('svg');
+      if (svg && !svg.closest('.markdown-diagram, .diagram-block, .diagram-canvas')) {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpenLightbox?.({
+          title: 'SVG Image',
+          content: svg.outerHTML,
+        });
+        return;
+      }
+
+      // 3. 拦截交互控件或图表组件双击（图表由子组件专属 onDoubleClick 打开），严禁触发源码定位
+      if (target.closest('button, input, textarea, select, details, summary, .markdown-diagram, .diagram-block, .diagram-canvas, .markdown-diagram-svg-canvas, canvas')) {
+        return;
+      }
+
       // 尊重用户偏好配置：若未开启双击打开编辑/源码定位，则直接忽略，杜绝文字选取与浏览时的误触中断
       const settings = loadStoredSettings();
       if (!settings.enableDoubleClickEdit) return;
 
-      const target = e.target as HTMLElement;
-      if (target.closest('button, input, textarea, select, details, summary')) return;
       const sourceElement = target.closest('[data-source-line]');
       if (sourceElement) {
         const lineAttr = sourceElement.getAttribute('data-source-line');

@@ -374,7 +374,14 @@ export const MathBlock: React.FC<MathBlockProps> = ({
           <div
             ref={scrollContainerRef}
             onScroll={checkScroll}
-            className="p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[90px] items-center scrollbar-thin scrollbar-thumb-slate-700"
+            className={`diagram-canvas p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[90px] items-center scrollbar-thin scrollbar-thumb-slate-700 ${!error && renderedHtml ? 'cursor-zoom-in' : ''}`}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              if (!error && renderedHtml) {
+                onOpenLightbox();
+              }
+            }}
+            title={!error && renderedHtml ? t('fullScreen', locale) : undefined}
           >
             {error && !renderedHtml ? (
               <DiagramDiagnosticCard
@@ -390,8 +397,11 @@ export const MathBlock: React.FC<MathBlockProps> = ({
               <div
                 ref={formulaRef}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-                className="diagram-canvas transition-transform duration-150 flex justify-center max-w-full cursor-zoom-in py-2"
-                onDoubleClick={onOpenLightbox}
+                className="diagram-canvas-inner transition-transform duration-150 flex justify-center max-w-full cursor-zoom-in py-2"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  onOpenLightbox();
+                }}
                 title={t('fullScreen', locale)}
                 dangerouslySetInnerHTML={{ __html: renderedHtml }}
               />

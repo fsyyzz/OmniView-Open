@@ -314,7 +314,16 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
 
       {/* PlantUML Body */}
       {viewMode === 'visual' ? (
-        <div className="p-2.5 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px]">
+        <div
+          className="p-2.5 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px] cursor-zoom-in"
+          onDoubleClick={(e) => {
+            if (!hasError && canRender) {
+              e.stopPropagation();
+              onOpenLightbox();
+            }
+          }}
+          title={canRender && !hasError ? t('fullScreen', locale) : undefined}
+        >
           {hasError ? (
             <DiagramDiagnosticCard
               diagnostic={analyzePlantUmlError(
@@ -343,7 +352,10 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               className="transition-transform duration-150 flex justify-center items-center max-w-full cursor-zoom-in"
-              onDoubleClick={onOpenLightbox}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onOpenLightbox();
+              }}
               title={t('fullScreen', locale)}
             >
               <img

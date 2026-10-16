@@ -291,7 +291,16 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
 
       {/* Body Content */}
       {viewMode === 'visual' ? (
-        <div className="p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[160px] items-center">
+        <div
+          className="p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[160px] items-center cursor-zoom-in"
+          onDoubleClick={(e) => {
+            if (svgContent) {
+              e.stopPropagation();
+              onOpenLightbox(svgContent);
+            }
+          }}
+          title={svgContent ? t('fullScreen', locale) : undefined}
+        >
           {isLoading ? (
             <div className="flex items-center gap-2 text-slate-400 text-xs py-8">
               <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
@@ -311,7 +320,10 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               className="diagram-canvas transition-transform duration-150 flex justify-center max-w-full [&>svg]:max-w-full [&>svg]:h-auto cursor-zoom-in"
-              onDoubleClick={() => onOpenLightbox(svgContent)}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onOpenLightbox(svgContent);
+              }}
               title={t('fullScreen', locale)}
               dangerouslySetInnerHTML={{ __html: svgContent }}
             />

@@ -62,7 +62,22 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
   locale = 'zh-CN',
 }) => {
   const [isToolbarExpanded, setIsToolbarExpanded] = React.useState<boolean>(false);
+  const canvasRef = React.useRef<HTMLDivElement>(null);
   const activeCode = editedCode !== undefined ? editedCode : code;
+
+  const handleOpenLightbox = React.useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    const svgEl = canvasRef.current?.querySelector('svg');
+    if (svgEl) {
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgEl);
+      onOpenLightbox(svgString);
+    } else {
+      onOpenLightbox(activeCode);
+    }
+  }, [activeCode, onOpenLightbox]);
 
   return (
     <div
@@ -157,7 +172,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
 
               {/* Lightbox Modal Button */}
               <button
-                onClick={() => onOpenLightbox(activeCode)}
+                onClick={() => handleOpenLightbox()}
                 className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition"
                 title={t('fullScreen', locale)}
               >
@@ -191,7 +206,12 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
       </div>
 
       {/* Main Container: 紧凑自适应居中呈现思维导图，无多余大片空白 */}
-      <div className="diagram-canvas relative h-[280px] bg-slate-950/40 p-1.5 overflow-hidden flex items-center justify-center">
+      <div
+        ref={canvasRef}
+        className={`diagram-canvas relative h-[280px] bg-slate-950/40 p-1.5 overflow-hidden flex items-center justify-center ${viewMode === 'visual' ? 'cursor-zoom-in' : ''}`}
+        onDoubleClick={viewMode === 'visual' ? handleOpenLightbox : undefined}
+        title={viewMode === 'visual' ? t('fullScreen', locale) : undefined}
+      >
         {viewMode === 'visual' ? (
           <div
             className="w-full h-full transition-transform duration-150 origin-center"

@@ -248,14 +248,26 @@ export const ExcalidrawBlock: React.FC<ExcalidrawBlockProps> = React.memo(({
 
       {/* Main Container: 紧凑自适应居中呈现矢量图片，无多余大片空白 */}
       {viewMode === 'visual' ? (
-        <div className="diagram-canvas p-3 flex justify-center items-center min-h-[120px] max-h-[600px] overflow-auto">
+        <div
+          className={`diagram-canvas p-3 flex justify-center items-center min-h-[120px] max-h-[600px] overflow-auto ${svgContent ? 'cursor-zoom-in' : ''}`}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            if (svgContent) {
+              onOpenLightbox(svgContent);
+            }
+          }}
+          title={svgContent ? t('fullScreen', locale) : undefined}
+        >
           {error ? (
             <div className="text-rose-400 text-xs font-mono p-4">{error}</div>
           ) : svgContent ? (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-              className="transition-transform duration-150 flex justify-center items-center max-w-full [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:block cursor-zoom-in"
-              onDoubleClick={() => onOpenLightbox(svgContent)}
+              className="diagram-canvas-inner transition-transform duration-150 flex justify-center items-center max-w-full [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:block cursor-zoom-in"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onOpenLightbox(svgContent);
+              }}
               title={t('fullScreen', locale)}
               dangerouslySetInnerHTML={{ __html: svgContent }}
             />

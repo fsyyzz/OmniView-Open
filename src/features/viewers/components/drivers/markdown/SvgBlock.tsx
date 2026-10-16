@@ -317,7 +317,11 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
       </div>
 
       {/* Card Body */}
-      <div className={`p-6 overflow-x-auto flex justify-center min-h-[160px] items-center transition-colors ${bgClasses}`}>
+      <div
+        className={`p-6 overflow-x-auto flex justify-center min-h-[160px] items-center transition-colors ${bgClasses} ${viewMode === 'visual' ? 'cursor-zoom-in' : ''}`}
+        onDoubleClick={viewMode === 'visual' ? (e) => { e.stopPropagation(); onOpenLightbox(); } : undefined}
+        title={viewMode === 'visual' ? t('fullScreen', locale) : undefined}
+      >
         {viewMode === 'code' ? (
           <div className="w-full">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-2 font-mono">
@@ -343,7 +347,10 @@ export const SvgBlock: React.FC<SvgBlockProps> = ({
               maxWidth: '100%',
             }}
             className="diagram-canvas markdown-diagram-svg-canvas transition-all duration-150 flex justify-center items-center max-w-full cursor-zoom-in"
-            onDoubleClick={onOpenLightbox}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onOpenLightbox();
+            }}
             title={t('fullScreen', locale)}
             dangerouslySetInnerHTML={{ __html: adaptiveSvgInfo.svgHtml }}
           />

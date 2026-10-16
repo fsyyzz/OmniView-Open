@@ -2,6 +2,18 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.63] - 2026-10-16
+
+### Added
+
+- **Markdown 渲染图表与图片双击全屏打开与焦点防抢占 (Markdown Diagrams & Images Double-Click Lightbox — L2)**:
+  - **全图表类型双击全屏**：全面支持 Markdown 中渲染的 Mermaid、PlantUML、Graphviz DOT、SVG、Markmap 思维导图、Excalidraw 白板、DomainStory 故事图以及 KaTeX 数学公式在视觉视图下通过双击画布区域直接打开全屏高清灯箱（`LightboxModal`）；
+  - **Markmap 矢量 SVG 提取**：针对 Markmap 思维导图双击全屏，通过 `XMLSerializer` 动态捕获当前渲染的 SVG 矢量 DOM，避免灯箱回退为纯 Markdown 代码；
+  - **独立图片与内联 SVG 支持**：支持标准 Markdown 图片（`<img>`）双击打开并组装多图画卷画廊，以及原生内联 `<svg>` 节点双击放大；
+  - **VS Code 源码跳转防误触与冒泡拦截**：修复双击图表或图片时事件向上冒泡至 `useMarkdownScrollSync` 误触发 `onOpenSourceAtLine` 导致 VS Code 编辑器强行抢焦或破坏灯箱展示的严重体验问题；在图表底层与容器双击拦截层进行双重隔离防护；
+  - **视觉反馈增强**：在所有图表及图片悬停时自适应展示 `cursor-zoom-in` 手势与全屏提示（`title={t('fullScreen', locale)}`）；
+  - **自动化测试回归防护**：新增 `scripts/test-markdown-diagram-dblclick.mjs`，包含组件双击契约检查与容器事件分发仿真测试，并纳入全量 `verify` 门禁。
+
 ## [1.2.62] - 2026-10-16
 
 ### Added

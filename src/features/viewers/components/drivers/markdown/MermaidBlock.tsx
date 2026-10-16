@@ -447,7 +447,14 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           onMouseMove={handleCanvasMouseMove}
           onMouseLeave={handleCanvasMouseLeave}
           onClick={handleCanvasClick}
-          className="p-2.5 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px] items-center relative group/canvas"
+          onDoubleClick={(e) => {
+            if (displaySvg) {
+              e.stopPropagation();
+              onOpenLightbox(displaySvg);
+            }
+          }}
+          className="p-2.5 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px] items-center relative group/canvas cursor-zoom-in"
+          title={displaySvg ? t('fullScreen', locale) : undefined}
         >
           {/* 图文联动提示徽章：显示当前悬浮节点与其在 Markdown 源码中的精准行号 */}
           {hoveredNodeInfo && (
@@ -481,8 +488,11 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           ) : displaySvg ? (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-              className="diagram-canvas transition-transform duration-150 flex justify-center cursor-pointer max-w-full [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:block"
-              onDoubleClick={() => onOpenLightbox(displaySvg)}
+              className="diagram-canvas transition-transform duration-150 flex justify-center cursor-zoom-in max-w-full [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:block"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onOpenLightbox(displaySvg);
+              }}
               title={t('fullScreen', locale)}
               dangerouslySetInnerHTML={{ __html: displaySvg }}
             />
