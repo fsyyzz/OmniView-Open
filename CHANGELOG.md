@@ -2,6 +2,17 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.64] - 2026-10-17
+
+### Added
+
+- **全屏灯箱渲染图基于光标位置的无级精准缩放 (Lightbox Focal Point Zoom to Cursor — L2)**:
+  - **几何不变性光标锚定 (Focal Invariance)**：实现全新 `focalZoom.ts` 纯函数计算引擎，缩放时基于公式 $\text{pan}_{\text{new}} = \text{offset} - (\text{offset} - \text{pan}_{\text{old}}) \cdot (\text{zoom}_{\text{new}} / \text{zoom}_{\text{old}})$ 精准锚定光标点，缩放前后光标所指图元内容在屏幕上处于绝对同一物理像素，彻底消除缩放向屏幕中心漂移；
+  - **滚轮与触控板连续缩放**：支持常规滚轮阶梯（1.15 / 0.87）与触控板连续双指捏合平滑指数缩放；滚轮缩放期间动态关闭 CSS transition 缓动，实现 60 FPS 紧贴光标无延迟飘移；
+  - **交互触点全面锚定**：鼠标滚轮、键盘快捷键 `+`/`-`、工具栏缩放按钮以及画布双击放大均 100% 绑定至当前光标物理坐标；
+  - **画布双击智能聚焦探查**：在全屏灯箱内双击图表时，以双击光标点为中心直接放大至 2.5x 细节探查，再次双击平滑恢复自适应视口；
+  - **自动化测试回归防护**：新增 `scripts/test-focal-zoom.mjs`，覆盖单步与连续 8 步缩放光标零位移几何验证，并纳入全量自动化门禁。
+
 ## [1.2.63] - 2026-10-16
 
 ### Added

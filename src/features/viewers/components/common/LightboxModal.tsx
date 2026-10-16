@@ -27,6 +27,15 @@ import {
 } from 'lucide-react';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { sanitizeDiagramSvg, sanitizeDiagramHtml } from '../../lib/diagramSanitizer';
+import {
+  calculateFocalZoom,
+  calculateWheelFactor,
+  getNextZoomIn,
+  getNextZoomOut,
+  Point,
+  LIGHTBOX_MIN_ZOOM,
+  LIGHTBOX_MAX_ZOOM,
+} from '../../lib/focalZoom';
 
 export interface LightboxItem {
   title: string;
@@ -100,6 +109,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isWheeling, setIsWheeling] = useState(false);
   const [copied, setCopied] = useState(false);
   const [bgMode, setBgMode] = useState<'theme' | 'dark' | 'light' | 'grid'>('theme');
   const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -113,6 +123,13 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const imageElementRef = useRef<HTMLImageElement>(null);
   const isInitialFitDoneRef = useRef(false);
   const imgDimensionsRef = useRef<{ width: number; height: number } | null>(null);
+
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const lastPointerPosRef = useRef<Point | null>(null);
+  const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isSvg = useMemo(() => {
     if (!activeItem?.content) return false;
@@ -157,15 +174,16 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   // 执行自适应视口计算核心纯函数
   const applyFitToScreen = useCallback((dims: { width: number; height: number } | null) => {
     const stage = getStageDimensions();
+    let optimalZoom = 1;
     if (dims && dims.width > 0 && dims.height > 0) {
       const scaleX = stage.width / (dims.width + 48);
       const scaleY = stage.height / (dims.height + 48);
       const fitScale = Math.min(scaleX, scaleY);
-      const optimalZoom = Number(Math.max(0.05, Math.min(15, fitScale)).toFixed(2));
-      setZoom(optimalZoom);
-    } else {
-      setZoom(1);
+      optimalZoom = Number(Math.max(0.05, Math.min(15, fitScale)).toFixed(2));
     }
+    zoomRef.current = optimalZoom;
+    panRef.current = { x: 0, y: 0 };
+    setZoom(optimalZoom);
     setPan({ x: 0, y: 0 });
   }, [getStageDimensions]);
 
@@ -179,16 +197,16 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const handleFillScreen = useCallback(() => {
     const dims = imgDimensionsRef.current;
     const stage = getStageDimensions();
-
+    let optimalZoom = 1.5;
     if (dims && dims.width > 0 && dims.height > 0) {
       const scaleX = stage.width / dims.width;
       const scaleY = stage.height / dims.height;
       const fillScale = Math.max(scaleX, scaleY);
-      const optimalZoom = Number(Math.max(0.05, Math.min(20, fillScale)).toFixed(2));
-      setZoom(optimalZoom);
-    } else {
-      setZoom(1.5);
+      optimalZoom = Number(Math.max(0.05, Math.min(20, fillScale)).toFixed(2));
     }
+    zoomRef.current = optimalZoom;
+    panRef.current = { x: 0, y: 0 };
+    setZoom(optimalZoom);
     setPan({ x: 0, y: 0 });
   }, [getStageDimensions]);
 
@@ -196,12 +214,14 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const handleFitWidth = useCallback(() => {
     const dims = imgDimensionsRef.current;
     const stage = getStageDimensions();
+    let optimalZoom = 1.2;
     if (dims && dims.width > 0) {
       const scaleX = stage.width / (dims.width + 48);
-      setZoom(Number(Math.max(0.05, Math.min(20, scaleX)).toFixed(2)));
-    } else {
-      setZoom(1.2);
+      optimalZoom = Number(Math.max(0.05, Math.min(20, scaleX)).toFixed(2));
     }
+    zoomRef.current = optimalZoom;
+    panRef.current = { x: 0, y: 0 };
+    setZoom(optimalZoom);
     setPan({ x: 0, y: 0 });
   }, [getStageDimensions]);
 
@@ -209,45 +229,65 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const handleFitHeight = useCallback(() => {
     const dims = imgDimensionsRef.current;
     const stage = getStageDimensions();
+    let optimalZoom = 1.2;
     if (dims && dims.height > 0) {
       const scaleY = stage.height / (dims.height + 48);
-      setZoom(Number(Math.max(0.05, Math.min(20, scaleY)).toFixed(2)));
-    } else {
-      setZoom(1.2);
+      optimalZoom = Number(Math.max(0.05, Math.min(20, scaleY)).toFixed(2));
     }
+    zoomRef.current = optimalZoom;
+    panRef.current = { x: 0, y: 0 };
+    setZoom(optimalZoom);
     setPan({ x: 0, y: 0 });
   }, [getStageDimensions]);
 
   // 5. 1:1 原始尺寸 (Actual Size)
   const handleActualSize = useCallback(() => {
+    zoomRef.current = 1;
+    panRef.current = { x: 0, y: 0 };
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setRotation(0);
   }, []);
 
-  // 6. 响应式比例放大
-  const handleZoomIn = useCallback(() => {
-    setZoom(z => {
-      let next: number;
-      if (z < 0.5) next = z + 0.1;
-      else if (z < 2) next = z + 0.25;
-      else if (z < 5) next = z + 0.5;
-      else next = z * 1.25;
-      return Math.min(20, Number(next.toFixed(2)));
-    });
-  }, []);
+  // 基于光标锚点的缩放纯函数分发
+  const applyFocalZoomDelta = useCallback(
+    (calcTargetZoom: (current: number) => number, customFocal?: Point) => {
+      const stage = stageRef.current;
+      if (!stage) {
+        const nextZoom = calcTargetZoom(zoomRef.current);
+        zoomRef.current = nextZoom;
+        setZoom(nextZoom);
+        return;
+      }
+      const rect = stage.getBoundingClientRect();
+      const focal = customFocal || lastPointerPosRef.current || {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      const targetZoom = calcTargetZoom(zoomRef.current);
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        focal,
+        rect
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
+    },
+    []
+  );
 
-  // 7. 响应式比例缩小
-  const handleZoomOut = useCallback(() => {
-    setZoom(z => {
-      let next: number;
-      if (z <= 0.5) next = z - 0.1;
-      else if (z <= 2) next = z - 0.25;
-      else if (z <= 5) next = z - 0.5;
-      else next = z * 0.8;
-      return Math.max(0.05, Number(next.toFixed(2)));
-    });
-  }, []);
+  // 6. 响应式比例放大（基于光标所在位置）
+  const handleZoomIn = useCallback((focal?: Point) => {
+    applyFocalZoomDelta(getNextZoomIn, focal);
+  }, [applyFocalZoomDelta]);
+
+  // 7. 响应式比例缩小（基于光标所在位置）
+  const handleZoomOut = useCallback((focal?: Point) => {
+    applyFocalZoomDelta(getNextZoomOut, focal);
+  }, [applyFocalZoomDelta]);
 
   // 切换上一张 / 下一张
   const handlePrev = useCallback(() => {
@@ -387,44 +427,91 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeItem, onClose, handleActualSize, handleFitToScreen, handleZoomIn, handleZoomOut, handlePrev, handleNext]);
 
-  // 滚轮无级缩放
+  // 滚轮基于光标所在位置的无级精准缩放 (Focal Point Wheel Zoom)
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const factor = e.deltaY < 0 ? 1.15 : 0.87;
-    setZoom(z => {
-      const next = z * factor;
-      return Math.max(0.05, Math.min(20, Number(next.toFixed(2))));
-    });
+
+    // 更新最近光标位置
+    lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
+
+    // 滚轮缩放期间关闭平滑 transition，确保 60 FPS 紧贴光标无延迟飘移
+    setIsWheeling(true);
+    if (wheelTimeoutRef.current) {
+      clearTimeout(wheelTimeoutRef.current);
+    }
+    wheelTimeoutRef.current = setTimeout(() => {
+      setIsWheeling(false);
+    }, 120);
+
+    const stage = stageRef.current;
+    const factor = calculateWheelFactor(e.deltaY, e.ctrlKey);
+    const targetZoom = zoomRef.current * factor;
+
+    if (stage) {
+      const rect = stage.getBoundingClientRect();
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        { clientX: e.clientX, clientY: e.clientY },
+        rect
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
+    } else {
+      const clamped = Math.max(LIGHTBOX_MIN_ZOOM, Math.min(LIGHTBOX_MAX_ZOOM, Number(targetZoom.toFixed(2))));
+      zoomRef.current = clamped;
+      setZoom(clamped);
+    }
   }, []);
 
   // 拖拽平移
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // 仅左键拖拽
     setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    setDragStart({ x: e.clientX - panRef.current.x, y: e.clientY - panRef.current.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
     if (!isDragging) return;
-    setPan({
+    const newPan = {
       x: e.clientX - dragStart.x,
       y: e.clientY - dragStart.y,
-    });
+    };
+    panRef.current = newPan;
+    setPan(newPan);
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
   };
 
-  // 双击智能切换：适应屏幕 -> 铺满全屏 -> 1:1
-  const handleDoubleClick = () => {
-    if (zoom < 1.05 && zoom > 0.95) {
-      handleFitToScreen();
-    } else if (zoom > 1.8) {
-      handleActualSize();
+  // 双击智能切换：以光标为中心放大探查 / 恢复整图自适应
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    const focal = { clientX: e.clientX, clientY: e.clientY };
+
+    if (zoomRef.current < 1.4) {
+      // 放大至 2.5x 或原图 2.2 倍，且基于双击时光标所在点对齐
+      const targetZoom = Math.max(2.5, Number((zoomRef.current * 2.2).toFixed(2)));
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        focal,
+        rect
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
     } else {
-      handleFillScreen();
+      handleFitToScreen();
     }
   };
 
@@ -471,12 +558,29 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     }
   };
 
+  // 窗口层级兜底释放鼠标抓手
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleGlobalMouseUp = () => setIsDragging(false);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isDragging]);
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (wheelTimeoutRef.current) {
+        clearTimeout(wheelTimeoutRef.current);
+      }
+    };
+  }, []);
+
   if (!activeItem) return null;
 
   const transformStyle: React.CSSProperties = {
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
     transformOrigin: 'center center',
-    transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+    transition: (isDragging || isWheeling) ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
     cursor: isDragging ? 'grabbing' : 'grab',
   };
 
@@ -681,6 +785,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         ref={stageRef}
         className="flex-1 overflow-hidden relative flex items-center justify-center p-4 sm:p-8 cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
+        onDoubleClick={handleDoubleClick}
       >
         {/* 多图画廊：上一张浮动导航按钮 */}
         {hasMultipleItems && (

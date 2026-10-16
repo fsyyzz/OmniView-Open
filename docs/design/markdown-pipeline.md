@@ -140,3 +140,17 @@ sequenceDiagram
 3. **图表与画布区域拦截**：显式匹配 `.markdown-diagram, .diagram-block, .diagram-canvas, .markdown-diagram-svg-canvas, canvas`，阻止冒泡到外层 `[data-source-line]` 元素，严格禁止触发 `onOpenSourceAtLine`；
 4. **源码定位开关生效**：仅在普通文本段落且用户显式开启 `enableDoubleClickEdit` 时才激活 VS Code 源码高亮跳转。
 
+### 6.3 基于光标所在位置的无级缩放引擎 (Focal Point Zoom Engine — `focalZoom.ts`)
+全屏灯箱 `LightboxModal` 引入物理级光标锚点缩放引擎：
+1. **几何不变性公式 (Focal Invariance)**：
+   $$\text{pan}_{\text{new}} = \text{offset} - (\text{offset} - \text{pan}_{\text{old}}) \cdot \frac{\text{zoom}_{\text{new}}}{\text{zoom}_{\text{old}}}$$
+   其中 $\text{offset} = \text{cursor} - \text{center}$ 为光标相对于视口中心的偏移。缩放前后光标所指图元内容在屏幕上处于绝对同一物理像素，彻底消除缩放向屏幕中心漂移的体验缺陷；
+2. **多模态缩放因子自适应 (`calculateWheelFactor`)**：
+   - **触控板双指捏合 (`ctrlKey = true`)**：采用连续指数平滑因子 $\exp(-\Delta y \cdot 0.01)$；
+   - **传统滚轮单步滚动**：采用 $1.15$ / $0.87$ 对数平衡阶梯；
+3. **60 FPS 稳帧与零延迟响应**：
+   - 滚轮缩放与鼠标拖拽平移期间，自动切换 `transition: none`，杜绝 CSS 补间与密集滚轮事件冲突导致的跳帧与拖影；
+   - 工具栏按键或 1:1 / 适屏重置时自动恢复 `transform 0.15s` 缓动；
+4. **全触点锚定**：鼠标滚轮缩放、触控板手势、键盘快捷键 `+`/`-`、工具栏缩放按钮以及画布双击放大均 100% 绑定至当前光标物理坐标。
+
+
