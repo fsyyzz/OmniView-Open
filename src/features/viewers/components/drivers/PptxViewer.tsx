@@ -59,40 +59,55 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
 
-  // 载入并解析 PPTX
-  const loadPresentation = useCallback(async () => {
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const loadPresentation = useCallback(() => setReloadNonce(n => n + 1), []);
+
+  // 载入并解析 PPTX (含并发竞态防护与过时结果丢弃)
+  useEffect(() => {
+    let isCancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      let rawData: ArrayBuffer | Uint8Array | string = content || '';
 
-      if (binaryUrl) {
-        if (binaryUrl.startsWith('data:') || /^[A-Za-z0-9+/=]/.test(binaryUrl)) {
-          rawData = base64ToBytes(binaryUrl);
-        } else {
-          try {
-            const resp = await fetch(binaryUrl);
-            rawData = await resp.arrayBuffer();
-          } catch {
+    const run = async () => {
+      try {
+        let rawData: ArrayBuffer | Uint8Array | string = content || '';
+
+        if (binaryUrl) {
+          if (binaryUrl.startsWith('data:') || /^[A-Za-z0-9+/=]/.test(binaryUrl)) {
             rawData = base64ToBytes(binaryUrl);
+          } else {
+            try {
+              const resp = await fetch(binaryUrl);
+              rawData = await resp.arrayBuffer();
+            } catch {
+              rawData = base64ToBytes(binaryUrl);
+            }
           }
         }
+
+        const parsed = await parsePptx(rawData);
+        if (!isCancelled) {
+          setData(parsed);
+          setCurrentSlideIndex(0);
+        }
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          console.error('[PptxViewer] 解析失败:', err);
+          setError(err instanceof Error ? err.message : 'PPTX 解析异常');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
+    };
 
-      const parsed = await parsePptx(rawData);
-      setData(parsed);
-      setCurrentSlideIndex(0);
-    } catch (err: unknown) {
-      console.error('[PptxViewer] 解析失败:', err);
-      setError(err instanceof Error ? err.message : 'PPTX 解析异常');
-    } finally {
-      setLoading(false);
-    }
-  }, [content, binaryUrl]);
+    void run();
 
-  useEffect(() => {
-    loadPresentation();
-  }, [loadPresentation]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [content, binaryUrl, reloadNonce]);
 
   const totalSlides = data?.slides.length || 0;
   const currentSlide: PptxSlide | undefined = data?.slides[currentSlideIndex];

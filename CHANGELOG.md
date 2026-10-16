@@ -2,16 +2,26 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [1.2.57] - 2026-10-15
+## [1.2.61] - 2026-10-16
+
+### Added
+
+- **SVG v2 现代编辑引擎功能全面扩充 (SVG v2 Full Tool Suite, Viewport HUD & Enhanced Inspector — L2)**:
+  - **基础形状与文本工具扩充**：新增矩形（`rect`）、椭圆（`ellipse`）、直线（`line`）与文本（`text`）创建工具；支持画布内直接拖拽框选即时成型，以及点击创建文本图元；
+  - **钢笔与节点编辑增强**：完善钢笔（`pen`）连续画线与点起点闭合路径交互；强化直接选择/节点（`node`）工具，支持点击选中锚点、拖拽实时微调与贝塞尔控制手柄联动；
+  - **底层命令总线与几何算法补全**：新增 `object.createPath`、`object.createText`、`text.setText` 与 `path.updateAnchor` 核心命令，并完善撤销重做历史记录支持；新增 `createRectGeometry`、`createEllipseGeometry`、`createLineGeometry` 纯函数几何构造器；
+  - **视口控制胶囊 HUD**：在画布底部中心新增悬浮视口控制胶囊，支持快捷放大、缩小、100% 重置、自适应居中（Fit View）及抓手平移提示；
+  - **属性检视器 (Inspector) 升级**：新增描边宽度调节、端点风格（butt / round / square）、虚线预设选择（实线、点线、虚线、长短虚线）；提供 8 色精选快速调色板；针对文本节点提供内容编辑、字号滑块及对齐方式控制；
+  - **自动化测试回归防护**：新增 `scripts/test-svg-v2-tools-shapes.mjs`，覆盖形状几何生成、图元创建与撤销重做、文本图元编辑、锚点更新及 7 大核心工具交互。
+
+## [1.2.60] - 2026-10-16
 
 ### Fixed
 
-- **Markdown LaTeX 数学公式预处理与渲染管线防腐 (Markdown LaTeX Formula Preprocessing & Pipeline Protection — L2)**:
-  - **根本诱因根治**：彻底修复原先在 HTML 生成后通过正则后置提取公式导致的语法污染问题。此前 Marked 在生成 HTML 过程中，将公式中的 Markdown 语法与特殊符号错误转义（例如 `\&` 误转为 `&amp;`、多个下划线 `_` 误转为 `<em>`、比较运算符 `<` `>` 被转为 HTML 实体、`\\` 反斜杠被剥除），传给 KaTeX 解析时引发 `Expected 'EOF', got '&'` 等大面积红字报错；
-  - **数学公式前置提取与换行守恒**：新增 `markdownMath.ts` 专用模块，在进入 marked 词法解析前精准提取行内公式 `$formula$` 与块级公式 `$$formula$$` 为唯一标识占位符（`%%OV_MATH_INLINE_*%%` 与 `%%OV_MATH_BLOCK_*%%`），自动保护围栏代码块及行内代码不受影响，并严格保持原公式换行符数量，彻底阻断公式被 Markdown 解析器二次转义，同时确保双击跳转行号不发生任何偏移；
-  - **公式规范化与智能容错 (Sanitize & Tolerance)**：内置 `sanitizeMathFormula`，智能解码残留 HTML 实体，并在非对齐环境（非 matrix / align / cases 等）中将未转义的孤立 `&` 优雅容错为 `\&`，彻底根除位运算、逻辑与（`& 0xFF`）等工程公式的语法报错崩溃；
-  - **表格单元格与独立数学块联动升级**：`tableUtils.ts` 与 `MathBlock.tsx` 同步接入公式安全清洗与容错渲染，独立段落 `$$ ... $$` 智能升级为包含源码切换、缩放与一键复制的完整 `MathBlock` 交互组件；
-  - **自动化测试回归防护**：新增 `scripts/test-markdown-math.mjs`（覆盖真实用户报错案例、行号守恒、下划线保护、比较运算符、货币美元符号区分、矩阵对齐、孤立 `&` 容错及单条公式渲染 8 大场景）并挂载至 CI 自动化测试套件。
+- **SVG v2 画布无 viewBox 属性空指针崩溃修复 (SVG v2 Canvas Null ViewBox Crash Fix — L1)**:
+  - **根本原因**：当导入未显式声明 `viewBox` 属性的 SVG 文件或空画布时，`doc.canvas.viewBox` 解析结果为 `null`。在 `SvgV2Canvas.tsx` 中直接读取 `doc.canvas.viewBox.x` 导致 React 渲染抛出 `TypeError: Cannot read properties of null (reading 'x')` 并触发崩溃兜底；
+  - **安全防腐**：在 `SvgV2Canvas.tsx` 与导出序列化模块中增加双层安全解构，若未提供 `viewBox` 则自动安全回退至 `{ x: 0, y: 0, width: canvas.width || 800, height: canvas.height || 600 }`；
+  - **集成验证**：在 `scripts/test-svg-v2-e2e.mjs` 中补充空 `viewBox` 容错测试断言，确保全流程无空指针异常。
 
 ## [1.2.59] - 2026-10-16
 
@@ -23,6 +33,20 @@
   - **表头悬浮快捷复制按钮**：鼠标悬停在任意列的表头时，在排序指示图标旁显式呈现快捷复制按钮，点击即一键复制该列并伴随即时 Toast 反馈动画；
   - **全屏沉浸灯箱 (TableLightboxModal) 体验统一**：全屏灯箱同步接通整列右键上下文菜单与表头悬浮复制，确保任意视口尺度下交互无缝对齐；
   - **单元测试全覆盖**：扩充 `scripts/test-table-utils.mjs`（第 9 项专项测试矩阵），对单列纯文本提取、Markdown 列转换、邮件原生 HTML `<table>` 内联样式与剪贴板调用完成 100% 自动化断言。
+
+### Changed
+
+- **SVG 现代编辑引擎默认启用 (SVG v2 Modern Engine Enabled by Default — L2)**:
+  - 将 SVG 编辑引擎的默认 Feature Flag 切换为 `v2` 现代引擎（不可变 Document AST 模型 + 命令总线 + 独立图层树管理 + 现代视口控制）；
+  - 依然完整保留向后兼容切换至 `v1` 经典模式的能力。
+
+### Refactored & Fixed
+
+- **文档视图核心组件解耦与架构治理 (PluginDocumentView Refactoring & Architecture Hardening — L2)**:
+  - **大组件拆分解耦**：将非 Markdown 文档外壳独立拆分为 `NonMarkdownPluginView` 组件；
+  - **功能 Hook 抽象**：抽离 `useDocumentSearch`（搜索、变色高亮、热力导航、单处/全部替换）与 `useDocumentExport`（Word/HTML/Print 导出与富文本复制），`PluginDocumentView.tsx` 瘦身 400+ 行；
+  - **跨层级配置下发**：新增 `ViewerConfigContext` 与 `useViewerConfig`，治理跨多层组件的 Props Drilling；
+  - **并发竞态防护**：为 `DocxViewer`、`XlsxViewer`、`PptxViewer` 异步文档加载增加 `isCancelled` 闭环守卫与响应式重载支持，阻断高频切换文件时的时序竞争。
 
 ## [1.2.58] - 2026-10-15
 

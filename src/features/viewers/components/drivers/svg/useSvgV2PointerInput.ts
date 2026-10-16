@@ -88,7 +88,7 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || e.altKey) return; // Alt+左键为画布平移手势，不进入工具管线
       const point = toCanvas(e.clientX, e.clientY);
       if (!point) return;
       try {

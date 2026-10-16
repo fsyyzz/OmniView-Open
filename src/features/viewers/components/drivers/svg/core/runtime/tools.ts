@@ -10,9 +10,35 @@
  */
 
 import type { Tool, ToolId, OverlayElement, Action } from './types';
-import type { Document, Node, NodeId, PointerEvent, ToolContext, ToolKey, Vec2, AffineTransform } from '../model/types';
-import { composeTransforms } from '../model/document';
+import type {
+  Document,
+  Node,
+  NodeId,
+  PathNode,
+  TextNode,
+  PointerEvent,
+  ToolContext,
+  ToolKey,
+  Vec2,
+  AffineTransform,
+  Appearance,
+  Color,
+} from '../model/types';
+import {
+  composeTransforms,
+  defaultStroke,
+  emptyAppearance,
+  vec2,
+  pathGeometry,
+  subPath,
+  anchorCorner,
+} from '../model/document';
 import { localNodeBBox } from '../model/bbox';
+import {
+  createRectGeometry,
+  createEllipseGeometry,
+  createLineGeometry,
+} from '../model/path';
 
 // ============================================================================
 // Select Tool
@@ -124,37 +150,338 @@ function arrowDelta(key: ToolKey, step: number): Vec2 | null {
 }
 
 // ============================================================================
-// Node Tool（直接选区）
+// Node Tool（直接选区与锚点编辑）
 // ============================================================================
+
+let nodeActiveAnchor: { nodeId: NodeId; subPathIndex: number; anchorIndex: number } | null = null;
+let penPoints: Vec2[] = [];
+
+function applyTransformToPoint(t: AffineTransform, p: Vec2): Vec2 {
+  return {
+    x: t.a * p.x + t.c * p.y + t.e,
+    y: t.b * p.x + t.d * p.y + t.f,
+  };
+}
+
+function findNearestAnchor(doc: Document, nodeId: NodeId, point: Vec2, tol2: number) {
+  const node = doc.nodes.get(nodeId);
+  if (!node || node.kind !== 'Path') return null;
+  const local = invertTransformPoint(node.transform, point);
+  if (!local) return null;
+  for (let spIdx = 0; spIdx < node.geometry.subPaths.length; spIdx++) {
+    const sp = node.geometry.subPaths[spIdx]!;
+    for (let aIdx = 0; aIdx < sp.anchors.length; aIdx++) {
+      const a = sp.anchors[aIdx]!;
+      if (pointNear(a.point, local, tol2)) {
+        return { subPathIndex: spIdx, anchorIndex: aIdx, localPoint: a.point };
+      }
+    }
+  }
+  return null;
+}
 
 const nodeTool: Tool = {
   id: 'node',
   pointer(ctx, event) {
+    if (event.kind === 'down') {
+      const tol2 = (12 / Math.max(ctx.zoom, 1e-4)) ** 2;
+      for (const selId of ctx.selection.nodeIds) {
+        const hit = findNearestAnchor(ctx.doc, selId, event.point, tol2);
+        if (hit) {
+          nodeActiveAnchor = { nodeId: selId, subPathIndex: hit.subPathIndex, anchorIndex: hit.anchorIndex };
+          return [{ kind: 'Begin', label: '移动锚点', gestureMode: 'move' }];
+        }
+      }
+      nodeActiveAnchor = null;
+      return handleSelectPointer(ctx, event);
+    }
+    if (event.kind === 'drag' && ctx.gesture && nodeActiveAnchor) {
+      const node = ctx.doc.nodes.get(nodeActiveAnchor.nodeId);
+      if (node && node.kind === 'Path') {
+        const local = invertTransformPoint(node.transform, event.point);
+        if (local) {
+          return [
+            {
+              kind: 'Preview',
+              commandId: 'path.updateAnchor',
+              params: {
+                id: nodeActiveAnchor.nodeId,
+                subPathIndex: nodeActiveAnchor.subPathIndex,
+                anchorIndex: nodeActiveAnchor.anchorIndex,
+                point: local,
+              },
+            },
+          ];
+        }
+      }
+      return [];
+    }
+    if (event.kind === 'up' && ctx.gesture && nodeActiveAnchor) {
+      return [{ kind: 'Commit' }];
+    }
     return handleSelectPointer(ctx, event);
   },
   key(ctx, key, mods) {
+    if ((key === 'Delete' || key === 'Backspace') && nodeActiveAnchor) {
+      const action: Action = {
+        kind: 'Exec',
+        commandId: 'path.deleteAnchor',
+        params: { id: nodeActiveAnchor.nodeId, anchorIndex: nodeActiveAnchor.anchorIndex },
+      };
+      nodeActiveAnchor = null;
+      return [action];
+    }
     return handleCommonKeys(ctx, key, mods);
   },
   overlay(ctx) {
-    return marqueeOverlay(ctx);
+    const overlays: OverlayElement[] = [];
+    if (ctx.gesture && ctx.gesture.kind === 'marquee') {
+      overlays.push(...marqueeOverlay(ctx));
+    }
+    const handleSize = 6 / Math.max(ctx.zoom, 1e-4);
+    for (const selId of ctx.selection.nodeIds) {
+      const node = ctx.doc.nodes.get(selId);
+      if (!node || node.kind !== 'Path') continue;
+      for (let spIdx = 0; spIdx < node.geometry.subPaths.length; spIdx++) {
+        const sp = node.geometry.subPaths[spIdx]!;
+        for (let aIdx = 0; aIdx < sp.anchors.length; aIdx++) {
+          const a = sp.anchors[aIdx]!;
+          const world = applyTransformToPoint(node.transform, a.point);
+          const isTarget =
+            nodeActiveAnchor &&
+            nodeActiveAnchor.nodeId === selId &&
+            nodeActiveAnchor.subPathIndex === spIdx &&
+            nodeActiveAnchor.anchorIndex === aIdx;
+          overlays.push({
+            kind: 'handle',
+            center: world,
+            color: isTarget ? 'anchor' : 'control',
+            size: isTarget ? handleSize * 1.5 : handleSize,
+          });
+        }
+      }
+    }
+    return overlays;
   },
   cursor() { return 'default'; },
 };
 
 // ============================================================================
-// Pen Tool（钢笔 — P1 占位）
+// Pen Tool（钢笔多点画线与闭合）
 // ============================================================================
 
 const penTool: Tool = {
   id: 'pen',
-  pointer() {
-    // P1 占位：单击在第一个 path 上加入 L 点（M2 阶段实现完整锚点拖拽）
+  pointer(ctx, event) {
+    if (event.kind === 'down') {
+      if (penPoints.length === 0) {
+        penPoints = [event.point];
+        return [{ kind: 'Begin', label: '绘制路径', gestureMode: 'marquee' }];
+      }
+      const tol2 = (14 / Math.max(ctx.zoom, 1e-4)) ** 2;
+      if (penPoints.length >= 2 && pointNear(event.point, penPoints[0]!, tol2)) {
+        const anchors = penPoints.map((pt) => anchorCorner(pt));
+        const geometry = pathGeometry([subPath(anchors, true)]);
+        penPoints = [];
+        return [
+          { kind: 'Exec', commandId: 'object.createPath', params: { geometry, hint: 'path' } },
+          { kind: 'Commit' },
+        ];
+      }
+      penPoints.push(event.point);
+      return [];
+    }
     return [];
   },
-  key() {
+  key(_ctx, key) {
+    if (key === 'Enter' && penPoints.length >= 2) {
+      const anchors = penPoints.map((pt) => anchorCorner(pt));
+      const geometry = pathGeometry([subPath(anchors, false)]);
+      penPoints = [];
+      return [
+        { kind: 'Exec', commandId: 'object.createPath', params: { geometry, hint: 'path' } },
+        { kind: 'Commit' },
+      ];
+    }
+    if (key === 'Escape') {
+      penPoints = [];
+      return [{ kind: 'Cancel' }];
+    }
     return [];
+  },
+  overlay(ctx) {
+    if (penPoints.length === 0) return [];
+    const overlays: OverlayElement[] = [];
+    const pts = [...penPoints];
+    if (ctx.gesture && ctx.gesture.currentPoint) {
+      pts.push(ctx.gesture.currentPoint);
+    }
+    if (pts.length >= 2) {
+      overlays.push({
+        kind: 'polyline',
+        points: pts,
+        stroke: 'var(--ov-accent, #4c9aff)',
+        lineWidth: 1.5,
+        dashed: true,
+      });
+    }
+    overlays.push({
+      kind: 'circle',
+      center: penPoints[0]!,
+      radius: 5 / Math.max(ctx.zoom, 1e-4),
+      stroke: 'var(--ov-accent, #4c9aff)',
+      fill: 'white',
+      lineWidth: 1.5,
+    });
+    return overlays;
   },
   cursor() { return 'crosshair'; },
+};
+
+// ============================================================================
+// Rect / Ellipse / Line / Text 形状工具
+// ============================================================================
+
+const rectTool: Tool = {
+  id: 'rect',
+  pointer(ctx, event) {
+    if (event.kind === 'down') {
+      return [{ kind: 'Begin', label: '绘制矩形', gestureMode: 'marquee' }];
+    }
+    if (event.kind === 'up' && ctx.gesture && ctx.gesture.kind === 'marquee') {
+      let r = normalizeRect(ctx.gesture.startPoint, event.point);
+      if (r.width < 4 && r.height < 4) {
+        r = { x: ctx.gesture.startPoint.x - 50, y: ctx.gesture.startPoint.y - 30, width: 100, height: 60 };
+      }
+      const geometry = createRectGeometry(r.x, r.y, r.width, r.height);
+      const appearance: Appearance = {
+        items: [
+          { kind: 'fill', fill: { type: 'solid', color: '#3b82f6' as Color, opacity: 1 }, blend: 'normal', opacity: 1 },
+          { kind: 'stroke', stroke: { ...defaultStroke(), paint: { type: 'solid', color: '#1d4ed8' as Color, opacity: 1 }, width: 2 }, blend: 'normal', opacity: 1 },
+        ],
+      };
+      return [
+        { kind: 'Exec', commandId: 'object.createPath', params: { geometry, appearance, hint: 'rect' } },
+        { kind: 'Commit' },
+      ];
+    }
+    return [];
+  },
+  key(ctx, key, mods) { return handleCommonKeys(ctx, key, mods); },
+  overlay(ctx) {
+    if (!ctx.gesture || ctx.gesture.kind !== 'marquee') return [];
+    return [{
+      kind: 'rect',
+      rect: normalizeRect(ctx.gesture.startPoint, ctx.gesture.currentPoint),
+      stroke: 'var(--ov-accent, #3b82f6)',
+      fill: 'rgba(59, 130, 246, 0.15)',
+      lineWidth: 1.5,
+      dashed: true,
+    }];
+  },
+  cursor() { return 'crosshair'; },
+};
+
+const ellipseTool: Tool = {
+  id: 'ellipse',
+  pointer(ctx, event) {
+    if (event.kind === 'down') {
+      return [{ kind: 'Begin', label: '绘制椭圆', gestureMode: 'marquee' }];
+    }
+    if (event.kind === 'up' && ctx.gesture && ctx.gesture.kind === 'marquee') {
+      let r = normalizeRect(ctx.gesture.startPoint, event.point);
+      if (r.width < 4 && r.height < 4) {
+        r = { x: ctx.gesture.startPoint.x - 40, y: ctx.gesture.startPoint.y - 40, width: 80, height: 80 };
+      }
+      const cx = r.x + r.width / 2;
+      const cy = r.y + r.height / 2;
+      const rx = Math.max(r.width / 2, 2);
+      const ry = Math.max(r.height / 2, 2);
+      const geometry = createEllipseGeometry(cx, cy, rx, ry);
+      const appearance: Appearance = {
+        items: [
+          { kind: 'fill', fill: { type: 'solid', color: '#10b981' as Color, opacity: 1 }, blend: 'normal', opacity: 1 },
+          { kind: 'stroke', stroke: { ...defaultStroke(), paint: { type: 'solid', color: '#047857' as Color, opacity: 1 }, width: 2 }, blend: 'normal', opacity: 1 },
+        ],
+      };
+      return [
+        { kind: 'Exec', commandId: 'object.createPath', params: { geometry, appearance, hint: 'ellipse' } },
+        { kind: 'Commit' },
+      ];
+    }
+    return [];
+  },
+  key(ctx, key, mods) { return handleCommonKeys(ctx, key, mods); },
+  overlay(ctx) {
+    if (!ctx.gesture || ctx.gesture.kind !== 'marquee') return [];
+    return [{
+      kind: 'rect',
+      rect: normalizeRect(ctx.gesture.startPoint, ctx.gesture.currentPoint),
+      stroke: 'var(--ov-accent, #10b981)',
+      fill: 'rgba(16, 185, 129, 0.15)',
+      lineWidth: 1.5,
+      dashed: true,
+    }];
+  },
+  cursor() { return 'crosshair'; },
+};
+
+const lineTool: Tool = {
+  id: 'line',
+  pointer(ctx, event) {
+    if (event.kind === 'down') {
+      return [{ kind: 'Begin', label: '绘制直线', gestureMode: 'marquee' }];
+    }
+    if (event.kind === 'up' && ctx.gesture && ctx.gesture.kind === 'marquee') {
+      const p1 = ctx.gesture.startPoint;
+      let p2 = event.point;
+      if (Math.abs(p2.x - p1.x) < 4 && Math.abs(p2.y - p1.y) < 4) {
+        p2 = { x: p1.x + 80, y: p1.y + 40 };
+      }
+      const geometry = createLineGeometry(p1.x, p1.y, p2.x, p2.y);
+      const appearance: Appearance = {
+        items: [
+          { kind: 'stroke', stroke: { ...defaultStroke(), paint: { type: 'solid', color: '#6366f1' as Color, opacity: 1 }, width: 2 }, blend: 'normal', opacity: 1 },
+        ],
+      };
+      return [
+        { kind: 'Exec', commandId: 'object.createPath', params: { geometry, appearance, hint: 'line' } },
+        { kind: 'Commit' },
+      ];
+    }
+    return [];
+  },
+  key(ctx, key, mods) { return handleCommonKeys(ctx, key, mods); },
+  overlay(ctx) {
+    if (!ctx.gesture || ctx.gesture.kind !== 'marquee') return [];
+    return [{
+      kind: 'line',
+      from: ctx.gesture.startPoint,
+      to: ctx.gesture.currentPoint,
+      stroke: 'var(--ov-accent, #6366f1)',
+      lineWidth: 2,
+      dashed: true,
+    }];
+  },
+  cursor() { return 'crosshair'; },
+};
+
+const textTool: Tool = {
+  id: 'text',
+  pointer(_ctx, event) {
+    if (event.kind === 'down') {
+      return [
+        {
+          kind: 'Exec',
+          commandId: 'object.createText',
+          params: { x: Math.round(event.point.x), y: Math.round(event.point.y), text: '文本' },
+        },
+      ];
+    }
+    return [];
+  },
+  key(ctx, key, mods) { return handleCommonKeys(ctx, key, mods); },
+  cursor() { return 'text'; },
 };
 
 // ============================================================================
@@ -238,10 +565,14 @@ export function hitTestTopmost(doc: Document, point: Vec2, tolerance: number): N
 // Registry
 // ============================================================================
 
-const tools: Record<ToolId, Tool> = {
+export const tools: Record<ToolId, Tool> = {
   select: selectTool,
   node: nodeTool,
   pen: penTool,
+  rect: rectTool,
+  ellipse: ellipseTool,
+  line: lineTool,
+  text: textTool,
 };
 
 export function getTool(id: ToolId): Tool {

@@ -531,3 +531,56 @@ export function getBoundingBox(g: PathGeometry): { x: number; y: number; width: 
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
+
+/** 创建矩形几何（支持圆角）。 */
+export function createRectGeometry(x: number, y: number, width: number, height: number, rx = 0, ry = 0): PathGeometry {
+  if (rx <= 0 && ry <= 0) {
+    return pathGeometry([
+      subPath([
+        anchorCorner(vec2(x, y)),
+        anchorCorner(vec2(x + width, y)),
+        anchorCorner(vec2(x + width, y + height)),
+        anchorCorner(vec2(x, y + height)),
+      ], true),
+    ]);
+  }
+  const rrx = Math.min(rx, width / 2);
+  const rry = Math.min(ry > 0 ? ry : rx, height / 2);
+  const d = [
+    `M ${x + rrx} ${y}`,
+    `L ${x + width - rrx} ${y}`,
+    `Q ${x + width} ${y} ${x + width} ${y + rry}`,
+    `L ${x + width} ${y + height - rry}`,
+    `Q ${x + width} ${y + height} ${x + width - rrx} ${y + height}`,
+    `L ${x + rrx} ${y + height}`,
+    `Q ${x} ${y + height} ${x} ${y + height - rry}`,
+    `L ${x} ${y + rry}`,
+    `Q ${x} ${y} ${x + rrx} ${y}`,
+    'Z',
+  ].join(' ');
+  return parsePathD(d);
+}
+
+/** 创建椭圆/圆形几何（4 锚点平滑三次贝塞尔闭合环）。 */
+export function createEllipseGeometry(cx: number, cy: number, rx: number, ry: number): PathGeometry {
+  const kx = rx * 0.5522847498307936;
+  const ky = ry * 0.5522847498307936;
+  return pathGeometry([
+    subPath([
+      anchorSmooth(vec2(cx, cy - ry), vec2(-kx, 0), vec2(kx, 0)),
+      anchorSmooth(vec2(cx + rx, cy), vec2(0, -ky), vec2(0, ky)),
+      anchorSmooth(vec2(cx, cy + ry), vec2(kx, 0), vec2(-kx, 0)),
+      anchorSmooth(vec2(cx - rx, cy), vec2(0, ky), vec2(0, -ky)),
+    ], true),
+  ]);
+}
+
+/** 创建直线几何。 */
+export function createLineGeometry(x1: number, y1: number, x2: number, y2: number): PathGeometry {
+  return pathGeometry([
+    subPath([
+      anchorCorner(vec2(x1, y1)),
+      anchorCorner(vec2(x2, y2)),
+    ], false),
+  ]);
+}

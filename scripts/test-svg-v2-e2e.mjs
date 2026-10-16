@@ -19,6 +19,7 @@ import {
   selectionAdd,
   selectionWith,
   emptySelection,
+  exportSvg,
 } from '../src/features/viewers/components/drivers/svg/core/index.ts';
 
 console.log('🧪 开始 SVG v2 E2E 集成测试...');
@@ -197,16 +198,13 @@ console.log('--- 测试 7: Feature Flag ---');
 
 import { getSvgEngineFlag, setSvgEngineFlag } from '../src/features/viewers/components/drivers/svg/core/index.ts';
 
-it('Feature Flag 默认 v1，可切换到 v2', () => {
-  // Node 环境无 localStorage，flag 应默认为 v1
+it('Feature Flag 默认 v2，可切换到 v1/v2', () => {
+  setSvgEngineFlag('v2');
+  assert.strictEqual(getSvgEngineFlag(), 'v2');
   setSvgEngineFlag('v1');
   assert.strictEqual(getSvgEngineFlag(), 'v1');
-  // 模拟浏览器行为：直接尝试 set；若无 localStorage 则仍是 v1
-  const beforeSet = getSvgEngineFlag();
   setSvgEngineFlag('v2');
-  const afterSet = getSvgEngineFlag();
-  assert.ok(afterSet === 'v2' || afterSet === beforeSet, 'set 在有/无 localStorage 时行为合理');
-  setSvgEngineFlag('v1');
+  assert.strictEqual(getSvgEngineFlag(), 'v2');
 });
 
 // ============================================================================
@@ -230,6 +228,14 @@ it('tagBackupContent 注入 v2 标记', () => {
   const rt = createRuntime();
   const tagged = tagBackupContent('<svg></svg>', rt.currentDocument, '<svg></svg>');
   assert.ok(tagged.includes('[omniview-v2-engine]'));
+});
+
+it('空 viewBox 容错：无 viewBox 时安全回退至 width/height 且不抛空指针', async () => {
+  const doc = createDocument({ width: 500, height: 400, viewBox: null });
+  assert.strictEqual(doc.canvas.viewBox, null);
+  const serialized = await exportSvg(doc);
+  assert.ok(serialized.includes('width="500"'));
+  assert.ok(serialized.includes('viewBox="0 0 500 400"'));
 });
 
 // ============================================================================

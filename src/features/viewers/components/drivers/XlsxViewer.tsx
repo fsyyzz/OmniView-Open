@@ -109,33 +109,48 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 载入与解析工作簿
-  const loadWorkbook = useCallback(async () => {
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const loadWorkbook = useCallback(() => setReloadNonce(n => n + 1), []);
+
+  // 载入与解析工作簿 (含并发竞态防护与过时结果丢弃)
+  useEffect(() => {
+    let isCancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      let rawData: ArrayBuffer | Uint8Array | string = content || '';
 
-      if (binaryUrl) {
-        const resp = await fetch(binaryUrl);
-        rawData = await resp.arrayBuffer();
+    const run = async () => {
+      try {
+        let rawData: ArrayBuffer | Uint8Array | string = content || '';
+
+        if (binaryUrl) {
+          const resp = await fetch(binaryUrl);
+          rawData = await resp.arrayBuffer();
+        }
+
+        const parsed = await parseXlsx(rawData);
+        if (!isCancelled) {
+          setWorkbook(parsed);
+          setActiveSheetIdx(0);
+          setPage(1);
+          setSortCol(null);
+        }
+      } catch (err: any) {
+        if (!isCancelled) {
+          setError(err?.message || '无法解析 Excel 工作簿，请检查文件是否损坏或受密码保护。');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
+    };
 
-      const parsed = await parseXlsx(rawData);
-      setWorkbook(parsed);
-      setActiveSheetIdx(0);
-      setPage(1);
-      setSortCol(null);
-    } catch (err: any) {
-      setError(err?.message || '无法解析 Excel 工作簿，请检查文件是否损坏或受密码保护。');
-    } finally {
-      setLoading(false);
-    }
-  }, [content, binaryUrl]);
+    void run();
 
-  useEffect(() => {
-    loadWorkbook();
-  }, [loadWorkbook]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [content, binaryUrl, reloadNonce]);
 
   // 当前激活的工作表
   const currentSheet: XlsxWorksheet | null = useMemo(() => {

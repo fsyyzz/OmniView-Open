@@ -11,6 +11,7 @@
  */
 import React, { useMemo } from 'react';
 import DOMPurify from 'dompurify';
+import { ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
 import {
   RAW_DEFS_METADATA_KEY,
   nodeBBox,
@@ -24,6 +25,7 @@ import {
   type ToolId,
 } from './core';
 import { useSvgV2PointerInput } from './useSvgV2PointerInput';
+import { useSvgV2Viewport } from './useSvgV2Viewport';
 
 export interface SvgV2CanvasProps {
   readonly document: SvgDocument;
@@ -61,15 +63,25 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   runtime,
   activeToolId,
 }) => {
-  const view = useMemo(
-    () => ({
-      x: doc.canvas.viewBox.x,
-      y: doc.canvas.viewBox.y,
-      width: doc.canvas.viewBox.width,
-      height: doc.canvas.viewBox.height,
-    }),
-    [doc.canvas.viewBox],
-  );
+  const view = useMemo(() => {
+    const vb = doc?.canvas?.viewBox;
+    if (vb) {
+      return {
+        x: vb.x ?? 0,
+        y: vb.y ?? 0,
+        width: vb.width || doc?.canvas?.width || 800,
+        height: vb.height || doc?.canvas?.height || 600,
+      };
+    }
+    const width = doc?.canvas?.width || 800;
+    const height = doc?.canvas?.height || 600;
+    return {
+      x: 0,
+      y: 0,
+      width,
+      height,
+    };
+  }, [doc?.canvas?.viewBox, doc?.canvas?.width, doc?.canvas?.height]);
 
   const { svgRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleKeyDown } =
     useSvgV2PointerInput({
@@ -79,6 +91,21 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
       redo: () => runtime.redo(),
       selectAll: () => runtime.execute('select.all', {}),
     });
+
+  const {
+    viewport,
+    containerRef,
+    panning,
+    handleWheel,
+    handleDoubleClick,
+    beginPan,
+    movePan,
+    endPan,
+    zoomIn,
+    zoomOut,
+    zoomReset,
+    zoomFit,
+  } = useSvgV2Viewport();
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
@@ -127,27 +154,93 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   const cursor = activeToolId === 'pen' ? 'crosshair' : 'default';
 
   return (
-    <div className="flex h-full w-full items-center justify-center overflow-auto bg-[var(--ov-canvas-bg)] p-4">
-      <svg
-        ref={svgRef}
-        viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
-        className="h-auto max-h-full max-w-full border border-[var(--ov-border)] bg-white"
-        style={{ aspectRatio: `${view.width} / ${view.height}`, touchAction: 'none', cursor }}
-        preserveAspectRatio="xMidYMid meet"
-        tabIndex={0}
-        role="presentation"
-        data-omni-svg-v2-canvas="true"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
-        onKeyDown={handleKeyDown}
+    <div
+      ref={containerRef}
+      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[var(--ov-canvas-bg)] p-4"
+      onWheel={handleWheel}
+      onDoubleClick={handleDoubleClick}
+      onPointerDown={beginPan}
+      onPointerMove={movePan}
+      onPointerUp={endPan}
+      onPointerCancel={endPan}
+    >
+      <div
+        className="absolute inset-4 flex items-center justify-center"
+        style={{
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+          transformOrigin: 'center center',
+          transition: panning ? 'none' : 'transform 0.08s ease-out',
+        }}
       >
-        {defsHtml ? <g dangerouslySetInnerHTML={{ __html: defsHtml }} /> : null}
-        {elements}
-        {selectionBoxes}
-        <g pointerEvents="none">{overlays.map(renderOverlay)}</g>
-      </svg>
+        <svg
+          ref={svgRef}
+          viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
+          className="block h-auto max-h-full max-w-full border border-[var(--ov-border)] bg-white"
+          style={{ aspectRatio: `${view.width} / ${view.height}`, touchAction: 'none', cursor }}
+          preserveAspectRatio="xMidYMid meet"
+          tabIndex={0}
+          role="presentation"
+          data-omni-svg-v2-canvas="true"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onKeyDown={handleKeyDown}
+        >
+          {defsHtml ? <g dangerouslySetInnerHTML={{ __html: defsHtml }} /> : null}
+          {elements}
+          {selectionBoxes}
+          <g pointerEvents="none">{overlays.map(renderOverlay)}</g>
+        </svg>
+      </div>
+      {/* 底部视口浮动控制条 (Viewport HUD) */}
+      <div
+        data-canvas-ui="true"
+        className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full border border-[var(--ov-border)] bg-[var(--ov-surface)]/90 backdrop-blur-md px-2 py-1 shadow-lg text-xs text-[var(--ov-text)] z-10 select-none"
+      >
+        <button
+          type="button"
+          title="缩小 (Ctrl + 滚轮下)"
+          className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--ov-hover)] transition-colors text-[var(--ov-text)]"
+          onClick={zoomOut}
+        >
+          <ZoomOut size={13} />
+        </button>
+        <button
+          type="button"
+          title="复位至 100%"
+          className="px-1.5 py-0.5 font-mono text-[11px] text-[var(--ov-text)] hover:text-[var(--ov-accent)] transition-colors"
+          onClick={zoomReset}
+        >
+          {Math.round(viewport.scale * 100)}%
+        </button>
+        <button
+          type="button"
+          title="放大 (Ctrl + 滚轮上)"
+          className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--ov-hover)] transition-colors text-[var(--ov-text)]"
+          onClick={zoomIn}
+        >
+          <ZoomIn size={13} />
+        </button>
+        <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+        <button
+          type="button"
+          title="自适应画布居中 (双击空白处)"
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded-full hover:bg-[var(--ov-hover)] transition-colors text-[11px] text-[var(--ov-text)]"
+          onClick={zoomFit}
+        >
+          <Maximize2 size={12} />
+          <span>适应</span>
+        </button>
+        <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+        <span
+          className="flex items-center gap-1 px-1 text-[10px] text-[var(--ov-fg-muted)]"
+          title="按住 Alt / 鼠标中键拖拽可平移画布"
+        >
+          <Move size={11} />
+          <span className="hidden sm:inline">平移</span>
+        </span>
+      </div>
     </div>
   );
 };
@@ -268,6 +361,12 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
     const fillValue = fillItem && fillItem.kind === 'fill' ? paintToCss(fillItem.fill) : '#000';
     const strokeValue = strokeItem && strokeItem.kind === 'stroke' ? paintToCss(strokeItem.stroke.paint) : 'none';
     const strokeWidth = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.width : 0;
+    const strokeDash =
+      strokeItem && strokeItem.kind === 'stroke' && strokeItem.stroke.dashArray
+        ? strokeItem.stroke.dashArray.join(' ')
+        : undefined;
+    const strokeCap = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.cap : undefined;
+    const strokeJoin = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.join : undefined;
     return (
       <path
         key={`p-${node.id}`}
@@ -276,6 +375,9 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
         fill={fillValue}
         stroke={strokeValue}
         strokeWidth={strokeWidth}
+        strokeDasharray={strokeDash}
+        strokeLinecap={strokeCap}
+        strokeLinejoin={strokeJoin}
         transform={transform}
         opacity={node.opacity}
         style={style ?? { cursor: 'default' }}

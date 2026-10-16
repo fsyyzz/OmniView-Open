@@ -24,6 +24,29 @@ import { highlightSearchMatches, activateMatch, clearSearchHighlights } from './
 import { aggregateSearchMatchesByDocumentToc, type DocumentSectionSearchMatch } from './lib/documentSearchAggregator';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../../shared/lib/nativeTheme';
 import { INITIAL_FILES } from '../../shared/data/sampleFiles';
+import { NonMarkdownPluginView } from './components/plugin/NonMarkdownPluginView';
+import { ViewerConfigProvider } from './context/ViewerConfigContext';
+import { useDocumentSearch } from './hooks/useDocumentSearch';
+import { useDocumentExport } from './hooks/useDocumentExport';
+
+/**
+ * 非 Markdown 文档写回契约辅助函数 (保持向下兼容与 IPC 消息写回调度)
+ */
+export const persistContent = (
+  vscode: VsCodeApi | undefined,
+  path: string,
+  content: string,
+  onContentChange?: (content: string) => void
+) => {
+  onContentChange?.(content);
+  if (vscode) {
+    vscode.postMessage({
+      type: 'document-change',
+      path,
+      content,
+    });
+  }
+};
 
 interface PluginDocumentViewProps {
   file?: FileItem;
@@ -108,9 +131,27 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
     );
   }
 
+  const effectiveLocale = getStoredLocale();
+
   if (!['md', 'markdown', 'okf'].includes(file.extension.toLowerCase())) {
     return (
-      <NonMarkdownPluginView
+      <ViewerConfigProvider theme={currentTheme} density={currentDensity} locale={effectiveLocale} vscode={vscode}>
+        <NonMarkdownPluginView
+          file={file}
+          theme={currentTheme}
+          density={currentDensity}
+          onThemeChange={handleThemeSelect}
+          onDensityChange={handleDensitySelect}
+          onContentChange={onContentChange}
+          vscode={vscode}
+        />
+      </ViewerConfigProvider>
+    );
+  }
+
+  return (
+    <ViewerConfigProvider theme={currentTheme} density={currentDensity} locale={effectiveLocale} vscode={vscode}>
+      <MarkdownPluginView
         file={file}
         theme={currentTheme}
         density={currentDensity}
@@ -119,242 +160,7 @@ export const PluginDocumentView: React.FC<PluginDocumentViewProps> = ({
         onContentChange={onContentChange}
         vscode={vscode}
       />
-    );
-  }
-
-  return (
-    <MarkdownPluginView
-      file={file}
-      theme={currentTheme}
-      density={currentDensity}
-      onThemeChange={handleThemeSelect}
-      onDensityChange={handleDensitySelect}
-      onContentChange={onContentChange}
-      vscode={vscode}
-    />
-  );
-};
-
-interface NonMarkdownPluginViewProps {
-  file: FileItem;
-  theme: ThemeId;
-  density: DensityMode;
-  onThemeChange?: (theme: ThemeId) => void;
-  onDensityChange?: (density: DensityMode) => void;
-  onContentChange?: (content: string) => void;
-  vscode?: VsCodeApi;
-}
-
-const NonMarkdownPluginView: React.FC<NonMarkdownPluginViewProps> = ({
-  file,
-  theme,
-  density,
-  onThemeChange,
-  onDensityChange,
-  onContentChange,
-  vscode,
-}) => {
-  const _locale = getStoredLocale();
-  const [currentContent, setCurrentContent] = useState(file.content);
-  const [isDirty, setIsDirty] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const initialContentRef = useRef(file.content);
-  const latestContentRef = useRef(file.content);
-
-  const [settings, setSettings] = useState<WorkbenchSettings>(() => {
-    const stored = loadStoredSettings();
-    return {
-      ...stored,
-      theme: theme || stored.theme,
-      density: density || stored.density,
-    };
-  });
-
-  const handleSettingsChange = (newSettings: WorkbenchSettings) => {
-    setSettings(newSettings);
-    saveStoredSettings(newSettings);
-    if (newSettings.theme !== theme && onThemeChange) {
-      onThemeChange(newSettings.theme);
-    }
-    if (newSettings.density !== density && onDensityChange) {
-      onDensityChange(newSettings.density);
-    }
-  };
-
-  useEffect(() => {
-    initialContentRef.current = file.content;
-    latestContentRef.current = file.content;
-    setCurrentContent(file.content);
-    setIsDirty(false);
-  }, [file.id, file.content]);
-
-  const handleSaveImmediate = useCallback(() => {
-    if (!vscode) return;
-    setSaveStatus('saving');
-    vscode.postMessage({
-      type: 'save-content',
-      path: file.path,
-      content: latestContentRef.current,
-    });
-  }, [file.path, vscode]);
-
-  const persistContent = useCallback((newContent: string) => {
-    latestContentRef.current = newContent;
-    setCurrentContent(newContent);
-    const dirty = newContent !== initialContentRef.current;
-    setIsDirty(dirty);
-    if (dirty) setSaveStatus('idle');
-    onContentChange?.(newContent);
-    if (vscode) {
-      vscode.postMessage({
-        type: 'document-change',
-        path: file.path,
-        content: newContent,
-      });
-    }
-  }, [file.path, onContentChange, vscode]);
-
-  // 快捷键监听 (Ctrl+S / Cmd+S 立即落盘; Ctrl+? 打开指南; Ctrl+A 精准全选正文区)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        handleSaveImmediate();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && (e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash')))) {
-        e.preventDefault();
-        setIsShortcutsModalOpen(prev => !prev);
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
-        const activeEl = document.activeElement as HTMLElement | null;
-        if (
-          activeEl &&
-          (activeEl.tagName === 'INPUT' ||
-            activeEl.tagName === 'TEXTAREA' ||
-            activeEl.tagName === 'SELECT' ||
-            activeEl.isContentEditable ||
-            activeEl.getAttribute('contenteditable') === 'true' ||
-            activeEl.closest('.ov-code-editor, textarea, input, select, [contenteditable="true"], [role="dialog"], .ov-modal-backdrop'))
-        ) {
-          return;
-        }
-        if (document.querySelector('.ov-modal-backdrop, [role="dialog"]')) {
-          return;
-        }
-
-        // 查找正文区域容器，避免选中插件顶栏与状态栏
-        const contentCanvas = (document.querySelector(
-          '#markdown-viewer-canvas, .markdown-document, #structured-data-body, #csv-table-canvas, #code-viewer-canvas, .markdown-plugin-scroll > div'
-        ) || document.querySelector(
-          '#structured-data-viewer, #code-viewer-container, .notebook-viewer, .typst-viewer-container'
-        )) as HTMLElement | null;
-
-        if (contentCanvas) {
-          e.preventDefault();
-          e.stopPropagation();
-          const sel = window.getSelection();
-          if (sel) {
-            const range = document.createRange();
-            range.selectNodeContents(contentCanvas);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [handleSaveImmediate]);
-
-  // 监听来自 VS Code 宿主的 content-saved 反馈消息
-  useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'content-saved' && e.data?.ok) {
-        initialContentRef.current = latestContentRef.current;
-        setIsDirty(false);
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  return (
-    <main
-      className="flex h-full w-full min-h-0 flex-col overflow-hidden transition-colors relative"
-      data-theme={theme}
-      data-density={density}
-      style={{
-        background: 'var(--ov-bg)',
-        color: 'var(--ov-text)',
-      }}
-    >
-      {/* 视图主体容器 (非 Markdown 格式由驱动自包含 Studio 工具栏完全掌控，消除外壳重复顶栏) */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden h-full w-full">
-        <ViewerRenderer
-          file={{ ...file, content: currentContent }}
-          files={[{ ...file, content: currentContent }]}
-          mode="preview"
-          theme={theme}
-          density={density}
-          onContentChange={persistContent}
-          onOpenInEditor={vscode ? () => vscode.postMessage({ type: 'open-source', path: file.path }) : undefined}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
-          onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
-        />
-      </div>
-
-      {/* 悬浮保存状态提示胶囊 (仅在存在未落盘修改时优雅浮现，杜绝挤占顶部视口) */}
-      {vscode && isDirty && (
-        <div
-          className="absolute bottom-5 right-5 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg border backdrop-blur-md text-xs select-none"
-          style={{
-            background: 'var(--ov-surface-header)',
-            borderColor: 'var(--ov-border)',
-            color: 'var(--ov-text)',
-            boxShadow: 'var(--ov-shadow, 0 4px 14px rgba(0, 0, 0, 0.25))',
-          }}
-        >
-          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
-          <span className="text-amber-500 font-medium">存在未落盘修改</span>
-          <button
-            onClick={handleSaveImmediate}
-            disabled={saveStatus === 'saving'}
-            className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-full text-xs font-medium cursor-pointer shadow-xs transition disabled:opacity-50"
-            title="立即保存文件 (Ctrl+S)"
-          >
-            {saveStatus === 'saving' ? (
-              <Loader2 size={12} className="animate-spin shrink-0" />
-            ) : (
-              <Save size={12} className="shrink-0" />
-            )}
-            <span>保存</span>
-          </button>
-        </div>
-      )}
-
-      <KeyboardShortcutsModal
-        isOpen={isShortcutsModalOpen}
-        onClose={() => setIsShortcutsModalOpen(false)}
-      />
-
-      <React.Suspense fallback={null}>
-        {isSettingsModalOpen && (
-          <WorkbenchSettingsModal
-            isOpen={isSettingsModalOpen}
-            onClose={() => setIsSettingsModalOpen(false)}
-            settings={settings}
-            onSettingsChange={handleSettingsChange}
-            initialTab="appearance"
-          />
-        )}
-      </React.Suspense>
-    </main>
+    </ViewerConfigProvider>
   );
 };
 
@@ -418,16 +224,6 @@ const MarkdownPluginView: React.FC<{
     });
   }, []);
   const [zoom, setZoom] = useState(initialSettings.zoom ?? 1);
-  const [copied, setCopied] = useState(false);
-  const [copiedSection, setCopiedSection] = useState(false);
-  const [copiedRich, setCopiedRich] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [matchCount, setMatchCount] = useState<number>(0);
-  const [activeMatchIndex, setActiveMatchIndex] = useState<number>(-1);
-  const [searchGroups, setSearchGroups] = useState<Map<string, DocumentSectionSearchMatch[]>>(() => new Map());
-  const [replaceText, setReplaceText] = useState('');
-  const [showReplace, setShowReplace] = useState(false);
-  const [matchCase, setMatchCase] = useState(false);
   const [contentWidth, setContentWidth] = useState<ContentWidthMode>(initialSettings.contentWidth || 'standard');
   const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize || 15);
   const [focusMode, setFocusMode] = useState(false);
@@ -528,6 +324,78 @@ const MarkdownPluginView: React.FC<{
     autoScrollSpeed,
   });
 
+  const activeFile = useMemo(
+    () => ({
+      ...file,
+      content: documentContent || '',
+      size: new TextEncoder().encode(documentContent || '').length,
+      lastModified: Date.now(),
+      isModified: true,
+    }),
+    [file, documentContent]
+  );
+
+  const viewerFiles = useMemo(
+    () => [activeFile, ...(file?.relatedFiles || []), ...INITIAL_FILES],
+    [activeFile, file?.relatedFiles]
+  );
+
+  // 搜索关键字高亮与变色联动、单处/全部替换 (抽离至 useDocumentSearch hook)
+  const {
+    searchText,
+    setSearchText,
+    replaceText,
+    setReplaceText,
+    showReplace,
+    setShowReplace,
+    matchCase,
+    setMatchCase,
+    matchCount,
+    setMatchCount,
+    activeMatchIndex,
+    setActiveMatchIndex,
+    searchGroups,
+    handleFindText,
+    handleSelectMatch,
+    handleReplaceSingle,
+    handleReplaceAll,
+    handleRenderComplete,
+  } = useDocumentSearch({
+    documentContent,
+    setDocumentContent,
+    headings,
+    getSearchCanvas,
+    toolbarVisible,
+    setOutlineOpen,
+    onContentChange,
+    vscode,
+    filePath: activeFile.path,
+  });
+
+  // 复制与文档导出 (抽离至 useDocumentExport hook)
+  const {
+    copied,
+    copiedSection,
+    copiedRich,
+    isExportingWord,
+    handleCopyRawMarkdown,
+    handleCopyCurrentSection,
+    handleCopyRichText,
+    handleExportHtml,
+    handlePrint,
+    handleExportWord,
+    runWithEagerMount,
+  } = useDocumentExport({
+    fileName: file.name,
+    documentContent,
+    headings,
+    activeHeadingIndex,
+    getSearchCanvas,
+    scrollRef,
+    vscode,
+    setPrintEagerMount,
+  });
+
   const eagerMountBlocks = Boolean(searchText.trim()) || printEagerMount || presentationMode;
 
   useEffect(() => {
@@ -600,264 +468,7 @@ const MarkdownPluginView: React.FC<{
     });
   }, []);
 
-  const activeFile = useMemo(
-    () => ({
-      ...file,
-      content: documentContent || '',
-      size: new TextEncoder().encode(documentContent || '').length,
-      lastModified: Date.now(),
-      isModified: true,
-    }),
-    [file, documentContent]
-  );
 
-  const viewerFiles = useMemo(
-    () => [activeFile, ...(file?.relatedFiles || []), ...INITIAL_FILES],
-    [activeFile, file?.relatedFiles]
-  );
-
-  // 搜索关键字高亮与变色联动（仅做高亮标注，绝不打断用户滚动）
-  useEffect(() => {
-    const canvas = getSearchCanvas();
-    if (!searchText.trim()) {
-      clearSearchHighlights(canvas);
-      setMatchCount(0);
-      setActiveMatchIndex(-1);
-      setSearchGroups(new Map());
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      const target = getSearchCanvas();
-      const count = highlightSearchMatches(target, searchText, { caseSensitive: matchCase });
-      setMatchCount(count);
-      if (count > 0) {
-        setActiveMatchIndex(0);
-        activateMatch(target, 0, false); // 仅高亮当前匹配项，不滚动视口
-        setOutlineOpen(true); // 搜索命中时自动展开大纲热力导航面板
-        const aggRes = aggregateSearchMatchesByDocumentToc(target, headings);
-        setSearchGroups(aggRes.groups);
-      } else {
-        setActiveMatchIndex(-1);
-        setSearchGroups(new Map());
-      }
-    }, 180);
-
-    return () => clearTimeout(timer);
-  }, [searchText, headings, matchCase, getSearchCanvas]);
-
-  // 工具栏显隐等无关重渲染后，若 <mark> 被冲掉则立即补回（不滚动）
-  useLayoutEffect(() => {
-    if (!searchText.trim()) return;
-    const canvas = getSearchCanvas();
-    if (!canvas) return;
-    if (canvas.querySelectorAll('mark.ov-search-match').length > 0) return;
-    const count = highlightSearchMatches(canvas, searchText, { caseSensitive: matchCase });
-    setMatchCount(count);
-    if (count > 0) {
-      setActiveMatchIndex(prev => {
-        const next = Math.min(prev < 0 ? 0 : prev, count - 1);
-        activateMatch(canvas, next, false);
-        return next;
-      });
-    } else {
-      setActiveMatchIndex(-1);
-    }
-  }, [searchText, toolbarVisible, getSearchCanvas]);
-
-  // 渲染完成后立即重新注入搜索高亮，防止正文 HTML 刷新导致 <mark> 节点丢失（不触发视口滚动）
-  const handleRenderComplete = useCallback(() => {
-    if (!searchText.trim()) return;
-    // 双 rAF：等待 React commit + 浏览器布局完成后再注入
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const canvas = getSearchCanvas();
-        const count = highlightSearchMatches(canvas, searchText, { caseSensitive: matchCase });
-        setMatchCount(count);
-        setActiveMatchIndex(prev => {
-          const next = Math.min(prev < 0 ? 0 : prev, Math.max(count - 1, 0));
-          if (count > 0) activateMatch(canvas, next, false);
-          return count > 0 ? next : -1;
-        });
-        if (count > 0) {
-          const aggRes = aggregateSearchMatchesByDocumentToc(canvas, headings);
-          setSearchGroups(aggRes.groups);
-        } else {
-          setSearchGroups(new Map());
-        }
-      });
-    });
-  }, [searchText, headings, getSearchCanvas]);
-
-  // 搜索前进/后退导航（用户主动按键/点击触发，平滑滚动至目标项）
-  const handleFindText = useCallback((backwards = false) => {
-    if (!searchText.trim()) return;
-    const canvas = getSearchCanvas();
-    if (!canvas) return;
-
-    let currentCount = matchCount;
-    if (currentCount === 0 || canvas.querySelectorAll('mark.ov-search-match').length === 0) {
-      currentCount = highlightSearchMatches(canvas, searchText);
-      setMatchCount(currentCount);
-    }
-    if (currentCount === 0) return;
-
-    setActiveMatchIndex(prev => {
-      let nextIndex = backwards ? prev - 1 : prev + 1;
-      if (nextIndex < 0) nextIndex = currentCount - 1;
-      if (nextIndex >= currentCount) nextIndex = 0;
-      activateMatch(canvas, nextIndex, true);
-      return nextIndex;
-    });
-  }, [searchText, matchCount, getSearchCanvas]);
-
-  // 点击大纲中的搜索匹配卡片，直接高亮并精准跳转到对应位置
-  const handleSelectMatch = useCallback((targetMatchIndex: number) => {
-    const canvas = getSearchCanvas();
-    if (!canvas) return;
-    setActiveMatchIndex(targetMatchIndex);
-    activateMatch(canvas, targetMatchIndex, true);
-  }, [getSearchCanvas]);
-
-  // Markdown 预览态单处替换
-  const handleReplaceSingle = useCallback(() => {
-    if (!searchText.trim() || matchCount === 0) return;
-    const occurrences: Array<{ start: number; end: number }> = [];
-    const target = matchCase ? documentContent : documentContent.toLowerCase();
-    const query = matchCase ? searchText : searchText.toLowerCase();
-    let pos = 0;
-    while (pos < target.length) {
-      const idx = target.indexOf(query, pos);
-      if (idx === -1) break;
-      occurrences.push({ start: idx, end: idx + query.length });
-      pos = idx + Math.max(1, query.length);
-    }
-    if (occurrences.length === 0) return;
-
-    const targetIdx = activeMatchIndex >= 0 && activeMatchIndex < occurrences.length ? activeMatchIndex : 0;
-    const match = occurrences[targetIdx];
-    const newContent = documentContent.substring(0, match.start) + replaceText + documentContent.substring(match.end);
-
-    setDocumentContent(newContent);
-    onContentChange?.(newContent);
-    if (vscode) {
-      vscode.postMessage({ type: 'document-change', path: activeFile.path, content: newContent });
-    }
-  }, [searchText, replaceText, matchCase, matchCount, activeMatchIndex, documentContent, onContentChange, vscode, activeFile.path]);
-
-  // Markdown 预览态全部替换
-  const handleReplaceAll = useCallback(() => {
-    if (!searchText.trim() || matchCount === 0) return;
-    const occurrences: Array<{ start: number; end: number }> = [];
-    const target = matchCase ? documentContent : documentContent.toLowerCase();
-    const query = matchCase ? searchText : searchText.toLowerCase();
-    let pos = 0;
-    while (pos < target.length) {
-      const idx = target.indexOf(query, pos);
-      if (idx === -1) break;
-      occurrences.push({ start: idx, end: idx + query.length });
-      pos = idx + Math.max(1, query.length);
-    }
-    if (occurrences.length === 0) return;
-
-    let newContent = documentContent;
-    for (let i = occurrences.length - 1; i >= 0; i--) {
-      const m = occurrences[i];
-      newContent = newContent.substring(0, m.start) + replaceText + newContent.substring(m.end);
-    }
-
-    setDocumentContent(newContent);
-    onContentChange?.(newContent);
-    if (vscode) {
-      vscode.postMessage({ type: 'document-change', path: activeFile.path, content: newContent });
-    }
-  }, [searchText, replaceText, matchCase, matchCount, documentContent, onContentChange, vscode, activeFile.path]);
-
-  // Copy operations
-  const handleCopyRawMarkdown = async () => {
-    await navigator.clipboard.writeText(documentContent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
-  };
-
-  const handleCopyCurrentSection = async () => {
-    const sectionText = extractSectionContent(documentContent, headings, activeHeadingIndex);
-    await navigator.clipboard.writeText(sectionText);
-    setCopiedSection(true);
-    setTimeout(() => setCopiedSection(false), 1600);
-  };
-
-  const handleCopyRichText = async () => {
-    const canvas = getSearchCanvas();
-    if (!canvas) return;
-    try {
-      const html = canvas.innerHTML;
-      const blob = new Blob([html], { type: 'text/html' });
-      const textBlob = new Blob([documentContent], { type: 'text/plain' });
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/html': blob,
-          'text/plain': textBlob,
-        }),
-      ]);
-      setCopiedRich(true);
-      setTimeout(() => setCopiedRich(false), 1600);
-    } catch {
-      await handleCopyRawMarkdown();
-    }
-  };
-
-  const [isExportingWord, setIsExportingWord] = useState(false);
-
-  const runWithEagerMount = useCallback((action: () => void | Promise<void>) => {
-    setPrintEagerMount(true);
-    window.setTimeout(() => {
-      void Promise.resolve()
-        .then(action)
-        .finally(() => setPrintEagerMount(false));
-    }, 120);
-  }, []);
-
-  const handleExportHtml = () => {
-    runWithEagerMount(() => {
-      const canvas = getSearchCanvas();
-      if (!canvas) return;
-      exportToPortableHtml(file.name, canvas);
-    });
-  };
-
-  const handlePrint = () => {
-    if (vscode) {
-      runWithEagerMount(() => {
-        const canvas = getSearchCanvas() || (scrollRef.current as HTMLElement | null);
-        if (!canvas) {
-          void requestPrintHtml(file.name, '<!DOCTYPE html><html><body><p>无可打印内容</p></body></html>', {
-            vscode,
-          });
-          return;
-        }
-        const html = buildPortableHtml(file.name, canvas);
-        requestPrintHtml(file.name, html, { vscode });
-      });
-      return;
-    }
-    window.print();
-  };
-
-  const handleExportWord = () => {
-    runWithEagerMount(async () => {
-      const canvas = getSearchCanvas();
-      if (!canvas) return;
-      try {
-        setIsExportingWord(true);
-        await exportToWordDocument(file.name, canvas);
-      } catch (err) {
-        console.error('Word export error:', err);
-      } finally {
-        setIsExportingWord(false);
-      }
-    });
-  };
 
   const handleCycleWidth = () => {
     const next: Record<ContentWidthMode, ContentWidthMode> = {

@@ -44,7 +44,8 @@ export type CommandId =
   | `layer.${string}`
   | `select.${string}`
   | `history.${string}`
-  | `tool.${string}`;
+  | `tool.${string}`
+  | `text.${string}`;
 
 /** 命令参数（JSON 风格；具体 schema 由各命令定义）。 */
 export type CommandParams = Readonly<Record<string, unknown>>;
@@ -197,6 +198,43 @@ export interface SelectSameParams { readonly predicate: 'fill' | 'stroke' | 'opa
 export interface HistoryUndoParams {}
 export interface HistoryRedoParams {}
 
+export interface ObjectCreatePathParams {
+  readonly layerId?: NodeId;
+  readonly geometry: PathGeometry;
+  readonly appearance?: Appearance;
+  readonly hint?: 'path' | 'rect' | 'circle' | 'ellipse' | 'line' | 'polyline' | 'polygon';
+  readonly name?: string;
+}
+
+export interface ObjectCreateTextParams {
+  readonly layerId?: NodeId;
+  readonly text: string;
+  readonly x: number;
+  readonly y: number;
+  readonly fontSize?: number;
+  readonly fontFamily?: string;
+  readonly textAnchor?: 'start' | 'middle' | 'end';
+  readonly appearance?: Appearance;
+  readonly name?: string;
+}
+
+export interface TextSetTextParams {
+  readonly id: NodeId;
+  readonly text?: string;
+  readonly fontSize?: number;
+  readonly fontFamily?: string;
+  readonly textAnchor?: 'start' | 'middle' | 'end';
+}
+
+export interface PathUpdateAnchorParams {
+  readonly id: NodeId;
+  readonly subPathIndex?: number;
+  readonly anchorIndex: number;
+  readonly point?: { readonly x: number; readonly y: number };
+  readonly handleIn?: { readonly x: number; readonly y: number } | null;
+  readonly handleOut?: { readonly x: number; readonly y: number } | null;
+}
+
 // --- tool.* ---
-export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen'; }
+export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'text'; }
 export interface ToolSetOptionParams { readonly key: string; readonly value: unknown; }

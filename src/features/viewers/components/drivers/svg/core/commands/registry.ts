@@ -48,6 +48,10 @@ import type {
   SelectSetParams,
   ToolSetActiveParams,
   ParamSpec,
+  ObjectCreatePathParams,
+  ObjectCreateTextParams,
+  TextSetTextParams,
+  PathUpdateAnchorParams,
 } from './types';
 import type {
   AffineTransform,
@@ -57,6 +61,8 @@ import type {
   Fill,
   Node,
   NodeId,
+  PathNode,
+  TextNode,
   Rect,
   Selection,
   Stroke,
@@ -70,6 +76,7 @@ import {
   clonePathGeometry,
   composeTransforms,
   defaultStroke,
+  emptyAppearance,
   emptySelection,
   identityTransform,
   makeGroup,
@@ -184,6 +191,33 @@ const pathClose: CommandHandler = (doc, sel, params) => {
       const subPaths = pathNode.geometry.subPaths.map((sp: any) => ({ ...sp, closed: p.closed }));
       return { ...pathNode, geometry: { ...pathNode.geometry, subPaths } };
     });
+    return ok(next, sel);
+  }) as CommandResult;
+};
+
+const pathUpdateAnchor: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PathUpdateAnchorParams;
+  return withNode('path.updateAnchor', doc, p.id, (n) => {
+    if (n.kind !== 'Path') return badParams('path.updateAnchor', `node ${p.id} is not a Path`);
+    const pathNode = n as PathNode;
+    const subPathIdx = p.subPathIndex ?? 0;
+    const subPaths = pathNode.geometry.subPaths.map((sp, idx) => {
+      if (idx !== subPathIdx) return sp;
+      const anchors = sp.anchors.map((a, aIdx) => {
+        if (aIdx !== p.anchorIndex) return a;
+        return {
+          ...a,
+          point: p.point ? { x: p.point.x, y: p.point.y } : a.point,
+          handleIn: p.handleIn !== undefined ? p.handleIn : a.handleIn,
+          handleOut: p.handleOut !== undefined ? p.handleOut : a.handleOut,
+        };
+      });
+      return { ...sp, anchors };
+    });
+    const next = updateNode(doc, p.id, (node) => ({
+      ...(node as any),
+      geometry: { ...pathNode.geometry, subPaths },
+    }));
     return ok(next, sel);
   }) as CommandResult;
 };
@@ -417,6 +451,74 @@ const objectDistribute: CommandHandler = (doc, sel, params) => {
   return ok(next, sel);
 };
 
+const objectCreatePath: CommandHandler = (doc, _sel, params) => {
+  const p = params as unknown as ObjectCreatePathParams;
+  const targetLayer = p.layerId ?? (doc.layers.length > 0 ? doc.layers[doc.layers.length - 1] : null);
+  if (!targetLayer) return badParams('object.createPath', 'no layer available in document');
+  const pathNode = makePath(
+    0 as NodeId,
+    p.geometry,
+    p.appearance ?? emptyAppearance(),
+    p.hint ?? 'path'
+  );
+  if (p.name) (pathNode as any).name = p.name;
+  const { doc: nextDoc, nodeId } = appendToLayer(doc, targetLayer, pathNode);
+  return ok(nextDoc, selectionWith(nodeId));
+};
+
+const objectCreateText: CommandHandler = (doc, _sel, params) => {
+  const p = params as unknown as ObjectCreateTextParams;
+  const targetLayer = p.layerId ?? (doc.layers.length > 0 ? doc.layers[doc.layers.length - 1] : null);
+  if (!targetLayer) return badParams('object.createText', 'no layer available in document');
+  const textNode: TextNode = {
+    id: 0 as NodeId,
+    kind: 'Text',
+    name: p.name ?? null,
+    transform: identityTransform(),
+    opacity: 1,
+    blend: 'normal',
+    visible: true,
+    locked: false,
+    children: [],
+    text: p.text || '文本',
+    x: p.x,
+    y: p.y,
+    fontSize: p.fontSize ?? 16,
+    fontFamily: p.fontFamily ?? 'system-ui, sans-serif',
+    textAnchor: p.textAnchor ?? 'start',
+    appearance: p.appearance ?? {
+      items: [
+        {
+          kind: 'fill',
+          fill: { type: 'solid', color: '#111827' as Color, opacity: 1 },
+          blend: 'normal',
+          opacity: 1,
+        },
+      ],
+    },
+  };
+  const { doc: nextDoc, nodeId } = appendToLayer(doc, targetLayer, textNode);
+  return ok(nextDoc, selectionWith(nodeId));
+};
+
+const textSetText: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as TextSetTextParams;
+  return withNode('text.setText', doc, p.id, (n) => {
+    if (n.kind !== 'Text') return badParams('text.setText', `node ${p.id} is not a Text`);
+    const next = updateNode(doc, p.id, (node) => {
+      const tn = node as TextNode;
+      return {
+        ...tn,
+        text: p.text !== undefined ? p.text : tn.text,
+        fontSize: p.fontSize !== undefined ? p.fontSize : tn.fontSize,
+        fontFamily: p.fontFamily !== undefined ? p.fontFamily : tn.fontFamily,
+        textAnchor: p.textAnchor !== undefined ? p.textAnchor : tn.textAnchor,
+      };
+    });
+    return ok(next, sel);
+  }) as CommandResult;
+};
+
 // ============================================================================
 // 5. paint.* 命令
 // ============================================================================
@@ -427,7 +529,7 @@ const paintSetFill: CommandHandler = (doc, sel, params) => {
   for (const id of p.ids) {
     if (!next.nodes.has(id)) return noNode('paint.setFill', id);
     next = updateNode(next, id, (n) => {
-      if (n.kind !== 'Path' && n.kind !== 'Group') return n;
+      if (n.kind !== 'Path' && n.kind !== 'Group' && n.kind !== 'Text') return n;
       const items = (n as any).appearance.items.map((it: any) =>
         it.kind === 'fill' ? { ...it, fill: cloneFill(p.fill) } : it
       );
@@ -607,9 +709,13 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'path.set', title: '设置路径几何', undoLabel: '修改路径', params: pathParamsSpec('set'), handler: pathSet });
   reg({ id: 'path.insertAnchor', title: '插入锚点', undoLabel: '插入锚点', params: pathParamsSpec('insertAnchor'), handler: pathInsertAnchor });
   reg({ id: 'path.deleteAnchor', title: '删除锚点', undoLabel: '删除锚点', params: pathParamsSpec('deleteAnchor'), handler: pathDeleteAnchor });
+  reg({ id: 'path.updateAnchor', title: '更新锚点', undoLabel: '移动锚点', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathUpdateAnchor });
   reg({ id: 'path.close', title: '开闭路径', undoLabel: '开闭路径', params: pathParamsSpec('close'), handler: pathClose });
 
   // object.*
+  reg({ id: 'object.createPath', title: '创建形状', undoLabel: '创建形状', params: [{ key: 'geometry', type: 'object', required: true, description: '几何' }], handler: objectCreatePath });
+  reg({ id: 'object.createText', title: '创建文本', undoLabel: '创建文本', params: [{ key: 'text', type: 'string', required: true, description: '文本内容' }], handler: objectCreateText });
+  reg({ id: 'text.setText', title: '编辑文本', undoLabel: '编辑文本', params: [{ key: 'id', type: 'nodeId', required: true, description: '文本 ID' }], handler: textSetText });
   reg({ id: 'object.move', title: '移动图元', undoLabel: '移动', params: idsDeltaParams(), handler: objectMove });
   reg({ id: 'object.scale', title: '缩放图元', undoLabel: '缩放', params: idsOriginFactorParams(), handler: objectScale });
   reg({ id: 'object.rotate', title: '旋转图元', undoLabel: '旋转', params: idsOriginAngleParams(), handler: objectRotate });
@@ -647,7 +753,7 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   // history.* / tool.*
   reg({ id: 'history.undo', title: '撤销', undoLabel: '撤销', params: [], handler: historyUndo });
   reg({ id: 'history.redo', title: '重做', undoLabel: '重做', params: [], handler: historyRedo });
-  reg({ id: 'tool.setActive', title: '切换工具', undoLabel: '切换工具', params: [{ key: 'tool', type: 'enum', required: true, values: ['select', 'node', 'pen'], description: '工具' }], handler: toolSetActive });
+  reg({ id: 'tool.setActive', title: '切换工具', undoLabel: '切换工具', params: [{ key: 'tool', type: 'enum', required: true, values: ['select', 'node', 'pen', 'rect', 'ellipse', 'line', 'text'], description: '工具' }], handler: toolSetActive });
 
   return map;
 }

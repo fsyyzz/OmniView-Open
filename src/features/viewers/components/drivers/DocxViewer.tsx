@@ -302,41 +302,54 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handlePrint, viewMode, currentPage, handleJumpToPage]);
 
-  // 解析并载入 DOCX 数据
-  const loadDocument = useCallback(async () => {
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const loadDocument = useCallback(() => setReloadNonce(n => n + 1), []);
+
+  // 解析并载入 DOCX 数据 (含并发竞态防护与过时结果丢弃)
+  useEffect(() => {
+    let isCancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      let rawData: ArrayBuffer | Uint8Array | string = content || '';
 
-      if (binaryUrl) {
-        if (binaryUrl.startsWith('data:') || /^[A-Za-z0-9+/=]/.test(binaryUrl)) {
-          rawData = base64ToBytes(binaryUrl);
-        } else {
-          try {
-            const resp = await fetch(binaryUrl);
-            rawData = await resp.arrayBuffer();
-          } catch {
+    const run = async () => {
+      try {
+        let rawData: ArrayBuffer | Uint8Array | string = content || '';
+
+        if (binaryUrl) {
+          if (binaryUrl.startsWith('data:') || /^[A-Za-z0-9+/=]/.test(binaryUrl)) {
             rawData = base64ToBytes(binaryUrl);
+          } else {
+            try {
+              const resp = await fetch(binaryUrl);
+              rawData = await resp.arrayBuffer();
+            } catch {
+              rawData = base64ToBytes(binaryUrl);
+            }
           }
         }
-      }
 
-      const parsed = await parseDocx(rawData);
-      setDocData(parsed);
-      if (parsed.metadata?.pageCount && parsed.metadata.pageCount > 0) {
-        setTotalPages(parsed.metadata.pageCount);
+        const parsed = await parseDocx(rawData);
+        if (!isCancelled) {
+          setDocData(parsed);
+          if (parsed.metadata?.pageCount && parsed.metadata.pageCount > 0) {
+            setTotalPages(parsed.metadata.pageCount);
+          }
+        }
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          console.error('[DocxViewer] 解析失败:', err);
+          setError(err instanceof Error ? err.message : 'DOCX 文档解析异常');
+          setLoading(false);
+        }
       }
-    } catch (err: unknown) {
-      console.error('[DocxViewer] 解析失败:', err);
-      setError(err instanceof Error ? err.message : 'DOCX 文档解析异常');
-      setLoading(false);
-    }
-  }, [content, binaryUrl]);
+    };
 
-  useEffect(() => {
-    loadDocument();
-  }, [loadDocument]);
+    void run();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [content, binaryUrl, reloadNonce]);
 
   // 当 docData 解析完毕后，渲染至 DOM 挂载容器并提取大纲标题
   useEffect(() => {

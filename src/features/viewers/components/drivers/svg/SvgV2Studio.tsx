@@ -17,8 +17,12 @@ import {
   Redo2,
   Plus,
   MousePointer2,
+  CircleDot,
   PenLine,
+  Square,
   Circle,
+  Minus,
+  Type,
 } from 'lucide-react';
 import {
   decideBackup,
@@ -122,15 +126,20 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
   return (
     <div className="flex h-full w-full bg-[var(--ov-bg)] text-[var(--ov-fg)]">
       {/* 左侧工具栏 */}
-      <aside className="flex w-12 flex-col items-center border-r border-[var(--ov-border)] bg-[var(--ov-panel)] py-2">
-        <ToolButton icon={<MousePointer2 size={18} />} active={activeToolId === 'select'} label="选择" onClick={() => setActiveTool('select')} />
-        <ToolButton icon={<Circle size={18} />} active={activeToolId === 'node'} label="节点" onClick={() => setActiveTool('node')} />
-        <ToolButton icon={<PenLine size={18} />} active={activeToolId === 'pen'} label="钢笔" onClick={() => setActiveTool('pen')} />
-        <div className="my-2 h-px w-8 bg-[var(--ov-border)]" />
-        <ToolButton icon={<Undo2 size={18} />} active={false} label="撤销" disabled={!canUndo} onClick={undo} />
-        <ToolButton icon={<Redo2 size={18} />} active={false} label="重做" disabled={!canRedo} onClick={redo} />
-        <div className="my-2 h-px w-8 bg-[var(--ov-border)]" />
-        <ToolButton icon={<Plus size={18} />} active={false} label="新建图层" onClick={() => execute('layer.add', {})} />
+      <aside className="flex w-12 flex-col items-center border-r border-[var(--ov-border)] bg-[var(--ov-panel)] py-2 select-none">
+        <ToolButton icon={<MousePointer2 size={17} />} active={activeToolId === 'select'} label="选择工具 (V)" onClick={() => setActiveTool('select')} />
+        <ToolButton icon={<CircleDot size={17} />} active={activeToolId === 'node'} label="直接选区 / 锚点编辑 (A)" onClick={() => setActiveTool('node')} />
+        <ToolButton icon={<PenLine size={17} />} active={activeToolId === 'pen'} label="钢笔工具 (P)" onClick={() => setActiveTool('pen')} />
+        <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
+        <ToolButton icon={<Square size={17} />} active={activeToolId === 'rect'} label="矩形工具 (R)" onClick={() => setActiveTool('rect')} />
+        <ToolButton icon={<Circle size={17} />} active={activeToolId === 'ellipse'} label="椭圆工具 (O)" onClick={() => setActiveTool('ellipse')} />
+        <ToolButton icon={<Minus size={17} />} active={activeToolId === 'line'} label="直线工具 (L)" onClick={() => setActiveTool('line')} />
+        <ToolButton icon={<Type size={17} />} active={activeToolId === 'text'} label="文本工具 (T)" onClick={() => setActiveTool('text')} />
+        <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
+        <ToolButton icon={<Undo2 size={17} />} active={false} label="撤销 (Ctrl+Z)" disabled={!canUndo} onClick={undo} />
+        <ToolButton icon={<Redo2 size={17} />} active={false} label="重做 (Ctrl+Y)" disabled={!canRedo} onClick={redo} />
+        <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
+        <ToolButton icon={<Plus size={17} />} active={false} label="新建图层" onClick={() => execute('layer.add', {})} />
       </aside>
 
       {/* 中央画布 */}
