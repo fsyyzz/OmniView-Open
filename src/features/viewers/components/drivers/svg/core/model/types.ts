@@ -196,6 +196,8 @@ export interface PathNode extends NodeBase {
   readonly appearance: Appearance;
   /** 导出时映射回 SVG 标签：`path` / `rect` / `circle` / `ellipse` / `line` / `polyline` / `polygon`。 */
   readonly primitiveHint: 'path' | 'rect' | 'circle' | 'ellipse' | 'line' | 'polyline' | 'polygon';
+  readonly markerStart?: string;
+  readonly markerEnd?: string;
 }
 
 export interface TextNode extends NodeBase {

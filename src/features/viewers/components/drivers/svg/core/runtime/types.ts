@@ -118,6 +118,8 @@ export interface Runtime {
   dispatchKey(key: ToolKey, mods: { readonly shift: boolean; readonly alt: boolean; readonly meta: boolean; readonly ctrl: boolean }): void;
   /** 当前工具的画布 overlay（框选手柄等）；UI 每次渲染读取。 */
   overlay(): ReadonlyArray<OverlayElement>;
+  /** 当前工具期望的光标样式（如 pointer / crosshair / nwse-resize 等）。 */
+  cursor(): string;
 
   // ---- 直接命令 ----
   /** 等价于把 [Exec] 灌入 handleActions（单步命令的便捷方法）。 */

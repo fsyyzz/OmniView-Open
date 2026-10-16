@@ -23,6 +23,7 @@ import {
   type Runtime,
   type Selection,
   type ToolId,
+  getTool,
 } from './core';
 import { useSvgV2PointerInput } from './useSvgV2PointerInput';
 import { useSvgV2Viewport } from './useSvgV2Viewport';
@@ -148,10 +149,16 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
         />,
       );
     }
-    return out;
-  }, [doc, selection.nodeIds]);
+    return activeToolId === 'select' || activeToolId === 'node' ? [] : out;
+  }, [doc, selection.nodeIds, activeToolId]);
 
-  const cursor = activeToolId === 'pen' ? 'crosshair' : 'default';
+  const cursor = useMemo(() => {
+    try {
+      return runtime.cursor();
+    } catch {
+      return 'default';
+    }
+  }, [runtime, activeToolId, selection, doc]);
 
   return (
     <div
@@ -187,6 +194,14 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
           onPointerCancel={handlePointerCancel}
           onKeyDown={handleKeyDown}
         >
+          <defs>
+            <marker id="ov-marker-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" stroke="context-stroke" />
+            </marker>
+            <marker id="ov-marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <circle cx="5" cy="5" r="4" fill="context-stroke" />
+            </marker>
+          </defs>
           {defsHtml ? <g dangerouslySetInnerHTML={{ __html: defsHtml }} /> : null}
           {elements}
           {selectionBoxes}
@@ -378,6 +393,8 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
         strokeDasharray={strokeDash}
         strokeLinecap={strokeCap}
         strokeLinejoin={strokeJoin}
+        markerStart={node.markerStart === 'arrow' ? 'url(#ov-marker-arrow)' : node.markerStart === 'dot' ? 'url(#ov-marker-dot)' : undefined}
+        markerEnd={node.markerEnd === 'arrow' ? 'url(#ov-marker-arrow)' : node.markerEnd === 'dot' ? 'url(#ov-marker-dot)' : undefined}
         transform={transform}
         opacity={node.opacity}
         style={style ?? { cursor: 'default' }}

@@ -12,11 +12,11 @@ import type { AffineTransform, Document, Node, NodeId, Rect } from './types';
 import { applyTransform } from './document';
 import { getBoundingBox } from './path';
 
-/** 对齐模式（与 `object.align` 命令参数一致）。 */
-export type AlignMode = 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom';
+/** 对齐模式（与 `object.align` 命令参数一致，支持 centerH/center 及 centerV/middle 别名）。 */
+export type AlignMode = 'left' | 'centerH' | 'center' | 'right' | 'top' | 'centerV' | 'middle' | 'bottom';
 
-/** 分布轴。 */
-export type DistributeAxis = 'h' | 'v';
+/** 分布轴（支持 h/horizontal 与 v/vertical 别名）。 */
+export type DistributeAxis = 'h' | 'v' | 'horizontal' | 'vertical';
 
 // ============================================================================
 // 1. 矩形几何
@@ -139,12 +139,14 @@ export function alignDelta(rect: Rect, target: Rect, align: AlignMode): { x: num
     case 'left':
       return { x: target.x - rect.x, y: 0 };
     case 'centerH':
+    case 'center':
       return { x: target.x + target.width / 2 - (rect.x + rect.width / 2), y: 0 };
     case 'right':
       return { x: target.x + target.width - (rect.x + rect.width), y: 0 };
     case 'top':
       return { x: 0, y: target.y - rect.y };
     case 'centerV':
+    case 'middle':
       return { x: 0, y: target.y + target.height / 2 - (rect.y + rect.height / 2) };
     case 'bottom':
       return { x: 0, y: target.y + target.height - (rect.y + rect.height) };

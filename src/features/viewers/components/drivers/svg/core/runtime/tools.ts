@@ -33,7 +33,7 @@ import {
   subPath,
   anchorCorner,
 } from '../model/document';
-import { localNodeBBox } from '../model/bbox';
+import { localNodeBBox, nodeBBox, unionRects } from '../model/bbox';
 import {
   createRectGeometry,
   createEllipseGeometry,
@@ -44,6 +44,69 @@ import {
 // Select Tool
 // ============================================================================
 
+interface TransformHandleState {
+  readonly kind: 'scale' | 'rotate';
+  readonly handleKey: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rot';
+  readonly origin: Vec2;
+  readonly startBBox: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly startPoint: Vec2;
+  readonly startAngle?: number;
+  readonly ids: ReadonlyArray<NodeId>;
+}
+
+let activeTransformState: TransformHandleState | null = null;
+
+function getSelectionBBox(doc: Document, ids: ReadonlyArray<NodeId>): { x: number; y: number; width: number; height: number } | null {
+  const boxes: { x: number; y: number; width: number; height: number }[] = [];
+  for (const id of ids) {
+    const b = nodeBBox(doc, id);
+    if (b) boxes.push(b);
+  }
+  return unionRects(boxes);
+}
+
+function getTransformHandles(bbox: { x: number; y: number; width: number; height: number }, zoom: number) {
+  const rotDist = 20 / Math.max(zoom, 1e-4);
+  const cx = bbox.x + bbox.width / 2;
+  const cy = bbox.y + bbox.height / 2;
+  return {
+    nw: { x: bbox.x, y: bbox.y, opposite: { x: bbox.x + bbox.width, y: bbox.y + bbox.height } },
+    n: { x: cx, y: bbox.y, opposite: { x: cx, y: bbox.y + bbox.height } },
+    ne: { x: bbox.x + bbox.width, y: bbox.y, opposite: { x: bbox.x, y: bbox.y + bbox.height } },
+    e: { x: bbox.x + bbox.width, y: cy, opposite: { x: bbox.x, y: cy } },
+    se: { x: bbox.x + bbox.width, y: bbox.y + bbox.height, opposite: { x: bbox.x, y: bbox.y } },
+    s: { x: cx, y: bbox.y + bbox.height, opposite: { x: cx, y: bbox.y } },
+    sw: { x: bbox.x, y: bbox.y + bbox.height, opposite: { x: bbox.x + bbox.width, y: bbox.y } },
+    w: { x: bbox.x, y: cy, opposite: { x: bbox.x + bbox.width, y: cy } },
+    rot: { x: cx, y: bbox.y - rotDist, center: { x: cx, y: cy } },
+  };
+}
+
+function hitTestHandles(
+  bbox: { x: number; y: number; width: number; height: number },
+  pt: Vec2,
+  zoom: number,
+): { key: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rot'; origin: Vec2 } | null {
+  const handles = getTransformHandles(bbox, zoom);
+  const tol = 8 / Math.max(zoom, 1e-4);
+  const tol2 = tol * tol;
+  const rdx = pt.x - handles.rot.x;
+  const rdy = pt.y - handles.rot.y;
+  if (rdx * rdx + rdy * rdy <= tol2) {
+    return { key: 'rot', origin: handles.rot.center };
+  }
+  const keys = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
+  for (const k of keys) {
+    const h = handles[k];
+    const dx = pt.x - h.x;
+    const dy = pt.y - h.y;
+    if (dx * dx + dy * dy <= tol2) {
+      return { key: k, origin: h.opposite };
+    }
+  }
+  return null;
+}
+
 const selectTool: Tool = {
   id: 'select',
   pointer(ctx, event) {
@@ -53,14 +116,57 @@ const selectTool: Tool = {
     return handleCommonKeys(ctx, key, mods);
   },
   overlay(ctx) {
-    return marqueeOverlay(ctx);
+    return selectOverlay(ctx);
   },
-  cursor() { return 'default'; },
+  cursor() {
+    if (activeTransformState) {
+      if (activeTransformState.kind === 'rotate') return 'grabbing';
+      const k = activeTransformState.handleKey;
+      if (k === 'nw' || k === 'se') return 'nwse-resize';
+      if (k === 'ne' || k === 'sw') return 'nesw-resize';
+      if (k === 'n' || k === 's') return 'ns-resize';
+      if (k === 'e' || k === 'w') return 'ew-resize';
+    }
+    return 'default';
+  },
 };
 
-/** 点击选中 / 拖拽移动 / 空白框选的手势动作序列（select 与 node 共用）。 */
+/** 点击选中 / 拖拽移动 / 空白框选 / 8 向变形缩放与旋转的手势动作序列。 */
 function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArray<Action> {
   if (event.kind === 'down') {
+    if (ctx.selection.nodeIds.length > 0) {
+      const selBBox = getSelectionBBox(ctx.doc, ctx.selection.nodeIds);
+      if (selBBox) {
+        const hitH = hitTestHandles(selBBox, event.point, ctx.zoom);
+        if (hitH) {
+          if (hitH.key === 'rot') {
+            const center = hitH.origin;
+            const startAngle = Math.atan2(event.point.y - center.y, event.point.x - center.x);
+            activeTransformState = {
+              kind: 'rotate',
+              handleKey: 'rot',
+              origin: center,
+              startBBox: selBBox,
+              startPoint: event.point,
+              startAngle,
+              ids: [...ctx.selection.nodeIds],
+            };
+            return [{ kind: 'Begin', label: '旋转' }];
+          } else {
+            activeTransformState = {
+              kind: 'scale',
+              handleKey: hitH.key,
+              origin: hitH.origin,
+              startBBox: selBBox,
+              startPoint: event.point,
+              ids: [...ctx.selection.nodeIds],
+            };
+            return [{ kind: 'Begin', label: '缩放' }];
+          }
+        }
+      }
+    }
+
     const hit = hitTestTopmost(ctx.doc, event.point, 5 * Math.max(ctx.zoom, 1e-6));
     const additive = event.mods.shift || event.mods.meta || event.mods.ctrl;
     if (hit == null) {
@@ -74,39 +180,153 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       { kind: 'Begin', label: '移动', gestureMode: 'move' },
     ];
   }
-  if (event.kind === 'drag' && ctx.gesture) {
-    const g = ctx.gesture;
-    if (g.kind === 'move') {
-      if (g.ids.length === 0) return [];
-      const delta = { x: event.point.x - g.startPoint.x, y: event.point.y - g.startPoint.y };
-      if (delta.x === 0 && delta.y === 0) return [];
-      return [{ kind: 'Preview', commandId: 'object.move', params: { ids: [...g.ids], delta } }];
+
+  if (event.kind === 'move' || event.kind === 'drag') {
+    if (activeTransformState) {
+      if (activeTransformState.kind === 'scale') {
+        const orig = activeTransformState.origin;
+        const sPt = activeTransformState.startPoint;
+        const cur = event.point;
+        const dx0 = sPt.x - orig.x;
+        const dy0 = sPt.y - orig.y;
+        let fx = Math.abs(dx0) > 1e-4 ? (cur.x - orig.x) / dx0 : 1;
+        let fy = Math.abs(dy0) > 1e-4 ? (cur.y - orig.y) / dy0 : 1;
+        const hk = activeTransformState.handleKey;
+        if (hk === 'e' || hk === 'w') fy = 1;
+        if (hk === 'n' || hk === 's') fx = 1;
+        if (event.mods.shift && (hk === 'nw' || hk === 'ne' || hk === 'se' || hk === 'sw')) {
+          const f = Math.max(Math.abs(fx), Math.abs(fy));
+          fx = Math.sign(fx) * f;
+          fy = Math.sign(fy) * f;
+        }
+        return [
+          {
+            kind: 'Preview',
+            commandId: 'object.scale',
+            params: { ids: [...activeTransformState.ids], origin: orig, factor: { x: fx, y: fy } },
+          },
+        ];
+      } else if (activeTransformState.kind === 'rotate') {
+        const center = activeTransformState.origin;
+        const curAngle = Math.atan2(event.point.y - center.y, event.point.x - center.x);
+        let diffDeg = ((curAngle - (activeTransformState.startAngle ?? 0)) * 180) / Math.PI;
+        if (event.mods.shift) {
+          diffDeg = Math.round(diffDeg / 15) * 15;
+        }
+        return [
+          {
+            kind: 'Preview',
+            commandId: 'object.rotate',
+            params: { ids: [...activeTransformState.ids], origin: center, angleDeg: diffDeg },
+          },
+        ];
+      }
     }
-    const rect = normalizeRect(g.startPoint, event.point);
-    const additive = event.mods.shift || event.mods.meta || event.mods.ctrl;
-    return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive } }];
+
+    if (ctx.gesture) {
+      const g = ctx.gesture;
+      if (g.kind === 'move') {
+        if (g.ids.length === 0) return [];
+        const delta = { x: event.point.x - g.startPoint.x, y: event.point.y - g.startPoint.y };
+        if (delta.x === 0 && delta.y === 0) return [];
+        return [{ kind: 'Preview', commandId: 'object.move', params: { ids: [...g.ids], delta } }];
+      }
+      const rect = normalizeRect(g.startPoint, event.point);
+      const additive = event.mods.shift || event.mods.meta || event.mods.ctrl;
+      return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive } }];
+    }
   }
-  if (event.kind === 'up' && ctx.gesture) {
-    return [{ kind: 'Commit' }];
+
+  if (event.kind === 'up') {
+    if (activeTransformState) {
+      activeTransformState = null;
+      return [{ kind: 'Commit' }];
+    }
+    if (ctx.gesture) {
+      return [{ kind: 'Commit' }];
+    }
   }
   return [];
 }
 
-/** 框选手势的虚线矩形 overlay。 */
 function marqueeOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
   const g = ctx.gesture;
-  if (!g || g.kind !== 'marquee') return [];
-  const rect = normalizeRect(g.startPoint, g.currentPoint);
-  return [
-    {
+  if (g && g.kind === 'marquee') {
+    const rect = normalizeRect(g.startPoint, g.currentPoint);
+    return [
+      {
+        kind: 'rect',
+        rect,
+        stroke: 'var(--ov-accent, #4c9aff)',
+        fill: 'var(--ov-accent-soft, rgba(76,154,255,0.12))',
+        lineWidth: 1 / Math.max(ctx.zoom, 1e-6),
+        dashed: true,
+      },
+    ];
+  }
+  return [];
+}
+
+/** 选区与手势的虚线矩形及 8 向变形手柄 overlay。 */
+function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
+  const g = ctx.gesture;
+  if (g && g.kind === 'marquee') {
+    return marqueeOverlay(ctx);
+  }
+
+  if (ctx.selection.nodeIds.length > 0) {
+    const selBBox = getSelectionBBox(ctx.doc, ctx.selection.nodeIds);
+    if (!selBBox) return [];
+    const overlays: OverlayElement[] = [];
+    const zoom = Math.max(ctx.zoom, 1e-4);
+    const lw = 1 / zoom;
+    const hSize = 7 / zoom;
+
+    // 1. 选中包围盒虚线框
+    overlays.push({
       kind: 'rect',
-      rect,
+      rect: selBBox,
       stroke: 'var(--ov-accent, #4c9aff)',
-      fill: 'var(--ov-accent-soft, rgba(76,154,255,0.12))',
-      lineWidth: 1 / Math.max(ctx.zoom, 1e-6),
+      fill: 'none',
+      lineWidth: lw,
       dashed: true,
-    },
-  ];
+    });
+
+    const handles = getTransformHandles(selBBox, zoom);
+
+    // 2. 旋转手柄连接线与圆圈
+    overlays.push({
+      kind: 'line',
+      from: { x: handles.rot.x, y: selBBox.y },
+      to: handles.rot,
+      stroke: 'var(--ov-accent, #4c9aff)',
+      lineWidth: lw,
+      dashed: false,
+    });
+    overlays.push({
+      kind: 'circle',
+      center: handles.rot,
+      radius: 4.5 / zoom,
+      stroke: 'var(--ov-accent, #4c9aff)',
+      fill: '#ffffff',
+      lineWidth: 1.5 * lw,
+    });
+
+    // 3. 8 个缩放控制方块
+    const keys = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
+    for (const k of keys) {
+      overlays.push({
+        kind: 'handle',
+        center: handles[k],
+        color: 'control',
+        size: hSize,
+      });
+    }
+
+    return overlays;
+  }
+
+  return [];
 }
 
 /** 由起点/终点归一化出正向矩形。 */

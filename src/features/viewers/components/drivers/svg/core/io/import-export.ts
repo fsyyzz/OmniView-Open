@@ -45,8 +45,13 @@ function documentToSvgString(doc: Document, opts: ExportOptions = {}): string {
 
   // <defs> 原样回插（渐变 / clipPath / mask / filter 引用保真）
   const rawDefs = doc.metadata[RAW_DEFS_METADATA_KEY];
-  if (rawDefs && rawDefs.trim().length > 0) {
-    parts.push(`<defs>${rawDefs}</defs>`);
+  let defsContent = rawDefs ?? '';
+  const hasMarkers = Array.from(doc.nodes.values()).some((n) => n.kind === 'Path' && (n.markerStart || n.markerEnd));
+  if (hasMarkers && !defsContent.includes('ov-marker-arrow')) {
+    defsContent += `\n    <marker id="ov-marker-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" stroke="context-stroke" /></marker>\n    <marker id="ov-marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><circle cx="5" cy="5" r="4" fill="context-stroke" /></marker>`;
+  }
+  if (defsContent.trim().length > 0) {
+    parts.push(`<defs>${defsContent}</defs>`);
   }
 
   for (const layerId of visibleLayers) {
@@ -83,6 +88,8 @@ function serializeNodeWithDoc(doc: Document, node: Node, indent: number, minimiz
         `opacity="${node.opacity}"`,
         fill ? serializeFill(fill) : '',
         stroke ? serializeStroke(stroke) : '',
+        node.markerStart ? `marker-start="url(#ov-marker-${node.markerStart})"` : '',
+        node.markerEnd ? `marker-end="url(#ov-marker-${node.markerEnd})"` : '',
         'data-omniview-kind="Path"',
       ].filter(Boolean);
       return `${pad}<path ${attrs.join(' ')} />`;

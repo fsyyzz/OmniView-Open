@@ -391,7 +391,8 @@ it('框选 overlay 存在且为 marquee 手势产物', () => {
   assert.strictEqual(overlay[0].rect.width, 80);
   assert.strictEqual(overlay[0].rect.height, 90);
   rt.dispatchPointer(pointer('up', { x: 80, y: 90 }));
-  assert.strictEqual(rt.overlay().length, 0, '手势结束后 overlay 应清空');
+  const marqueeOverlays = rt.overlay().filter((o) => o.kind === 'rect' && o.fill !== 'none');
+  assert.strictEqual(marqueeOverlays.length, 0, '手势结束后 marquee overlay 应清空');
 });
 
 it('拖拽中 Escape 取消手势：历史不变、文档恢复快照', () => {
@@ -404,8 +405,8 @@ it('拖拽中 Escape 取消手势：历史不变、文档恢复快照', () => {
   rt.dispatchKey('Escape', MODS);
   assert.strictEqual(rt.currentDocument, beforeDoc, 'Escape 应恢复 Begin 快照');
   assert.strictEqual(rt.history.undo.length, beforeLen, '取消不应写历史');
-  const overlayAfter = rt.overlay();
-  assert.strictEqual(overlayAfter.length, 0, '取消后 overlay 应清空');
+  const marqueeOverlaysAfter = rt.overlay().filter((o) => o.kind === 'rect' && o.fill !== 'none');
+  assert.strictEqual(marqueeOverlaysAfter.length, 0, '取消后手势 marquee overlay 应清空');
 });
 
 it('删除选中写 1 条历史', () => {

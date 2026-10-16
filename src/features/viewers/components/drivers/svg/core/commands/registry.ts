@@ -52,6 +52,8 @@ import type {
   ObjectCreateTextParams,
   TextSetTextParams,
   PathUpdateAnchorParams,
+  PathToggleAnchorKindParams,
+  PathSetMarkerParams,
 } from './types';
 import type {
   AffineTransform,
@@ -219,6 +221,57 @@ const pathUpdateAnchor: CommandHandler = (doc, sel, params) => {
       geometry: { ...pathNode.geometry, subPaths },
     }));
     return ok(next, sel);
+  }) as CommandResult;
+};
+
+const pathToggleAnchorKind: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PathToggleAnchorKindParams;
+  return withNode('path.toggleAnchorKind', doc, p.id, (n) => {
+    if (n.kind !== 'Path') return badParams('path.toggleAnchorKind', `node ${p.id} is not a Path`);
+    const pathNode = n as PathNode;
+    const subPathIdx = p.subPathIndex ?? 0;
+    const sp = pathNode.geometry.subPaths[subPathIdx];
+    if (!sp || !sp.anchors[p.anchorIndex]) return badParams('path.toggleAnchorKind', 'invalid anchor index');
+    const a = sp.anchors[p.anchorIndex]!;
+    const nextKind = p.targetKind ?? (a.kind === 'corner' ? 'smooth' : 'corner');
+    const subPaths = pathNode.geometry.subPaths.map((sub, idx) => {
+      if (idx !== subPathIdx) return sub;
+      const anchors = sub.anchors.map((anc, aIdx) => {
+        if (aIdx !== p.anchorIndex) return anc;
+        if (nextKind === 'corner') {
+          return { ...anc, kind: 'corner' as const, handleIn: null, handleOut: null };
+        } else {
+          const prev = sub.anchors[(aIdx - 1 + sub.anchors.length) % sub.anchors.length]!;
+          const next = sub.anchors[(aIdx + 1) % sub.anchors.length]!;
+          const tangent = { x: (next.point.x - prev.point.x) * 0.25, y: (next.point.y - prev.point.y) * 0.25 };
+          return {
+            ...anc,
+            kind: 'smooth' as const,
+            handleIn: { x: -tangent.x, y: -tangent.y },
+            handleOut: { x: tangent.x, y: tangent.y },
+          };
+        }
+      });
+      return { ...sub, anchors };
+    });
+    const nextDoc = updateNode(doc, p.id, (node) => ({
+      ...(node as any),
+      geometry: { ...pathNode.geometry, subPaths },
+    }));
+    return ok(nextDoc, sel);
+  }) as CommandResult;
+};
+
+const pathSetMarker: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PathSetMarkerParams;
+  return withNode('path.setMarker', doc, p.id, (n) => {
+    if (n.kind !== 'Path') return badParams('path.setMarker', `node ${p.id} is not a Path`);
+    const nextDoc = updateNode(doc, p.id, (node) => ({
+      ...node,
+      markerStart: p.markerStart !== undefined ? (p.markerStart === 'none' || p.markerStart === null ? undefined : p.markerStart) : (node as PathNode).markerStart,
+      markerEnd: p.markerEnd !== undefined ? (p.markerEnd === 'none' || p.markerEnd === null ? undefined : p.markerEnd) : (node as PathNode).markerEnd,
+    }));
+    return ok(nextDoc, sel);
   }) as CommandResult;
 };
 
@@ -433,16 +486,17 @@ const objectDistribute: CommandHandler = (doc, sel, params) => {
     if (r) items.push({ id, rect: r });
   }
   if (items.length < 3) return badParams('object.distribute', 'need ≥ 3 nodes with geometry');
+  const isH = p.axis === 'h' || p.axis === 'horizontal';
   const centers = items.map((it) =>
-    p.axis === 'h' ? it.rect.x + it.rect.width / 2 : it.rect.y + it.rect.height / 2,
+    isH ? it.rect.x + it.rect.width / 2 : it.rect.y + it.rect.height / 2,
   );
   const offsets = distributeOffsets(centers);
   let next = doc;
   for (let i = 0; i < items.length; i++) {
     const off = offsets[i]!;
     if (off === 0) continue;
-    const dx = p.axis === 'h' ? off : 0;
-    const dy = p.axis === 'v' ? off : 0;
+    const dx = isH ? off : 0;
+    const dy = isH ? 0 : off;
     next = updateNode(next, items[i]!.id, (n) => ({
       ...n,
       transform: { ...n.transform, e: n.transform.e + dx, f: n.transform.f + dy },
@@ -710,6 +764,8 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'path.insertAnchor', title: '插入锚点', undoLabel: '插入锚点', params: pathParamsSpec('insertAnchor'), handler: pathInsertAnchor });
   reg({ id: 'path.deleteAnchor', title: '删除锚点', undoLabel: '删除锚点', params: pathParamsSpec('deleteAnchor'), handler: pathDeleteAnchor });
   reg({ id: 'path.updateAnchor', title: '更新锚点', undoLabel: '移动锚点', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathUpdateAnchor });
+  reg({ id: 'path.toggleAnchorKind', title: '切换锚点类型', undoLabel: '切换锚点类型', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathToggleAnchorKind });
+  reg({ id: 'path.setMarker', title: '设置端点箭头', undoLabel: '设置箭头', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathSetMarker });
   reg({ id: 'path.close', title: '开闭路径', undoLabel: '开闭路径', params: pathParamsSpec('close'), handler: pathClose });
 
   // object.*
@@ -727,8 +783,8 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'object.setName', title: '重命名', undoLabel: '重命名', params: [{ key: 'id', type: 'nodeId', required: true, description: '图元 ID' }, { key: 'name', type: 'string', required: false, description: '新名称' }], handler: objectSetName });
   reg({ id: 'object.setVisible', title: '图元显隐', undoLabel: '显隐', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'visible', type: 'boolean', required: true, description: '可见性' }], handler: objectSetVisible });
   reg({ id: 'object.setLocked', title: '图元锁定', undoLabel: '锁定', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'locked', type: 'boolean', required: true, description: '锁定' }], handler: objectSetLocked });
-  reg({ id: 'object.align', title: '对齐', undoLabel: '对齐', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'align', type: 'enum', required: true, values: ['left', 'centerH', 'right', 'top', 'centerV', 'bottom'], description: '对齐模式' }, { key: 'relative', type: 'enum', required: false, values: ['selection', 'canvas'], default: 'selection', description: '对齐基准' }], handler: objectAlign });
-  reg({ id: 'object.distribute', title: '分布', undoLabel: '分布', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表（≥3）' }, { key: 'axis', type: 'enum', required: true, values: ['h', 'v'], description: '分布轴' }], handler: objectDistribute });
+  reg({ id: 'object.align', title: '对齐', undoLabel: '对齐', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'align', type: 'enum', required: true, values: ['left', 'centerH', 'center', 'right', 'top', 'centerV', 'middle', 'bottom'], description: '对齐模式' }, { key: 'relative', type: 'enum', required: false, values: ['selection', 'canvas'], default: 'selection', description: '对齐基准' }], handler: objectAlign });
+  reg({ id: 'object.distribute', title: '分布', undoLabel: '分布', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表（≥3）' }, { key: 'axis', type: 'enum', required: true, values: ['h', 'v', 'horizontal', 'vertical'], description: '分布轴' }], handler: objectDistribute });
 
   // paint.*
   reg({ id: 'paint.setFill', title: '设置填充', undoLabel: '填充', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'fill', type: 'fill', required: true, description: '填充' }], handler: paintSetFill });

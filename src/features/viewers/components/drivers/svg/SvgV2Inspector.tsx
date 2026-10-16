@@ -250,6 +250,69 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
               </select>
             </div>
           </div>
+          {ids.length === 1 && primary && primary.kind === 'Path' && (
+            <>
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                <div>
+                  <span className="text-[var(--ov-fg-muted)]">起点箭头</span>
+                  <select
+                    className="mt-0.5 w-full rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1 py-0.5 text-[var(--ov-fg)]"
+                    value={(primary as any).markerStart ?? 'none'}
+                    onChange={(e) => {
+                      execute('path.setMarker', {
+                        id: primary.id,
+                        markerStart: e.target.value,
+                      });
+                    }}
+                  >
+                    <option value="none">无 (None)</option>
+                    <option value="arrow">箭头 (Arrow)</option>
+                    <option value="dot">圆点 (Dot)</option>
+                  </select>
+                </div>
+                <div>
+                  <span className="text-[var(--ov-fg-muted)]">终点箭头</span>
+                  <select
+                    className="mt-0.5 w-full rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1 py-0.5 text-[var(--ov-fg)]"
+                    value={(primary as any).markerEnd ?? 'none'}
+                    onChange={(e) => {
+                      execute('path.setMarker', {
+                        id: primary.id,
+                        markerEnd: e.target.value,
+                      });
+                    }}
+                  >
+                    <option value="none">无 (None)</option>
+                    <option value="arrow">箭头 (Arrow)</option>
+                    <option value="dot">圆点 (Dot)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="pt-1.5 border-t border-[var(--ov-border)]/50 flex items-center justify-between">
+                <span className="text-[var(--ov-fg-muted)]">锚点形态</span>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    className="rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--ov-hover)]"
+                    onClick={() => {
+                      execute('path.toggleAnchorKind', { id: primary.id, subPathIndex: 0, anchorIndex: 0, targetKind: 'corner' });
+                    }}
+                  >
+                    转尖角
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--ov-hover)]"
+                    onClick={() => {
+                      execute('path.toggleAnchorKind', { id: primary.id, subPathIndex: 0, anchorIndex: 0, targetKind: 'smooth' });
+                    }}
+                  >
+                    转平滑
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

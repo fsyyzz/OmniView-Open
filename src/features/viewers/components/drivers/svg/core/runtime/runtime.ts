@@ -228,6 +228,12 @@ export class RuntimeImpl implements Runtime {
     return tool.overlay(this.makeToolContext());
   }
 
+  cursor(): string {
+    const tool = getTool(this._activeToolId);
+    if (!tool.cursor) return 'default';
+    return tool.cursor(this.makeToolContext());
+  }
+
   execute(commandId: CommandId, params: CommandParams): CommandResult {
     const spec = commandRegistry.find(commandId);
     if (!spec) {

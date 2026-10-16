@@ -2,6 +2,25 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.62] - 2026-10-16
+
+### Added
+
+- **SVG v2 8 向变形手柄、自由旋转、多图元对齐分布与开发者互操作 (SVG v2 Transform Handles, Alignment, Distribution & Interop — L2)**:
+  - **8 向包围盒缩放手柄与实时交互**：在选择工具（`selectTool`）下选中单个或多个图元时，即时生成 8 处控制方块（`nw`, `n`, `ne`, `e`, `se`, `s`, `sw`, `w`）与外边框虚线包围盒；拖拽手柄时基于反向针脚原点调用 `object.scale` 生成实时 Preview，释放指针时写入撤销历史；支持按住 Shift 键等比缩放；
+  - **顶部旋转手柄与自由角度旋转**：在包围盒顶部中心生成连线与旋转圆形手柄，拖拽即可围绕几何中心触发 `object.rotate` 自由旋转；支持按住 Shift 键实现 15° 步进角度吸附；光标自适应变化为 `nwse-resize`、`nesw-resize`、`ns-resize`、`ew-resize` 与旋转手势状态；
+  - **顶部操作工具栏 (Top Action Bar)**：在画布上方新增语义化操作栏：
+    - **6 向联合对齐**：左对齐、水平居中、右对齐、顶对齐、垂直居中、底对齐（选中 $\ge 2$ 项激活）；
+    - **2 向等距分布**：水平均匀分布、垂直均匀分布（选中 $\ge 3$ 项激活）；
+    - **对齐与分布别名防腐**：命令层支持 `center` / `centerH`、`middle` / `centerV`、`h` / `horizontal`、`v` / `vertical` 灵活调用；
+  - **开发者互操作与位图导出**：
+    - **一键复制为 React JSX**：集成现代 JSX 转换器，自动处理 SVG 属性驼峰映射（如 `strokeWidth`、`fillRule` 等），注入 `{...props}` 泛型类型，一键复制并弹出成功 Toast；
+    - **高清 2x PNG 导出**：支持调用原生离线画布以 2 倍超采样光栅化渲染当前 SVG 矢量图形并触发保存下载；
+  - **路径端点箭头与锚点控制**：
+    - 新增 `path.setMarker` 命令，支持设置起点/终点箭头（`arrow`）与圆点（`dot`），序列化导出与画布渲染内嵌 `<defs>` 标记；
+    - 新增 `path.toggleAnchorKind` 命令与 Inspector 操作按钮，支持尖角锚点（`corner`）与平滑贝塞尔切线手柄（`smooth`）无缝切换；
+  - **自动化测试回归防护**：新增 `scripts/test-svg-v2-transform-align.mjs`（13 项全量测试），覆盖 8 向缩放手柄、旋转交互、对齐分布、端点箭头与锚点平滑度切换。
+
 ## [1.2.61] - 2026-10-16
 
 ### Added

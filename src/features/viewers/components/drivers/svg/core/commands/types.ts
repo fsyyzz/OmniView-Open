@@ -235,6 +235,19 @@ export interface PathUpdateAnchorParams {
   readonly handleOut?: { readonly x: number; readonly y: number } | null;
 }
 
+export interface PathToggleAnchorKindParams {
+  readonly id: NodeId;
+  readonly subPathIndex?: number;
+  readonly anchorIndex: number;
+  readonly targetKind?: 'corner' | 'smooth' | 'symmetric' | 'disconnected';
+}
+
+export interface PathSetMarkerParams {
+  readonly id: NodeId;
+  readonly markerStart?: string | null;
+  readonly markerEnd?: string | null;
+}
+
 // --- tool.* ---
 export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'text'; }
 export interface ToolSetOptionParams { readonly key: string; readonly value: unknown; }

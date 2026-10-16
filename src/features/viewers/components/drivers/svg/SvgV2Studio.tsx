@@ -23,6 +23,17 @@ import {
   Circle,
   Minus,
   Type,
+  AlignStartHorizontal,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignVerticalDistributeCenter,
+  FileCode,
+  FileImage,
+  Check,
 } from 'lucide-react';
 import {
   decideBackup,
@@ -39,6 +50,7 @@ import {
 import { SvgV2LayersPanel } from './SvgV2LayersPanel';
 import { SvgV2Inspector } from './SvgV2Inspector';
 import { SvgV2Canvas } from './SvgV2Canvas';
+import { convertSvgToReact, exportSvgAsPng } from './svgUtils';
 
 export interface SvgV2StudioProps {
   readonly content: string;
@@ -63,6 +75,9 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
     redo,
     setActiveTool,
   } = useSvgRuntime();
+
+  const [copiedJsx, setCopiedJsx] = useState(false);
+  const [exportingPng, setExportingPng] = useState(false);
 
   // ---- 加载状态（P0 数据安全关键）----
   /** 加载状态 + 最近导出（或加载基线）的 Document 引用。 */
@@ -123,6 +138,39 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
     };
   }, [document, runtime, content, fileName, onContentChange]);
 
+  const handleCopyJsx = async () => {
+    try {
+      const svg = await runtime.exportToSvg();
+      const rawName = fileName.replace(/\.svg$/i, '').replace(/[^a-zA-Z0-9]/g, '') || 'SvgIcon';
+      const compName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+      const jsx = convertSvgToReact(svg, compName);
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(jsx);
+        setCopiedJsx(true);
+        setTimeout(() => setCopiedJsx(false), 2000);
+      }
+    } catch {
+      /* clipboard write ignored */
+    }
+  };
+
+  const handleExportPng = async () => {
+    try {
+      setExportingPng(true);
+      const svg = await runtime.exportToSvg();
+      const pngName = fileName.endsWith('.svg') ? fileName.replace(/\.svg$/i, '.png') : `${fileName}.png`;
+      await exportSvgAsPng(svg, pngName, 2);
+    } catch {
+      /* export failed ignored */
+    } finally {
+      setExportingPng(false);
+    }
+  };
+
+  const selectedCount = selection.nodeIds.length;
+  const canAlign = selectedCount >= 2;
+  const canDistribute = selectedCount >= 3;
+
   return (
     <div className="flex h-full w-full bg-[var(--ov-bg)] text-[var(--ov-fg)]">
       {/* 左侧工具栏 */}
@@ -142,14 +190,120 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
         <ToolButton icon={<Plus size={17} />} active={false} label="新建图层" onClick={() => execute('layer.add', {})} />
       </aside>
 
-      {/* 中央画布 */}
-      <main className="relative flex-1 overflow-hidden">
-        <SvgV2Canvas
-          document={document}
-          selection={selection}
-          runtime={runtime}
-          activeToolId={activeToolId}
-        />
+      {/* 中央主工作区 */}
+      <main className="relative flex flex-1 flex-col overflow-hidden">
+        {/* 顶部操作栏 (对齐、分布、复制 JSX、导出 PNG) */}
+        <header className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--ov-border)] bg-[var(--ov-panel)] px-2.5 text-xs select-none">
+          {/* 左侧：对齐与分布群组 */}
+          <div className="flex items-center space-x-1">
+            {/* 水平对齐 */}
+            <ActionButton
+              icon={<AlignStartHorizontal size={15} />}
+              label="左对齐 (至少选 2 项)"
+              disabled={!canAlign}
+              onClick={() => execute('object.align', { ids: selection.nodeIds, align: 'left' })}
+            />
+            <ActionButton
+              icon={<AlignCenterHorizontal size={15} />}
+              label="水平居中 (至少选 2 项)"
+              disabled={!canAlign}
+              onClick={() => execute('object.align', { ids: selection.nodeIds, align: 'center' })}
+            />
+            <ActionButton
+              icon={<AlignEndHorizontal size={15} />}
+              label="右对齐 (至少选 2 项)"
+              disabled={!canAlign}
+              onClick={() => execute('object.align', { ids: selection.nodeIds, align: 'right' })}
+            />
+
+            <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+
+            {/* 垂直对齐 */}
+            <ActionButton
+              icon={<AlignStartVertical size={15} />}
+              label="顶对齐 (至少选 2 项)"
+              disabled={!canAlign}
+              onClick={() => execute('object.align', { ids: selection.nodeIds, align: 'top' })}
+            />
+            <ActionButton
+              icon={<AlignCenterVertical size={15} />}
+              label="垂直居中 (至少选 2 项)"
+              disabled={!canAlign}
+              onClick={() => execute('object.align', { ids: selection.nodeIds, align: 'middle' })}
+            />
+            <ActionButton
+              icon={<AlignEndVertical size={15} />}
+              label="底对齐 (至少选 2 项)"
+              disabled={!canAlign}
+              onClick={() => execute('object.align', { ids: selection.nodeIds, align: 'bottom' })}
+            />
+
+            <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+
+            {/* 分布 */}
+            <ActionButton
+              icon={<AlignHorizontalDistributeCenter size={15} />}
+              label="水平均匀分布 (至少选 3 项)"
+              disabled={!canDistribute}
+              onClick={() => execute('object.distribute', { ids: selection.nodeIds, axis: 'horizontal' })}
+            />
+            <ActionButton
+              icon={<AlignVerticalDistributeCenter size={15} />}
+              label="垂直均匀分布 (至少选 3 项)"
+              disabled={!canDistribute}
+              onClick={() => execute('object.distribute', { ids: selection.nodeIds, axis: 'vertical' })}
+            />
+
+            {selectedCount > 1 && (
+              <span className="ml-2 rounded bg-[var(--ov-hover)] px-1.5 py-0.5 text-[10px] text-[var(--ov-fg-muted)]">
+                已选 {selectedCount} 项
+              </span>
+            )}
+          </div>
+
+          {/* 右侧：导出与开发者互操作群组 */}
+          <div className="flex items-center space-x-1.5">
+            <button
+              type="button"
+              onClick={handleCopyJsx}
+              title="将当前 SVG 转换为 React JSX 组件并复制到剪贴板"
+              className="flex items-center space-x-1 rounded border border-[var(--ov-border)] px-2 py-0.5 text-[11px] hover:bg-[var(--ov-hover)] transition-colors"
+            >
+              {copiedJsx ? (
+                <>
+                  <Check size={13} className="text-emerald-400" />
+                  <span className="text-emerald-400 font-medium">已复制 JSX</span>
+                </>
+              ) : (
+                <>
+                  <FileCode size={13} className="text-[var(--ov-fg-muted)]" />
+                  <span>复制 JSX</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={exportingPng}
+              onClick={handleExportPng}
+              title="将当前 SVG 渲染为高清 2x PNG 位图并导出下载"
+              className="flex items-center space-x-1 rounded border border-[var(--ov-border)] px-2 py-0.5 text-[11px] hover:bg-[var(--ov-hover)] transition-colors disabled:opacity-50"
+            >
+              <FileImage size={13} className="text-[var(--ov-fg-muted)]" />
+              <span>{exportingPng ? '导出中...' : '导出 PNG'}</span>
+            </button>
+          </div>
+        </header>
+
+        {/* 画布视口 */}
+        <div className="relative flex-1 overflow-hidden">
+          <SvgV2Canvas
+            document={document}
+            selection={selection}
+            runtime={runtime}
+            activeToolId={activeToolId}
+          />
+        </div>
       </main>
 
       {/* 右侧面板 */}
@@ -179,6 +333,25 @@ const ToolButton: React.FC<ToolButtonProps> = ({ icon, active, label, disabled, 
     type="button"
     className={`m-1 flex h-8 w-8 items-center justify-center rounded transition-colors ${active ? 'bg-[var(--ov-accent)] text-white' : 'hover:bg-[var(--ov-hover)]'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
     title={label}
+    onClick={disabled ? undefined : onClick}
+  >
+    {icon}
+  </button>
+);
+
+interface ActionButtonProps {
+  readonly icon: React.ReactNode;
+  readonly label: string;
+  readonly disabled?: boolean;
+  readonly onClick: () => void;
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ icon, label, disabled, onClick }) => (
+  <button
+    type="button"
+    className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-[var(--ov-hover)] text-[var(--ov-fg)]'}`}
+    title={label}
+    disabled={disabled}
     onClick={disabled ? undefined : onClick}
   >
     {icon}
