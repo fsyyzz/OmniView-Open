@@ -24,6 +24,7 @@ import {
   PinOff,
   RotateCcw,
   PanelTopClose,
+  Mail,
 } from 'lucide-react';
 import {
   compareCellValues,
@@ -35,9 +36,14 @@ import {
   detectChartableColumns,
   parseNumericValue,
   calculateColStats,
+  copyColumnToClipboard,
+  tableColumnToText,
+  tableColumnToEmailHtml,
+  tableColumnToMarkdown,
 } from './tableUtils';
 import { TableChart } from './TableChart';
 import { TableLightboxModal } from './TableLightboxModal';
+import { TableContextMenu } from './TableContextMenu';
 import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n';
 
@@ -93,6 +99,21 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   const [isPinned, setIsPinned] = useState(false);
   const [colWidths, setColWidths] = useState<Record<number, number>>({});
   const resizingRef = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null);
+
+  // 右键上下文菜单与快捷复制状态
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    colIdx: number;
+    colName: string;
+    cellText?: string;
+    rowIdx?: number;
+    isHeader?: boolean;
+    align?: 'left' | 'center' | 'right' | null;
+  } | null>(null);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+  const [quickCopiedColIdx, setQuickCopiedColIdx] = useState<number | null>(null);
 
   // 单元格在线编辑状态 (双击单元格开启编辑)
   const [editedMatrix, setEditedMatrix] = useState<string[][] | null>(null);
@@ -235,6 +256,78 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     URL.revokeObjectURL(url);
   };
 
+  // 提示信息 Toast
+  const showToast = useCallback((msg: string) => {
+    setCopyToast(msg);
+    setTimeout(() => {
+      setCopyToast(null);
+    }, 2500);
+  }, []);
+
+  // 列复制逻辑 (邮件富文本 / 纯文本 / Markdown)
+  const handleCopyColEmail = useCallback(async (colIdx: number, colName: string) => {
+    const currentRows = processedRows.map(r => r.cells);
+    const colAlign = align?.[colIdx] || header[colIdx]?.align;
+    await copyColumnToClipboard(headerTexts, currentRows, colIdx, {
+      includeHeader: true,
+      align: colAlign,
+      format: 'email-html',
+    });
+    setQuickCopiedColIdx(colIdx);
+    setTimeout(() => setQuickCopiedColIdx(null), 2000);
+    showToast(t('tableColCopiedForEmail', locale).replace('{col}', colName));
+  }, [processedRows, align, header, headerTexts, locale, showToast]);
+
+  const handleCopyColData = useCallback(async (colIdx: number, colName: string) => {
+    const currentRows = processedRows.map(r => r.cells);
+    await copyColumnToClipboard(headerTexts, currentRows, colIdx, {
+      includeHeader: false,
+      format: 'plain-text',
+    });
+    setQuickCopiedColIdx(colIdx);
+    setTimeout(() => setQuickCopiedColIdx(null), 2000);
+    showToast(t('tableColCopiedValues', locale).replace('{col}', colName));
+  }, [processedRows, headerTexts, locale, showToast]);
+
+  const handleCopyColWithHeader = useCallback(async (colIdx: number, colName: string) => {
+    const currentRows = processedRows.map(r => r.cells);
+    await copyColumnToClipboard(headerTexts, currentRows, colIdx, {
+      includeHeader: true,
+      format: 'plain-text',
+    });
+    setQuickCopiedColIdx(colIdx);
+    setTimeout(() => setQuickCopiedColIdx(null), 2000);
+    showToast(t('tableColCopiedValues', locale).replace('{col}', colName));
+  }, [processedRows, headerTexts, locale, showToast]);
+
+  const handleCopyColMarkdown = useCallback(async (colIdx: number, colName: string) => {
+    const currentRows = processedRows.map(r => r.cells);
+    const colAlign = align?.[colIdx] || header[colIdx]?.align;
+    await copyColumnToClipboard(headerTexts, currentRows, colIdx, {
+      format: 'markdown',
+      align: colAlign,
+    });
+    setQuickCopiedColIdx(colIdx);
+    setTimeout(() => setQuickCopiedColIdx(null), 2000);
+    showToast(t('tableColCopiedMarkdown', locale).replace('{col}', colName));
+  }, [processedRows, align, header, headerTexts, locale, showToast]);
+
+  const handleCopyCell = useCallback(async (text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      showToast(t('copied', locale));
+    }
+  }, [locale, showToast]);
+
+  const handleCopyRow = useCallback(async (originalRowIndex: number) => {
+    const row = currentMatrix[originalRowIndex] || [];
+    const tsv = row.join('\t');
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(tsv);
+      showToast(t('copiedTsv', locale));
+    }
+  }, [currentMatrix, locale, showToast]);
+
   // 5. 列宽自由拖拽与双击重置
   const handleResizeStart = (colIdx: number, e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -347,9 +440,21 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                 <th
                   key={colIdx}
                   onClick={() => handleToggleSort(colIdx)}
+                  onContextMenu={e => {
+                    e.preventDefault();
+                    setContextMenu({
+                      isOpen: true,
+                      x: e.clientX,
+                      y: e.clientY,
+                      colIdx,
+                      colName: h.text || `Col ${colIdx + 1}`,
+                      isHeader: true,
+                      align: align?.[colIdx] || h.align,
+                    });
+                  }}
                   onMouseEnter={() => setHoveredColIndex(colIdx)}
                   onMouseLeave={() => setHoveredColIndex(null)}
-                  title={sortTitle}
+                  title={`${sortTitle} · ${t('tableRightClickHint', locale)}`}
                   className={`group/th relative px-3 py-2.5 font-semibold cursor-pointer select-none transition-colors border-r last:border-r-0 ${alignClass}`}
                   style={{
                     borderColor: 'var(--ov-border)',
@@ -388,6 +493,35 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                         <ArrowUpDown className="w-3 h-3" />
                       )}
                     </span>
+
+                    {/* 快捷复制此列 (直贴邮件/Excel) 按钮 */}
+                    <button
+                      type="button"
+                      data-clipboard-ignore="true"
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleCopyColEmail(colIdx, h.text || `Col ${colIdx + 1}`);
+                      }}
+                      className={`ov-table-col-copy-btn ov-clipboard-ignore p-1 rounded transition-all ${
+                        quickCopiedColIdx === colIdx
+                          ? 'opacity-100 text-emerald-500 scale-110'
+                          : 'opacity-0 group-hover/th:opacity-80 hover:opacity-100 hover:scale-110 text-[var(--ov-text-muted)] hover:text-emerald-400'
+                      }`}
+                      style={{
+                        backgroundColor:
+                          quickCopiedColIdx === colIdx
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : 'transparent',
+                      }}
+                      title={t('tableQuickCopyCol', locale)}
+                      aria-label={t('tableQuickCopyCol', locale)}
+                    >
+                      {quickCopiedColIdx === colIdx ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Mail className="w-3 h-3" />
+                      )}
+                    </button>
                   </div>
 
                   {/* 列宽自由拖拽 handle */}
@@ -471,6 +605,20 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                         key={colIdx}
                         onMouseEnter={() => setHoveredColIndex(colIdx)}
                         onMouseLeave={() => setHoveredColIndex(null)}
+                        onContextMenu={e => {
+                          e.preventDefault();
+                          setContextMenu({
+                            isOpen: true,
+                            x: e.clientX,
+                            y: e.clientY,
+                            colIdx,
+                            colName: headerTexts[colIdx] || `Col ${colIdx + 1}`,
+                            cellText,
+                            rowIdx: rowItem.originalIndex,
+                            isHeader: false,
+                            align: align?.[colIdx] || header[colIdx]?.align,
+                          });
+                        }}
                         onDoubleClick={() => {
                           setEditingCell({
                             rowIdx: rowItem.originalIndex,
@@ -926,6 +1074,46 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
           {t('tableDblClickEdit', locale)}
         </div>
       </div>
+
+      {/* 复制成功浮动 Toast 反馈 */}
+      {copyToast && (
+        <div
+          data-clipboard-ignore="true"
+          className="ov-clipboard-ignore absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-xl backdrop-blur-md border animate-in fade-in slide-in-from-top-2 duration-150 flex items-center gap-1.5 select-none"
+          style={{
+            backgroundColor: 'var(--ov-surface, #1e1e2e)',
+            color: 'var(--ov-accent, #38bdf8)',
+            borderColor: 'var(--ov-border)',
+            boxShadow: 'var(--ov-shadow)',
+          }}
+        >
+          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate max-w-[280px] sm:max-w-none">{copyToast}</span>
+        </div>
+      )}
+
+      {/* 右键上下文菜单 (Portal 渲染至 document.body) */}
+      {contextMenu && (
+        <TableContextMenu
+          isOpen={contextMenu.isOpen}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          colIdx={contextMenu.colIdx}
+          colName={contextMenu.colName}
+          cellText={contextMenu.cellText}
+          rowIdx={contextMenu.rowIdx}
+          isHeader={contextMenu.isHeader}
+          locale={locale}
+          onClose={() => setContextMenu(null)}
+          onCopyColumnEmail={() => handleCopyColEmail(contextMenu.colIdx, contextMenu.colName)}
+          onCopyColumnData={() => handleCopyColData(contextMenu.colIdx, contextMenu.colName)}
+          onCopyColumnWithHeader={() => handleCopyColWithHeader(contextMenu.colIdx, contextMenu.colName)}
+          onCopyColumnMarkdown={() => handleCopyColMarkdown(contextMenu.colIdx, contextMenu.colName)}
+          onCopyCell={contextMenu.cellText !== undefined ? () => handleCopyCell(contextMenu.cellText!) : undefined}
+          onCopyRow={contextMenu.rowIdx !== undefined ? () => handleCopyRow(contextMenu.rowIdx!) : undefined}
+          onCopyFullTable={handleCopyRich}
+        />
+      )}
 
       {/* 全屏沉浸灯箱 Modal (Portal 渲染至 document.body) */}
       <TableLightboxModal

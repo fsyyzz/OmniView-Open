@@ -446,3 +446,175 @@ export function detectChartableColumns(
     valueColIndices: valueCols,
   };
 }
+
+/**
+ * 提取指定列的纯文本数据 (换行符分隔)
+ * 粘贴至 Excel / 终端 / 纯文本时，可直接作为单列逐行粘贴
+ */
+export function tableColumnToText(
+  headers: string[],
+  rows: string[][],
+  colIdx: number,
+  options?: { includeHeader?: boolean; separator?: string }
+): string {
+  const includeHeader = options?.includeHeader ?? false;
+  const separator = options?.separator ?? '\r\n';
+  const lines: string[] = [];
+
+  if (includeHeader && headers[colIdx] !== undefined) {
+    lines.push((headers[colIdx] || '').trim());
+  }
+
+  for (const row of rows) {
+    const val = row[colIdx] !== undefined ? row[colIdx] : '';
+    lines.push(val);
+  }
+
+  return lines.join(separator);
+}
+
+/**
+ * 转换单列为专门适配邮件客户端 (Outlook, Gmail, Foxmail, QQ 邮箱等) 的原生富文本 HTML <table>
+ * 带有内联边框、字体、背景颜色与行距，在邮件正文中粘贴时将呈现专业美观的单列表格
+ */
+export function tableColumnToEmailHtml(
+  headers: string[],
+  rows: string[][],
+  colIdx: number,
+  options?: {
+    includeHeader?: boolean;
+    align?: 'left' | 'center' | 'right' | null;
+  }
+): string {
+  const includeHeader = options?.includeHeader ?? true;
+  const colAlign = options?.align || 'left';
+  const alignStyle =
+    colAlign === 'right'
+      ? 'text-align: right;'
+      : colAlign === 'center'
+      ? 'text-align: center;'
+      : 'text-align: left;';
+
+  const escapeHtml = (text: string) => {
+    return (text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  };
+
+  const headerText = headers[colIdx] || `Column ${colIdx + 1}`;
+  const headerHtml = includeHeader
+    ? `<thead><tr><th style="border: 1px solid #cbd5e1; padding: 10px 16px; font-weight: 600; font-size: 13px; background-color: #f1f5f9; color: #0f172a; ${alignStyle} border-bottom: 2px solid #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">${escapeHtml(headerText)}</th></tr></thead>`
+    : '';
+
+  const rowsHtml = rows
+    .map((row, idx) => {
+      const cellVal = row[colIdx] !== undefined ? row[colIdx] : '';
+      const bg = idx % 2 === 1 ? 'background-color: #f8fafc;' : 'background-color: #ffffff;';
+      return `<tr style="${bg}"><td style="border: 1px solid #e2e8f0; padding: 8px 16px; font-size: 13px; color: #334155; ${alignStyle} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">${escapeHtml(cellVal)}</td></tr>`;
+    })
+    .join('');
+
+  return `<table style="border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; min-width: 180px; border: 1px solid #cbd5e1; line-height: 1.5; margin: 4px 0;">${headerHtml}<tbody>${rowsHtml}</tbody></table>`;
+}
+
+/**
+ * 转换单列为标准 Markdown 单列表格
+ */
+export function tableColumnToMarkdown(
+  headers: string[],
+  rows: string[][],
+  colIdx: number,
+  align?: 'left' | 'center' | 'right' | null
+): string {
+  const header = (headers[colIdx] || `Column ${colIdx + 1}`).trim();
+  const alignMarker =
+    align === 'right' ? '---:' : align === 'center' ? ':---:' : ':---';
+  const lines = [
+    `| ${header} |`,
+    `| ${alignMarker} |`,
+  ];
+  for (const row of rows) {
+    const val = (row[colIdx] || '').replace(/\|/g, '\\|');
+    lines.push(`| ${val} |`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * 复制指定单列至系统剪贴板
+ * 默认模式下同时写入富文本 HTML (邮件与 Word 呈现高质感表格) 与 TSV 纯文本 (Excel 自动按行粘贴)，
+ * 确保在邮件客户端中粘贴呈现完美表格，在 Excel 中粘贴直接占满整列
+ */
+export async function copyColumnToClipboard(
+  headers: string[],
+  rows: string[][],
+  colIdx: number,
+  options?: {
+    includeHeader?: boolean;
+    align?: 'left' | 'center' | 'right' | null;
+    format?: 'email-html' | 'plain-text' | 'markdown';
+  }
+): Promise<{ success: boolean; mode: 'rich' | 'plain' | 'fallback' }> {
+  const format = options?.format ?? 'email-html';
+  const includeHeader = options?.includeHeader ?? true;
+  const colAlign = options?.align;
+
+  if (format === 'markdown') {
+    const md = tableColumnToMarkdown(headers, rows, colIdx, colAlign);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(md);
+        return { success: true, mode: 'plain' };
+      } catch {}
+    }
+  }
+
+  const plainText = tableColumnToText(headers, rows, colIdx, { includeHeader });
+
+  if (format === 'plain-text') {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(plainText);
+        return { success: true, mode: 'plain' };
+      } catch {}
+    }
+  }
+
+  // 默认 email-html 复合写入 (text/html + text/plain)
+  const html = tableColumnToEmailHtml(headers, rows, colIdx, {
+    includeHeader,
+    align: colAlign,
+  });
+
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.clipboard &&
+    typeof (window as any).ClipboardItem !== 'undefined'
+  ) {
+    try {
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new (window as any).ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob,
+        }),
+      ]);
+      return { success: true, mode: 'rich' };
+    } catch {
+      // 降级
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(plainText);
+      return { success: true, mode: 'plain' };
+    } catch {}
+  }
+
+  return { success: false, mode: 'fallback' };
+}
+

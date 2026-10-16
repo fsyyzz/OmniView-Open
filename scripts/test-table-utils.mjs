@@ -17,6 +17,10 @@ import {
   tableToMarkdown,
   detectChartableColumns,
   highlightMatches,
+  tableColumnToText,
+  tableColumnToEmailHtml,
+  tableColumnToMarkdown,
+  copyColumnToClipboard,
 } from '../src/features/viewers/components/drivers/markdown/tableUtils.ts';
 
 console.log('🧪 开始 Markdown 表格工具链单元测试...');
@@ -171,5 +175,58 @@ console.log('🧪 开始 Markdown 表格工具链单元测试...');
   assert.ok(typeof copyRes.success === 'boolean');
 
   console.log('  ✅ 8. 富文本 (Word/Docx) 与 TSV (Excel) 互操作转换测试通过');
+
+  // 9. 单列数据提取、Markdown 列、邮件富文本表格格式化与复制测试
+  {
+    // (1) 纯文本提取测试
+    const colTextWithoutHeader = tableColumnToText(headers, rows, 1, { includeHeader: false });
+    assert.equal(colTextWithoutHeader, '¥128,000\r\n¥64,500');
+
+    const colTextWithHeader = tableColumnToText(headers, rows, 1, { includeHeader: true });
+    assert.equal(colTextWithHeader, '销售额\r\n¥128,000\r\n¥64,500');
+
+    // (2) Markdown 单列表格格式化测试
+    const colMd = tableColumnToMarkdown(headers, rows, 1, 'right');
+    assert(colMd.includes('| 销售额 |'));
+    assert(colMd.includes('| ---: |'));
+    assert(colMd.includes('| ¥128,000 |'));
+    assert(colMd.includes('| ¥64,500 |'));
+
+    // (3) 邮件富文本原生 HTML <table> 格式化测试
+    const colEmailHtml = tableColumnToEmailHtml(headers, rows, 1, {
+      includeHeader: true,
+      align: 'right',
+    });
+    assert(colEmailHtml.includes('<table style='));
+    assert(colEmailHtml.includes('<thead><tr><th style='));
+    assert(colEmailHtml.includes('销售额'));
+    assert(colEmailHtml.includes('¥128,000'));
+    assert(colEmailHtml.includes('text-align: right;'));
+    assert(colEmailHtml.includes('border: 1px solid #cbd5e1;'));
+    assert(colEmailHtml.includes('font-family: -apple-system'));
+
+    // (4) 单列剪贴板复制调用测试
+    const copyColRes = await copyColumnToClipboard(headers, rows, 1, {
+      includeHeader: true,
+      align: 'right',
+      format: 'email-html',
+    });
+    assert.ok(typeof copyColRes.success === 'boolean');
+
+    const copyColPlainRes = await copyColumnToClipboard(headers, rows, 1, {
+      includeHeader: false,
+      format: 'plain-text',
+    });
+    assert.ok(typeof copyColPlainRes.success === 'boolean');
+
+    const copyColMdRes = await copyColumnToClipboard(headers, rows, 1, {
+      format: 'markdown',
+      align: 'right',
+    });
+    assert.ok(typeof copyColMdRes.success === 'boolean');
+
+    console.log('  ✅ 9. 单列数据提取、Markdown 列、邮件富文本 HTML 与剪贴板互操作测试通过');
+  }
+
   console.log('🎉 所有 Markdown 表格单元测试全部通过！');
 })();
