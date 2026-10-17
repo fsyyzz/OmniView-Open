@@ -2,6 +2,17 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.66] - 2026-10-17
+
+### Added
+
+- **自动化测试链条解耦与多核并发运行器 (Concurrent Test Runner & Orchestrator — L2)**:
+  - **测试运行器彻底解耦 (`scripts/run-all-tests.mjs`)**：将 `package.json` 中长达 3000 多字符的单行 `&&` 命令行串联重构为专业测试调度器；
+  - **多进程并发调度与极速执行**：内置轻量原生并发控制池（默认 6 并发），82 个全量大型测试套件执行耗时压减至 **2.9 秒**（并发加速比 ~5.8x）；
+  - **智能参数筛选与局部调试**：原生支持 `npm test -- svg` 或 `--filter=math` 极速单模块测试与 `--serial` 串行调试模式；
+  - **自适应动态套件发现**：自动扫描 `scripts/test-*.mjs` 并智能适配打包参数，防止新增单测遗漏；
+  - **美化聚合报告与错误重放**：集中展示实时执行进度、各套件耗时、失败用例日志回放与汇总看板。
+
 ## [1.2.65] - 2026-10-17
 
 ### Added
