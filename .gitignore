@@ -27,6 +27,7 @@ lerna-debug.log*
 
 # --- 单元测试与覆盖率 ---
 coverage/
+.coverage-tmp/
 .nyc_output/
 *.lcov
 test-results/

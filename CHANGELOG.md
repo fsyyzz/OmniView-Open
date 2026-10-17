@@ -2,6 +2,24 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.67] - 2026-10-17
+
+### Added
+
+- **组件级 Headless DOM 真实交互验证与覆盖率度量体系 (Headless UI Testing & Coverage Engine — L2)**:
+  - **建议 B 落地 — 组件级 Headless DOM 交互套件 (`scripts/test-headless-ui-interactions.mjs`)**：
+    - 基于 `happy-dom` 真实无头运行时与 `esbuild` 快速编译，直接驱动 React 19 组件渲染与原生 DOM 事件；
+    - **全屏灯箱 (`LightboxModal`)**：验证 `createPortal` 真实挂载、滚轮缩放事件派发、双击 2.5x 聚焦及 Esc 关闭回调；
+    - **矢量画布 (`SvgV2Canvas`)**：验证真实 SVG DOM 挂载、选区设置与图元渲染；
+    - **图层树面板 (`SvgV2LayersPanel`)**：验证图层行层级渲染、显隐切换点击与指令下发；
+    - **键盘事件隔离**：验证 Escape / Delete 快捷键生命周期与焦点隔离；
+  - **建议 C 落地 — 自动化测试代码覆盖率度量运行器 (`scripts/run-coverage.mjs`)**：
+    - 集成原生 V8 覆盖率引擎与 `c8` 报表生成器；
+    - 借助 `esbuild` inline source-map 机制将执行流 100% 精准回溯至 TypeScript / TSX 源码；
+    - 多进程并发无锁收集覆盖率数据，输出终端文本表格看板、`coverage/lcov.info`（CI 门禁规范契约）以及 `coverage/index.html`（交互式可视化报告）；
+    - 在 `package.json` 中配置 `"test:coverage": "node scripts/run-coverage.mjs"`，支持局部或全量覆盖率极速分析；
+  - **全量测试套件扩增**：全项目自动化测试套件扩增至 **83 套**，全部持续保持 100% 绿色通过。
+
 ## [1.2.66] - 2026-10-17
 
 ### Added

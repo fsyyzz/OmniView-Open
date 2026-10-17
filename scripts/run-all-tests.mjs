@@ -106,6 +106,7 @@ const TEST_MANIFEST = [
   { file: 'test-graphviz.mjs', mode: 'esbuild', packagesExternal: true },
   { file: 'test-focal-zoom.mjs', mode: 'esbuild' },
   { file: 'test-svg-selection-enhancements.mjs', mode: 'esbuild', packagesExternal: true },
+  { file: 'test-headless-ui-interactions.mjs', mode: 'node' },
 ];
 
 /**

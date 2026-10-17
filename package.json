@@ -1,7 +1,7 @@
 {
   "name": "omniview",
   "private": true,
-  "version": "1.2.66",
+  "version": "1.2.67",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件",
   "publisher": "zhouzan",
@@ -566,6 +566,7 @@
     "version:bump": "node scripts/bump-version.mjs",
     "version:check": "node scripts/bump-version.mjs --check",
     "test": "node scripts/run-all-tests.mjs",
+    "test:coverage": "node scripts/run-coverage.mjs",
     "verify": "npm run check:structure && npm run lint && npm run test && npm run build:plugin",
     "vscode:prepublish": "npm run build:plugin"
   },
@@ -603,7 +604,9 @@
     "@types/vscode": "^1.85.0",
     "@vitejs/plugin-react": "^5.0.4",
     "@vscode/vsce": "^3.6.0",
+    "c8": "^12.0.0",
     "esbuild": "^0.25.0",
+    "happy-dom": "^21.0.3",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
