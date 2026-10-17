@@ -88,6 +88,7 @@ import {
   selectionAdd,
   selectionClear,
   selectionRemove,
+  selectionToggle,
   selectionWith,
   updateNode,
 } from '../model/document';
@@ -702,8 +703,25 @@ const layerReorder: CommandHandler = (doc, sel, params) => {
 const selectBox: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as SelectBoxParams;
   const matched: NodeId[] = [];
+  const mode = p.mode ?? 'enclosed';
+
+  const isContained = (r: { x: number; y: number; width: number; height: number }): boolean =>
+    r.x >= p.rect.x &&
+    r.y >= p.rect.y &&
+    r.x + r.width <= p.rect.x + p.rect.width &&
+    r.y + r.height <= p.rect.y + p.rect.height;
+
   const intersects = (r: { x: number; y: number; width: number; height: number }): boolean =>
     !(r.x + r.width < p.rect.x || r.x > p.rect.x + p.rect.width || r.y + r.height < p.rect.y || r.y > p.rect.y + p.rect.height);
+
+  const checkMatch = mode === 'intersect' ? intersects : isContained;
+
+  // 画布面积：用于防止小范围框选时误选大背景
+  const canvasW = doc.canvas?.width || 800;
+  const canvasH = doc.canvas?.height || 600;
+  const canvasArea = canvasW * canvasH;
+  const selArea = p.rect.width * p.rect.height;
+
   // 仅匹配各图层直接子节点（组选组，不钻进子树）
   for (const layerId of doc.layers) {
     const layer = doc.nodes.get(layerId);
@@ -712,14 +730,20 @@ const selectBox: CommandHandler = (doc, sel, params) => {
       const n = doc.nodes.get(childId);
       if (!n || !n.visible || n.locked) continue;
       const bb = nodeBBox(doc, childId);
-      if (bb && intersects(bb)) matched.push(childId);
+      if (!bb) continue;
+
+      // 面积占满 80% 画布以上的大底图，在非大面积框选时予以忽略保护
+      const isHugeBackground = (bb.width * bb.height) >= canvasArea * 0.8 && selArea < canvasArea * 0.6;
+      if (isHugeBackground && mode !== 'enclosed') continue;
+
+      if (checkMatch(bb)) matched.push(childId);
     }
   }
-  if (matched.length === 0) return ok(doc, emptySelection());
+  if (matched.length === 0) return ok(doc, p.additive ? sel : emptySelection());
   const ids = matched as NodeId[];
   const primary = ids[0]!;
-  const next = p.additive ? selectionAdd(selectionWith(primary, ids.slice(1)), primary) : selectionWith(primary, ids.slice(1));
-  return ok(doc, p.additive ? selectionAdd(sel, ids) : next);
+  const next = p.additive ? selectionAdd(sel, ids) : selectionWith(primary, ids.slice(1));
+  return ok(doc, next);
 };
 
 const selectSet: CommandHandler = (doc, sel, params) => {
@@ -727,6 +751,12 @@ const selectSet: CommandHandler = (doc, sel, params) => {
   if (p.ids.length === 0) return ok(doc, emptySelection());
   const ids = p.ids as NodeId[];
   const primary = ids[0]!;
+
+  // 显式指定 toggle，或者按住 Shift/修饰键 (additive) 且仅针对单个已有图元时触发反选剔除
+  if (p.toggle || (p.additive && ids.length === 1 && sel.nodeIds.includes(primary))) {
+    return ok(doc, selectionToggle(sel, primary));
+  }
+
   return ok(doc, p.additive ? selectionAdd(sel, ids) : selectionWith(primary, ids.slice(1)));
 };
 

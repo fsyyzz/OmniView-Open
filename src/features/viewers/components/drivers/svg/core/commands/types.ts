@@ -188,8 +188,17 @@ export interface LayerReorderParams { readonly id: NodeId; readonly direction?: 
 export interface LayerSetColorTagParams { readonly id: NodeId; readonly color: 'none' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray'; }
 
 // --- select.* ---
-export interface SelectBoxParams { readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }; readonly additive: boolean; readonly mods: { readonly shift: boolean; readonly alt: boolean; readonly meta: boolean; readonly ctrl: boolean }; }
-export interface SelectSetParams { readonly ids: ReadonlyArray<NodeId>; readonly additive: boolean; }
+export interface SelectBoxParams {
+  readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly additive: boolean;
+  readonly mods?: { readonly shift: boolean; readonly alt: boolean; readonly meta: boolean; readonly ctrl: boolean };
+  readonly mode?: 'enclosed' | 'intersect';
+}
+export interface SelectSetParams {
+  readonly ids: ReadonlyArray<NodeId>;
+  readonly additive: boolean;
+  readonly toggle?: boolean;
+}
 export interface SelectAllParams {}
 export interface SelectClearParams {}
 export interface SelectSameParams { readonly predicate: 'fill' | 'stroke' | 'opacity' | 'kind' | 'name'; }

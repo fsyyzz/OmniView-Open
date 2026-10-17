@@ -162,3 +162,19 @@ export function planReorderDrop(
   const toIndex = target.position === 'before' ? newTargetIdx : newTargetIdx + 1;
   return { command: 'object.reorder', id: drag.id, toIndex };
 }
+
+/**
+ * 沿树向上查找直到最外层编组（Group）；若自身直接挂在图层下或找不到则返回自身。
+ * 用于实现常规点选选中编组整体，而非散碎叶子节点。
+ */
+export function findOutermostGroup(doc: Document, id: NodeId): NodeId {
+  let cur = id;
+  while (true) {
+    const parentId = findParent(doc, cur);
+    if (!parentId) return cur;
+    const parent = doc.nodes.get(parentId);
+    if (!parent || parent.kind === 'Layer') return cur;
+    cur = parentId;
+  }
+}
+

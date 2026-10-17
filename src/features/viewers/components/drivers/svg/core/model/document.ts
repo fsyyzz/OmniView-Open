@@ -439,6 +439,26 @@ export function selectionRemove(sel: Selection, idOrIds: NodeId | ReadonlyArray<
   return { nodeIds: next, primaryId: primary };
 }
 
+/**
+ * 切换选择状态：已选则剔除，未选则加选（经典 Shift+Click 反选逻辑）。
+ */
+export function selectionToggle(sel: Selection, idOrIds: NodeId | ReadonlyArray<NodeId>): Selection {
+  const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
+  const existing = new Set(sel.nodeIds);
+  let next = [...sel.nodeIds];
+  for (const id of ids) {
+    if (existing.has(id)) {
+      next = next.filter((item) => item !== id);
+    } else {
+      next.push(id);
+    }
+  }
+  const primary = (sel.primaryId !== null && next.includes(sel.primaryId))
+    ? sel.primaryId
+    : (next[next.length - 1] ?? null);
+  return { nodeIds: next, primaryId: primary };
+}
+
 export function selectionClear(): Selection {
   return emptySelection();
 }

@@ -2,6 +2,20 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.65] - 2026-10-17
+
+### Added
+
+- **SVG v2 元素选择专项体系全量增强 (SVG v2 Selection System Enhancements — L2)**:
+  - **Shift + Click 反选剔除机制 (Toggle Selection)**：实现专业 `selectionToggle` 纯函数算法与 `select.set` 命令扩展；按住 Shift 单击已选图元时精准将其移出多选集合，未选图元则追加合并，主选对象（`primaryId`）自动顺移，彻底解决多选状态无法单项剔除的痛点；
+  - **高精度轮廓与描边命中测试 (Precise Shape & Stroke Hit Testing)**：重构底层 `hitNodeLocal` 算法，摒弃粗糙的矩形外包围盒碰撞；纯描边（无 fill）图形采用严格的点到线段与贝塞尔曲线距离平方算法（$\le (\text{tol} + \text{width}/2)^2$），空心内部空白区域彻底实现无感穿透，不再误选线条；带填充的多边形采用射线交叉法（Point-in-Polygon）进行实体判定；
+  - **编组默认选择与 Cmd/Ctrl 穿透 (Group-first vs Deep Select)**：默认状态下单点 Group 内元素自动寻径至最外层编组（`findOutermostGroup`），避免误散碎选出子路径；按住 `Cmd / Ctrl`（或调用 `deepSelect`）时无视层级穿透直接命中光标底部的具体原子子图元；
+  - **多层重叠图元循环点选与 Alt 穿透 (Cycle Selection)**：实现 `hitTestAllAtPoint` 获取光标下所有重叠图元候选序列；用户在同一坐标位置连续单击时，自动循环轮转切换选中下一层图元，按住 `Alt` 点击亦可直接穿透选中底层；
+  - **多选态图元拖拽保护**：当处于多选状态时，光标落在其中任意一个已选图元上拖动，不再重置选区，而是直接进入选区整体移动手势（`Begin move`）；
+  - **框选模式优化与全图大底图保护 (Enclosed vs Intersecting)**：`select.box` 默认支持完全包含（`enclosed`）与触碰相交（`intersect`）双模式；从左向右拉框为温和蓝色完全包含选，从右向左拉框为浅绿色触碰相交选；自动识别面积超过 80% 画布的大背景底图并在局部框选时免除误触；
+  - **多选复合轮廓高亮视觉反馈**：多选时，每个被选图元独立叠加单像素虚线浅色轮廓，外层再套统一变换 Gizmo，明确选区范围；
+  - **自动化测试回归套件**：新增 `scripts/test-svg-selection-enhancements.mjs`，包含 8 项端到端选区增强单元测试，并接入自动化门禁流水线。
+
 ## [1.2.64] - 2026-10-17
 
 ### Added

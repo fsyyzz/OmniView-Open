@@ -179,6 +179,7 @@ export {
   selectionWith,
   selectionAdd,
   selectionRemove,
+  selectionToggle,
   selectionClear,
   vec2,
   subPath,
@@ -214,6 +215,7 @@ export type { AlignMode, DistributeAxis } from './model/bbox';
 export {
   flattenLayerTree,
   findParent,
+  findOutermostGroup,
   planReorderDrop,
 } from './model/tree';
 export type { LayerTreeRow, DropDrag, DropTarget, ReorderPlan } from './model/tree';
@@ -221,7 +223,7 @@ export type { LayerTreeRow, DropDrag, DropTarget, ReorderPlan } from './model/tr
 // ---- Runtime（M3 阶段） ----
 export { createRuntime, RuntimeImpl } from './runtime/runtime';
 export { commandRegistry } from './commands/registry';
-export { getTool, hitTestTopmost, tools } from './runtime/tools';
+export { getTool, hitTestTopmost, hitTestAllAtPoint, tools } from './runtime/tools';
 export { useSvgRuntime } from './runtime/useSvgRuntime';
 export { shouldExport, shouldReloadFromHost, decideBackup } from './runtime/exportSync';
 export {

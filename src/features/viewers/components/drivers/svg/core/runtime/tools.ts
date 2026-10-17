@@ -39,6 +39,7 @@ import {
   createEllipseGeometry,
   createLineGeometry,
 } from '../model/path';
+import { findOutermostGroup } from '../model/tree';
 
 // ============================================================================
 // Select Tool
@@ -131,6 +132,14 @@ const selectTool: Tool = {
   },
 };
 
+interface ClickCycleState {
+  readonly point: Vec2;
+  readonly time: number;
+  readonly hits: ReadonlyArray<NodeId>;
+  readonly index: number;
+}
+let lastClickCycleState: ClickCycleState | null = null;
+
 /** 点击选中 / 拖拽移动 / 空白框选 / 8 向变形缩放与旋转的手势动作序列。 */
 function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArray<Action> {
   if (event.kind === 'down') {
@@ -167,18 +176,71 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       }
     }
 
-    const hit = hitTestTopmost(ctx.doc, event.point, 5 * Math.max(ctx.zoom, 1e-6));
-    const additive = event.mods.shift || event.mods.meta || event.mods.ctrl;
-    if (hit == null) {
+    const deepSelect = Boolean(event.mods.meta || event.mods.ctrl);
+    const tol = 5 / Math.max(ctx.zoom, 1e-4);
+    const hits = hitTestAllAtPoint(ctx.doc, event.point, tol, deepSelect);
+
+    const now = Date.now();
+    let targetHit: NodeId | null = null;
+
+    if (hits.length > 0) {
+      const isSamePoint =
+        lastClickCycleState &&
+        Math.hypot(lastClickCycleState.point.x - event.point.x, lastClickCycleState.point.y - event.point.y) < tol &&
+        now - lastClickCycleState.time < 1200;
+
+      if (isSamePoint && lastClickCycleState && lastClickCycleState.hits.length > 1) {
+        // 重复点击同一位置：循环切换选中下一层重叠图元
+        const nextIdx = (lastClickCycleState.index + 1) % lastClickCycleState.hits.length;
+        targetHit = lastClickCycleState.hits[nextIdx] ?? hits[0]!;
+        lastClickCycleState = { point: event.point, time: now, hits: lastClickCycleState.hits, index: nextIdx };
+      } else if (event.mods.alt && hits.length > 1) {
+        // 按住 Alt 点击：穿透选第二层重叠图元
+        targetHit = hits[1] ?? hits[0]!;
+        lastClickCycleState = { point: event.point, time: now, hits, index: 1 };
+      } else {
+        // 默认顶层（未按 Cmd/Ctrl 时若属于编组则返回其最外层编组）
+        const rawHit = hits[0]!;
+        targetHit = deepSelect ? rawHit : findOutermostGroup(ctx.doc, rawHit);
+        lastClickCycleState = { point: event.point, time: now, hits, index: 0 };
+      }
+    } else {
+      lastClickCycleState = null;
+    }
+
+    const additive = event.mods.shift;
+
+    if (targetHit == null) {
       const actions: Action[] = [];
       if (!additive) actions.push({ kind: 'Exec', commandId: 'select.clear', params: {} });
       actions.push({ kind: 'Begin', label: '框选', gestureMode: 'marquee' });
       return actions;
     }
-    return [
-      { kind: 'Exec', commandId: 'select.set', params: { ids: [hit], additive } },
-      { kind: 'Begin', label: '移动', gestureMode: 'move' },
-    ];
+
+    // 命中图元：处理加选/反选与多选拖拽
+    const inSelection = ctx.selection.nodeIds.includes(targetHit);
+    if (additive) {
+      if (inSelection) {
+        // Shift 点击已选图元 -> 反选剔除（不触发拖拽）
+        return [{ kind: 'Exec', commandId: 'select.set', params: { ids: [targetHit], additive: true, toggle: true } }];
+      } else {
+        // Shift 点击未选图元 -> 追加至选区并允许继续拖拽
+        return [
+          { kind: 'Exec', commandId: 'select.set', params: { ids: [targetHit], additive: true } },
+          { kind: 'Begin', label: '移动', gestureMode: 'move' },
+        ];
+      }
+    } else {
+      // 普通点击
+      if (inSelection && ctx.selection.nodeIds.length > 1) {
+        // 已有多选态且光标落在其中一个图元上：保持当前整体选区，直接开始移动
+        return [{ kind: 'Begin', label: '移动', gestureMode: 'move' }];
+      }
+      return [
+        { kind: 'Exec', commandId: 'select.set', params: { ids: [targetHit], additive: false } },
+        { kind: 'Begin', label: '移动', gestureMode: 'move' },
+      ];
+    }
   }
 
   if (event.kind === 'move' || event.kind === 'drag') {
@@ -232,8 +294,10 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         return [{ kind: 'Preview', commandId: 'object.move', params: { ids: [...g.ids], delta } }];
       }
       const rect = normalizeRect(g.startPoint, event.point);
-      const additive = event.mods.shift || event.mods.meta || event.mods.ctrl;
-      return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive } }];
+      const additive = event.mods.shift;
+      // 从左向右拉框：enclosed（完全包含）；从右向左拉框或按 Alt：intersect（触碰相交）
+      const mode = (event.mods.alt || event.point.x < g.startPoint.x) ? 'intersect' : 'enclosed';
+      return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive, mode } }];
     }
   }
 
@@ -253,12 +317,15 @@ function marqueeOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
   const g = ctx.gesture;
   if (g && g.kind === 'marquee') {
     const rect = normalizeRect(g.startPoint, g.currentPoint);
+    const isIntersectMode = g.currentPoint.x < g.startPoint.x;
+    const stroke = isIntersectMode ? 'var(--ov-success, #10b981)' : 'var(--ov-accent, #4c9aff)';
+    const fill = isIntersectMode ? 'rgba(16, 185, 129, 0.12)' : 'var(--ov-accent-soft, rgba(76,154,255,0.12))';
     return [
       {
         kind: 'rect',
         rect,
-        stroke: 'var(--ov-accent, #4c9aff)',
-        fill: 'var(--ov-accent-soft, rgba(76,154,255,0.12))',
+        stroke,
+        fill,
         lineWidth: 1 / Math.max(ctx.zoom, 1e-6),
         dashed: true,
       },
@@ -282,7 +349,23 @@ function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
     const lw = 1 / zoom;
     const hSize = 7 / zoom;
 
-    // 1. 选中包围盒虚线框
+    // 1. 若多选，为每个被选中的独立图元绘制轻量的单像素虚线轮廓
+    if (ctx.selection.nodeIds.length > 1) {
+      for (const id of ctx.selection.nodeIds) {
+        const subBb = nodeBBox(ctx.doc, id);
+        if (!subBb) continue;
+        overlays.push({
+          kind: 'rect',
+          rect: subBb,
+          stroke: 'var(--ov-accent, #4c9aff)',
+          fill: 'none',
+          lineWidth: 0.8 * lw,
+          dashed: true,
+        });
+      }
+    }
+
+    // 2. 选中包围盒虚线框
     overlays.push({
       kind: 'rect',
       rect: selBBox,
@@ -294,7 +377,7 @@ function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
 
     const handles = getTransformHandles(selBBox, zoom);
 
-    // 2. 旋转手柄连接线与圆圈
+    // 3. 旋转手柄连接线与圆圈
     overlays.push({
       kind: 'line',
       from: { x: handles.rot.x, y: selBBox.y },
@@ -312,7 +395,7 @@ function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
       lineWidth: 1.5 * lw,
     });
 
-    // 3. 8 个缩放控制方块
+    // 4. 8 个缩放控制方块
     const keys = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
     for (const k of keys) {
       overlays.push({
@@ -722,63 +805,231 @@ function pointNear(p: Vec2, q: Vec2, tol2: number): boolean {
   return dx * dx + dy * dy < tol2;
 }
 
-function pointInRectLocal(p: Vec2, r: { x: number; y: number; width: number; height: number }): boolean {
-  return p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+function distanceSqToSegment(p: Vec2, a: Vec2, b: Vec2): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-12) {
+    const px = p.x - a.x;
+    const py = p.y - a.y;
+    return px * px + py * py;
+  }
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const qx = a.x + t * dx;
+  const qy = a.y + t * dy;
+  const rx = p.x - qx;
+  const ry = p.y - qy;
+  return rx * rx + ry * ry;
 }
 
+function distanceSqToBezier(p: Vec2, p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2): number {
+  let minD2 = Infinity;
+  let prev = p0;
+  const STEPS = 8;
+  for (let i = 1; i <= STEPS; i++) {
+    const t = i / STEPS;
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const t2 = t * t;
+    const cur = {
+      x: mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
+      y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y,
+    };
+    const d2 = distanceSqToSegment(p, prev, cur);
+    if (d2 < minD2) minD2 = d2;
+    prev = cur;
+  }
+  return minD2;
+}
+
+function pointInPolygon(p: Vec2, poly: ReadonlyArray<Vec2>): boolean {
+  if (poly.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i]!.x;
+    const yi = poly[i]!.y;
+    const xj = poly[j]!.x;
+    const yj = poly[j]!.y;
+    const intersect = yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/** 精准判断点是否在图元轮廓或实体内部（避免仅凭外接包围盒误伤空心图形）。 */
 function hitNodeLocal(n: Node, doc: Document, local: Vec2, tol2: number): boolean {
   const bb = localNodeBBox(n, doc);
   if (!bb) return false;
-  if (n.kind === 'Path') {
-    // 锚点近旁（容差）或包围盒内（整段填充/描边区域的近似）均命中
-    if (pointInRectLocal(local, bb)) return true;
-    for (const sp of n.geometry.subPaths) {
-      for (const a of sp.anchors) {
-        if (pointNear(a.point, local, tol2)) return true;
-      }
-    }
+
+  const tol = Math.sqrt(tol2);
+  // 快速短路：不在包围盒容差范围内直接排除
+  if (
+    local.x < bb.x - tol ||
+    local.x > bb.x + bb.width + tol ||
+    local.y < bb.y - tol ||
+    local.y > bb.y + bb.height + tol
+  ) {
     return false;
   }
-  // Text / Image / Use：局部包围盒即命中区域
-  return pointInRectLocal(local, bb);
+
+  if (n.kind !== 'Path') {
+    // Text / Image / Use：实心块，点在局部包围盒内即命中
+    return (
+      local.x >= bb.x &&
+      local.x <= bb.x + bb.width &&
+      local.y >= bb.y &&
+      local.y <= bb.y + bb.height
+    );
+  }
+
+  // 针对 PathNode 进行真实描边与填充判定
+  const hasFill = n.appearance.items.some((it) => {
+    if (it.kind !== 'fill') return false;
+    const f = it.fill;
+    if (f.type === 'none') return false;
+    if (f.type === 'solid' && f.opacity <= 0) return false;
+    return true;
+  });
+  const strokeItem = n.appearance.items.find((it) => {
+    if (it.kind !== 'stroke') return false;
+    const s = it.stroke;
+    if (s.width <= 0) return false;
+    if (s.paint.type === 'none') return false;
+    if (s.paint.type === 'solid' && s.paint.opacity <= 0) return false;
+    return true;
+  });
+  const strokeWidth = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.width : 0;
+
+  // 既无填充又无描边：不可见，不响应命中
+  if (!hasFill && strokeWidth === 0) return false;
+
+  const strokeTol = Math.max(tol, strokeWidth / 2 + tol);
+  const strokeTol2 = strokeTol * strokeTol;
+
+  // 1. 优先检查描边距离（无论是纯描边还是带填充的路径，描边边缘均可命中）
+  for (const sp of n.geometry.subPaths) {
+    const anchors = sp.anchors;
+    if (anchors.length === 0) continue;
+
+    // 单点或极短路径
+    for (const a of anchors) {
+      if (pointNear(a.point, local, strokeTol2)) return true;
+    }
+
+    const count = sp.closed ? anchors.length : anchors.length - 1;
+    for (let i = 0; i < count; i++) {
+      const a = anchors[i]!;
+      const b = anchors[(i + 1) % anchors.length]!;
+      const hasCurves = a.handleOut != null || b.handleIn != null;
+      if (hasCurves) {
+        const d2 = distanceSqToBezier(local, a.point, a.handleOut ?? a.point, b.handleIn ?? b.point, b.point);
+        if (d2 <= strokeTol2) return true;
+      } else {
+        const d2 = distanceSqToSegment(local, a.point, b.point);
+        if (d2 <= strokeTol2) return true;
+      }
+    }
+  }
+
+  // 2. 若带有填充，检查点是否落在封闭多边形内部
+  if (hasFill) {
+    for (const sp of n.geometry.subPaths) {
+      if (sp.anchors.length < 3) continue;
+      // 离散化多边形采样
+      const poly: Vec2[] = [];
+      const count = sp.anchors.length;
+      for (let i = 0; i < count; i++) {
+        const a = sp.anchors[i]!;
+        const b = sp.anchors[(i + 1) % count]!;
+        poly.push(a.point);
+        if (a.handleOut != null || b.handleIn != null) {
+          const STEPS = 4;
+          for (let s = 1; s < STEPS; s++) {
+            const t = s / STEPS;
+            const mt = 1 - t;
+            const mt2 = mt * mt;
+            const t2 = t * t;
+            const p0 = a.point;
+            const p1 = a.handleOut ?? a.point;
+            const p2 = b.handleIn ?? b.point;
+            const p3 = b.point;
+            poly.push({
+              x: mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
+              y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y,
+            });
+          }
+        }
+      }
+      if (pointInPolygon(local, poly)) return true;
+    }
+  }
+
+  return false;
 }
 
-function hitInChildren(
+function collectHitsInChildren(
   doc: Document,
   children: ReadonlyArray<NodeId>,
   parentT: AffineTransform,
   point: Vec2,
   tol2: number,
-): NodeId | null {
+  deepSelect: boolean,
+  out: NodeId[],
+): void {
   for (let i = children.length - 1; i >= 0; i--) {
     const id = children[i]!;
     const n = doc.nodes.get(id);
     if (!n || !n.visible || n.locked) continue;
     const world = composeTransforms(parentT, n.transform);
     if (n.kind === 'Group') {
-      const inner = hitInChildren(doc, n.children, world, point, tol2);
-      if (inner) return inner;
+      if (deepSelect) {
+        collectHitsInChildren(doc, n.children, world, point, tol2, true, out);
+      } else {
+        const temp: NodeId[] = [];
+        collectHitsInChildren(doc, n.children, world, point, tol2, true, temp);
+        if (temp.length > 0) {
+          out.push(id);
+        }
+      }
       continue;
     }
     if (n.kind === 'Layer') continue;
     const local = invertTransformPoint(world, point);
     if (!local) continue;
-    if (hitNodeLocal(n, doc, local, tol2)) return id;
+    if (hitNodeLocal(n, doc, local, tol2)) {
+      out.push(id);
+    }
   }
-  return null;
 }
 
-/** 自顶向下命中测试：返回最上层命中节点（穿透 Group，坐标经 transform 链反变换）。 */
-export function hitTestTopmost(doc: Document, point: Vec2, tolerance: number): NodeId | null {
+/** 获取光标坐标下的所有候选命中文档节点（从最上层至最下层）。 */
+export function hitTestAllAtPoint(
+  doc: Document,
+  point: Vec2,
+  tolerance: number,
+  deepSelect = false,
+): NodeId[] {
   const tol2 = Math.max(tolerance, 1e-6) ** 2;
+  const out: NodeId[] = [];
   for (let li = doc.layers.length - 1; li >= 0; li--) {
     const layerId = doc.layers[li]!;
     const layer = doc.nodes.get(layerId);
     if (!layer || layer.kind !== 'Layer' || !layer.visible || layer.locked) continue;
-    const hit = hitInChildren(doc, layer.children, layer.transform, point, tol2);
-    if (hit) return hit;
+    collectHitsInChildren(doc, layer.children, layer.transform, point, tol2, deepSelect, out);
   }
-  return null;
+  return Array.from(new Set(out));
+}
+
+/** 自顶向下命中测试：返回最上层命中节点。 */
+export function hitTestTopmost(
+  doc: Document,
+  point: Vec2,
+  tolerance: number,
+  deepSelect = false,
+): NodeId | null {
+  const hits = hitTestAllAtPoint(doc, point, tolerance, deepSelect);
+  return hits[0] ?? null;
 }
 
 // ============================================================================
