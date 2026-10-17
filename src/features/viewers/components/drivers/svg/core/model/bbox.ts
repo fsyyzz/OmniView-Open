@@ -9,8 +9,9 @@
  * 纯函数、无副作用、可独立单测。
  */
 import type { AffineTransform, Document, Node, NodeId, Rect } from './types';
-import { applyTransform } from './document';
+import { applyTransform, composeTransforms } from './document';
 import { getBoundingBox } from './path';
+import { findParent } from './tree';
 
 /** 对齐模式（与 `object.align` 命令参数一致，支持 centerH/center 及 centerV/middle 别名）。 */
 export type AlignMode = 'left' | 'centerH' | 'center' | 'right' | 'top' | 'centerV' | 'middle' | 'bottom';
@@ -124,6 +125,51 @@ function nodeBBoxInParent(doc: Document, id: NodeId, visited: Set<NodeId>): Rect
  */
 export function nodeBBox(doc: Document, id: NodeId): Rect | null {
   return nodeBBoxInParent(doc, id, new Set<NodeId>());
+}
+
+/**
+ * 计算节点在 SVG 根画布（世界坐标系）下的复合仿射变换矩阵。
+ * 递归组合从 Root/Layer 经所有祖先 Group 直至自身的变换。
+ */
+export function nodeWorldTransform(doc: Document, id: NodeId): AffineTransform {
+  const chain: AffineTransform[] = [];
+  let cur: NodeId | null = id;
+  while (cur) {
+    const node = doc.nodes.get(cur);
+    if (!node) break;
+    chain.push(node.transform);
+    cur = findParent(doc, cur);
+  }
+  let world: AffineTransform = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  for (let i = chain.length - 1; i >= 0; i--) {
+    world = composeTransforms(world, chain[i]!);
+  }
+  return world;
+}
+
+/**
+ * 节点在 SVG 根画布（世界坐标系）中的真实包围盒。
+ * 针对子节点/嵌套编组，自动应用完整祖先变换链，确保高亮框、变形手柄与 HUD 像素级对齐。
+ */
+export function nodeWorldBBox(doc: Document, id: NodeId): Rect | null {
+  const node = doc.nodes.get(id);
+  if (!node) return null;
+  const local = localNodeBBox(node, doc);
+  if (!local) return null;
+  const worldT = nodeWorldTransform(doc, id);
+  return transformRect(worldT, local);
+}
+
+/**
+ * 计算多个节点在 SVG 根画布下的合并包围盒（并集）。
+ */
+export function getSelectionBBox(doc: Document, ids: ReadonlyArray<NodeId>): Rect | null {
+  const boxes: Rect[] = [];
+  for (const id of ids) {
+    const b = nodeWorldBBox(doc, id);
+    if (b) boxes.push(b);
+  }
+  return unionRects(boxes);
 }
 
 // ============================================================================

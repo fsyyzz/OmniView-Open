@@ -33,13 +33,13 @@ import {
   subPath,
   anchorCorner,
 } from '../model/document';
-import { localNodeBBox, nodeBBox, unionRects } from '../model/bbox';
+import { getSelectionBBox, localNodeBBox, nodeBBox, nodeWorldBBox, unionRects } from '../model/bbox';
 import {
   createRectGeometry,
   createEllipseGeometry,
   createLineGeometry,
 } from '../model/path';
-import { findOutermostGroup } from '../model/tree';
+import { findAncestors, findOutermostGroup, findParent } from '../model/tree';
 
 // ============================================================================
 // Select Tool
@@ -64,15 +64,6 @@ export interface SnapGuideLine {
 
 let activeTransformState: TransformHandleState | null = null;
 let activeSnapGuides: SnapGuideLine[] = [];
-
-function getSelectionBBox(doc: Document, ids: ReadonlyArray<NodeId>): { x: number; y: number; width: number; height: number } | null {
-  const boxes: { x: number; y: number; width: number; height: number }[] = [];
-  for (const id of ids) {
-    const b = nodeBBox(doc, id);
-    if (b) boxes.push(b);
-  }
-  return unionRects(boxes);
-}
 
 function getTransformHandles(bbox: { x: number; y: number; width: number; height: number }, zoom: number) {
   const rotDist = 20 / Math.max(zoom, 1e-4);
@@ -186,12 +177,28 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
 
     const deepSelect = Boolean(event.mods.meta || event.mods.ctrl);
     const tol = 5 / Math.max(ctx.zoom, 1e-4);
-    const hits = hitTestAllAtPoint(ctx.doc, event.point, tol, deepSelect);
+    // 始终检索光标下真实的原子叶子图元（deepSelect = true），以精确定位命中目标
+    const leafHits = hitTestAllAtPoint(ctx.doc, event.point, tol, true);
 
     const now = Date.now();
     let targetHit: NodeId | null = null;
 
-    if (hits.length > 0) {
+    if (leafHits.length > 0) {
+      const rawLeaf = leafHits[0]!;
+
+      // 沿树构建完整祖先链条：[rawLeaf, subGroup, ..., outermostGroup]
+      const chain: NodeId[] = [rawLeaf];
+      let cur = rawLeaf;
+      while (true) {
+        const p = findParent(ctx.doc, cur);
+        if (!p) break;
+        const pNode = ctx.doc.nodes.get(p);
+        if (!pNode || pNode.kind === 'Layer') break;
+        chain.push(p);
+        cur = p;
+      }
+      const outermost = chain[chain.length - 1]!;
+
       const isSamePoint =
         lastClickCycleState &&
         Math.hypot(lastClickCycleState.point.x - event.point.x, lastClickCycleState.point.y - event.point.y) < tol &&
@@ -200,17 +207,31 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       if (isSamePoint && lastClickCycleState && lastClickCycleState.hits.length > 1) {
         // 重复点击同一位置：循环切换选中下一层重叠图元
         const nextIdx = (lastClickCycleState.index + 1) % lastClickCycleState.hits.length;
-        targetHit = lastClickCycleState.hits[nextIdx] ?? hits[0]!;
+        targetHit = lastClickCycleState.hits[nextIdx] ?? leafHits[0]!;
         lastClickCycleState = { point: event.point, time: now, hits: lastClickCycleState.hits, index: nextIdx };
-      } else if (event.mods.alt && hits.length > 1) {
+      } else if (deepSelect) {
+        // Cmd / Ctrl + Click 穿透直选底层叶子/原子图元
+        targetHit = rawLeaf;
+        lastClickCycleState = { point: event.point, time: now, hits: leafHits, index: 0 };
+      } else if (event.mods.alt && leafHits.length > 1) {
         // 按住 Alt 点击：穿透选第二层重叠图元
-        targetHit = hits[1] ?? hits[0]!;
-        lastClickCycleState = { point: event.point, time: now, hits, index: 1 };
+        targetHit = leafHits[1] ?? leafHits[0]!;
+        lastClickCycleState = { point: event.point, time: now, hits: leafHits, index: 1 };
       } else {
-        // 默认顶层（未按 Cmd/Ctrl 时若属于编组则返回其最外层编组）
-        const rawHit = hits[0]!;
-        targetHit = deepSelect ? rawHit : findOutermostGroup(ctx.doc, rawHit);
-        lastClickCycleState = { point: event.point, time: now, hits, index: 0 };
+        // 循序下钻选择 (Progressive Drilldown)：
+        // 检查当前选区中是否已有该叶子的某个上级编组
+        const selectedAncestorIdx = chain.findIndex((id) => ctx.selection.nodeIds.includes(id));
+        if (selectedAncestorIdx > 0) {
+          // 当前已选中某个上级 Group -> 循序下钻一层！选中其下一级直接子图元
+          targetHit = chain[selectedAncestorIdx - 1]!;
+        } else if (selectedAncestorIdx === 0) {
+          // 当前已选中该叶子节点自身 -> 保持叶子节点
+          targetHit = rawLeaf;
+        } else {
+          // 尚未选中链条上的任何节点 -> 默认选择最外层编组整体
+          targetHit = outermost;
+        }
+        lastClickCycleState = { point: event.point, time: now, hits: [targetHit], index: 0 };
       }
     } else {
       lastClickCycleState = null;
@@ -323,7 +344,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
               if (g.ids.includes(otherId) || ctx.selection.nodeIds.includes(otherId)) continue;
               const n = ctx.doc.nodes.get(otherId);
               if (!n || n.kind === 'Layer') continue;
-              const ob = nodeBBox(ctx.doc, otherId);
+              const ob = nodeWorldBBox(ctx.doc, otherId);
               if (!ob || ob.width <= 0 || ob.height <= 0) continue;
 
               // X 轴候选对齐 (左中右)
@@ -435,7 +456,7 @@ function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
     // 1. 若多选，为每个被选中的独立图元绘制轻量的单像素虚线轮廓
     if (ctx.selection.nodeIds.length > 1) {
       for (const id of ctx.selection.nodeIds) {
-        const subBb = nodeBBox(ctx.doc, id);
+        const subBb = nodeWorldBBox(ctx.doc, id);
         if (!subBb) continue;
         overlays.push({
           kind: 'rect',

@@ -15,8 +15,10 @@ import { ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
 import {
   RAW_DEFS_METADATA_KEY,
   clientToCanvasPoint,
+  getSelectionBBox,
   hitTestAllAtPoint,
   nodeBBox,
+  nodeWorldBBox,
   serializePathD,
   unionRects,
   type Document as SvgDocument,
@@ -123,13 +125,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const selBBox = useMemo(() => {
-    if (selection.nodeIds.length === 0) return null;
-    const boxes: { x: number; y: number; width: number; height: number }[] = [];
-    for (const id of selection.nodeIds) {
-      const b = nodeBBox(doc, id);
-      if (b) boxes.push(b);
-    }
-    return unionRects(boxes);
+    return getSelectionBBox(doc, selection.nodeIds);
   }, [doc, selection.nodeIds]);
 
   const hudPosition = useMemo(() => {
@@ -212,7 +208,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   const selectionBoxes = useMemo(() => {
     const out: React.ReactNode[] = [];
     for (const id of selection.nodeIds) {
-      const bb = nodeBBox(doc, id);
+      const bb = nodeWorldBBox(doc, id);
       if (!bb) continue;
       out.push(
         <rect

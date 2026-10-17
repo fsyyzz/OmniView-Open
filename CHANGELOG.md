@@ -2,6 +2,23 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.1] - 2026-10-17
+
+### Fixed
+
+- **SVG v2 子节点下钻选择与多选交互体验全面重构与增强 (Child Node Drilldown & Multi-Selection Enhancements)**:
+  - **子节点下钻选择 (Progressive Drilldown & Deep Select)**:
+    - **循序下钻交互**：未选中编组时点击选中最外层 Group；当 Group 已选中时再次点击内部图元自动下钻一级选中其直接子节点；
+    - **穿透直选 (Cmd/Ctrl+Click)**：按住 `Cmd` (Mac) 或 `Ctrl` (Windows) 单击画布任意深层嵌套图元，直接穿透所有编组外壳精准直达底层原子叶子节点；
+    - **双击下钻与防抖防重置**：双击任意图元直接下钻选中光标底部的具体原子子节点，并阻止冒泡彻底防止误触画布视口 100% 重置手势；
+    - **键盘层级穿梭 (Escape / Enter)**：选中子节点时按 `Escape` 自动跳至上级编组（顶级时清空选区）；选中编组时按 `Enter` 直接下钻全选编组内部子图元；
+    - **绝对世界包围盒 (`nodeWorldBBox`)**：新增 `nodeWorldTransform` 与 `nodeWorldBBox` 纯函数，递归累加祖先变换链，彻底解决子节点在嵌套编组中选中框、8 向变形手柄与悬浮 HUD 坐标偏移错位的问题；
+  - **多选交互与批量操作全面强化 (Multi-Selection & Batch Operations)**:
+    - **图层面板多选支持 (`SvgV2LayersPanel`)**：图层列表项点击全面接入 `Shift`（区间/加选）与 `Cmd/Ctrl`（反选/剔除）多选修饰键；
+    - **多选变换安全防线 (`keepDisjointRoots`)**：在 `object.move`、`object.scale`、`object.rotate`、`object.duplicate` 与 `object.delete` 命令中严格过滤保留顶级互斥根节点，彻底杜绝父子同时被选时发生的二次位移、二次缩放或并发删除报错；
+    - **编组内与深层框选 (`selectBox`)**：框选自动适配当前所处编组，并在根坐标系下精准比对 `nodeWorldBBox`，防止背景板误选与相交漏选；
+    - **属性检视器批量描边调节 (`SvgV2Inspector`)**：放宽路径描边样式限制，多选多个 Path 时允许一键批量调节描边颜色、粗细、端点与虚线。
+
 ## [1.3.0] - 2026-10-17
 
 ### Added
@@ -138,15 +155,3 @@
     - 新增 `path.setMarker` 命令，支持设置起点/终点箭头（`arrow`）与圆点（`dot`），序列化导出与画布渲染内嵌 `<defs>` 标记；
     - 新增 `path.toggleAnchorKind` 命令与 Inspector 操作按钮，支持尖角锚点（`corner`）与平滑贝塞尔切线手柄（`smooth`）无缝切换；
   - **自动化测试回归防护**：新增 `tests/test-svg-v2-transform-align.mjs`（13 项全量测试），覆盖 8 向缩放手柄、旋转交互、对齐分布、端点箭头与锚点平滑度切换。
-
-## [1.2.61] - 2026-10-16
-
-### Added
-
-- **SVG v2 现代编辑引擎功能全面扩充 (SVG v2 Full Tool Suite, Viewport HUD & Enhanced Inspector — L2)**:
-  - **基础形状与文本工具扩充**：新增矩形（`rect`）、椭圆（`ellipse`）、直线（`line`）与文本（`text`）创建工具；支持画布内直接拖拽框选即时成型，以及点击创建文本图元；
-  - **钢笔与节点编辑增强**：完善钢笔（`pen`）连续画线与点起点闭合路径交互；强化直接选择/节点（`node`）工具，支持点击选中锚点、拖拽实时微调与贝塞尔控制手柄联动；
-  - **底层命令总线与几何算法补全**：新增 `object.createPath`、`object.createText`、`text.setText` 与 `path.updateAnchor` 核心命令，并完善撤销重做历史记录支持；新增 `createRectGeometry`、`createEllipseGeometry`、`createLineGeometry` 纯函数几何构造器；
-  - **视口控制胶囊 HUD**：在画布底部中心新增悬浮视口控制胶囊，支持快捷放大、缩小、100% 重置、自适应居中（Fit View）及抓手平移提示；
-  - **属性检视器 (Inspector) 升级**：新增描边宽度调节、端点风格（butt / round / square）、虚线预设选择（实线、点线、虚线、长短虚线）；提供 8 色精选快速调色板；针对文本节点提供内容编辑、字号滑块及对齐方式控制；
-  - **自动化测试回归防护**：新增 `tests/test-svg-v2-tools-shapes.mjs`，覆盖形状几何生成、图元创建与撤销重做、文本图元编辑、锚点更新及 7 大核心工具交互。

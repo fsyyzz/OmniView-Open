@@ -173,8 +173,8 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
         </label>
       </div>
 
-      {/* 单选路径描边与端点样式 */}
-      {ids.length === 1 && primary && primary.kind === 'Path' && (
+      {/* 路径描边与端点样式（支持单选与多选批量应用） */}
+      {(primary?.kind === 'Path' || ids.some((id) => doc.nodes.get(id)?.kind === 'Path')) && (
         <div className="mb-2 space-y-1.5 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/40 p-2 text-xs">
           <div className="font-semibold text-[var(--ov-fg-muted)]">描边与拐角</div>
           <div className="flex items-center justify-between">

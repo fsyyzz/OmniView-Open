@@ -144,50 +144,17 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
       const point = toCanvas(e.clientX, e.clientY);
       if (!point) return;
       const doc = runtime.currentDocument;
-      const sel = runtime.currentSelection;
-      const allHits = hitTestAllAtPoint(doc, point);
+      const allHits = hitTestAllAtPoint(doc, point, 5, true);
       if (allHits.length === 0) return;
 
-      // 双击穿透选择 (Deep Select / Drill-down)：
-      // 若当前已选中某编组，双击该编组则下钻一层：选中光标所指的最直接子图元
-      const selectedGroup = sel.nodeIds.find((id) => doc.nodes.get(id)?.kind === 'Group');
-      if (selectedGroup) {
-        const directChildHit = allHits.find((hId) => {
-          let cur: NodeId | null = hId;
-          while (cur) {
-            const p = findParent(doc, cur);
-            if (p === selectedGroup) return true;
-            cur = p;
-          }
-          return false;
-        });
-
-        if (directChildHit) {
-          e.preventDefault();
-          e.stopPropagation();
-          let targetChild: NodeId = directChildHit;
-          let cur: NodeId | null = directChildHit;
-          while (cur) {
-            const p = findParent(doc, cur);
-            if (p === selectedGroup) {
-              targetChild = cur;
-              break;
-            }
-            cur = p;
-          }
-          runtime.execute('select.set', { ids: [targetChild], additive: false });
-          return;
-        }
-      }
-
-      // 未选编组时双击：直接深度下钻选中光标底部具体的叶子图元
-      const leafHit = allHits[0];
-      if (leafHit) {
-        runtime.execute('select.set', { ids: [leafHit], additive: false });
-      }
+      // 双击穿透选择 (Deep Select / Drill-down)：直接深度下钻选中光标底部具体的原子叶子图元
+      const leafHit = allHits[0]!;
+      runtime.execute('select.set', { ids: [leafHit], additive: false });
     },
     [runtime, toCanvas],
   );
@@ -197,6 +164,42 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
       if (isEditableTarget(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+      // Escape: 若当前处于子节点，向上跳至其所属父编组；若已是最外层则清空选区
+      if (e.key === 'Escape') {
+        const sel = runtime.currentSelection;
+        if (sel.nodeIds.length > 0) {
+          e.preventDefault();
+          const parentGroups = new Set<NodeId>();
+          for (const id of sel.nodeIds) {
+            const p = findParent(runtime.currentDocument, id);
+            if (p) {
+              const pNode = runtime.currentDocument.nodes.get(p);
+              if (pNode && pNode.kind === 'Group') parentGroups.add(p);
+            }
+          }
+          if (parentGroups.size > 0) {
+            runtime.execute('select.set', { ids: Array.from(parentGroups), additive: false });
+          } else {
+            runtime.execute('select.clear', {});
+          }
+          return;
+        }
+      }
+
+      // Enter: 若当前选中编组，回车直接下钻选中编组内的直接子图元
+      if (e.key === 'Enter') {
+        const sel = runtime.currentSelection;
+        if (sel.nodeIds.length === 1) {
+          const node = runtime.currentDocument.nodes.get(sel.nodeIds[0]!);
+          if (node && node.kind === 'Group' && node.children.length > 0) {
+            e.preventDefault();
+            runtime.execute('select.set', { ids: [...node.children], additive: false });
+            return;
+          }
+        }
+      }
+
       if (mod && key === 'z') {
         e.preventDefault();
         if (e.shiftKey) redo();

@@ -94,8 +94,8 @@ import {
   updateNode,
 } from '../model/document';
 import { parsePathD, serializePathD } from '../model/path';
-import { alignDelta, distributeOffsets, nodeBBox, unionRects } from '../model/bbox';
-import { findParent } from '../model/tree';
+import { alignDelta, distributeOffsets, nodeBBox, nodeWorldBBox, nodeWorldTransform, unionRects } from '../model/bbox';
+import { findParent, keepDisjointRoots } from '../model/tree';
 
 // ============================================================================
 // 1. 错误构造
@@ -284,11 +284,23 @@ const pathSetMarker: CommandHandler = (doc, sel, params) => {
 const objectMove: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectMoveParams;
   let next = doc;
-  for (const id of p.ids) {
+  const cleanIds = keepDisjointRoots(next, p.ids);
+  for (const id of cleanIds) {
     if (!next.nodes.has(id)) return noNode('object.move', id);
+    const parentId = findParent(next, id);
+    let delta = p.delta;
+    if (parentId) {
+      const parentWorldT = nodeWorldTransform(next, parentId);
+      const det = parentWorldT.a * parentWorldT.d - parentWorldT.b * parentWorldT.c;
+      if (Math.abs(det) > 1e-6) {
+        const dx = (p.delta.x * parentWorldT.d - p.delta.y * parentWorldT.c) / det;
+        const dy = (p.delta.y * parentWorldT.a - p.delta.x * parentWorldT.b) / det;
+        delta = { x: dx, y: dy };
+      }
+    }
     next = updateNode(next, id, (n) => {
       const t = n.transform;
-      return { ...n, transform: { ...t, e: t.e + p.delta.x, f: t.f + p.delta.y } };
+      return { ...n, transform: { ...t, e: t.e + delta.x, f: t.f + delta.y } };
     });
   }
   return ok(next, sel);
@@ -297,7 +309,8 @@ const objectMove: CommandHandler = (doc, sel, params) => {
 const objectScale: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectScaleParams;
   let next = doc;
-  for (const id of p.ids) {
+  const cleanIds = keepDisjointRoots(next, p.ids);
+  for (const id of cleanIds) {
     if (!next.nodes.has(id)) return noNode('object.scale', id);
     next = updateNode(next, id, (n) => {
       const t = n.transform;
@@ -318,7 +331,8 @@ const objectRotate: CommandHandler = (doc, sel, params) => {
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
   let next = doc;
-  for (const id of p.ids) {
+  const cleanIds = keepDisjointRoots(next, p.ids);
+  for (const id of cleanIds) {
     if (!next.nodes.has(id)) return noNode('object.rotate', id);
     next = updateNode(next, id, (n) => {
       const t = n.transform;
@@ -335,7 +349,8 @@ const objectRotate: CommandHandler = (doc, sel, params) => {
 const objectTransform: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectTransformParams;
   let next = doc;
-  for (const id of p.ids) {
+  const cleanIds = keepDisjointRoots(next, p.ids);
+  for (const id of cleanIds) {
     if (!next.nodes.has(id)) return noNode('object.transform', id);
     next = updateNode(next, id, (n) => ({
       ...n,
@@ -347,7 +362,9 @@ const objectTransform: CommandHandler = (doc, sel, params) => {
 
 const objectDuplicate: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectDuplicateParams;
-  const targetIds = (p.ids && p.ids.length > 0) ? p.ids : sel.nodeIds;
+  const rawTargetIds = (p.ids && p.ids.length > 0) ? p.ids : sel.nodeIds;
+  if (!rawTargetIds || rawTargetIds.length === 0) return ok(doc, sel);
+  const targetIds = keepDisjointRoots(doc, rawTargetIds);
   if (!targetIds || targetIds.length === 0) return ok(doc, sel);
 
   const offset = p.offset ?? { x: 10, y: 10 };
@@ -484,8 +501,10 @@ const objectReorder: CommandHandler = (doc, sel, params) => {
 const objectDelete: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectDeleteParams;
   let next = doc;
-  for (const id of p.ids) {
-    if (!next.nodes.has(id)) return noNode('object.delete', id);
+  const cleanIds = keepDisjointRoots(next, p.ids);
+  for (const id of cleanIds) {
+    if (!doc.nodes.has(id)) return noNode('object.delete', id);
+    if (!next.nodes.has(id)) continue;
     next = removeNode(next, id);
   }
   return ok(next, emptySelection());
@@ -793,23 +812,35 @@ const selectBox: CommandHandler = (doc, sel, params) => {
   const canvasArea = canvasW * canvasH;
   const selArea = p.rect.width * p.rect.height;
 
-  // 仅匹配各图层直接子节点（组选组，不钻进子树）
-  for (const layerId of doc.layers) {
-    const layer = doc.nodes.get(layerId);
-    if (!layer || layer.kind !== 'Layer' || !layer.visible || layer.locked) continue;
-    for (const childId of layer.children) {
-      const n = doc.nodes.get(childId);
-      if (!n || !n.visible || n.locked) continue;
-      const bb = nodeBBox(doc, childId);
-      if (!bb) continue;
+  // 检查是否正在某个 Group 内部编辑（当前选区恰为单一 Group）
+  const activeGroup = (sel.nodeIds.length === 1 && doc.nodes.get(sel.nodeIds[0]!)?.kind === 'Group')
+    ? (doc.nodes.get(sel.nodeIds[0]!) as Extract<Node, { kind: 'Group' }>)
+    : null;
 
-      // 面积占满 80% 画布以上的大底图，在非大面积框选时予以忽略保护
-      const isHugeBackground = (bb.width * bb.height) >= canvasArea * 0.8 && selArea < canvasArea * 0.6;
-      if (isHugeBackground && mode !== 'enclosed') continue;
-
-      if (checkMatch(bb)) matched.push(childId);
+  const candidateIds: NodeId[] = [];
+  if (activeGroup) {
+    for (const cid of activeGroup.children) candidateIds.push(cid);
+  } else {
+    for (const layerId of doc.layers) {
+      const layer = doc.nodes.get(layerId);
+      if (!layer || layer.kind !== 'Layer' || !layer.visible || layer.locked) continue;
+      for (const childId of layer.children) candidateIds.push(childId);
     }
   }
+
+  for (const childId of candidateIds) {
+    const n = doc.nodes.get(childId);
+    if (!n || !n.visible || n.locked) continue;
+    const bb = nodeWorldBBox(doc, childId);
+    if (!bb) continue;
+
+    // 面积占满 80% 画布以上的大底图，在非大面积框选时予以忽略保护
+    const isHugeBackground = (bb.width * bb.height) >= canvasArea * 0.8 && selArea < canvasArea * 0.6;
+    if (isHugeBackground && mode !== 'enclosed') continue;
+
+    if (checkMatch(bb)) matched.push(childId);
+  }
+
   if (matched.length === 0) return ok(doc, p.additive ? sel : emptySelection());
   const ids = matched as NodeId[];
   const primary = ids[0]!;

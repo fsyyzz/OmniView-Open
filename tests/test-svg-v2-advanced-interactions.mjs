@@ -32,6 +32,7 @@ const {
   appendToLayer,
   createRectGeometry,
   nodeBBox,
+  nodeWorldBBox,
 } = SvgCore;
 
 const React = await import('react');
@@ -312,6 +313,136 @@ await it('SvgV2FloatingHud: 选中图元时在包围盒上方浮现快捷改色�
     root.unmount();
   });
   container.remove();
+});
+
+// ============================================================================
+// 测试 6: 子节点下钻选择与多选增强体系验证
+// ============================================================================
+console.log('\n--- 测试 6: 子节点下钻选择与多选增强体系验证 ---');
+
+await it('nodeWorldBBox: 计算嵌套子节点在 SVG 画布世界坐标系中的真实绝对包围盒', async () => {
+  const runtime = createRuntime();
+  await runtime.loadFromSvg(`
+    <svg viewBox="0 0 800 600">
+      <rect id="childRect1" x="10" y="20" width="40" height="30" />
+      <rect id="childRect2" x="100" y="20" width="40" height="30" />
+    </svg>
+  `);
+  // 编组并赋予位移 transform
+  runtime.execute('select.all', {});
+  runtime.execute('object.group', { ids: [...runtime.currentSelection.nodeIds] });
+  const groupId = runtime.currentSelection.nodeIds[0];
+  runtime.execute('object.move', { ids: [groupId], delta: { x: 100, y: 50 } });
+
+  const doc = runtime.currentDocument;
+  const group = doc.nodes.get(groupId);
+  const childId = group.children[0];
+
+  // 验证 nodeWorldBBox 正确累加了父 Group 的仿射平移
+  const worldBb = nodeWorldBBox(doc, childId);
+  assert.ok(worldBb, '子节点绝对包围盒应当可计算');
+  assert.strictEqual(worldBb.x, 110, 'X 坐标应当叠加 Group translate(100) -> 110');
+  assert.strictEqual(worldBb.y, 70, 'Y 坐标应当叠加 Group translate(50) -> 70');
+  assert.strictEqual(worldBb.width, 40, '宽度应当保持 40');
+  assert.strictEqual(worldBb.height, 30, '高度应当保持 30');
+});
+
+await it('循序下钻选择与 Cmd+Click 穿透选择：未选编组选整体，已选编组下钻子节点，Cmd直选原子叶子', async () => {
+  const runtime = createRuntime();
+  await runtime.loadFromSvg(`
+    <svg viewBox="0 0 800 600">
+      <rect id="rect1" x="20" y="20" width="50" height="50" />
+      <rect id="rect2" x="100" y="20" width="50" height="50" />
+    </svg>
+  `);
+  // 编组
+  runtime.execute('select.all', {});
+  runtime.execute('object.group', { ids: [...runtime.currentSelection.nodeIds] });
+  const groupId = runtime.currentSelection.nodeIds[0];
+  const group = runtime.currentDocument.nodes.get(groupId);
+  const child1 = group.children[0];
+
+  // 清空选区
+  runtime.execute('select.clear', {});
+  runtime.setActiveTool('select');
+
+  // 1. 未选编组时普通点击：选中最外层 Group
+  runtime.dispatchPointer({
+    kind: 'down',
+    point: { x: 30, y: 30 },
+    mods: { shift: false, alt: false, meta: false, ctrl: false, space: false },
+    pressure: 1,
+  });
+  runtime.dispatchPointer({
+    kind: 'up',
+    point: { x: 30, y: 30 },
+    mods: { shift: false, alt: false, meta: false, ctrl: false, space: false },
+    pressure: 1,
+  });
+  assert.strictEqual(runtime.currentSelection.nodeIds[0], groupId, '未选中时点击应选中最外层 Group');
+
+  // 2. 编组已选中的情况下再次点击同一子图元：循序下钻选择子节点 child1
+  runtime.dispatchPointer({
+    kind: 'down',
+    point: { x: 30, y: 30 },
+    mods: { shift: false, alt: false, meta: false, ctrl: false, space: false },
+    pressure: 1,
+  });
+  runtime.dispatchPointer({
+    kind: 'up',
+    point: { x: 30, y: 30 },
+    mods: { shift: false, alt: false, meta: false, ctrl: false, space: false },
+    pressure: 1,
+  });
+  assert.strictEqual(runtime.currentSelection.nodeIds[0], child1, '编组已选时再次点击应下钻选中子节点');
+
+  // 3. 清空选区后按住 Cmd 点击：穿透直选 child1
+  runtime.execute('select.clear', {});
+  runtime.dispatchPointer({
+    kind: 'down',
+    point: { x: 30, y: 30 },
+    mods: { shift: false, alt: false, meta: true, ctrl: false, space: false },
+    pressure: 1,
+  });
+  runtime.dispatchPointer({
+    kind: 'up',
+    point: { x: 30, y: 30 },
+    mods: { shift: false, alt: false, meta: true, ctrl: false, space: false },
+    pressure: 1,
+  });
+  assert.strictEqual(runtime.currentSelection.nodeIds[0], child1, 'Cmd+Click 应穿透直选原子叶子节点');
+});
+
+await it('多选安全防线：父子同时在选区中时移动/删除不重复计算或报错', async () => {
+  const runtime = createRuntime();
+  await runtime.loadFromSvg(`
+    <svg viewBox="0 0 800 600">
+      <rect id="innerRect1" x="10" y="10" width="40" height="40" />
+      <rect id="innerRect2" x="80" y="10" width="40" height="40" />
+    </svg>
+  `);
+  // 编组
+  runtime.execute('select.all', {});
+  runtime.execute('object.group', { ids: [...runtime.currentSelection.nodeIds] });
+  const groupId = runtime.currentSelection.nodeIds[0];
+  const group = runtime.currentDocument.nodes.get(groupId);
+  const childId = group.children[0];
+
+  // 模拟同时包含 parent 和 child 的选区
+  runtime.execute('select.set', { ids: [groupId, childId], additive: false });
+
+  // 移动 20px
+  runtime.execute('object.move', { ids: [groupId, childId], delta: { x: 20, y: 0 } });
+  const updatedGroup = runtime.currentDocument.nodes.get(groupId);
+  const updatedChild = runtime.currentDocument.nodes.get(childId);
+  assert.strictEqual(updatedGroup.transform.e, 20, 'Group 偏移量应当增加 20');
+  assert.strictEqual(updatedChild.transform.e, 0, '子图元不应发生二次位移');
+
+  // 批量删除：不因父子从属关系导致二次删除报错
+  const delRes = runtime.execute('object.delete', { ids: [groupId, childId] });
+  assert.strictEqual(delRes.ok, true, '父子并发删除命令应当安全执行成功');
+  assert.strictEqual(runtime.currentDocument.nodes.has(groupId), false, 'Group 应当已被移除');
+  assert.strictEqual(runtime.currentDocument.nodes.has(childId), false, '子节点应当已被移除');
 });
 
 // ============================================================================

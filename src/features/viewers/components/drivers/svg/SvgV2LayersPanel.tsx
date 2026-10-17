@@ -202,7 +202,15 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
                   type="button"
                   className="min-w-0 flex-1 truncate text-left text-xs"
                   title={`${row.name ?? row.kind}${row.childCount > 0 ? `（${row.childCount} 项）` : ''}`}
-                  onClick={() => execute('select.set', { ids: [row.id], additive: false })}
+                  onClick={(e) => {
+                    if (e.shiftKey) {
+                      execute('select.set', { ids: [row.id], additive: true });
+                    } else if (e.metaKey || e.ctrlKey) {
+                      execute('select.set', { ids: [row.id], additive: true, toggle: true });
+                    } else {
+                      execute('select.set', { ids: [row.id], additive: false });
+                    }
+                  }}
                   onDoubleClick={() => startRename(row)}
                 >
                   {row.name ?? `${row.kind} ${row.id}`}

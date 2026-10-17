@@ -208,6 +208,9 @@ export {
   unionRects,
   nodeBBox,
   localNodeBBox,
+  nodeWorldTransform,
+  nodeWorldBBox,
+  getSelectionBBox,
   alignDelta,
   distributeOffsets,
 } from './model/bbox';
@@ -217,6 +220,8 @@ export {
   flattenLayerTree,
   findParent,
   findOutermostGroup,
+  findAncestors,
+  keepDisjointRoots,
   planReorderDrop,
 } from './model/tree';
 export type { LayerTreeRow, DropDrag, DropTarget, ReorderPlan } from './model/tree';

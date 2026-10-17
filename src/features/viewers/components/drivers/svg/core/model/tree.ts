@@ -178,3 +178,32 @@ export function findOutermostGroup(doc: Document, id: NodeId): NodeId {
   }
 }
 
+/**
+ * 获取节点的所有祖先节点列表（从直接父级一直向上到 Layer）。
+ */
+export function findAncestors(doc: Document, id: NodeId): NodeId[] {
+  const ancestors: NodeId[] = [];
+  let cur = findParent(doc, id);
+  while (cur) {
+    ancestors.push(cur);
+    cur = findParent(doc, cur);
+  }
+  return ancestors;
+}
+
+/**
+ * 过滤选区 ID 列表，保留互斥的顶级根节点（若某节点的祖先已在列表中，则剔除该子节点）。
+ * 彻底防止多选变换/复制/删除时父子同时处理导致的二次位移、二次缩放或并发删除报错。
+ */
+export function keepDisjointRoots(doc: Document, ids: ReadonlyArray<NodeId>): NodeId[] {
+  const idSet = new Set(ids);
+  return ids.filter((id) => {
+    let cur = findParent(doc, id);
+    while (cur) {
+      if (idSet.has(cur)) return false;
+      cur = findParent(doc, cur);
+    }
+    return true;
+  });
+}
+
