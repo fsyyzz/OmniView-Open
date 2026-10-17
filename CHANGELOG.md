@@ -2,6 +2,25 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-10-17
+
+### Added
+
+- **OmniView v1.3.0 里程碑版本正式发布 (Milestone Release — SVG v2 Advanced Studio & Test Architecture Refactoring)**:
+  - **SVG v2 专业矢量编辑引擎全链路交付**：
+    - **变形与手柄系统**：8 向缩放手柄等比变形（Shift 锁定宽高比）、15° 步进旋转吸附、对齐与分布计算；
+    - **全套快捷键链路**：`Cmd+D`（图元副本深克隆复制）、`Cmd+G`（多选编组）、`Cmd+Shift+G`（解散编组）、`Cmd+]` / `Cmd+[`（图元层级上移/下移）、`Cmd+Shift+]` / `Cmd+Shift+[`（置顶/置底）；
+    - **右键上下文菜单 (`SvgV2ContextMenu`)**：自适应视口边缘就地弹出，提供快捷复制、编组/解组、层级调度与删除；
+    - **双击穿透选择 (Deep Select Drilldown)**：双击已选编组图元无缝下钻，穿透外壳精准直达具体原子叶子图元；
+    - **智能吸附对齐参考线 (Smart Guides)**：6px 磁吸阈值边界与中心自动吸附，实时渲染洋红虚线导线，`Alt` 键一键抑制；
+    - **悬浮 HUD 快捷工具条 (`SvgV2FloatingHud`)**：自适应浮动于选区包围盒上方，提供常用调色盘预设、描边粗细调节与水平/垂直翻转。
+  - **工程架构与测试体系深度重构**：
+    - **目录架构清晰解耦**：新建根目录 `tests/`，将 84 个测试套件彻底移出 `scripts/`，实现业务测试与构建流水线职责分离；
+    - **统一测试基础设施库 (`tests/harness/`)**：封装 DOM 无头运行时、动态 TSX 模块加载器与自适应动态发现中心；
+    - **极速并发测试调度器**：多进程并发 3 秒跑通 84 个测试套件，支持 `--category` 领域分类筛选与彩色徽标看板；
+  - **物理验证与包产物**：
+    - 全量通过 8 项物理工程门禁，产出高保真生产环境 VS Code 扩展包（`omniview-1.3.0.vsix`）。
+
 ## [1.2.69] - 2026-10-17
 
 ### Added

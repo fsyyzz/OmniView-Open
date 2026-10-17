@@ -23,3 +23,7 @@ dist/extension.js
 !dist/index.html
 !dist/assets/**
 !dist/webview/**
+tests/**
+coverage/**
+.coverage-tmp/**
+
