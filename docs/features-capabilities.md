@@ -607,7 +607,7 @@ flowchart LR
    * 验证在 14+ 款主题及 VS Code 默认主题下的色差对比度是否符合 WCAG AA 级标准；
    * 走查常用快捷键（如缩放、居中、切页、复制、全屏）的反馈速度。
 3. **极限压力与性能基准评估 (Phase 3)**:
-   * 使用 `scripts/test-csv-profiling.mjs`、`scripts/test-lazy-viewport-block.mjs` 等测试套件进行定量性能基准度量；
+   * 使用 `tests/test-csv-profiling.mjs`、`tests/test-lazy-viewport-block.mjs` 等测试套件进行定量性能基准度量；
    * 重点监控高频滚动下的 60 FPS 稳帧情况以及长时运行下的垃圾回收 (GC) 行为。
 4. **安全加固与降级防御复核 (Phase 4)**:
    * 验证携带恶意 `<script>` 注入、伪协议 URL 与死循环图元代码时的防御表现；

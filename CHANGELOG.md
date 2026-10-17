@@ -2,6 +2,23 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.69] - 2026-10-17
+
+### Added
+
+- **测试体系综合封装与架构重构 (Test Harness & Directory Architecture Refactoring — 方案 C 全套落地)**:
+  - **测试与工程构建彻底解耦**：将 84 个测试套件从混杂的 `scripts/` 目录完整迁移至根目录独立 `tests/` 空间，`scripts/` 仅专注构建、门禁与发布流水线，项目工程拓扑规范度大幅提升；
+  - **统一测试基础设施库 (`tests/harness/`)**：
+    - `tests/harness/dom-env.mjs`：统一封装 Happy-DOM 运行时、React 19 Act 环境与 Web API Polyfill（DOMRect、DOMPoint、PointerEvents、PointerCapture），彻底消除各无头测试中冗长的全局挂载模板代码；
+    - `tests/harness/module-loader.mjs`：封装基于 esbuild 的无盘/临时内存构建动态加载器，并注册安全退出清理钩子；
+    - `tests/harness/discovery.mjs`：实现自适应动态套件发现引擎与多维领域标签体系（`[headless]`, `[svg]`, `[diagram]`, `[office]`, `[markdown]`, `[storage]`, `[driver]`, `[unit]`），彻底移除静态硬编码清单；
+    - `tests/harness/index.mjs`：统一导出 `describe`、`it`、`assert`、`reportSummary`、`setupDomEnvironment` 与 `bundleAndLoadTsx`；
+  - **测试运行器与覆盖率引擎全面升级**：
+    - `scripts/run-all-tests.mjs`：全面接入动态发现中心，支持 `--category=headless` 领域过滤与分类彩色徽标实时展示，84 套全量测试保持 ~3 秒极速高并发执行；
+    - `scripts/run-coverage.mjs`：废弃脆弱的静态清单正则匹配，直接由 `discovery.mjs` 驱动精准覆盖率度量与反查；
+  - **代表性无头用例精简重构**：重构 `test-headless-ui-interactions.mjs` 与 `test-svg-v2-advanced-interactions.mjs`，消除 120+ 行重复样板代码；
+  - **全量物理门禁严格回归**：更新规范约束与文档事实，Codex Linter、文档一致性门禁、React 治理、TypeScript 类型检查与 84 套全量测试 100% 绿色通过。
+
 ## [1.2.68] - 2026-10-17
 
 ### Added

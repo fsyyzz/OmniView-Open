@@ -78,7 +78,7 @@ scripts/         # 测试与校验脚本
 1. 在 `src/features/viewers/` 增加/修改驱动组件与路由。
 2. 更新 Extension 侧扩展名选择器（`package.json` → `contributes.customEditors`）与宿主逻辑（如有）。
 3. 在 `examples/` 增加可打开的样例文件。
-4. 补充或更新 `scripts/test-*.mjs` 中的路由 / 解析断言。
+4. 补充或更新 `tests/test-*.mjs` 中的路由 / 解析断言。
 5. 同步 README 功能矩阵与 `docs/architecture.md` 驱动清单（如适用）。
 
 ## 行为准则与安全

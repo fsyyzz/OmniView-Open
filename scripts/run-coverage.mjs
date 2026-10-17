@@ -18,6 +18,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { discoverSuites } from '../tests/harness/discovery.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,23 +32,8 @@ const argv = process.argv.slice(2);
 const filterKeyword = argv.find((a) => !a.startsWith('--'))?.trim().toLowerCase();
 const isCheckThreshold = argv.includes('--check');
 
-// 从 run-all-tests.mjs 动态载入测试套件清单
-const runnerFile = path.join(__dirname, 'run-all-tests.mjs');
-const runnerContent = fs.readFileSync(runnerFile, 'utf-8');
-const manifestMatch = runnerContent.match(/const TEST_MANIFEST = (\[[\s\S]*?\]);/);
-let manifest = [];
-if (manifestMatch) {
-  try {
-    manifest = eval(manifestMatch[1]);
-  } catch (e) {
-    console.error('⚠️ 解析 TEST_MANIFEST 失败，使用内置备选:', e.message);
-  }
-}
-
-// 目标过滤
-const targetSuites = filterKeyword
-  ? manifest.filter((item) => item.file.toLowerCase().includes(filterKeyword))
-  : manifest;
+// 从统一发现器动态获取测试套件清单
+const targetSuites = discoverSuites({ keyword: filterKeyword });
 
 if (targetSuites.length === 0) {
   console.error(`❌ 未找到匹配 "${filterKeyword}" 的测试套件`);
@@ -78,7 +64,7 @@ fs.mkdirSync(BUNDLES_DIR, { recursive: true });
  */
 async function executeSuite(item, itemIndex) {
   const startTime = Date.now();
-  const filePath = path.join(ROOT_DIR, 'scripts', item.file);
+  const filePath = path.join(ROOT_DIR, 'tests', item.file);
 
   let targetExecPath = filePath;
 

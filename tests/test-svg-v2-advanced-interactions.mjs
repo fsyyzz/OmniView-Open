@@ -9,83 +9,19 @@
  * 4. 智能吸附与对齐辅助线 (Smart Guides): 磁吸对齐计算、参考线生成与 Alt 抑制
  * 5. 悬浮 HUD 与右键上下文菜单: DOM 真实渲染、就地翻转、改色与菜单事件下发
  */
-import assert from 'node:assert';
-import path from 'node:path';
-import fs from 'node:fs';
-import { GlobalWindow } from 'happy-dom';
-import { build } from 'esbuild';
+import { setupDomEnvironment, bundleAndLoadTsx, it, describe, reportSummary, assert } from './harness/index.mjs';
 
 // 1. 初始化无头 DOM 环境
-const window = new GlobalWindow({ url: 'https://localhost:3000' });
-const document = window.document;
-
-Object.assign(globalThis, {
-  window,
-  document,
-  navigator: window.navigator,
-  HTMLElement: window.HTMLElement,
-  SVGElement: window.SVGElement,
-  SVGSVGElement: window.SVGSVGElement,
-  Event: window.Event,
-  CustomEvent: window.CustomEvent,
-  MouseEvent: window.MouseEvent,
-  WheelEvent: window.WheelEvent,
-  PointerEvent: window.PointerEvent || window.MouseEvent,
-  KeyboardEvent: window.KeyboardEvent,
-  getComputedStyle: window.getComputedStyle.bind(window),
-  requestAnimationFrame: (cb) => setTimeout(cb, 16),
-  cancelAnimationFrame: (id) => clearTimeout(id),
-  IS_REACT_ACT_ENVIRONMENT: true,
-  DOMRect: window.DOMRect || class DOMRect {
-    constructor(x = 0, y = 0, width = 0, height = 0) {
-      this.x = x; this.y = y; this.width = width; this.height = height;
-      this.top = y; this.left = x; this.right = x + width; this.bottom = y + height;
-    }
-  },
-  DOMPoint: window.DOMPoint || class DOMPoint {
-    constructor(x = 0, y = 0) {
-      this.x = x; this.y = y;
-    }
-    matrixTransform() { return this; }
-  },
-});
-
-if (!window.SVGElement.prototype.setPointerCapture) {
-  window.SVGElement.prototype.setPointerCapture = () => {};
-}
-if (!window.SVGElement.prototype.releasePointerCapture) {
-  window.SVGElement.prototype.releasePointerCapture = () => {};
-}
+setupDomEnvironment();
 
 // 2. 打包并在内存中载入 SVG v2 核心与 UI 组件
-const tmpBundle = path.resolve('node_modules', `.tmp-svg-adv-test-${Date.now()}.mjs`);
-let mod;
-try {
-  await build({
-    stdin: {
-      contents: `
-        export * as SvgCore from './src/features/viewers/components/drivers/svg/core/index.ts';
-        export { SvgV2Canvas } from './src/features/viewers/components/drivers/svg/SvgV2Canvas.tsx';
-        export { SvgV2ContextMenu } from './src/features/viewers/components/drivers/svg/SvgV2ContextMenu.tsx';
-        export { SvgV2FloatingHud } from './src/features/viewers/components/drivers/svg/SvgV2FloatingHud.tsx';
-        export { useSvgV2PointerInput } from './src/features/viewers/components/drivers/svg/useSvgV2PointerInput.ts';
-      `,
-      resolveDir: process.cwd(),
-      loader: 'ts',
-    },
-    bundle: true,
-    platform: 'node',
-    format: 'esm',
-    outfile: tmpBundle,
-    external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'lucide-react', 'dompurify'],
-  });
-
-  mod = await import(tmpBundle);
-} finally {
-  try {
-    if (fs.existsSync(tmpBundle)) fs.unlinkSync(tmpBundle);
-  } catch {}
-}
+const mod = await bundleAndLoadTsx(`
+  export * as SvgCore from './src/features/viewers/components/drivers/svg/core/index.ts';
+  export { SvgV2Canvas } from './src/features/viewers/components/drivers/svg/SvgV2Canvas.tsx';
+  export { SvgV2ContextMenu } from './src/features/viewers/components/drivers/svg/SvgV2ContextMenu.tsx';
+  export { SvgV2FloatingHud } from './src/features/viewers/components/drivers/svg/SvgV2FloatingHud.tsx';
+  export { useSvgV2PointerInput } from './src/features/viewers/components/drivers/svg/useSvgV2PointerInput.ts';
+`, { external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'lucide-react', 'dompurify'] });
 
 const { SvgCore, SvgV2Canvas, SvgV2ContextMenu, SvgV2FloatingHud, useSvgV2PointerInput } = mod;
 const {
@@ -103,22 +39,6 @@ const { act } = React;
 const { createRoot } = await import('react-dom/client');
 
 console.log('🧪 开始 SVG v2 Phase 1 / 2 / 3 高级交互体系单元与无头测试...\n');
-
-let passed = 0;
-let failed = 0;
-const it = async (name, fn) => {
-  try {
-    await fn();
-    console.log('  ✅', name);
-    passed++;
-  } catch (e) {
-    console.error('  ❌', name, '-', e instanceof Error ? e.message : e);
-    if (e instanceof Error && e.stack) {
-      console.error(e.stack.split('\n').slice(1, 4).join('\n'));
-    }
-    failed++;
-  }
-};
 
 // ============================================================================
 // 测试 1: object.duplicate 副本创建算法与深拷贝
@@ -397,7 +317,4 @@ await it('SvgV2FloatingHud: 选中图元时在包围盒上方浮现快捷改色�
 // ============================================================================
 // 汇总报告
 // ============================================================================
-console.log(`\n📊 SVG v2 高级交互全量验证结果: ${passed} 通过, ${failed} 失败`);
-if (failed > 0) {
-  process.exit(1);
-}
+reportSummary('SVG v2 高级交互全量验证');

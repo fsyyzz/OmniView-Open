@@ -8,86 +8,19 @@
  * 3. SvgV2LayersPanel: 图层折叠/展开、显隐切换真实点击交互
  * 4. 键盘事件与焦点穿透隔离 (Escape / Delete)
  */
-import assert from 'node:assert';
-import path from 'node:path';
-import fs from 'node:fs';
-import { GlobalWindow } from 'happy-dom';
-import { build } from 'esbuild';
+import { setupDomEnvironment, bundleAndLoadTsx, it, describe, reportSummary, assert } from './harness/index.mjs';
 
 // 1. 初始化并挂载全局 Headless DOM 运行时
-const window = new GlobalWindow({ url: 'https://localhost:3000' });
-const document = window.document;
+setupDomEnvironment();
 
-Object.assign(globalThis, {
-  window,
-  document,
-  navigator: window.navigator,
-  HTMLElement: window.HTMLElement,
-  SVGElement: window.SVGElement,
-  SVGSVGElement: window.SVGSVGElement,
-  Event: window.Event,
-  CustomEvent: window.CustomEvent,
-  MouseEvent: window.MouseEvent,
-  WheelEvent: window.WheelEvent,
-  PointerEvent: window.PointerEvent || window.MouseEvent,
-  KeyboardEvent: window.KeyboardEvent,
-  getComputedStyle: window.getComputedStyle.bind(window),
-  requestAnimationFrame: (cb) => setTimeout(cb, 16),
-  cancelAnimationFrame: (id) => clearTimeout(id),
-  IS_REACT_ACT_ENVIRONMENT: true,
-  DOMRect: window.DOMRect || class DOMRect {
-    constructor(x = 0, y = 0, width = 0, height = 0) {
-      this.x = x; this.y = y; this.width = width; this.height = height;
-      this.top = y; this.left = x; this.right = x + width; this.bottom = y + height;
-    }
-  },
-  DOMPoint: window.DOMPoint || class DOMPoint {
-    constructor(x = 0, y = 0) {
-      this.x = x; this.y = y;
-    }
-    matrixTransform() { return this; }
-  },
-});
+// 2. 使用统一 module loader 编译并动态加载 TSX 组件
+const { LightboxModal, SvgV2Canvas, SvgV2LayersPanel, SvgCore } = await bundleAndLoadTsx(`
+  export { LightboxModal } from './src/features/viewers/components/common/LightboxModal.tsx';
+  export { SvgV2Canvas } from './src/features/viewers/components/drivers/svg/SvgV2Canvas.tsx';
+  export { SvgV2LayersPanel } from './src/features/viewers/components/drivers/svg/SvgV2LayersPanel.tsx';
+  export * as SvgCore from './src/features/viewers/components/drivers/svg/core/index.ts';
+`, { external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'lucide-react', 'dompurify'] });
 
-if (!window.SVGElement.prototype.setPointerCapture) {
-  window.SVGElement.prototype.setPointerCapture = () => {};
-}
-if (!window.SVGElement.prototype.releasePointerCapture) {
-  window.SVGElement.prototype.releasePointerCapture = () => {};
-}
-
-// 2. 使用 esbuild 快速将 TSX 组件打包至 node_modules 临时文件并加载
-const tmpBundlePath = path.resolve('node_modules', `.tmp-headless-bundle-${Date.now()}.mjs`);
-let importedModules;
-try {
-  await build({
-    stdin: {
-      contents: `
-        export { LightboxModal } from './src/features/viewers/components/common/LightboxModal.tsx';
-        export { SvgV2Canvas } from './src/features/viewers/components/drivers/svg/SvgV2Canvas.tsx';
-        export { SvgV2LayersPanel } from './src/features/viewers/components/drivers/svg/SvgV2LayersPanel.tsx';
-        export * as SvgCore from './src/features/viewers/components/drivers/svg/core/index.ts';
-      `,
-      resolveDir: process.cwd(),
-      loader: 'ts',
-    },
-    bundle: true,
-    platform: 'node',
-    format: 'esm',
-    outfile: tmpBundlePath,
-    external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'lucide-react', 'dompurify'],
-  });
-
-  importedModules = await import(tmpBundlePath);
-} finally {
-  try {
-    if (fs.existsSync(tmpBundlePath)) {
-      fs.unlinkSync(tmpBundlePath);
-    }
-  } catch {}
-}
-
-const { LightboxModal, SvgV2Canvas, SvgV2LayersPanel, SvgCore } = importedModules;
 const { createDocument, createRuntime, makePath, appendToLayer, createRectGeometry } = SvgCore;
 
 const React = await import('react');
@@ -95,22 +28,6 @@ const { act } = React;
 const { createRoot } = await import('react-dom/client');
 
 console.log('🧪 开始 Headless DOM 组件级交互与渲染验证...\n');
-
-let passed = 0;
-let failed = 0;
-const it = async (name, fn) => {
-  try {
-    await fn();
-    console.log('  ✅', name);
-    passed++;
-  } catch (e) {
-    console.error('  ❌', name, '-', e instanceof Error ? e.message : e);
-    if (e instanceof Error && e.stack) {
-      console.error(e.stack.split('\n').slice(1, 4).join('\n'));
-    }
-    failed++;
-  }
-};
 
 // ============================================================================
 // 测试 1: LightboxModal 真实挂载与光标缩放手势
@@ -302,10 +219,4 @@ await it('Escape 键正确分发并清空选区，无输入穿透风险', async 
   assert.strictEqual(runtime.currentSelection.nodeIds.length, 0, 'Escape 后选区应当被安全清空');
 });
 
-// ============================================================================
-// 汇总报告
-// ============================================================================
-console.log(`\n📊 Headless DOM 组件级交互验证结果: ${passed} 通过, ${failed} 失败`);
-if (failed > 0) {
-  process.exit(1);
-}
+reportSummary('Headless DOM 组件级交互');

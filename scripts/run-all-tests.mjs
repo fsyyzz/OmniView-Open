@@ -14,101 +14,12 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { discoverSuites } from '../tests/harness/discovery.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-const SCRIPTS_DIR = path.resolve(ROOT_DIR, 'scripts');
-
-/**
- * 82 个测试套件的标准运行策略清单
- */
-const TEST_MANIFEST = [
-  { file: 'test-diagram-sanitizer.mjs', mode: 'esbuild' },
-  { file: 'test-mermaid-config.mjs', mode: 'esbuild' },
-  { file: 'test-diagram-cache.mjs', mode: 'esbuild' },
-  { file: 'test-diagram-diagnostics.mjs', mode: 'esbuild' },
-  { file: 'test-mindmap-driver.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-settings-storage.mjs', mode: 'esbuild' },
-  { file: 'test-a4-print-pagination.mjs', mode: 'esbuild' },
-  { file: 'test-csv-utils.mjs', mode: 'esbuild' },
-  { file: 'test-csv-profiling.mjs', mode: 'esbuild' },
-  { file: 'test-security-sanitizer.mjs', mode: 'esbuild' },
-  { file: 'test-driver-routing.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-utils.mjs', mode: 'esbuild' },
-  { file: 'test-svg-v2-core-model.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-runtime-commands.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-e2e.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-wheel-zoom-fix.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-layers-batch.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-p0-fixes.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-viewport.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-tools-shapes.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-svg-v2-transform-align.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-table-utils.mjs', mode: 'esbuild' },
-  { file: 'test-structured-data.mjs', mode: 'esbuild' },
-  { file: 'test-okf-parser.mjs', mode: 'esbuild' },
-  { file: 'test-undo-redo.mjs', mode: 'esbuild' },
-  { file: 'test-print-bridge.mjs', mode: 'esbuild' },
-  { file: 'test-dom-search-highlighter.mjs', mode: 'esbuild' },
-  { file: 'test-plantuml-url.mjs', mode: 'esbuild' },
-  { file: 'test-i18n.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-callout-task.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-footnotes.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-wiki-links.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-pandoc-extras.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-selection-replacer.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-outline.mjs', mode: 'node' },
-  { file: 'test-markdown-print-export.mjs', mode: 'node' },
-  { file: 'test-webview-save-writeback.mjs', mode: 'node' },
-  { file: 'test-presentation-outline-restore.mjs', mode: 'node' },
-  { file: 'test-native-theme.mjs', mode: 'node' },
-  { file: 'test-scroll-sync.mjs', mode: 'esbuild' },
-  { file: 'test-lazy-viewport-block.mjs', mode: 'node' },
-  { file: 'test-notebook-parser.mjs', mode: 'esbuild' },
-  { file: 'test-typst-engine.mjs', mode: 'esbuild' },
-  { file: 'test-a4-typography-engine.mjs', mode: 'esbuild' },
-  { file: 'test-excalidraw.mjs', mode: 'esbuild', external: ['@excalidraw/*'] },
-  { file: 'test-diagram-playback.mjs', mode: 'esbuild' },
-  { file: 'test-domainstory-engine.mjs', mode: 'esbuild' },
-  { file: 'test-epub-engine.mjs', mode: 'esbuild' },
-  { file: 'test-docx-engine.mjs', mode: 'esbuild' },
-  { file: 'test-docx-markdown-converter.mjs', mode: 'esbuild' },
-  { file: 'test-docx-pagination-engine.mjs', mode: 'esbuild' },
-  { file: 'test-docx-search-aggregator.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-search-aggregator.mjs', mode: 'esbuild' },
-  { file: 'test-pptx-engine.mjs', mode: 'esbuild' },
-  { file: 'test-xlsx-engine.mjs', mode: 'esbuild' },
-  { file: 'test-image-engine.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-check-vsix-contents.mjs', mode: 'node' },
-  { file: 'test-version-bump.mjs', mode: 'node' },
-  { file: 'test-word-clipboard.mjs', mode: 'esbuild' },
-  { file: 'test-explorer-actions.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-image-resolver.mjs', mode: 'esbuild' },
-  { file: 'test-settings-integration.mjs', mode: 'node' },
-  { file: 'test-codeblock-hover-toolbar.mjs', mode: 'node' },
-  { file: 'test-cloudnative-drivers.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-html-viewer.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-vscode-integration-features.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-ctrl-f-search-features.mjs', mode: 'esbuild' },
-  { file: 'test-document-sync-reload.mjs', mode: 'esbuild' },
-  { file: 'test-svg-responsive.mjs', mode: 'esbuild' },
-  { file: 'test-toolbar-dedup.mjs', mode: 'node' },
-  { file: 'test-office-operations-matrix.mjs', mode: 'esbuild' },
-  { file: 'test-find-and-replace.mjs', mode: 'node' },
-  { file: 'test-indexeddb-storage.mjs', mode: 'esbuild' },
-  { file: 'test-render-cache-persistent.mjs', mode: 'esbuild' },
-  { file: 'test-viewer-states-persistent.mjs', mode: 'esbuild' },
-  { file: 'test-app-logger-persistent.mjs', mode: 'esbuild' },
-  { file: 'test-markdown-math.mjs', mode: 'esbuild' },
-  { file: 'test-diagram-toolbar-toggle.mjs', mode: 'node' },
-  { file: 'test-markdown-diagram-dblclick.mjs', mode: 'node' },
-  { file: 'test-graphviz.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-focal-zoom.mjs', mode: 'esbuild' },
-  { file: 'test-svg-selection-enhancements.mjs', mode: 'esbuild', packagesExternal: true },
-  { file: 'test-headless-ui-interactions.mjs', mode: 'node' },
-  { file: 'test-svg-v2-advanced-interactions.mjs', mode: 'node' },
-];
+const TESTS_DIR = path.resolve(ROOT_DIR, 'tests');
 
 /**
  * 解析命令行参数
@@ -116,6 +27,7 @@ const TEST_MANIFEST = [
 function parseArgs() {
   const args = process.argv.slice(2);
   let filter = '';
+  let category = '';
   let concurrency = Math.min(Math.max(os.cpus().length - 1, 2), 6);
   let verbose = false;
 
@@ -124,6 +36,8 @@ function parseArgs() {
       filter = arg.slice(9).trim();
     } else if (arg.startsWith('-f=')) {
       filter = arg.slice(3).trim();
+    } else if (arg.startsWith('--category=')) {
+      category = arg.slice(11).trim();
     } else if (arg.startsWith('--concurrency=') || arg.startsWith('-c=')) {
       const val = parseInt(arg.split('=')[1], 10);
       if (!Number.isNaN(val) && val > 0) concurrency = val;
@@ -136,27 +50,14 @@ function parseArgs() {
     }
   }
 
-  return { filter, concurrency, verbose };
+  return { filter, category, concurrency, verbose };
 }
 
 /**
- * 扫描并补齐目录下的新增测试脚本（自适应动态发现）
+ * 扫描并获取所有可用测试套件
  */
-function collectAllSuites() {
-  const diskFiles = fs
-    .readdirSync(SCRIPTS_DIR)
-    .filter((f) => f.startsWith('test-') && f.endsWith('.mjs'));
-
-  const map = new Map(TEST_MANIFEST.map((item) => [item.file, item]));
-
-  for (const f of diskFiles) {
-    if (!map.has(f)) {
-      // 未在清单中的新测试，默认使用 esbuild 模式
-      map.set(f, { file: f, mode: 'esbuild' });
-    }
-  }
-
-  return Array.from(map.values());
+function collectAllSuites(filter = '', category = '') {
+  return discoverSuites({ keyword: filter, category });
 }
 
 /**
@@ -165,7 +66,7 @@ function collectAllSuites() {
 function runSuite(item) {
   return new Promise((resolve) => {
     const startTime = Date.now();
-    const filePath = path.join('scripts', item.file);
+    const filePath = path.join('tests', item.file);
 
     let child;
     if (item.mode === 'node') {
@@ -250,20 +151,22 @@ function runSuite(item) {
  * 主执行调度器
  */
 async function main() {
-  const { filter, concurrency, verbose } = parseArgs();
+  const { filter, category, concurrency, verbose } = parseArgs();
   const allSuites = collectAllSuites();
-
-  const targetSuites = filter
-    ? allSuites.filter((s) => s.file.toLowerCase().includes(filter.toLowerCase()))
-    : allSuites;
+  const targetSuites = collectAllSuites(filter, category);
 
   if (targetSuites.length === 0) {
-    console.error(`❌ 未找到匹配过滤关键词 "${filter}" 的测试套件`);
+    console.error(`❌ 未找到匹配过滤条件 "${filter || category}" 的测试套件`);
     process.exit(1);
   }
 
+  const filterDesc = [
+    filter ? `关键词: "${filter}"` : '',
+    category ? `分类: "${category}"` : '',
+  ].filter(Boolean).join(' | ');
+
   console.log(`\n🧪 OmniView 自动化测试聚合运行器 (Test Runner)`);
-  console.log(`📌 目标套件数: ${targetSuites.length} / ${allSuites.length} | 并发度: ${concurrency}${filter ? ` | 过滤: "${filter}"` : ''}\n`);
+  console.log(`📌 目标套件数: ${targetSuites.length} / ${allSuites.length} | 并发度: ${concurrency}${filterDesc ? ` | ${filterDesc}` : ''}\n`);
 
   const total = targetSuites.length;
   let completed = 0;
@@ -285,13 +188,14 @@ async function main() {
 
       const seq = `[${String(completed).padStart(2, '0')}/${total}]`;
       const timeStr = `${res.durationMs}ms`.padStart(7, ' ');
+      const catBadge = `[${item.category}]`.padEnd(12, ' ');
 
       if (res.ok) {
         passed++;
-        console.log(`  ✅ ${seq} ${item.file} (${timeStr})`);
+        console.log(`  ✅ ${seq} ${catBadge} ${item.file} (${timeStr})`);
       } else {
         failed++;
-        console.error(`  ❌ ${seq} ${item.file} (${timeStr}) [Exit: ${res.code}]`);
+        console.error(`  ❌ ${seq} ${catBadge} ${item.file} (${timeStr}) [Exit: ${res.code}]`);
         failures.push(res);
       }
 
