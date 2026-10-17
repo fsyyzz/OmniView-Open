@@ -15,6 +15,9 @@
 import React, { useCallback, useRef } from 'react';
 import {
   clientToCanvasPoint,
+  findParent,
+  hitTestAllAtPoint,
+  type NodeId,
   type PointerEvent as SvgPointerEvent,
   type Runtime,
   type ToolKey,
@@ -49,6 +52,7 @@ export interface SvgV2PointerHandlers {
   readonly handlePointerMove: (e: React.PointerEvent<SVGSVGElement>) => void;
   readonly handlePointerUp: (e: React.PointerEvent<SVGSVGElement>) => void;
   readonly handlePointerCancel: (e: React.PointerEvent<SVGSVGElement>) => void;
+  readonly handleDoubleClick: (e: React.MouseEvent<SVGSVGElement>) => void;
   readonly handleKeyDown: (e: React.KeyboardEvent<SVGSVGElement>) => void;
 }
 
@@ -138,6 +142,56 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
     [runtime, toCanvas],
   );
 
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      const point = toCanvas(e.clientX, e.clientY);
+      if (!point) return;
+      const doc = runtime.currentDocument;
+      const sel = runtime.currentSelection;
+      const allHits = hitTestAllAtPoint(doc, point);
+      if (allHits.length === 0) return;
+
+      // 双击穿透选择 (Deep Select / Drill-down)：
+      // 若当前已选中某编组，双击该编组则下钻一层：选中光标所指的最直接子图元
+      const selectedGroup = sel.nodeIds.find((id) => doc.nodes.get(id)?.kind === 'Group');
+      if (selectedGroup) {
+        const directChildHit = allHits.find((hId) => {
+          let cur: NodeId | null = hId;
+          while (cur) {
+            const p = findParent(doc, cur);
+            if (p === selectedGroup) return true;
+            cur = p;
+          }
+          return false;
+        });
+
+        if (directChildHit) {
+          e.preventDefault();
+          e.stopPropagation();
+          let targetChild: NodeId = directChildHit;
+          let cur: NodeId | null = directChildHit;
+          while (cur) {
+            const p = findParent(doc, cur);
+            if (p === selectedGroup) {
+              targetChild = cur;
+              break;
+            }
+            cur = p;
+          }
+          runtime.execute('select.set', { ids: [targetChild], additive: false });
+          return;
+        }
+      }
+
+      // 未选编组时双击：直接深度下钻选中光标底部具体的叶子图元
+      const leafHit = allHits[0];
+      if (leafHit) {
+        runtime.execute('select.set', { ids: [leafHit], additive: false });
+      }
+    },
+    [runtime, toCanvas],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<SVGSVGElement>) => {
       if (isEditableTarget(e.target)) return;
@@ -159,6 +213,47 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
         selectAll();
         return;
       }
+      // Cmd+D: 快速复制
+      if (mod && key === 'd') {
+        e.preventDefault();
+        runtime.execute('object.duplicate', {});
+        return;
+      }
+      // Cmd+G / Cmd+Shift+G: 编组 / 解组
+      if (mod && key === 'g') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          for (const id of runtime.currentSelection.nodeIds) {
+            if (runtime.currentDocument.nodes.get(id)?.kind === 'Group') {
+              runtime.execute('object.ungroup', { id });
+            }
+          }
+        } else {
+          if (runtime.currentSelection.nodeIds.length >= 2) {
+            runtime.execute('object.group', { ids: [...runtime.currentSelection.nodeIds] });
+          }
+        }
+        return;
+      }
+      // Cmd+] / Cmd+Shift+]: 上移一层 / 置于顶层
+      if (mod && (e.key === ']' || e.key === '}')) {
+        e.preventDefault();
+        const dir = e.shiftKey ? 'front' : 'forward';
+        for (const id of runtime.currentSelection.nodeIds) {
+          runtime.execute('object.reorder', { id, direction: dir });
+        }
+        return;
+      }
+      // Cmd+[ / Cmd+Shift+[: 下移一层 / 置于底层
+      if (mod && (e.key === '[' || e.key === '{')) {
+        e.preventDefault();
+        const dir = e.shiftKey ? 'back' : 'backward';
+        for (const id of runtime.currentSelection.nodeIds) {
+          runtime.execute('object.reorder', { id, direction: dir });
+        }
+        return;
+      }
+
       const toolKey = TOOL_KEY_MAP[e.key];
       if (!toolKey) return;
       e.preventDefault();
@@ -167,5 +262,5 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
     [runtime, undo, redo, selectAll],
   );
 
-  return { svgRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleKeyDown };
+  return { svgRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleDoubleClick, handleKeyDown };
 }

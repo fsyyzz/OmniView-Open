@@ -55,7 +55,15 @@ interface TransformHandleState {
   readonly ids: ReadonlyArray<NodeId>;
 }
 
+export interface SnapGuideLine {
+  readonly orientation: 'horizontal' | 'vertical';
+  readonly position: number;
+  readonly from: number;
+  readonly to: number;
+}
+
 let activeTransformState: TransformHandleState | null = null;
+let activeSnapGuides: SnapGuideLine[] = [];
 
 function getSelectionBBox(doc: Document, ids: ReadonlyArray<NodeId>): { x: number; y: number; width: number; height: number } | null {
   const boxes: { x: number; y: number; width: number; height: number }[] = [];
@@ -289,7 +297,81 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       const g = ctx.gesture;
       if (g.kind === 'move') {
         if (g.ids.length === 0) return [];
-        const delta = { x: event.point.x - g.startPoint.x, y: event.point.y - g.startPoint.y };
+        let dx = event.point.x - g.startPoint.x;
+        let dy = event.point.y - g.startPoint.y;
+        activeSnapGuides = [];
+
+        // 智能吸附 (Smart Guides)：未按 Alt 时计算与画布其他图元边缘/中心的磁吸对齐
+        if (!event.mods.alt) {
+          const movingBBox = getSelectionBBox(ctx.doc, g.ids);
+          if (movingBBox) {
+            const zoom = Math.max(ctx.zoom, 1e-4);
+            const snapThreshold = 6 / zoom;
+            const curLeft = movingBBox.x + dx;
+            const curCenterX = curLeft + movingBBox.width / 2;
+            const curRight = curLeft + movingBBox.width;
+
+            const curTop = movingBBox.y + dy;
+            const curCenterY = curTop + movingBBox.height / 2;
+            const curBottom = curTop + movingBBox.height;
+
+            let bestSnapX: { diff: number; targetX: number; targetBox: { x: number; y: number; width: number; height: number } } | null = null;
+            let bestSnapY: { diff: number; targetY: number; targetBox: { x: number; y: number; width: number; height: number } } | null = null;
+
+            // 收集其他可见非选中图元的包围盒
+            for (const otherId of ctx.doc.nodes.keys()) {
+              if (g.ids.includes(otherId) || ctx.selection.nodeIds.includes(otherId)) continue;
+              const n = ctx.doc.nodes.get(otherId);
+              if (!n || n.kind === 'Layer') continue;
+              const ob = nodeBBox(ctx.doc, otherId);
+              if (!ob || ob.width <= 0 || ob.height <= 0) continue;
+
+              // X 轴候选对齐 (左中右)
+              const otherXs = [ob.x, ob.x + ob.width / 2, ob.x + ob.width];
+              const curXs = [curLeft, curCenterX, curRight];
+              for (const cx of curXs) {
+                for (const ox of otherXs) {
+                  const d = ox - cx;
+                  if (Math.abs(d) <= snapThreshold) {
+                    if (!bestSnapX || Math.abs(d) < Math.abs(bestSnapX.diff)) {
+                      bestSnapX = { diff: d, targetX: ox, targetBox: ob };
+                    }
+                  }
+                }
+              }
+
+              // Y 轴候选对齐 (顶中底)
+              const otherYs = [ob.y, ob.y + ob.height / 2, ob.y + ob.height];
+              const curYs = [curTop, curCenterY, curBottom];
+              for (const cy of curYs) {
+                for (const oy of otherYs) {
+                  const d = oy - cy;
+                  if (Math.abs(d) <= snapThreshold) {
+                    if (!bestSnapY || Math.abs(d) < Math.abs(bestSnapY.diff)) {
+                      bestSnapY = { diff: d, targetY: oy, targetBox: ob };
+                    }
+                  }
+                }
+              }
+            }
+
+            if (bestSnapX) {
+              dx += bestSnapX.diff;
+              const y1 = Math.min(curTop + (bestSnapY ? bestSnapY.diff : 0), bestSnapX.targetBox.y) - 15 / zoom;
+              const y2 = Math.max(curBottom + (bestSnapY ? bestSnapY.diff : 0), bestSnapX.targetBox.y + bestSnapX.targetBox.height) + 15 / zoom;
+              activeSnapGuides.push({ orientation: 'vertical', position: bestSnapX.targetX, from: y1, to: y2 });
+            }
+
+            if (bestSnapY) {
+              dy += bestSnapY.diff;
+              const x1 = Math.min(curLeft + (bestSnapX ? bestSnapX.diff : 0), bestSnapY.targetBox.x) - 15 / zoom;
+              const x2 = Math.max(curRight + (bestSnapX ? bestSnapX.diff : 0), bestSnapY.targetBox.x + bestSnapY.targetBox.width) + 15 / zoom;
+              activeSnapGuides.push({ orientation: 'horizontal', position: bestSnapY.targetY, from: x1, to: x2 });
+            }
+          }
+        }
+
+        const delta = { x: dx, y: dy };
         if (delta.x === 0 && delta.y === 0) return [];
         return [{ kind: 'Preview', commandId: 'object.move', params: { ids: [...g.ids], delta } }];
       }
@@ -301,7 +383,8 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
     }
   }
 
-  if (event.kind === 'up') {
+  if (event.kind === 'up' || event.kind === 'cancel') {
+    activeSnapGuides = [];
     if (activeTransformState) {
       activeTransformState = null;
       return [{ kind: 'Commit' }];
@@ -404,6 +487,29 @@ function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
         color: 'control',
         size: hSize,
       });
+    }
+
+    // 5. 智能吸附参考线 (Smart Guides)
+    for (const guide of activeSnapGuides) {
+      if (guide.orientation === 'vertical') {
+        overlays.push({
+          kind: 'line',
+          from: { x: guide.position, y: guide.from },
+          to: { x: guide.position, y: guide.to },
+          stroke: '#ec4899', // 鲜明高亮洋红吸附线
+          lineWidth: lw,
+          dashed: true,
+        });
+      } else {
+        overlays.push({
+          kind: 'line',
+          from: { x: guide.from, y: guide.position },
+          to: { x: guide.to, y: guide.position },
+          stroke: '#ec4899',
+          lineWidth: lw,
+          dashed: true,
+        });
+      }
     }
 
     return overlays;
@@ -1007,7 +1113,7 @@ function collectHitsInChildren(
 export function hitTestAllAtPoint(
   doc: Document,
   point: Vec2,
-  tolerance: number,
+  tolerance = 4,
   deepSelect = false,
 ): NodeId[] {
   const tol2 = Math.max(tolerance, 1e-6) ** 2;

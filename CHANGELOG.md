@@ -2,6 +2,22 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.68] - 2026-10-17
+
+### Added
+
+- **SVG v2 专业级高级交互体系全量落地 (Phase 1 / Phase 2 / Phase 3 Full Delivery — L2)**:
+  - **Phase 1: 快捷键链路与图元复制解编组**：
+    - 新增 `object.duplicate` 核心引擎命令：支持递归深拷贝子图元节点、自动重新分配新 `NodeId`、应用坐标偏移（默认 +10px）并自动接管选区；
+    - 补齐专业快捷键链路：支持 `Cmd+D`（快速复制副本）、`Cmd+G`（多选图元编组）、`Cmd+Shift+G`（解散编组）、`Cmd+]` / `Cmd+[`（图元层级上移/下移）与 `Cmd+Shift+]` / `Cmd+Shift+[`（图元置顶/置底）；
+  - **Phase 2: 右键上下文菜单与双击穿透选择 (Deep Select Drilldown)**：
+    - 新建 `SvgV2ContextMenu` 悬浮上下文菜单：支持就地复制、图元编组/解组、层级移动与快速删除，具备视口边缘贴合与点击外部/Esc 自动关闭机制；
+    - 双击下钻穿透：当双击已选中的 Group 图元时，指针事件自动穿透编组外壳，精准选中光标所指的具体原子子节点（Leaf Child），极大提升复杂组合 SVG 的局部精细编辑效率；
+  - **Phase 3: 智能吸附参考线 (Smart Guides) 与悬浮 HUD 工具条**：
+    - 智能磁吸辅助线：拖拽图元时自动计算与画布其他图元边界（左/中/右、顶/中/底）的临近距离，小于吸附阈值（6px）时自动触发物理磁吸并实时渲染高对比度洋红色（`#ec4899`）对齐导线；按住 `Alt` 拖拽时可一键抑制吸附；
+    - 新建 `SvgV2FloatingHud` 快捷悬浮工具栏：当有图元选中时自适应锚定于外包围盒上方，提供常用填充调色盘预设、描边粗细快速调节、水平翻转（Flip H）、垂直翻转（Flip V）、复制副本与删除操作；
+  - **全量无头测试扩增至 84 套**：新增 `scripts/test-svg-v2-advanced-interactions.mjs`，覆盖复制算法、快捷键链路、双击穿透、吸附导线与 UI DOM 交互，9 项核心测试 100% 绿色通过。
+
 ## [1.2.67] - 2026-10-17
 
 ### Added

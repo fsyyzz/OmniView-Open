@@ -25,6 +25,7 @@ import type {
   ObjectSetVisibleParams,
   ObjectSetLockedParams,
   ObjectTransformParams,
+  ObjectDuplicateParams,
   ObjectUngroupParams,
   PaintSetColorParams,
   PaintSetFillParams,
@@ -344,6 +345,76 @@ const objectTransform: CommandHandler = (doc, sel, params) => {
   return ok(next, sel);
 };
 
+const objectDuplicate: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as ObjectDuplicateParams;
+  const targetIds = (p.ids && p.ids.length > 0) ? p.ids : sel.nodeIds;
+  if (!targetIds || targetIds.length === 0) return ok(doc, sel);
+
+  const offset = p.offset ?? { x: 10, y: 10 };
+  let next = doc;
+  const newIds: NodeId[] = [];
+
+  function cloneSubtree(d: Document, sourceId: NodeId): { d: Document; newId: NodeId } {
+    const src = d.nodes.get(sourceId);
+    if (!src) return { d, newId: sourceId };
+    const newId = d.nextNodeId as NodeId;
+    let updatedDoc: Document = { ...d, nextNodeId: ((d.nextNodeId as number) + 1) as NodeId };
+
+    if (src.kind === 'Group') {
+      const clonedChildIds: NodeId[] = [];
+      for (const chId of src.children) {
+        const res = cloneSubtree(updatedDoc, chId);
+        updatedDoc = res.d;
+        clonedChildIds.push(res.newId);
+      }
+      const clonedGroup: Node = {
+        ...src,
+        id: newId,
+        children: clonedChildIds,
+        transform: { ...src.transform, e: src.transform.e + offset.x, f: src.transform.f + offset.y },
+      };
+      const newNodes = new Map(updatedDoc.nodes);
+      newNodes.set(newId, clonedGroup);
+      return { d: { ...updatedDoc, nodes: newNodes }, newId };
+    } else {
+      const clonedNode: Node = {
+        ...src,
+        id: newId,
+        transform: { ...src.transform, e: src.transform.e + offset.x, f: src.transform.f + offset.y },
+      };
+      const newNodes = new Map(updatedDoc.nodes);
+      newNodes.set(newId, clonedNode);
+      return { d: { ...updatedDoc, nodes: newNodes }, newId };
+    }
+  }
+
+  for (const srcId of targetIds) {
+    if (!next.nodes.has(srcId)) continue;
+    const parentId = findParent(next, srcId);
+    if (!parentId) continue;
+
+    const res = cloneSubtree(next, srcId);
+    next = res.d;
+    const clonedId = res.newId;
+    newIds.push(clonedId);
+
+    const parent = next.nodes.get(parentId);
+    if (parent && 'children' in parent) {
+      const children = [...(parent as any).children];
+      const idx = children.indexOf(srcId);
+      if (idx >= 0) {
+        children.splice(idx + 1, 0, clonedId);
+      } else {
+        children.push(clonedId);
+      }
+      next = updateNode(next, parentId, (n) => ({ ...(n as any), children }));
+    }
+  }
+
+  if (newIds.length === 0) return ok(doc, sel);
+  return ok(next, { nodeIds: newIds, primaryId: newIds[0] });
+};
+
 const objectGroup: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectGroupParams;
   if (p.ids.length < 2) return badParams('object.group', 'need ≥ 2 nodes');
@@ -385,7 +456,7 @@ const objectUngroup: CommandHandler = (doc, sel, params) => {
   next = updateNode(next, hostLayer, (n) => ({ ...(n as any), children: newChildren }));
   next = removeNode(next, id);
   const childIds = [...group.children] as NodeId[];
-  return ok(next, selectionWith(id, childIds));
+  return ok(next, childIds.length > 0 ? selectionWith(childIds[0], childIds.slice(1)) : emptySelection());
 };
 
 const objectReorder: CommandHandler = (doc, sel, params) => {
@@ -806,6 +877,7 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'object.scale', title: '缩放图元', undoLabel: '缩放', params: idsOriginFactorParams(), handler: objectScale });
   reg({ id: 'object.rotate', title: '旋转图元', undoLabel: '旋转', params: idsOriginAngleParams(), handler: objectRotate });
   reg({ id: 'object.transform', title: '自定义变换', undoLabel: '变换', params: idsMatrixParams(), handler: objectTransform });
+  reg({ id: 'object.duplicate', title: '复制图元', undoLabel: '复制', params: [{ key: 'ids', type: 'nodeIdArray', required: false, description: '图元 ID 列表' }, { key: 'offset', type: 'vec2', required: false, description: '复制偏移量' }], handler: objectDuplicate });
   reg({ id: 'object.group', title: '编组', undoLabel: '编组', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }], handler: objectGroup });
   reg({ id: 'object.ungroup', title: '解组', undoLabel: '解组', params: [{ key: 'id', type: 'nodeId', required: true, description: '组 ID' }], handler: objectUngroup });
   reg({ id: 'object.reorder', title: '重排图层顺序', undoLabel: '重排', params: [{ key: 'id', type: 'nodeId', required: true, description: '图元 ID' }, { key: 'direction', type: 'enum', required: false, values: ['front', 'back', 'forward', 'backward'], description: '方向（与 toIndex 二选一）' }, { key: 'toIndex', type: 'integer', required: false, min: 0, description: '插入下标（与 direction 二选一；拖拽排序用）' }], handler: objectReorder });

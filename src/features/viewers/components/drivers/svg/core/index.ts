@@ -74,6 +74,7 @@ export type {
   ObjectScaleParams,
   ObjectRotateParams,
   ObjectTransformParams,
+  ObjectDuplicateParams,
   ObjectGroupParams,
   ObjectUngroupParams,
   ObjectReorderParams,

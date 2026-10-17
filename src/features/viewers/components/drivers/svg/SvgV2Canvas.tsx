@@ -9,13 +9,16 @@
  *
  * UI 只经 `core` barrel 导入。
  */
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
 import {
   RAW_DEFS_METADATA_KEY,
+  clientToCanvasPoint,
+  hitTestAllAtPoint,
   nodeBBox,
   serializePathD,
+  unionRects,
   type Document as SvgDocument,
   type Fill,
   type Node,
@@ -27,6 +30,8 @@ import {
 } from './core';
 import { useSvgV2PointerInput } from './useSvgV2PointerInput';
 import { useSvgV2Viewport } from './useSvgV2Viewport';
+import { SvgV2ContextMenu } from './SvgV2ContextMenu';
+import { SvgV2FloatingHud } from './SvgV2FloatingHud';
 
 export interface SvgV2CanvasProps {
   readonly document: SvgDocument;
@@ -84,14 +89,21 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
     };
   }, [doc?.canvas?.viewBox, doc?.canvas?.width, doc?.canvas?.height]);
 
-  const { svgRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleKeyDown } =
-    useSvgV2PointerInput({
-      runtime,
-      view,
-      undo: () => runtime.undo(),
-      redo: () => runtime.redo(),
-      selectAll: () => runtime.execute('select.all', {}),
-    });
+  const {
+    svgRef,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
+    handleDoubleClick: handleNodeDoubleClick,
+    handleKeyDown,
+  } = useSvgV2PointerInput({
+    runtime,
+    view,
+    undo: () => runtime.undo(),
+    redo: () => runtime.redo(),
+    selectAll: () => runtime.execute('select.all', {}),
+  });
 
   const {
     viewport,
@@ -107,6 +119,73 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
     zoomReset,
     zoomFit,
   } = useSvgV2Viewport();
+
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const selBBox = useMemo(() => {
+    if (selection.nodeIds.length === 0) return null;
+    const boxes: { x: number; y: number; width: number; height: number }[] = [];
+    for (const id of selection.nodeIds) {
+      const b = nodeBBox(doc, id);
+      if (b) boxes.push(b);
+    }
+    return unionRects(boxes);
+  }, [doc, selection.nodeIds]);
+
+  const hudPosition = useMemo(() => {
+    if (!selBBox || !svgRef.current || !containerRef.current) return null;
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    if (svgRect.width === 0 || view.width === 0) return null;
+
+    const scale = svgRect.width / view.width;
+    const centerX = svgRect.left - containerRect.left + (selBBox.x - view.x + selBBox.width / 2) * scale;
+    const topY = svgRect.top - containerRect.top + (selBBox.y - view.y) * scale - 44;
+    const adjustedTop =
+      topY < 20
+        ? svgRect.top - containerRect.top + (selBBox.y - view.y + selBBox.height) * scale + 14
+        : topY;
+
+    return { left: centerX, top: adjustedTop };
+  }, [selBBox, view, viewport]);
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      const x = containerRect ? clientX - containerRect.left : clientX;
+      const y = containerRect ? clientY - containerRect.top : clientY;
+
+      // 如果右键点击处有未选中的图元，优先选中它
+      if (svgRef.current) {
+        let point: { x: number; y: number } | null = null;
+        if (typeof svgRef.current.getScreenCTM === 'function') {
+          const ctm = svgRef.current.getScreenCTM();
+          if (ctm) {
+            try {
+              const pt = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+              if (Number.isFinite(pt.x) && Number.isFinite(pt.y)) point = { x: pt.x, y: pt.y };
+            } catch {}
+          }
+        }
+        if (!point) {
+          const rect = svgRef.current.getBoundingClientRect();
+          point = clientToCanvasPoint(clientX, clientY, rect, view);
+        }
+        if (point) {
+          const hits = hitTestAllAtPoint(doc, point);
+          if (hits.length > 0 && !selection.nodeIds.includes(hits[0])) {
+            runtime.execute('select.set', { ids: [hits[0]], additive: false });
+          }
+        }
+      }
+
+      setContextMenu({ x, y });
+    },
+    [containerRef, svgRef, view, doc, selection.nodeIds, runtime],
+  );
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
@@ -166,6 +245,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
       className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[var(--ov-canvas-bg)] p-4"
       onWheel={handleWheel}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
       onPointerDown={beginPan}
       onPointerMove={movePan}
       onPointerUp={endPan}
@@ -192,6 +272,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
+          onDoubleClick={handleNodeDoubleClick}
           onKeyDown={handleKeyDown}
         >
           <defs>
@@ -208,6 +289,31 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
           <g pointerEvents="none">{overlays.map(renderOverlay)}</g>
         </svg>
       </div>
+
+      {/* 悬浮 HUD 快捷工具条 (Floating HUD) */}
+      {hudPosition && selBBox && activeToolId === 'select' && (
+        <SvgV2FloatingHud
+          left={hudPosition.left}
+          top={hudPosition.top}
+          selection={selection}
+          document={doc}
+          selBBox={selBBox}
+          execute={(cmd, params) => runtime.execute(cmd, params)}
+        />
+      )}
+
+      {/* 右键上下文菜单 (Context Menu) */}
+      {contextMenu && (
+        <SvgV2ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          selection={selection}
+          document={doc}
+          onClose={() => setContextMenu(null)}
+          execute={(cmd, params) => runtime.execute(cmd, params)}
+        />
+      )}
+
       {/* 底部视口浮动控制条 (Viewport HUD) */}
       <div
         data-canvas-ui="true"

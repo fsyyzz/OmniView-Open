@@ -152,6 +152,7 @@ export interface ObjectMoveParams { readonly ids: ReadonlyArray<NodeId>; readonl
 export interface ObjectScaleParams { readonly ids: ReadonlyArray<NodeId>; readonly origin: { readonly x: number; readonly y: number }; readonly factor: { readonly x: number; readonly y: number }; }
 export interface ObjectRotateParams { readonly ids: ReadonlyArray<NodeId>; readonly origin: { readonly x: number; readonly y: number }; readonly angleDeg: number; }
 export interface ObjectTransformParams { readonly ids: ReadonlyArray<NodeId>; readonly matrix: AffineTransform; }
+export interface ObjectDuplicateParams { readonly ids?: ReadonlyArray<NodeId>; readonly offset?: { readonly x: number; readonly y: number }; }
 export interface ObjectGroupParams { readonly ids: ReadonlyArray<NodeId>; readonly name?: string; }
 export interface ObjectUngroupParams { readonly id: NodeId; }
 export interface ObjectReorderParams { readonly id: NodeId; readonly direction?: 'front' | 'back' | 'forward' | 'backward'; /** 与 direction 互斥；拖拽排序用：移除自身后在父容器 children 中的插入下标 */ readonly toIndex?: number; }
