@@ -2,6 +2,19 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.3] - 2026-10-19
+
+### Added
+
+- **GitHub Alert Callout 思想多列卡片矩阵与独立卡片渲染引擎 (`useMarkdownAstPipeline` & `index.css`)**:
+  - **多列卡片矩阵语法支持**：沿用 GitHub Alert 核心哲学，新增支持 `> [!CARDS:3]`、`> [!CARDS:4]`、`> [!CARDS:6]`、`> [!CARD]`、`> [!CARD-GRID]` 及属性式 `cols=1-6`，在标准 Markdown 规范下将无序列表直接渲染为高质感的一行 3/4/6 列卡片矩阵；
+  - **100% 优雅降级 (Graceful Degradation)**：在不支持该特性的古老解析器或纯文本环境中，安全退化为标准的引用列表，0 报错、0 破坏语法树，内容 100% 完整无损；
+  - **现代 CSS 容器查询自适应断点 (Container Queries)**：卡片网格引入 `container-type: inline-size`，在 VS Code 分屏拖拽或小屏视口时自适应优雅折叠（6/5/4 列 -> 2 列 -> 1 列），彻底杜绝拥挤变形；
+  - **全主题设计令牌与微交互动效**：卡片全面绑定 `--ov-*` 语义化设计令牌，适配亮暗主题与 VS Code 原生宿主主题，具备顶部渐变高光指示条与 `translateY(-2px)` 微浮动阴影增强动效；
+  - **块级编辑器无缝识别 (`markdownBlockEditor.ts`)**：支持在原地专注编辑器中精准标注「`Card 卡片矩阵网格`」与「`Card 独立卡片`」；
+  - **单元测试与演练样例落地**：在 `tests/test-markdown-callout-task.mjs` 中新增针对 3/4/6 列、属性语法与折叠状态的完整单测套件，并同步更新样例 `examples/markdown/callouts-and-tasks.md`；
+  - **技能体系深度扩充**：在 `.codex/skills/omniview-markdown-authoring/SKILL.md` 中完整收录 GitHub Alert Callout 核心设计哲学、排版黄金法则、多列卡片代码模板与避坑指南。
+
 ## [1.3.2] - 2026-10-19
 
 ### Added

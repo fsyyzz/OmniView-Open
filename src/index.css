@@ -2885,6 +2885,266 @@ details.ov-callout[open] .ov-callout-fold-icon {
 }
 
 /* =========================================================
+   Card & Multi-Column Card Grid (GitHub Alert Philosophy)
+   ========================================================= */
+
+.ov-card-grid-container {
+  container-type: inline-size;
+  margin: 20px 0;
+  width: 100%;
+}
+
+.ov-card-grid {
+  width: 100%;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.ov-card-grid-header,
+.ov-card-single-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ov-text, #1e293b);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+}
+
+details.ov-card-grid-container summary.ov-card-grid-header,
+details.ov-card-single summary.ov-card-single-header {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+details.ov-card-grid-container summary.ov-card-grid-header::-webkit-details-marker,
+details.ov-card-single summary.ov-card-single-header::-webkit-details-marker {
+  display: none;
+}
+
+details.ov-card-grid-container[open] .ov-callout-fold-icon,
+details.ov-card-single[open] .ov-callout-fold-icon {
+  transform: rotate(180deg);
+}
+
+.ov-card-grid-title-left,
+.ov-card-single-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--ov-text, #1e293b);
+}
+
+.ov-card-grid-icon,
+.ov-card-single-icon {
+  flex-shrink: 0;
+  stroke: var(--ov-accent, #3b82f6);
+}
+
+/* Card Column Classes */
+.ov-cards-cols-1 { --ov-card-cols: 1; }
+.ov-cards-cols-2 { --ov-card-cols: 2; }
+.ov-cards-cols-3 { --ov-card-cols: 3; }
+.ov-cards-cols-4 { --ov-card-cols: 4; }
+.ov-cards-cols-5 { --ov-card-cols: 5; }
+.ov-cards-cols-6 { --ov-card-cols: 6; }
+
+/* Grid Body - when containing lists */
+.ov-card-grid-body > ul,
+.ov-card-grid-body > ol {
+  display: grid;
+  grid-template-columns: repeat(var(--ov-card-cols, 3), minmax(0, 1fr));
+  gap: 16px;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Each list item turns into an elegant card */
+.ov-card-grid-body > ul > li,
+.ov-card-grid-body > ol > li {
+  margin: 0 !important;
+  padding: 16px 18px;
+  background: var(--ov-surface, #ffffff);
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.2s ease,
+              background-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ov-card-grid-body > ul > li::before,
+.ov-card-grid-body > ol > li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ov-accent, #3b82f6), transparent);
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.ov-card-grid-body > ul > li:hover,
+.ov-card-grid-body > ol > li:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ov-shadow, 0 8px 24px rgba(0, 0, 0, 0.08));
+  border-color: var(--ov-accent, #3b82f6);
+}
+
+.ov-card-grid-body > ul > li:hover::before,
+.ov-card-grid-body > ol > li:hover::before {
+  opacity: 1;
+}
+
+/* Typography inside card items */
+.ov-card-grid-body > ul > li > :first-child,
+.ov-card-grid-body > ol > li > :first-child {
+  margin-top: 0;
+}
+
+.ov-card-grid-body > ul > li > :last-child,
+.ov-card-grid-body > ol > li > :last-child {
+  margin-bottom: 0;
+}
+
+.ov-card-grid-body > ul > li h1,
+.ov-card-grid-body > ul > li h2,
+.ov-card-grid-body > ul > li h3,
+.ov-card-grid-body > ul > li h4,
+.ov-card-grid-body > ol > li h1,
+.ov-card-grid-body > ol > li h2,
+.ov-card-grid-body > ol > li h3,
+.ov-card-grid-body > ol > li h4 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ov-text, inherit);
+  line-height: 1.4;
+  border: none;
+  padding: 0;
+}
+
+.ov-card-grid-body > ul > li p,
+.ov-card-grid-body > ol > li p {
+  margin: 6px 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--ov-text-secondary, rgba(0, 0, 0, 0.7));
+}
+
+/* Internal sub-lists inside a card item */
+.ov-card-grid-body > ul > li ul,
+.ov-card-grid-body > ol > li ul {
+  list-style: disc !important;
+  padding-left: 20px !important;
+  margin: 8px 0 !important;
+  display: block !important;
+}
+
+.ov-card-grid-body > ul > li ul > li,
+.ov-card-grid-body > ol > li ul > li {
+  padding: 2px 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  display: list-item !important;
+  font-size: 0.84rem;
+}
+
+.ov-card-grid-body > ul > li ul > li::before,
+.ov-card-grid-body > ol > li ul > li::before {
+  display: none !important;
+}
+
+/* Single Card: .ov-card-single */
+.ov-card-single {
+  margin: 18px 0;
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  border-left: 4px solid var(--ov-accent, #3b82f6);
+  background: var(--ov-surface, #ffffff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ov-card-single:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ov-shadow, 0 6px 20px rgba(0, 0, 0, 0.07));
+}
+
+.ov-card-single-body {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--ov-text, inherit);
+}
+
+.ov-card-single-body > :first-child {
+  margin-top: 0;
+}
+
+.ov-card-single-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive Container & Media Queries for Grid */
+@container (max-width: 1080px) {
+  .ov-cards-cols-6, .ov-cards-cols-5 {
+    --ov-card-cols: 3 !important;
+  }
+}
+@container (max-width: 840px) {
+  .ov-cards-cols-6, .ov-cards-cols-5, .ov-cards-cols-4 {
+    --ov-card-cols: 2 !important;
+  }
+}
+@container (max-width: 580px) {
+  .ov-cards-cols-6, .ov-cards-cols-5, .ov-cards-cols-4, .ov-cards-cols-3 {
+    --ov-card-cols: 1 !important;
+  }
+}
+@container (max-width: 420px) {
+  .ov-card-grid {
+    --ov-card-cols: 1 !important;
+  }
+}
+
+@media (max-width: 1080px) {
+  .ov-cards-cols-6, .ov-cards-cols-5 {
+    --ov-card-cols: 3;
+  }
+}
+@media (max-width: 840px) {
+  .ov-cards-cols-6, .ov-cards-cols-5, .ov-cards-cols-4 {
+    --ov-card-cols: 2;
+  }
+}
+@media (max-width: 580px) {
+  .ov-cards-cols-6, .ov-cards-cols-5, .ov-cards-cols-4, .ov-cards-cols-3, .ov-cards-cols-2 {
+    --ov-card-cols: 1;
+  }
+}
+
+/* =========================================================
    Interactive Task List (Checkbox) Bidirectional Sync
    ========================================================= */
 

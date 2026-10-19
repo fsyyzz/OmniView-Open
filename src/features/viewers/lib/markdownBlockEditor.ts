@@ -153,7 +153,13 @@ export function getBlockTypeLabel(
       const level = headingMatch[1].length;
       return isZh ? `H${level} 章节标题` : `H${level} Heading`;
     }
-    if (/^>\s*\[![a-zA-Z]+\]/.test(trimmed)) {
+    if (/^>\s*\[!(?:CARDS?|CARD-GRID|GRID)(?::[1-6]|\s+cols=[1-6])?\]/i.test(trimmed)) {
+      return isZh ? 'Card 卡片矩阵网格' : 'Card Grid Block';
+    }
+    if (/^>\s*\[!CARD\]/i.test(trimmed)) {
+      return isZh ? 'Card 独立卡片' : 'Single Card Block';
+    }
+    if (/^>\s*\[![a-zA-Z0-9_\-]+(?:[+-]|\s+[^\]]*)?\]/.test(trimmed)) {
       return isZh ? 'Callout 语义提示块' : 'Callout Block';
     }
     if (/^>\s?/.test(trimmed)) {

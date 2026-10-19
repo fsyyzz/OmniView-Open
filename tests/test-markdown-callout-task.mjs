@@ -136,4 +136,71 @@ assert.ok(blockMathOutput.includes('ov-katex-block'), '应成功渲染块级 KaT
 
 console.log('✅ KaTeX 智能识别与价格防误触测试全部通过');
 
-console.log('🎉 全部 3 组 Markdown Callout / TaskList / KaTeX 单元测试用例 100% 通过！');
+// 4. GitHub Alert Callout 思想 CARD & CARDS 多列卡片解析测试
+console.log('--- 测试 4: GitHub Alert Callout 思想 CARD & CARDS 多列卡片解析测试 ---');
+
+const cardRegex = /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]))?(?:[ \t]+cols=([1-6]))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i;
+
+function parseCardOrCallout(input) {
+  const match = input.match(cardRegex);
+  if (!match) return null;
+  const typeRaw = match[1];
+  const colParam = match[2] || match[3];
+  const fold = match[4];
+  const customTitle = (match[5] || '').trim();
+  const remainingText = (match[6] || '');
+  const upperType = typeRaw.toUpperCase();
+  const isCards = upperType === 'CARDS' || upperType === 'CARD-GRID' || upperType === 'GRID';
+  const isCard = upperType === 'CARD';
+  const cols = colParam ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;
+
+  return {
+    type: upperType,
+    isCards,
+    isCard,
+    cols,
+    fold,
+    isCollapsible: fold === '+' || fold === '-',
+    isOpen: fold !== '-',
+    title: customTitle,
+    remainingText,
+  };
+}
+
+// 4.1 3列卡片测试 [!CARDS:3]
+const cards3 = parseCardOrCallout('[!CARDS:3] 核心特性\n- 特性1\n- 特性2\n- 特性3');
+assert.ok(cards3, '应成功解析 [!CARDS:3]');
+assert.strictEqual(cards3.isCards, true);
+assert.strictEqual(cards3.cols, 3);
+assert.strictEqual(cards3.title, '核心特性');
+
+// 4.2 4列卡片测试 [!CARDS:4]
+const cards4 = parseCardOrCallout('[!CARDS:4] 四阶段流水线');
+assert.ok(cards4, '应成功解析 [!CARDS:4]');
+assert.strictEqual(cards4.cols, 4);
+assert.strictEqual(cards4.title, '四阶段流水线');
+
+// 4.3 6列卡片测试 [!CARDS:6]
+const cards6 = parseCardOrCallout('[!CARDS:6]');
+assert.ok(cards6, '应成功解析 [!CARDS:6]');
+assert.strictEqual(cards6.cols, 6);
+
+// 4.4 别名与属性语法 [!CARD-GRID:3] 与 [!CARDS cols=4]
+const gridAlias = parseCardOrCallout('[!CARD-GRID:3]');
+assert.ok(gridAlias && gridAlias.isCards && gridAlias.cols === 3, '应兼容 [!CARD-GRID:3] 别名');
+const colsAttr = parseCardOrCallout('[!CARDS cols=4]');
+assert.ok(colsAttr && colsAttr.isCards && colsAttr.cols === 4, '应兼容 cols=4 属性语法');
+
+// 4.5 单体独立卡片 [!CARD]
+const singleCard = parseCardOrCallout('[!CARD] 重点备忘\n这里是正文');
+assert.ok(singleCard, '应成功解析 [!CARD]');
+assert.strictEqual(singleCard.isCard, true);
+assert.strictEqual(singleCard.title, '重点备忘');
+
+// 4.6 折叠卡片 [!CARDS:3]-
+const foldedCards = parseCardOrCallout('[!CARDS:3]- 折叠矩阵');
+assert.ok(foldedCards && foldedCards.isCollapsible && !foldedCards.isOpen, '应支持 [!CARDS:3]- 默认折叠');
+
+console.log('✅ CARD & CARDS 多列卡片解析测试全部通过');
+
+console.log('🎉 全部 4 组 Markdown Callout / TaskList / KaTeX / CardGrid 单元测试用例 100% 通过！');

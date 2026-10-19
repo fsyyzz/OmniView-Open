@@ -294,29 +294,21 @@ export function useMarkdownAstPipeline({
           const firstToken = tokenOrQuote.tokens[0];
           if (firstToken && (firstToken.type === 'paragraph' || firstToken.type === 'text')) {
             const firstRaw = (firstToken.raw || firstToken.text || '').trimStart();
-            const calloutMatch = firstRaw.match(/^\[!([a-zA-Z]+)\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/);
+            const calloutMatch = firstRaw.match(
+              /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]))?(?:[ \t]+cols=([1-6]))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i
+            );
             if (calloutMatch) {
               const typeRaw = calloutMatch[1];
-              const fold = calloutMatch[2];
-              const customTitle = (calloutMatch[3] || '').trim();
-              const remainingText = (calloutMatch[4] || '');
-              const meta = getCalloutMeta(typeRaw, locale) || {
-                type: typeRaw.toLowerCase(),
-                title: customTitle || typeRaw.toUpperCase(),
-                colorClass: `ov-callout-${typeRaw.toLowerCase()}`,
-                icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
-              };
+              const colParam = calloutMatch[2] || calloutMatch[3];
+              const fold = calloutMatch[4];
+              const customTitle = (calloutMatch[5] || '').trim();
+              const remainingText = (calloutMatch[6] || '');
+              const upperType = typeRaw.toUpperCase();
 
-              const displayTitle = customTitle || meta.title;
               const restTokens = [...tokenOrQuote.tokens];
               if (remainingText.trim()) {
                 const innerTokens = marked.lexer(remainingText);
-                restTokens[0] = {
-                  type: 'paragraph',
-                  raw: remainingText,
-                  text: remainingText,
-                  tokens: (innerTokens[0] as any)?.tokens || [],
-                };
+                restTokens.splice(0, 1, ...innerTokens);
               } else {
                 restTokens.shift();
               }
@@ -325,6 +317,47 @@ export function useMarkdownAstPipeline({
               const isCollapsible = fold === '+' || fold === '-';
               const isOpen = fold !== '-';
               const chevronSvg = `<svg class="ov-callout-fold-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+              // 卡片矩阵网格 (Card Grid): [!CARDS], [!CARDS:3], [!CARDS:4], [!CARDS:6], [!CARD-GRID], [!GRID]
+              if (upperType === 'CARDS' || upperType === 'CARD-GRID' || upperType === 'GRID') {
+                const cols = colParam ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;
+                const gridIcon = `<svg class="ov-card-grid-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`;
+                const titleHtml = customTitle
+                  ? `<span class="ov-card-grid-title-left">${gridIcon}<span class="ov-card-grid-title-text">${customTitle}</span></span>`
+                  : '';
+
+                if (isCollapsible) {
+                  return `<details class="ov-card-grid-container" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-card-grid-header">${titleHtml}${chevronSvg}</summary><div class="ov-card-grid ov-cards-cols-${cols}" style="--ov-card-cols: ${cols};" data-cols="${cols}"><div class="ov-card-grid-body">${bodyHtml}</div></div></details>\n`;
+                }
+
+                const headerBlock = customTitle ? `<div class="ov-card-grid-header">${titleHtml}</div>` : '';
+                return `<div class="ov-card-grid-container" data-source-line="${currentTokenStartLine}"><div class="ov-card-grid ov-cards-cols-${cols}" style="--ov-card-cols: ${cols};" data-cols="${cols}">${headerBlock}<div class="ov-card-grid-body">${bodyHtml}</div></div></div>\n`;
+              }
+
+              // 单体卡片 (Single Card): [!CARD]
+              if (upperType === 'CARD') {
+                const cardIcon = `<svg class="ov-card-single-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>`;
+                const titleHtml = customTitle
+                  ? `<span class="ov-card-single-title-left">${cardIcon}<span class="ov-card-single-title-text">${customTitle}</span></span>`
+                  : '';
+
+                if (isCollapsible) {
+                  return `<details class="ov-card-single" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-card-single-header">${titleHtml}${chevronSvg}</summary><div class="ov-card-single-body">${bodyHtml}</div></details>\n`;
+                }
+
+                const headerBlock = customTitle ? `<div class="ov-card-single-header">${titleHtml}</div>` : '';
+                return `<div class="ov-card-single" data-source-line="${currentTokenStartLine}">${headerBlock}<div class="ov-card-single-body">${bodyHtml}</div></div>\n`;
+              }
+
+              // 标准 / 扩展 Callout 语义提醒块
+              const meta = getCalloutMeta(typeRaw, locale) || {
+                type: typeRaw.toLowerCase(),
+                title: customTitle || typeRaw.toUpperCase(),
+                colorClass: `ov-callout-${typeRaw.toLowerCase()}`,
+                icon: `<svg class="ov-callout-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
+              };
+
+              const displayTitle = customTitle || meta.title;
 
               if (isCollapsible) {
                 return `<details class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span>${chevronSvg}</summary><div class="ov-callout-body">${bodyHtml}</div></details>\n`;
