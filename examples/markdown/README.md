@@ -7,6 +7,7 @@
 | 文件 | 覆盖内容 |
 | --- | --- |
 | [basic-markdown.md](./basic-markdown.md) | 标题、段落、链接、引用、列表和图片占位 |
+| [callouts-and-tasks.md](./callouts-and-tasks.md) | GitHub Alert Callout 核心思想、5 大语义提醒块、多列卡片矩阵 (1行3/4/6列)、折叠手风琴与双向 Task List 回写 |
 | [gfm-features.md](./gfm-features.md) | GitHub Flavored Markdown、任务清单、表格、删除线与脚注 |
 | [obsidian-wiki-links.md](./obsidian-wiki-links.md) | Obsidian Wiki 链接 `[[Page]]` 与嵌入 `![[...]]` |
 | [external-diagram-attachments.md](./external-diagram-attachments.md) | 外挂 `.dst` 领域故事、`.excalidraw` 手绘白板与 `.svg` 矢量图形挂载嵌入 |
