@@ -8,7 +8,23 @@
 
 ---
 
-## [1.3.9] - 2026-10-19 (当前最新发布)
+## [1.3.10] - 2026-10-19 (当前最新发布)
+
+> [!TIP] v1.3.10 变更亮点
+> 将 `skills:omniview-markdown-authoring` 现代排版规范正式固化并整合入 OmniView AI-SE 软件工程顶层体系，确立 Markdown 现代排版硬性契约。
+
+### 🏛️ Governance & AI-SE (工程治理与规范整合)
+
+- **Markdown 现代排版契约全面固化 (`AGENTS.md` & `.codex/rules/`)**:
+  - **总控路由与治理条款整合 (`AGENTS.md`)**：在「AI-SE 治理补充条款」中正式写入《Markdown 文档现代排版契约》，规定所有对外展示型 Markdown 文档必须默认激活 `skills:omniview-markdown-authoring`；
+  - **软件工程总则同步 (`.codex/rules/engineering.md`)**：新增现代排版约束条款，禁止在关键文档中继续堆叠冗长平铺文本；
+  - **代码-文档同步矩阵更新 (`.codex/rules/doc-sync.md`)**：将 Markdown 现代排版演进正式纳为核心同步矩阵检查条目；
+  - **Codex 索引与测试闭环**：同步更新 `codex.index.json`，并通过全部 84 套自动化测试与门禁验证。
+
+---
+
+## [1.3.9] - 2026-10-19
+
 
 > [!TIP] v1.3.9 变更亮点
 > 依据 `omniview-markdown-authoring` 现代编排范式全面重构 CHANGELOG，引入横幅公告（BANNER）、方案对比卡片（COMPARE）、高光提示（TIP）与历史版本折叠手风琴（NOTE-）。
