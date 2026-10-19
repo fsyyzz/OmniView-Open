@@ -22,7 +22,7 @@ import { Locale, t } from '../../../../../shared/lib/i18n';
 import { analyzeKatexError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 import { katexRenderCache } from '../../../lib/diagramCache';
-import { sanitizeMathFormula } from '../../../lib/markdownMath';
+import { sanitizeMathFormula, getKatexOptions } from '../../../lib/markdownMath';
 
 interface MathBlockProps {
   id: string;
@@ -103,22 +103,14 @@ export const MathBlock: React.FC<MathBlockProps> = ({
     }
 
     try {
-      const html = katex.renderToString(sanitized, {
-        displayMode: true,
-        throwOnError: true,
-        errorColor: '#f43f5e',
-      });
+      const html = katex.renderToString(sanitized, getKatexOptions(true, true));
       katexRenderCache.set(cacheKey, html);
       setRenderedHtml(html);
       setError(null);
     } catch (err: any) {
       try {
         // 尝试非严格模式容错标红渲染
-        const fallbackHtml = katex.renderToString(sanitized, {
-          displayMode: true,
-          throwOnError: false,
-          errorColor: '#f43f5e',
-        });
+        const fallbackHtml = katex.renderToString(sanitized, getKatexOptions(true, false));
         setRenderedHtml(fallbackHtml);
         setError(err?.message || 'KaTeX 语法解析错误');
       } catch (fatalErr: any) {
@@ -138,10 +130,10 @@ export const MathBlock: React.FC<MathBlockProps> = ({
   // 复制 MathML (适合直接粘贴进 Office Word / WPS)
   const handleCopyMathML = async () => {
     try {
-      const mathml = katex.renderToString(activeCode.trim(), {
+      const sanitized = sanitizeMathFormula(activeCode.trim());
+      const mathml = katex.renderToString(sanitized, {
+        ...getKatexOptions(true, false),
         output: 'mathml',
-        displayMode: true,
-        throwOnError: false,
       });
       const cleanMathML = mathml.replace(/^<span[^>]*>/, '').replace(/<\/span>$/, '');
       await navigator.clipboard.writeText(cleanMathML);

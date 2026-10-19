@@ -10,7 +10,7 @@ import { parseOkfFrontmatter, type OkfParseResult } from '../lib/okfParser';
 import { processMarkdownFootnotes } from '../lib/markdownFootnotes';
 import { processMarkdownWikiLinks } from '../lib/markdownWikiLinks';
 import { processMarkdownDefinitionLists } from '../lib/markdownDefinitionLists';
-import { processMarkdownMath, restoreMarkdownMath } from '../lib/markdownMath';
+import { processMarkdownMath, restoreMarkdownMath, restoreRawMathInText } from '../lib/markdownMath';
 import { processEmojiShortcodes } from '../lib/markdownEmojiShortcodes';
 import { getPlantUmlSvgUrl } from '../../../shared/lib/plantuml';
 import { type Locale, t } from '../../../shared/lib/i18n';
@@ -515,23 +515,37 @@ export function useMarkdownAstPipeline({
         } else if (
           token.type === 'paragraph' &&
           token.text &&
-          (/^%%OV_MATH_BLOCK_(\d+)%%$/.test(token.text.trim()) ||
+          (/^(?:%%OV_MATH_BLOCK_\d+%%\s*)+$/.test(token.text.trim()) ||
             (token.text.trim().startsWith('$$') &&
               token.text.trim().endsWith('$$') &&
               token.text.trim().length >= 4 &&
               !token.text.trim().slice(2, -2).includes('$$')))
         ) {
-          const match = token.text.trim().match(/^%%OV_MATH_BLOCK_(\d+)%%$/);
-          const mathFormula = match
-            ? (mathSlots[Number(match[1])]?.formula || '')
-            : token.text.trim().slice(2, -2).trim();
-          parsedBlocks.push({
-            id: `block-math-${counter++}`,
-            type: 'math',
-            raw: mathFormula,
-            startLine: tokenStartLine,
-            endLine: tokenEndLine,
-          });
+          const blockMatches = [...token.text.trim().matchAll(/%%OV_MATH_BLOCK_(\d+)%%/g)];
+          if (blockMatches.length > 0) {
+            let subStartLine = tokenStartLine;
+            for (const m of blockMatches) {
+              const slot = mathSlots[Number(m[1])];
+              const subNewlines = slot?.newlines ?? 0;
+              const subEndLine = subStartLine + subNewlines;
+              parsedBlocks.push({
+                id: `block-math-${counter++}`,
+                type: 'math',
+                raw: slot?.formula || '',
+                startLine: subStartLine,
+                endLine: Math.min(tokenEndLine, subEndLine),
+              });
+              subStartLine = subEndLine + 1;
+            }
+          } else {
+            parsedBlocks.push({
+              id: `block-math-${counter++}`,
+              type: 'math',
+              raw: token.text.trim().slice(2, -2).trim(),
+              startLine: tokenStartLine,
+              endLine: tokenEndLine,
+            });
+          }
         } else if (
           token.type === 'paragraph' &&
           token.tokens &&
@@ -569,15 +583,27 @@ export function useMarkdownAstPipeline({
           }
         } else if (token.type === 'table') {
           const tableToken = token as any;
+          const restoredHeader = (tableToken.header || []).map((h: any) =>
+            typeof h === 'object' && h !== null
+              ? { ...h, text: restoreRawMathInText(h.text || '', mathSlots) }
+              : h
+          );
+          const restoredRows = (tableToken.rows || []).map((row: unknown) => ({
+            cells: Array.isArray(row)
+              ? row.map((c: any) =>
+                  typeof c === 'object' && c !== null
+                    ? { ...c, text: restoreRawMathInText(c.text || '', mathSlots) }
+                    : restoreRawMathInText(String(c ?? ''), mathSlots)
+                )
+              : [],
+          }));
           parsedBlocks.push({
             id: `block-table-${counter++}`,
             type: 'table',
-            raw: token.raw,
+            raw: restoreRawMathInText(token.raw, mathSlots),
             tableData: {
-              header: tableToken.header || [],
-              rows: (tableToken.rows || []).map((row: unknown) => ({
-                cells: Array.isArray(row) ? row : [],
-              })),
+              header: restoredHeader,
+              rows: restoredRows,
               align: tableToken.align || [],
             },
             startLine: tokenStartLine,

@@ -105,19 +105,23 @@ export const MarkdownFocusedBlockEditor: React.FC<MarkdownFocusedBlockEditorProp
   const livePreviewHtml = useMemo(() => {
     if (editorMode !== 'split') return '';
     try {
-      // 如果当前块本身是代码块或图表块且源码未带围栏，自动补齐预览围栏以展示真实效果
-      let sourceForPreview = draft;
+      // 如果当前块本身是代码块或公式块，自动归一化以便在微预览中实时渲染公式与高亮
+      let sourceForPreview = draft.replace(
+        /^(\s*)(`{3,}|~{3,})(?:math|katex|latex)[ \t]*\r?\n([\s\S]*?)\r?\n\1\2[ \t]*$/gm,
+        (_m, _indent, _fence, body) => `$$\n${body}\n$$`
+      );
       if (
         blockType === 'math' &&
-        !draft.trim().startsWith('$$')
+        !sourceForPreview.trim().startsWith('$$') &&
+        !sourceForPreview.trim().startsWith('\\[')
       ) {
-        sourceForPreview = `$$\n${draft}\n$$`;
+        sourceForPreview = `$$\n${sourceForPreview}\n$$`;
       } else if (
         blockType === 'code' &&
-        !draft.trim().startsWith('```') &&
-        !draft.trim().startsWith('~~~')
+        !sourceForPreview.trim().startsWith('```') &&
+        !sourceForPreview.trim().startsWith('~~~')
       ) {
-        sourceForPreview = `\`\`\`${lang || 'text'}\n${draft}\n\`\`\``;
+        sourceForPreview = `\`\`\`${lang || 'text'}\n${sourceForPreview}\n\`\`\``;
       }
 
       const { markdown: withWiki } = processMarkdownWikiLinks(sourceForPreview, {

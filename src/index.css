@@ -2624,8 +2624,11 @@ mark.ov-search-match.is-active-match {
 
 .ov-katex-inline {
   display: inline-block;
-  padding: 0 3px;
-  vertical-align: middle;
+  padding: 0 2px;
+  vertical-align: baseline;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   color: var(--ov-text);
 }
 

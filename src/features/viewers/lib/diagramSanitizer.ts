@@ -20,10 +20,13 @@ export const DOMPURIFY_DIAGRAM_SVG_CONFIG: Record<string, any> = {
     'feDiffuseLighting', 'feDisplacementMap', 'feDistantLight', 'feFlood', 'feFuncA',
     'feFuncB', 'feFuncG', 'feFuncR', 'feImage', 'feMorphology', 'fePointLight',
     'feSpecularLighting', 'feSpotLight', 'feTile', 'feTurbulence',
-    // Mermaid / KaTeX / 富文本节点所需的 HTML 嵌入图元 (重点保留，杜绝 flowchart 文字消失)
+    // Mermaid / KaTeX / 富文本节点所需的 HTML 与 MathML 嵌入图元 (重点保留，杜绝 flowchart 文字与 KaTeX 根号/向量消失)
     'foreignObject', 'foreignobject', 'div', 'span', 'p', 'b', 'i', 'strong', 'em',
     'br', 'code', 'pre', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'ul', 'ol', 'li',
-    'sub', 'sup', 'details', 'summary', 'aside', 'label', 'input'
+    'sub', 'sup', 'details', 'summary', 'aside', 'label', 'input', 'del', 'mark', 'kbd',
+    'math', 'semantics', 'mrow', 'mi', 'mo', 'mn', 'msup', 'msub', 'msubsup', 'mfrac',
+    'msqrt', 'mroot', 'mtable', 'mtr', 'mtd', 'mtext', 'mspace', 'mover', 'munder',
+    'munderover', 'menclose', 'mpadded', 'mphantom', 'annotation'
   ],
   ADD_ATTR: [
     // 命名空间与布局属性
@@ -41,7 +44,7 @@ export const DOMPURIFY_DIAGRAM_SVG_CONFIG: Record<string, any> = {
     // 连线端点与滤镜参数
     'marker-end', 'marker-start', 'marker-mid', 'stdDeviation', 'flood-color', 'flood-opacity',
     // 链接与安全属性
-    'href', 'xlink:href', 'target', 'rel', 'crossorigin',
+    'href', 'xlink:href', 'target', 'rel', 'crossorigin', 'encoding', 'display',
     // 辅助功能与数据驱动属性 (图表步进播放与溯源)
     'aria-label', 'aria-hidden', 'role', 'color', 'valign', 'align',
     'data-step', 'data-id', 'data-type', 'data-diagram-type', 'data-node-id', 'data-line', 'data-source-line'
@@ -57,7 +60,7 @@ export const DOMPURIFY_DIAGRAM_SVG_CONFIG: Record<string, any> = {
 
 /**
  * 专用于矢量图表与富文本嵌入的安全清洗函数
- * 100% 完整保留 Mermaid、PlantUML、Excalidraw、SVG Studio 所需的 SVG 矢量图元、样式以及 foreignObject 富文本标签与子元素
+ * 100% 完整保留 Mermaid、PlantUML、Excalidraw、SVG Studio 与 KaTeX 所需的 SVG 矢量图元、MathML 节点、样式以及 foreignObject 富文本标签与子元素
  * 坚决剔除任何可执行脚本 (script)、嵌入框架 (iframe/object/embed/applet)、内联事件属性 (onload, onclick 等) 以及伪协议
  */
 function fallbackSanitize(html: string): string {
@@ -80,25 +83,6 @@ function fallbackSanitize(html: string): string {
     .replace(/xlink:href\s*=\s*["'](?:javascript:|data:text\/html)[^"']*["']/gi, 'xlink:href="#"');
 }
 
-function getPurifyInstance() {
-  if (typeof DOMPurify?.sanitize === 'function') {
-    return DOMPurify;
-  }
-  const defaultPurify = (DOMPurify as any)?.default;
-  if (typeof defaultPurify?.sanitize === 'function') {
-    return defaultPurify;
-  }
-  if (typeof window !== 'undefined') {
-    if (typeof DOMPurify === 'function') {
-      return (DOMPurify as any)(window);
-    }
-    if (typeof defaultPurify === 'function') {
-      return defaultPurify(window);
-    }
-  }
-  return null;
-}
-
 /**
  * 严格清洗图表 SVG 内容 (包括 Mermaid、Excalidraw、PlantUML、SVG Studio 等)
  * 核心设计准则：DOMPurify 在浏览器中因 mXSS 防御策略会默认清除或损坏 SVG foreignObject 及嵌入内容，
@@ -114,21 +98,13 @@ export function sanitizeDiagramSvg(rawSvg: string): string {
 }
 
 /**
- * 清洗图表 HTML 片段 (例如 KaTeX 数学公式渲染结果、Markdown 表格或带有内联样式的图表说明)
+ * 清洗图表与富文本 HTML 片段 (例如 KaTeX 数学公式渲染结果、Markdown 表格或带有内联 SVG/MathML 的段落)
+ * 采用与 sanitizeDiagramSvg 一致的无损安全过滤，防止浏览器或无头 DOM 中 KaTeX 的 <svg>/<path> (根号横线/向量箭头) 与 <math> 被误删。
  */
 export function sanitizeDiagramHtml(rawHtml: string): string {
   if (!rawHtml || typeof rawHtml !== 'string') return '';
   const trimmed = rawHtml.trim();
   if (!trimmed) return '';
-
-  const purify = getPurifyInstance();
-  if (purify && typeof purify.sanitize === 'function') {
-    return purify.sanitize(trimmed, {
-      USE_PROFILES: { html: true },
-      ADD_TAGS: ['span', 'div', 'p', 'b', 'i', 'strong', 'em', 'sub', 'sup', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'pre', 'code'],
-      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'applet'],
-    }) as string;
-  }
 
   return fallbackSanitize(trimmed);
 }

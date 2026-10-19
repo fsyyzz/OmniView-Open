@@ -4,8 +4,8 @@
  */
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import katex from 'katex';
-import { renderInlineMath } from '../../../lib/markdownMath';
+import { processMarkdownMath, restoreMarkdownMath, renderInlineMath } from '../../../lib/markdownMath';
+import { sanitizeDiagramHtml } from '../../../lib/diagramSanitizer';
 
 /**
  * 尝试从单元格文本中提取数字标量（支持货币、千分位、百分比、存储与时间单位）
@@ -134,9 +134,15 @@ export function compareCellValues(a: string, b: string, direction: 'asc' | 'desc
 export function formatRichCellContent(rawText: string, searchTerm?: string): string {
   if (!rawText) return '';
 
-  let content = rawText;
+  // 0. 在表格单元格中，若用户使用 \| 转义数学绝对值或范数，先在公式内归一化处理并提取为占位符，
+  //    彻底避免 marked.parseInline 将 KaTeX <annotation> 中的下划线 _ 误转义为 <em>！
+  const normalizedCellMath = rawText.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (m) => {
+    return m.replace(/\\\|/g, '|');
+  });
+  const { markdown: mathProtected, mathSlots } = processMarkdownMath(normalizedCellMath);
+  let content = mathProtected;
 
-  // 1. 解析 KaTeX 行内数学公式 $formula$
+  // 1. 兜底兼容：若仍残留简单 $formula$，调用 renderInlineMath
   content = content.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (match, formula) => {
     if (/^\d+(\.\d+)?$/.test(formula.trim())) return match;
     return renderInlineMath(formula);
@@ -171,26 +177,16 @@ export function formatRichCellContent(rawText: string, searchTerm?: string): str
   // 4. 解析内联 Markdown (粗体、斜体、代码块、链接等)
   let html = marked.parseInline(content) as string;
 
-  // 5. 若存在搜索关键词且非空，对纯文本做高亮处理
+  // 5. 若存在搜索关键词且非空，对纯文本做高亮处理（在还原 KaTeX DOM 前执行，避免污染公式内部标签）
   if (searchTerm && searchTerm.trim().length > 0) {
     html = highlightMatches(html, searchTerm.trim());
   }
 
-  // 6. DOMPurify 安全净化 (支持浏览器运行时与 Node.js 测试环境自愈兼容)
-  const sanitizeOptions = {
-    ADD_TAGS: ['span', 'code', 'a', 'strong', 'em', 'del', 'mark'],
-    ADD_ATTR: ['class', 'style', 'href', 'title', 'target', 'rel'],
-  };
+  // 6. 还原 KaTeX 数学公式 DOM (包含 <svg><path> 根号/向量箭头与 <math> 无障碍树)
+  html = restoreMarkdownMath(html, mathSlots);
 
-  if (typeof DOMPurify?.sanitize === 'function') {
-    return DOMPurify.sanitize(html, sanitizeOptions) as string;
-  }
-  const defaultPurify = (DOMPurify as any)?.default;
-  if (typeof defaultPurify?.sanitize === 'function') {
-    return defaultPurify.sanitize(html, sanitizeOptions) as string;
-  }
-
-  return html;
+  // 7. 安全净化 (保留 KaTeX SVG 与 MathML 节点)
+  return sanitizeDiagramHtml(html);
 }
 
 /**

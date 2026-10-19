@@ -122,6 +122,70 @@ $$`;
   }
   console.log('Test 8 PASSED: renderInlineMath works as expected.');
 
+  console.log('--- Test 9: Same-line CJK Currency + Math and Currency Range ($100~$200) ---');
+  const cjkCurrencyMath = '消费了$100，剩余金额为$x - 100$元；预算在 $100~$200 之间，满足 $x \\le 200$。';
+  const { markdown: cjkProc, mathSlots: cjkSlots } = processMarkdownMath(cjkCurrencyMath);
+  const cjkHtml = restoreMarkdownMath(marked.parse(cjkProc), cjkSlots);
+  if (cjkSlots.length !== 2 || cjkSlots[0].formula !== 'x - 100' || cjkSlots[1].formula !== 'x \\le 200') {
+    throw new Error(`Test 9 Failed: Currency + Math slots mismatch: ${JSON.stringify(cjkSlots)}`);
+  }
+  if (!cjkHtml.includes('消费了$100') || !cjkHtml.includes('$100~$200') || cjkHtml.includes('katex-error')) {
+    throw new Error('Test 9 Failed: Currency text or formula corrupted in rendered HTML');
+  }
+  console.log('Test 9 PASSED: Same-line currency and math formulas disambiguated accurately.');
+
+  console.log('--- Test 10: Standard LaTeX \\[ ... \\] and \\( ... \\) delimiters + inner spaces ---');
+  const latexDelimMd = '行内 \\( a^2 + b^2 = c^2 \\) 与带空格公式 $ \\alpha + \\beta = \\gamma $，块级：\n\\[\n\\int_0^1 x^2 dx = \\frac{1}{3}\n\\]';
+  const { markdown: ldProc, mathSlots: ldSlots } = processMarkdownMath(latexDelimMd);
+  const ldHtml = restoreMarkdownMath(marked.parse(ldProc), ldSlots);
+  if (ldSlots.length !== 3 || ldHtml.includes('katex-error')) {
+    throw new Error(`Test 10 Failed: Expected 3 slots without error, got ${ldSlots.length}`);
+  }
+  console.log('Test 10 PASSED: Standard LaTeX \\[...\\], \\(...\\), and spaced $ ... $ supported.');
+
+  console.log('--- Test 11: Multiline $$ inside Blockquote / Callout without breaking container ---');
+  const bqMathMd = `> [!NOTE]\n> 推导过程：\n> $$\n> \\begin{aligned}\n> a &= b + 1 \\\\\n> c &= d + 2\n> \\end{aligned}\n> $$\n> 结论成立。`;
+  const { markdown: bqProc, mathSlots: bqSlots } = processMarkdownMath(bqMathMd);
+  const bqTokens = marked.lexer(bqProc);
+  const bqHtml = restoreMarkdownMath(marked.parse(bqProc), bqSlots);
+  if (bqTokens.length !== 1 || bqTokens[0].type !== 'blockquote') {
+    throw new Error(`Test 11 Failed: Blockquote was split into ${bqTokens.length} tokens!`);
+  }
+  if (bqSlots[0].formula.includes('>') || bqHtml.includes('katex-error')) {
+    throw new Error(`Test 11 Failed: Blockquote '>' leaked into formula: ${bqSlots[0].formula}`);
+  }
+  console.log('Test 11 PASSED: Multiline $$ inside blockquote/callout conserved cleanly.');
+
+  console.log('--- Test 12: Indented code fences in lists protected from math extraction ---');
+  const indentedFenceMd = `- 列表脚本：\n  \`\`\`bash\n  export PATH="$HOME/bin:$PATH"\n  echo "PID=$$"\n  \`\`\``;
+  const { markdown: ifProc, mathSlots: ifSlots } = processMarkdownMath(indentedFenceMd);
+  if (ifSlots.length !== 0 || ifProc.includes('OV_MATH')) {
+    throw new Error(`Test 12 Failed: Indented code fence was corrupted by math extractor!`);
+  }
+  console.log('Test 12 PASSED: Indented code fences in lists 100% protected.');
+
+  console.log('--- Test 13: Extended environments (align*, eqnarray, multline), % percent, macros & unbalanced \\left ---');
+  const extMd = `
+Inline percent: $r = 95%$ and unbalanced $\\left( \\frac{a}{b}$ and macros $\\abs{x} + \\norm{y} \\in \\R$.
+$$
+\\begin{align*}
+f(x) &= x^2 % 注释
+\\\\
+g(x) &= \\argmin_x f(x)
+\\end{align*}
+$$
+$$
+\\begin{eqnarray}
+u & = & v + w
+\\end{eqnarray}
+$$`;
+  const { markdown: exProc, mathSlots: exSlots } = processMarkdownMath(extMd);
+  const exHtml = restoreMarkdownMath(marked.parse(exProc), exSlots);
+  if (exHtml.includes('katex-error')) {
+    throw new Error(`Test 13 Failed: Extended environments or macros produced katex-error`);
+  }
+  console.log('Test 13 PASSED: align*, eqnarray, % handling, unbalanced \\left, and built-in macros passed.');
+
   console.log('\n========================================');
   console.log('ALL SUITE TESTS PASSED WITH 100% ACCURACY');
   console.log('========================================');
