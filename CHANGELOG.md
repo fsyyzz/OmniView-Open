@@ -8,7 +8,22 @@
 
 ---
 
-## [1.3.10] - 2026-10-19 (当前最新发布)
+## [1.3.11] - 2026-10-19 (当前最新发布)
+
+> [!TIP] v1.3.11 核心修复亮点
+> 彻底解决可折叠 Alert、卡片矩阵及手风琴的折叠箭头（chevron）随标题文本长短随意停靠漂移的布局缺陷，100% 强约束贴齐最右侧对齐。
+
+### 🐛 Fixed (交互与布局修复)
+
+- **可折叠 Callout 折叠箭头靠右固定对齐修复 (`src/index.css`)**:
+  - **100% 容器宽度强约束**：为所有折叠 `<summary>` 容器强制注入 `width: 100% !important` 与 `box-sizing: border-box !important`，消除原生 `<summary>` 默认按内容收缩（shrink-to-fit）导致箭头跟在文字后方忽左忽右的问题；
+  - **Flexbox 左右两极解耦**：左侧标题容器声明 `flex: 1 1 auto; min-width: 0; padding-right: 12px;`，标题文字开启 `word-break: break-word`；折叠箭头声明 `margin-left: auto !important; flex-shrink: 0 !important;`；
+  - **整齐划一视觉对齐**：无论标题只有几个字、还是换行 2~3 行，所有卡片的折叠箭头绝对固定靠齐在卡片最右侧边框内，在垂直方向上呈现完美垂直对齐线。
+
+---
+
+## [1.3.10] - 2026-10-19
+
 
 > [!TIP] v1.3.10 变更亮点
 > 将 `skills:omniview-markdown-authoring` 现代排版规范正式固化并整合入 OmniView AI-SE 软件工程顶层体系，确立 Markdown 现代排版硬性契约。

@@ -265,6 +265,14 @@ assert.ok(
   '必须在正文 SVG 通用样式中排除 [class*="ov-"] 类名，防止折叠箭头被注入异常 margin 与高度'
 );
 
+// 6.5 验证 summary 容器具备 100% 宽度与 fold-icon 强制靠右对齐 (margin-left: auto)
+assert.ok(
+  cssContent.includes('width: 100% !important') &&
+    cssContent.includes('margin-left: auto !important'),
+  '必须确保 summary 撑满 100% 容器宽度且折叠箭头 margin-left: auto 靠右对齐，防止箭头随文字长短随意摆放'
+);
+
 console.log('✅ Callout 与手风琴折叠图标定位一致性校验全部通过');
+
 
 console.log('🎉 全部 6 组 Markdown Callout / TaskList / KaTeX / CardGrid / ExtendedCallouts / FoldIcon 单元测试用例 100% 通过！');

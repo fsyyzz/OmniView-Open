@@ -2783,11 +2783,13 @@ mark.ov-search-match.is-active-match {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 12px;
   font-weight: 600;
   font-size: 14px;
   color: var(--callout-color, #3b82f6);
-  line-height: 1.4;
+  line-height: 1.45;
   user-select: none;
 }
 
@@ -2795,8 +2797,13 @@ details.ov-callout summary.ov-callout-title {
   cursor: pointer;
   list-style: none;
   display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  outline: none;
 }
 
 details.ov-callout summary.ov-callout-title::-webkit-details-marker,
@@ -2805,9 +2812,18 @@ details.ov-callout summary.ov-callout-title::marker {
 }
 
 .ov-callout-title-left {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 12px;
+}
+
+.ov-callout-title-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
 }
 
 .ov-callout-icon {
@@ -2817,6 +2833,7 @@ details.ov-callout summary.ov-callout-title::marker {
 
 .ov-callout-fold-icon {
   flex-shrink: 0;
+  margin-left: auto !important;
   width: 16px;
   height: 16px;
   stroke: var(--callout-color, #3b82f6);
@@ -2825,13 +2842,14 @@ details.ov-callout summary.ov-callout-title::marker {
   transform-box: fill-box;
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
   display: inline-block;
-  margin: 0 !important;
+  margin: 0 0 0 auto !important;
   vertical-align: middle;
 }
 
 details.ov-callout[open] .ov-callout-fold-icon {
   transform: rotate(180deg);
 }
+
 
 .ov-callout-body {
   margin-top: 8px;
@@ -2967,8 +2985,13 @@ details.ov-card-single summary.ov-card-single-header {
   user-select: none;
   list-style: none;
   display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  outline: none;
 }
 
 details.ov-card-grid-container summary.ov-card-grid-header::-webkit-details-marker,
@@ -2985,12 +3008,23 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 
 .ov-card-grid-title-left,
 .ov-card-single-title-left {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 12px;
   font-weight: 600;
   color: var(--ov-text, #1e293b);
 }
+
+.ov-card-grid-title-text,
+.ov-card-single-title-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+
 
 .ov-card-grid-icon,
 .ov-card-single-icon {
@@ -3651,8 +3685,12 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 
 .ov-faq-q {
   display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   padding: 12px 16px;
   cursor: pointer;
   user-select: none;
@@ -3660,6 +3698,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   font-size: 14px;
   color: var(--ov-text, inherit);
   list-style: none;
+  outline: none;
 }
 
 .ov-faq-q::-webkit-details-marker,
@@ -3669,6 +3708,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 
 .ov-faq-chevron {
   flex-shrink: 0;
+  margin-left: auto !important;
   width: 16px;
   height: 16px;
   stroke: var(--ov-text-secondary, #64748b);
@@ -3677,9 +3717,10 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   transform-box: fill-box;
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
   display: inline-block;
-  margin: 0 !important;
+  margin: 0 0 0 auto !important;
   vertical-align: middle;
 }
+
 
 .ov-faq-item[open] .ov-faq-chevron {
   transform: rotate(180deg);
