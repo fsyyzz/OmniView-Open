@@ -638,6 +638,12 @@ body.vscode-high-contrast-light[data-theme="system"] {
   color: var(--ov-text);
 }
 
+.markdown-tool-button.is-active {
+  border-color: color-mix(in srgb, var(--ov-accent) 42%, var(--ov-border));
+  background: color-mix(in srgb, var(--ov-accent) 14%, var(--ov-surface-header));
+  color: var(--ov-accent);
+}
+
 .markdown-zoom-label {
   min-width: 32px;
   color: var(--ov-text-muted);
@@ -1555,10 +1561,14 @@ body.vscode-high-contrast-light[data-theme="system"] {
   -webkit-user-select: none !important;
 }
 
+[data-theme="paper"] .diagram-header,
+[data-theme="github"] .diagram-header,
+[data-theme="solarized-light"] .diagram-header,
+[data-theme="vue"] .diagram-header,
 [data-theme="light"] .diagram-header {
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom-color: rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--ov-surface-header, #f8fafc) 95%, transparent);
+  border-bottom-color: var(--ov-border);
+  box-shadow: var(--ov-shadow, 0 4px 14px rgba(0, 0, 0, 0.06));
 }
 
 [data-theme="sepia"] .diagram-header {
@@ -1578,11 +1588,36 @@ body.vscode-high-contrast-light[data-theme="system"] {
   background-color: var(--ov-surface-hover, rgba(125, 125, 125, 0.12));
 }
 
-.diagram-header .bg-slate-900,
+/* 保持显式激活态按钮 (如 Visual/Code 切换胶囊选中态) 的白字与品牌底色对比度 */
+.diagram-header button.text-white,
+.diagram-header button.text-white:hover {
+  color: #ffffff !important;
+}
+
+.diagram-header button.bg-cyan-600 {
+  background-color: var(--ov-accent, #0891b2) !important;
+}
+
+.diagram-header .bg-slate-900 {
+  background-color: var(--ov-code-bg, var(--ov-bg-elevated, #1e293b)) !important;
+  border-color: var(--ov-border, #334155) !important;
+  color: var(--ov-text-secondary) !important;
+}
+
 .diagram-header .bg-slate-800 {
   background-color: var(--ov-surface, #1e293b) !important;
   border-color: var(--ov-border, #334155) !important;
   color: var(--ov-text) !important;
+}
+
+.diagram-header button.bg-slate-800:hover {
+  background-color: var(--ov-surface-hover, rgba(125, 125, 125, 0.14)) !important;
+  color: var(--ov-text) !important;
+}
+
+.diagram-header button.bg-slate-700 {
+  background-color: var(--ov-accent) !important;
+  color: var(--ov-text-on-accent, #ffffff) !important;
 }
 
 .diagram-header .border-slate-700,
@@ -1607,7 +1642,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   background-color: var(--ov-surface-hover, rgba(125, 125, 125, 0.14)) !important;
 }
 
-.diagram-header .bg-slate-700,
+.diagram-header div.bg-slate-700,
 .diagram-header div.h-3.w-px {
   background-color: var(--ov-border, #334155) !important;
 }

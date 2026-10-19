@@ -220,7 +220,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
       {/* Left: Outline, Search & Title */}
       <div className="flex items-center gap-1.5 min-w-0">
         <button
-          className={`markdown-tool-button ${outlineOpen ? 'bg-slate-800 text-cyan-400 font-semibold' : ''}`}
+          className={`markdown-tool-button ${outlineOpen ? 'is-active font-semibold' : ''}`}
           onClick={onToggleOutline}
           title={t('outlineTooltip', locale)}
           aria-label={t('outline', locale)}
@@ -261,7 +261,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
               <button
                 type="button"
                 onClick={() => onSearchTextChange('')}
-                className="text-slate-400 hover:text-slate-200 text-xs px-1"
+                className="text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] text-xs px-1"
                 title="清除搜索 (Esc)"
               >
                 ×
@@ -275,7 +275,9 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                 id="btn-markdown-toggle-replace"
                 onClick={onToggleReplace}
                 className={`p-1 rounded text-xs transition ${
-                  showReplace ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  showReplace
+                    ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                    : 'text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title={t('toggleReplace', locale)}
               >
@@ -743,7 +745,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           <button
             type="button"
             id="btn-markdown-open-native-editor"
-            className="markdown-tool-button text-sky-400 hover:text-sky-300 hover:bg-sky-950/70 border border-sky-600/30"
+            className="markdown-tool-button text-[var(--ov-accent)] hover:bg-[var(--ov-surface-hover)] border border-[var(--ov-border)]"
             onClick={onOpenInEditor}
             title={t('openInNativeEditorHint', locale)}
             aria-label={t('openInNativeEditor', locale)}
@@ -757,8 +759,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           <button
             type="button"
             id="btn-markdown-reload-document"
-            className={`markdown-tool-button text-teal-400 hover:text-teal-300 hover:bg-teal-950/70 border border-teal-600/30 ${
-              isReloading ? 'animate-spin text-teal-300' : ''
+            className={`markdown-tool-button text-[var(--ov-accent)] hover:bg-[var(--ov-surface-hover)] border border-[var(--ov-border)] ${
+              isReloading ? 'animate-spin' : ''
             }`}
             onClick={onReloadDocument}
             title={`${t('reloadPreview', locale)} (Ctrl+R)`}
@@ -771,7 +773,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
         {/* Toggle OKF Concept Card */}
         {onToggleOkf && (
           <button
-            className={`markdown-tool-button ${enableOkf ? 'is-active text-amber-400' : 'text-slate-400'}`}
+            className={`markdown-tool-button ${enableOkf ? 'is-active text-amber-500' : ''}`}
             onClick={onToggleOkf}
             title={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
             aria-label={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
@@ -786,9 +788,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             type="button"
             id="btn-markdown-toggle-diagram-toolbars"
             className={`markdown-tool-button ${
-              showDiagramToolbars
-                ? 'is-active text-cyan-400 bg-cyan-950/40 border-cyan-600/40'
-                : 'text-slate-400'
+              showDiagramToolbars ? 'is-active' : ''
             }`}
             onClick={onToggleDiagramToolbars}
             title={
@@ -798,7 +798,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             }
             aria-label={t('toggleDiagramToolbars', locale)}
           >
-            <PanelTop size={14} className={showDiagramToolbars ? 'text-cyan-400' : ''} />
+            <PanelTop size={14} className={showDiagramToolbars ? 'text-[var(--ov-accent)]' : ''} />
           </button>
         )}
 

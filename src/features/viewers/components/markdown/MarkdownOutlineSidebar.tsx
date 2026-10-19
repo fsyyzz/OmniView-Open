@@ -28,6 +28,10 @@ import {
   ZapOff,
   Sparkles,
   Filter,
+  Link2,
+  Copy,
+  ExternalLink,
+  Check,
 } from 'lucide-react';
 
 export interface MarkdownOutlineSidebarProps {
@@ -52,6 +56,10 @@ export interface MarkdownOutlineSidebarProps {
   activeMatchIndex?: number;
   searchGroups?: Map<string, DocumentSectionSearchMatch[]>;
   onSelectMatch?: (matchIndex: number) => void;
+
+  // P1 章节级悬浮快捷动作
+  onCopySectionByIndex?: (headingIndex: number) => void;
+  onOpenSourceAtLine?: (line: number) => void;
 }
 
 const MIN_OUTLINE_WIDTH = 180;
@@ -92,8 +100,8 @@ const SectionMatchDrawer: React.FC<SectionMatchDrawerProps> = ({
             }}
             className={`p-1.5 rounded text-[11px] font-sans leading-tight transition cursor-pointer border ${
               isMatchActive
-                ? 'bg-amber-500/20 dark:bg-amber-500/25 border-amber-500/50 shadow-2xs font-medium text-[var(--ov-text)]'
-                : 'bg-black/5 dark:bg-white/5 border-transparent hover:border-[var(--ov-border)] hover:bg-black/10 dark:hover:bg-white/10 text-[var(--ov-text)] opacity-80 hover:opacity-100'
+                ? 'bg-amber-500/20 border-amber-500/50 shadow-2xs font-medium text-[var(--ov-text)]'
+                : 'bg-[var(--ov-surface-header)] border-transparent hover:border-[var(--ov-border)] hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text)] opacity-85 hover:opacity-100'
             }`}
             title={`#${m.matchIndex + 1}`}
           >
@@ -105,7 +113,7 @@ const SectionMatchDrawer: React.FC<SectionMatchDrawerProps> = ({
             </div>
             <p className="line-clamp-2 break-all text-[11px]">
               {m.prefix}
-              <mark className="bg-amber-400/50 dark:bg-amber-400/40 text-amber-900 dark:text-amber-100 rounded px-0.5 font-semibold">
+              <mark className="bg-amber-400/35 text-[var(--ov-text)] rounded px-0.5 font-semibold">
                 {m.matched}
               </mark>
               {m.suffix}
@@ -137,13 +145,43 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
   activeMatchIndex = -1,
   searchGroups = new Map(),
   onSelectMatch,
+  onCopySectionByIndex,
+  onOpenSourceAtLine,
 }) => {
   const activeItemRef = useRef<HTMLButtonElement | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number>(width || DEFAULT_OUTLINE_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const [collapsedIndexes, setCollapsedIndexes] = useState<Set<number>>(() => new Set());
+  const [copiedAnchorIdx, setCopiedAnchorIdx] = useState<number | null>(null);
+  const [copiedSectionIdx, setCopiedSectionIdx] = useState<number | null>(null);
   const currentWidthRef = useRef(sidebarWidth);
   currentWidthRef.current = sidebarWidth;
+
+  const handleCopyHeadingAnchor = useCallback(async (heading: MarkdownHeading, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const slug = heading.text
+      .trim()
+      .toLowerCase()
+      .replace(/[^\w\u4e00-\u9fa5\s-]/g, '')
+      .replace(/\s+/g, '-');
+    try {
+      await navigator.clipboard.writeText(`[${heading.text}](#${slug})`);
+      setCopiedAnchorIdx(heading.index);
+      setTimeout(() => setCopiedAnchorIdx(null), 1200);
+    } catch {
+      // ignore clipboard error
+    }
+  }, []);
+
+  const handleCopySection = useCallback(
+    (originalIndex: number, headingLineIdx: number, e: React.MouseEvent) => {
+      e.stopPropagation();
+      onCopySectionByIndex?.(originalIndex);
+      setCopiedSectionIdx(headingLineIdx);
+      setTimeout(() => setCopiedSectionIdx(null), 1200);
+    },
+    [onCopySectionByIndex]
+  );
 
   // 搜索热力展开与仅显命中过滤控制
   const [filterOnlyMatched, setFilterOnlyMatched] = useState<boolean>(false);
@@ -317,13 +355,13 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
         </span>
 
         <div className="flex items-center gap-1 shrink-0">
-          <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-md border border-[var(--ov-border)]">
+          <div className="flex items-center bg-[var(--ov-surface-header)] p-0.5 rounded-md border border-[var(--ov-border)]">
             <button
               onClick={() => onFilterLevelChange(2)}
               className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition ${
                 headingFilterLevel === 2
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
               }`}
               title={t('filterH2', locale)}
             >
@@ -333,8 +371,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
               onClick={() => onFilterLevelChange(3)}
               className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition ${
                 headingFilterLevel === 3
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
               }`}
               title={t('filterH3', locale)}
             >
@@ -344,8 +382,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
               onClick={() => onFilterLevelChange(6)}
               className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition ${
                 headingFilterLevel === 6
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
               }`}
               title={t('filterAll', locale)}
             >
@@ -354,14 +392,14 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
           </div>
 
           {onDisplayModeChange && (
-            <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-md border border-[var(--ov-border)]">
+            <div className="flex items-center bg-[var(--ov-surface-header)] p-0.5 rounded-md border border-[var(--ov-border)]">
               <button
                 type="button"
                 onClick={() => onDisplayModeChange('list')}
                 className={`p-1 rounded transition ${
                   displayMode === 'list'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                    ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title={t('outlineModeListTooltip', locale)}
                 aria-label={t('outlineModeList', locale)}
@@ -373,8 +411,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                 onClick={() => onDisplayModeChange('tree')}
                 className={`p-1 rounded transition ${
                   displayMode === 'tree'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                    ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title={t('outlineModeTreeTooltip', locale)}
                 aria-label={t('outlineModeTree', locale)}
@@ -385,13 +423,13 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
           )}
 
           {onPositionChange && (
-            <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-md border border-[var(--ov-border)]">
+            <div className="flex items-center bg-[var(--ov-surface-header)] p-0.5 rounded-md border border-[var(--ov-border)]">
               <button
                 onClick={() => onPositionChange('left')}
                 className={`p-1 rounded transition ${
                   position === 'left'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                    ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title={t('outlinePosLeftTooltip', locale)}
                 aria-label={t('outlinePosLeft', locale)}
@@ -402,8 +440,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                 onClick={() => onPositionChange('right')}
                 className={`p-1 rounded transition ${
                   position === 'right'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                    ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title={t('outlinePosRightTooltip', locale)}
                 aria-label={t('outlinePosRight', locale)}
@@ -414,8 +452,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                 onClick={() => onPositionChange('floating')}
                 className={`p-1 rounded transition ${
                   position === 'floating'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/5 dark:hover:bg-white/5'
+                    ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] shadow-2xs'
+                    : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title={t('outlinePosFloatingTooltip', locale)}
                 aria-label={t('outlinePosFloating', locale)}
@@ -428,7 +466,7 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 rounded-md text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-black/10 dark:hover:bg-white/10 transition"
+              className="p-1 rounded-md text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)] transition"
               title={t('outlineTooltip', locale)}
             >
               <X size={12} />
@@ -439,9 +477,15 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
 
       {/* 全文检索热力看板 (当处于搜索态时激活呈现) */}
       {hasGlobalSearch && (
-        <div className="mx-2 mb-2 px-2.5 py-1.5 rounded-md bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/20 text-xs shrink-0 select-none animate-in fade-in-50 duration-200">
+        <div
+          className="mx-2 mb-2 px-2.5 py-1.5 rounded-md border text-xs shrink-0 select-none animate-in fade-in-50 duration-200"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--ov-accent) 12%, var(--ov-surface))',
+            borderColor: 'color-mix(in srgb, var(--ov-accent) 28%, var(--ov-border))',
+          }}
+        >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium text-[11px]">
+            <div className="flex items-center gap-1.5 text-[var(--ov-accent)] font-medium text-[11px]">
               <Sparkles className="w-3.5 h-3.5 shrink-0" />
               <span>
                 {t('searchMatchesFound', locale).replace('{count}', String(totalMatchesCount))}
@@ -453,8 +497,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
               onClick={() => setFilterOnlyMatched(prev => !prev)}
               className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition flex items-center gap-1 border ${
                 filterOnlyMatched
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                  : 'bg-black/5 dark:bg-white/10 border-[var(--ov-border)] opacity-80 hover:opacity-100'
+                  ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] border-[var(--ov-accent)] shadow-2xs'
+                  : 'bg-[var(--ov-surface-header)] border-[var(--ov-border)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] opacity-85 hover:opacity-100'
               }`}
               title={t('filterOnlyMatchedTooltip', locale)}
             >
@@ -492,7 +536,7 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
             return (
               <div key={`tree-section-${heading.index}-${heading.text}`} className="space-y-0.5">
                 <div
-                  className={`markdown-outline-tree-row ${isActive ? 'is-active' : ''} ${
+                  className={`group markdown-outline-tree-row ${isActive ? 'is-active' : ''} ${
                     isDimmed ? 'opacity-40 hover:opacity-80' : ''
                   }`}
                   style={{ paddingLeft: `${8 + depth * 14}px` }}
@@ -521,7 +565,51 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                     title={heading.text}
                   >
                     <span className="truncate">{heading.text}</span>
-                    <div className="flex items-center gap-1 shrink-0 ml-1">
+                    <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                      <span className="hidden group-hover:inline-flex items-center gap-0.5 mr-0.5">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => handleCopyHeadingAnchor(heading, e)}
+                          className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition"
+                          title={locale === 'zh-CN' ? '复制章节锚点链接 (#slug)' : 'Copy section anchor link'}
+                        >
+                          {copiedAnchorIdx === heading.index ? (
+                            <Check size={10} className="text-emerald-500" />
+                          ) : (
+                            <Link2 size={10} />
+                          )}
+                        </span>
+                        {onCopySectionByIndex && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => handleCopySection(originalIndex, heading.index, e)}
+                            className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition"
+                            title={locale === 'zh-CN' ? '复制本章节 Markdown 全文' : 'Copy section Markdown'}
+                          >
+                            {copiedSectionIdx === heading.index ? (
+                              <Check size={10} className="text-emerald-500" />
+                            ) : (
+                              <Copy size={10} />
+                            )}
+                          </span>
+                        )}
+                        {onOpenSourceAtLine && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenSourceAtLine(heading.index + 1);
+                            }}
+                            className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition"
+                            title={locale === 'zh-CN' ? `定位至源码第 ${heading.index + 1} 行` : `Locate source L${heading.index + 1}`}
+                          >
+                            <ExternalLink size={10} />
+                          </span>
+                        )}
+                      </span>
                       {renderTimeBudgetRegistry.isLineSlow(heading.index + 1) && (
                         <span
                           className="shrink-0 text-amber-500 text-[10px] flex items-center gap-0.5 px-1 rounded bg-amber-500/10 font-mono"
@@ -543,8 +631,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                           }}
                           className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full border transition flex items-center gap-0.5 cursor-pointer ${
                             isMatchExpanded
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
+                              ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] border-[var(--ov-accent)]'
+                              : 'bg-[var(--ov-surface-header)] text-[var(--ov-accent)] border-[var(--ov-border)] hover:bg-[var(--ov-surface-hover)]'
                           }`}
                           title={locale === 'zh-CN' ? `点击展开/折叠本章节 ${sectionMatches.length} 处搜索片段` : `Click to toggle ${sectionMatches.length} matches`}
                         >
@@ -584,7 +672,7 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
 
             return (
               <div key={`list-section-${heading.index}-${heading.text}`} className="space-y-0.5">
-                <div className={`flex items-center justify-between ${isDimmed ? 'opacity-40 hover:opacity-80' : ''}`}>
+                <div className={`group flex items-center justify-between ${isDimmed ? 'opacity-40 hover:opacity-80' : ''}`}>
                   <button
                     type="button"
                     ref={isActive ? activeItemRef : null}
@@ -595,7 +683,51 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                     title={heading.text}
                   >
                     <span className="truncate">{heading.text}</span>
-                    <div className="flex items-center gap-1 shrink-0 ml-1">
+                    <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                      <span className="hidden group-hover:inline-flex items-center gap-0.5 mr-0.5">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => handleCopyHeadingAnchor(heading, e)}
+                          className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition"
+                          title={locale === 'zh-CN' ? '复制章节锚点链接 (#slug)' : 'Copy section anchor link'}
+                        >
+                          {copiedAnchorIdx === heading.index ? (
+                            <Check size={10} className="text-emerald-500" />
+                          ) : (
+                            <Link2 size={10} />
+                          )}
+                        </span>
+                        {onCopySectionByIndex && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => handleCopySection(originalIndex, heading.index, e)}
+                            className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition"
+                            title={locale === 'zh-CN' ? '复制本章节 Markdown 全文' : 'Copy section Markdown'}
+                          >
+                            {copiedSectionIdx === heading.index ? (
+                              <Check size={10} className="text-emerald-500" />
+                            ) : (
+                              <Copy size={10} />
+                            )}
+                          </span>
+                        )}
+                        {onOpenSourceAtLine && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenSourceAtLine(heading.index + 1);
+                            }}
+                            className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition"
+                            title={locale === 'zh-CN' ? `定位至源码第 ${heading.index + 1} 行` : `Locate source L${heading.index + 1}`}
+                          >
+                            <ExternalLink size={10} />
+                          </span>
+                        )}
+                      </span>
                       {isSlow && (
                         <span
                           className="shrink-0 text-amber-500 text-[10px] flex items-center gap-0.5 px-1 rounded bg-amber-500/10 font-mono"
@@ -617,8 +749,8 @@ export const MarkdownOutlineSidebar: React.FC<MarkdownOutlineSidebarProps> = ({
                           }}
                           className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full border transition flex items-center gap-0.5 cursor-pointer ${
                             isMatchExpanded
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
+                              ? 'bg-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)] border-[var(--ov-accent)]'
+                              : 'bg-[var(--ov-surface-header)] text-[var(--ov-accent)] border-[var(--ov-border)] hover:bg-[var(--ov-surface-hover)]'
                           }`}
                           title={locale === 'zh-CN' ? `点击展开/折叠本章节 ${sectionMatches.length} 处搜索片段` : `Click to toggle ${sectionMatches.length} matches`}
                         >

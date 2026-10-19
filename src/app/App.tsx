@@ -594,6 +594,16 @@ flowchart LR
             explorerOpen={explorerOpen}
             onToggleExplorer={handleToggleExplorer}
             onOpenSettings={() => setIsSettingsModalOpen(true)}
+            onOpenFileInMode={(fileId, mode) => {
+              handleSelectFile(fileId);
+              handleViewModeChange(mode);
+              if (currentView !== 'editor') handleCurrentViewChange('editor');
+            }}
+            onDuplicateFile={(sourceFile) => {
+              const baseName = sourceFile.name.replace(/\.[^/.]+$/, '');
+              const copyName = `${baseName}-copy.${sourceFile.extension}`;
+              handleNewFile(copyName, sourceFile.content, sourceFile.extension);
+            }}
           />
 
           {/* Center Main Stage */}

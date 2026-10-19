@@ -463,13 +463,19 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
                 e.stopPropagation();
                 onOpenSourceAtLine?.(hoveredNodeInfo.line);
               }}
-              className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 bg-cyan-950/90 border border-cyan-500/50 rounded-full text-cyan-300 text-xs shadow-lg backdrop-blur-sm cursor-pointer hover:bg-cyan-900 transition-all select-none"
+              className="diagram-node-link-badge absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 bg-[var(--ov-surface-header,var(--ov-surface))] border border-[var(--ov-accent)] rounded-full text-[var(--ov-text)] text-xs shadow-lg backdrop-blur-md cursor-pointer hover:bg-[var(--ov-surface-hover)] transition-all select-none"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--ov-surface-header, var(--ov-surface)) 94%, transparent)',
+                borderColor: 'var(--ov-accent)',
+                color: 'var(--ov-text)',
+                boxShadow: 'var(--ov-shadow, 0 4px 14px rgba(0, 0, 0, 0.22))',
+              }}
               title={t('diagramClickToLocate', locale)}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--ov-accent)] animate-ping" />
               <span className="font-semibold max-w-[140px] truncate">{hoveredNodeInfo.label}</span>
-              <span className="text-cyan-400/80 font-mono">→ L{hoveredNodeInfo.line}</span>
-              <span className="text-[10px] text-cyan-400/60 hidden sm:inline">
+              <span className="text-[var(--ov-accent)] font-mono font-semibold">→ L{hoveredNodeInfo.line}</span>
+              <span className="text-[10px] text-[var(--ov-text-muted)] hidden sm:inline">
                 ({t('diagramClickToLocate', locale)})
               </span>
             </div>

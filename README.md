@@ -96,8 +96,13 @@
 - **增量重渲染与视口动态卸载 (Zero CLS & Lazy Viewport)**:
   - **基于 FNV-1a 内容指纹与行号范围复用**: 在局部文本编辑或划词修饰时精准识别脏块并复用未变块对象引用，阻断整篇子树无谓重算；
   - **可卸载型视口内存管理**: 重型图表（Mermaid、Graphviz、KaTeX、宽表）移出视口缓冲时自动卸载释放 DOM 与 WASM 资源，配合全局高度记忆池确保滚动回访 **零布局抖动 (Zero CLS)**；
+- **预览窗口块级原地专注编辑 (In-place Block Focused Editor)**:
+  - 无需跳转全屏源码，支持在预览/分屏视图下通过块右上角悬浮按钮、`Alt + 双击` 或划词工具栏一键将单个段落、列表、表格或公式块原地展开为专注编辑卡片；
+  - 内置「纯源码 / 左右实时微预览」双态切换、聚光灯背景降噪 (Spotlight Mode) 与块间空行守恒无损回写；
 - **划选悬浮格式化与安全回写契约 (Selection-to-Source Replacer)**:
-  - 精准支持加粗 (`**B**`)、行内代码 (`` `C` ``)、超链接 (`Link`) 与双向链接 (`WikiLink`)；
+  - 单行选区精准支持加粗 (`**B**`)、斜体、删除线 (`~~S~~`)、高亮 (`==H==`)、上下标、键盘徽标 (`<kbd>`)、行内代码 (`` `C` ``)、超链接 (`Link`) 与双向链接 (`WikiLink`)；
+  - 跨行选区智能切换为块级模式，支持一键转为多行引用块 (`>`)、代码围栏 (` ``` `) 与 Callout 警示框 (`[!NOTE]` / `[!TIP]` / `[!WARNING]`)；
+  - 支持预览窗内图片右下角手柄直接拖拽缩放并无损回写 `<img width="..." />` 源码；
   - 具备行号与上下文文本指纹 (Fingerprint) 双重前置校验，对不上时主动拒绝写入，防止破坏源文档；
 - **渲染耗时性能预算与慢块监控 (Render Time Budget)**:
   - 毫秒级单块解析渲染耗时监控，单块超过 800ms 预算门限自动触发源码卡片降级与重试机制，并在大纲目录中打上 `ZapOff` 慢块警示徽章；
@@ -268,7 +273,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-1.0.28.vsix --force
+code --install-extension omniview-1.3.2.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

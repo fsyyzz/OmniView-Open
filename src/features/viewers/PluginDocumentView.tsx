@@ -845,6 +845,11 @@ const MarkdownPluginView: React.FC<{
             activeMatchIndex={activeMatchIndex}
             searchGroups={searchGroups}
             onSelectMatch={handleSelectMatch}
+            onCopySectionByIndex={idx => {
+              const sectionText = extractSectionContent(documentContent, headings, idx);
+              navigator.clipboard.writeText(sectionText).catch(() => {});
+            }}
+            onOpenSourceAtLine={handleOpenSourceAtLine}
           />
         )}
 

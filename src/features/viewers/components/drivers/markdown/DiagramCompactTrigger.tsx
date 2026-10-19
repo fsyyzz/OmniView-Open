@@ -20,11 +20,12 @@ export const DiagramCompactTrigger: React.FC<DiagramCompactTriggerProps> = ({
           e.stopPropagation();
           onExpand();
         }}
-        className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded border shadow-xs backdrop-blur-md transition cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+        className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded border border-[var(--ov-border)] bg-[var(--ov-surface-header,var(--ov-surface))] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)] hover:bg-[var(--ov-surface-hover)] shadow-sm backdrop-blur-md transition cursor-pointer"
         style={{
           borderColor: 'var(--ov-border)',
-          background: 'color-mix(in srgb, var(--ov-surface) 85%, transparent)',
+          backgroundColor: 'color-mix(in srgb, var(--ov-surface-header, var(--ov-surface)) 92%, transparent)',
           color: 'var(--ov-text)',
+          boxShadow: 'var(--ov-shadow, 0 2px 8px rgba(0, 0, 0, 0.18))',
         }}
         title={title}
         aria-label={title}

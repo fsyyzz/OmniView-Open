@@ -33,10 +33,11 @@ export function setupDomEnvironment(options = {}) {
   const url = options.url || 'https://localhost:3000';
 
   if (!activeWindow) {
-    // 备份原有全局变量
+    // 备份原有全局变量属性描述符（兼容 Node 22+ globalThis.navigator 只读 getter）
     for (const key of GLOBAL_KEYS) {
-      if (key in globalThis) {
-        originalGlobals.set(key, globalThis[key]);
+      const desc = Object.getOwnPropertyDescriptor(globalThis, key);
+      if (desc) {
+        originalGlobals.set(key, desc);
       }
     }
   }
@@ -83,7 +84,14 @@ export function setupDomEnvironment(options = {}) {
     },
   };
 
-  Object.assign(globalThis, polyfilledGlobals);
+  for (const [key, value] of Object.entries(polyfilledGlobals)) {
+    Object.defineProperty(globalThis, key, {
+      value,
+      configurable: true,
+      writable: true,
+      enumerable: true,
+    });
+  }
 
   // SVG PointerCapture 垫片
   if (window.SVGElement?.prototype) {
@@ -113,10 +121,10 @@ export function cleanupDomEnvironment() {
     activeWindow = null;
   }
 
-  // 恢复原始环境
+  // 恢复原始环境描述符
   for (const key of GLOBAL_KEYS) {
     if (originalGlobals.has(key)) {
-      globalThis[key] = originalGlobals.get(key);
+      Object.defineProperty(globalThis, key, originalGlobals.get(key));
     } else {
       delete globalThis[key];
     }

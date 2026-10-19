@@ -2,6 +2,27 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.2] - 2026-10-19
+
+### Added
+
+- **Markdown 预览窗口块级原地专注编辑工作台 (Scheme A: Block In-place Focused Card Editor)**:
+  - **零宏污染块级真实源码切片与空行守恒回写 (`markdownBlockEditor.ts`)**：基于 AST 块行号区间 `[startLine, endLine]` 直接从原始 Markdown 文档切片提取真实源码，彻底隔离数学公式与脚注前置占位宏污染；保存回写时严格保持块间原有空行与换行结构守恒；
+  - **原地专注编辑卡片 (`MarkdownFocusedBlockEditor`)**：在预览/分屏窗口内直接将目标块无缝展开为高内聚编辑卡片，支持「纯源码编辑 (`source`)」与「左源码 + 右实时微预览 (`split`)」双模式一键切换；内置块语义识别徽标、快捷语法插入栏（H2/H3、加粗、斜体、行内代码、数学公式、链接、列表、Callout）、`Tab` 缩进续行、`Cmd/Ctrl + Enter` 极速保存与 `Esc` 未保存防误触保护；
+  - **聚光灯沉浸降噪模式 (Spotlight Dimming)**：激活单块原地专注编辑时，文档其余预览块自动平滑降低视觉不透明度（`opacity: 0.35`），聚焦当前段落心流，支持在卡片顶栏随时一键开关；
+  - **三重丝滑触发入口**：支持块右上角悬浮「专注编辑」胶囊按钮、`Alt + 双击` 任意预览块直达、以及在划词悬浮工具栏 (`MarkdownBubbleToolbar`) 内一键下钻至所属块专注编辑。
+- **Markdown 划选悬浮工具栏扩充与跨行块级转换 (`MarkdownBubbleToolbar` & `markdownSelectionReplacer`)**:
+  - **单行富文本语法全面扩充**：在原有加粗、斜体、行内代码、超链接、双向链接基础上，新增删除线 (`~~S~~`)、高亮标记 (`==H==`)、上标 (`X²`)、下标 (`X₂`) 与键盘按键徽标 (`<kbd>`)；
+  - **跨行选区智能块级格式化 (`formatMultiLineSelection`)**：当划选范围跨越多个自然行时，悬浮工具栏自动切换为块级转换模式，支持一键将多行文本包装或幂等剥离为「多行引用块 (`>`)」、「代码围栏 (` ``` `)」、「Callout 警示框 (`> [!NOTE]` / `[!TIP]` / `[!WARNING]`)」，以及直接下钻开启块级原地专注编辑。
+- **Markdown 分屏实时编辑全能力对齐与图片拖拽缩放回写 (`MarkdownViewer` & `markdownImageResize`)**:
+  - **分屏模式 (`split`) 双向交互打通**：右侧实时预览窗完整接入「双击精准定位源码行（仅平滑滚动并移动左侧光标，不打断分屏布局）」、「划词悬浮格式化回写」与「Word / WPS 双通道富文本清洗复制」；
+  - **预览窗图片可视化拖拽缩放与源码无损回写 (`markdownImageResize.ts`)**：鼠标悬浮预览区图片时浮现实时宽度 HUD 与右下角拖拽缩放手柄（`120px ~ 1200px`），松手后基于源码行号将 `![alt](url)` 或 `<img>` 标签无损更新为标准 `<img src="..." alt="..." width="xxx" />`，并支持一键重置原始尺寸。
+
+### Fixed
+
+- **代码块悬浮顶栏视觉减负 (`CodeBlock` & `codeBlockHeaderHelper`)**：重构代码块头部工具栏层级，仅保留语言标识与长代码折叠控制常驻展示，将自动折行、只读标签、局部主题切换、全屏预览与复制按钮收纳至鼠标悬浮（`group-hover`）或键盘聚焦（`focus-within`）渐显容器，并在触屏设备上自动回退常驻以保障可达性。
+- **HTML 块内嵌元素源码行号精确同步 (`useMarkdownAstPipeline`)**：修复 `renderHtmlToken` 渲染自定义块时 `currentTokenStartLine` 未同步更新导致块内嵌子节点 `data-source-line` 偏移的问题。
+
 ## [1.3.1] - 2026-10-17
 
 ### Fixed

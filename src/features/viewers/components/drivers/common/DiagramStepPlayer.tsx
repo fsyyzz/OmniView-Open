@@ -148,7 +148,12 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
   return (
     <div
       id="diagram-step-player-hud"
-      className="w-full border-t border-slate-800/90 bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 text-xs text-slate-200 select-none animate-fade-in transition-all z-20"
+      className="w-full border-t border-[var(--ov-border)] bg-[var(--ov-surface-header,var(--ov-surface))] backdrop-blur-md px-3.5 py-2.5 text-xs text-[var(--ov-text)] select-none animate-fade-in transition-all z-20"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--ov-surface-header, var(--ov-surface)) 95%, transparent)',
+        borderColor: 'var(--ov-border)',
+        color: 'var(--ov-text)',
+      }}
     >
       {/* Top Row: Playback Controls, Progress Scrubber, Step Label, Options & Exit */}
       <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
@@ -159,7 +164,7 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
               setIsPlaying(false);
               onStepChange(0);
             }}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition"
+            className="p-1.5 bg-[var(--ov-surface)] hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] rounded-lg border border-[var(--ov-border)] transition cursor-pointer"
             title={t('resetToStart', locale) || '回到第 1 步'}
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -168,7 +173,7 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
           <button
             onClick={handlePrev}
             disabled={activeIdx === 0}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 transition"
+            className="p-1.5 bg-[var(--ov-surface)] hover:bg-[var(--ov-surface-hover)] disabled:opacity-40 text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] rounded-lg border border-[var(--ov-border)] transition cursor-pointer"
             title={t('prevStepTooltip', locale) || '上一步 (← 方向键)'}
           >
             <SkipBack className="w-3.5 h-3.5" />
@@ -176,7 +181,7 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
 
           <button
             onClick={handleTogglePlay}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-lg shadow-sm shadow-cyan-600/30 transition text-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--ov-accent)] hover:opacity-90 text-[var(--ov-text-on-accent,#ffffff)] font-medium rounded-lg shadow-sm transition text-xs cursor-pointer"
             title={isPlaying ? '暂停 (空格键)' : '开始自动步进演示 (空格键)'}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -186,7 +191,7 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
           <button
             onClick={handleNext}
             disabled={activeIdx === totalSteps - 1}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 transition"
+            className="p-1.5 bg-[var(--ov-surface)] hover:bg-[var(--ov-surface-hover)] disabled:opacity-40 text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] rounded-lg border border-[var(--ov-border)] transition cursor-pointer"
             title={t('nextStepTooltip', locale) || '下一步 (→ 方向键)'}
           >
             <SkipForward className="w-3.5 h-3.5" />
@@ -195,8 +200,15 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
 
         {/* Center: Scrubber & Step Label */}
         <div className="flex-1 min-w-[200px] flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 shrink-0 font-mono text-[11px] text-cyan-400 font-medium">
-            <span className="px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/80 text-[10px] text-cyan-300">
+          <div className="flex items-center gap-1.5 shrink-0 font-mono text-[11px] text-[var(--ov-accent)] font-medium">
+            <span
+              className="px-1.5 py-0.5 rounded border text-[10px]"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--ov-accent) 14%, var(--ov-surface))',
+                borderColor: 'color-mix(in srgb, var(--ov-accent) 32%, var(--ov-border))',
+                color: 'var(--ov-accent)',
+              }}
+            >
               {typeBadgeLabel}
             </span>
             <span>
@@ -214,19 +226,19 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
                 setIsPlaying(false);
                 onStepChange(parseInt(e.target.value, 10));
               }}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none"
+              className="w-full h-1.5 bg-[var(--ov-code-bg)] rounded-lg appearance-none cursor-pointer accent-[var(--ov-accent)] focus:outline-none"
               title={`步骤进度: ${activeIdx + 1} / ${totalSteps}`}
             />
           </div>
 
           {activeStep && (
             <div
-              className="hidden md:flex items-center gap-1.5 max-w-[280px] truncate bg-slate-950/80 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-200 font-mono"
+              className="hidden md:flex items-center gap-1.5 max-w-[280px] truncate bg-[var(--ov-code-bg)] border border-[var(--ov-border)] rounded-lg px-2 py-1 text-[11px] text-[var(--ov-text)] font-mono"
               title={`L${activeStep.lineNumber}: ${activeStep.label}`}
             >
-              <span className="text-cyan-400 font-semibold shrink-0">#{activeIdx + 1}</span>
-              <span className="truncate text-slate-300">{activeStep.label}</span>
-              <span className="text-[10px] text-slate-500 shrink-0">L{activeStep.lineNumber}</span>
+              <span className="text-[var(--ov-accent)] font-semibold shrink-0">#{activeIdx + 1}</span>
+              <span className="truncate text-[var(--ov-text-secondary)]">{activeStep.label}</span>
+              <span className="text-[10px] text-[var(--ov-text-muted)] shrink-0">L{activeStep.lineNumber}</span>
             </div>
           )}
         </div>
@@ -235,20 +247,27 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={handleCycleSpeed}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 text-[11px] font-mono transition"
+            className="flex items-center gap-1 px-2 py-1 bg-[var(--ov-surface)] hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] rounded-lg border border-[var(--ov-border)] text-[11px] font-mono transition cursor-pointer"
             title={t('speedTooltip', locale) || '循环切换播放倍速'}
           >
-            <Clock className="w-3 h-3 text-cyan-400" />
+            <Clock className="w-3 h-3 text-[var(--ov-accent)]" />
             <span>{SPEED_OPTIONS[speedIdx].label}</span>
           </button>
 
           <button
             onClick={() => setIsLoop(!isLoop)}
-            className={`p-1.5 rounded-lg border transition ${
+            className={`p-1.5 rounded-lg border transition cursor-pointer ${
               isLoop
-                ? 'bg-cyan-950/80 border-cyan-600 text-cyan-300'
-                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                ? 'border-[var(--ov-accent)] text-[var(--ov-accent)]'
+                : 'bg-[var(--ov-surface)] border-[var(--ov-border)] text-[var(--ov-text-muted)] hover:text-[var(--ov-text)]'
             }`}
+            style={
+              isLoop
+                ? {
+                    backgroundColor: 'color-mix(in srgb, var(--ov-accent) 16%, var(--ov-surface))',
+                  }
+                : undefined
+            }
             title={isLoop ? (t('loopOn', locale) || '循环播放: 开') : (t('loopOff', locale) || '循环播放: 关')}
           >
             <Repeat className="w-3.5 h-3.5" />
@@ -256,10 +275,10 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
 
           <button
             onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-            className={`p-1.5 rounded-lg transition border ${
+            className={`p-1.5 rounded-lg transition border cursor-pointer ${
               isDrawerOpen
-                ? 'bg-cyan-600 border-cyan-500 text-white'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                ? 'bg-[var(--ov-accent)] border-[var(--ov-accent)] text-[var(--ov-text-on-accent,#ffffff)]'
+                : 'bg-[var(--ov-surface)] border-[var(--ov-border)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)]'
             }`}
             title={t('toggleStepList', locale) || '展开/收起全部步骤清单'}
             aria-label="步骤清单"
@@ -267,11 +286,11 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
             <List className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-3 w-px bg-slate-700 mx-0.5" />
+          <div className="h-3 w-px bg-[var(--ov-border)] mx-0.5" />
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition"
+            className="p-1.5 text-[var(--ov-text-muted)] hover:text-rose-500 hover:bg-[var(--ov-surface-hover)] rounded-lg transition cursor-pointer"
             title={t('exitPlayback', locale) || '退出步进播放 (Esc)'}
             aria-label="退出"
           >
@@ -282,18 +301,18 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
 
       {/* Mobile / Narrow Step Summary Description */}
       {activeStep && (
-        <div className="md:hidden mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono">
-          <div className="flex items-center gap-1.5 truncate text-slate-300">
-            <span className="text-cyan-400 font-semibold">#{activeIdx + 1}</span>
+        <div className="md:hidden mt-2 pt-2 border-t border-[var(--ov-border)] flex items-center justify-between text-[11px] font-mono">
+          <div className="flex items-center gap-1.5 truncate text-[var(--ov-text-secondary)]">
+            <span className="text-[var(--ov-accent)] font-semibold">#{activeIdx + 1}</span>
             <span className="truncate">{activeStep.label}</span>
           </div>
-          <span className="text-[10px] text-slate-500 shrink-0 ml-2">L{activeStep.lineNumber}</span>
+          <span className="text-[10px] text-[var(--ov-text-muted)] shrink-0 ml-2">L{activeStep.lineNumber}</span>
         </div>
       )}
 
       {/* Expandable Step List Drawer (Docked below, zero occlusion to canvas above) */}
       {isDrawerOpen && (
-        <div className="mt-2.5 pt-2.5 border-t border-slate-800/80 max-h-44 overflow-y-auto space-y-1 pr-1 font-mono text-[11px]">
+        <div className="mt-2.5 pt-2.5 border-t border-[var(--ov-border)] max-h-44 overflow-y-auto space-y-1 pr-1 font-mono text-[11px]">
           {steps.map((st, i) => {
             const isCur = i === activeIdx;
             return (
@@ -303,19 +322,26 @@ export const DiagramStepPlayer: React.FC<DiagramStepPlayerProps> = ({
                   setIsPlaying(false);
                   onStepChange(i);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center justify-between gap-2 ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center justify-between gap-2 cursor-pointer ${
                   isCur
-                    ? 'bg-cyan-600/30 border border-cyan-500/60 text-cyan-200 shadow-sm'
-                    : 'hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-transparent'
+                    ? 'border border-[var(--ov-accent)] text-[var(--ov-text)] shadow-sm font-medium'
+                    : 'hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] border border-transparent'
                 }`}
+                style={
+                  isCur
+                    ? {
+                        backgroundColor: 'color-mix(in srgb, var(--ov-accent) 16%, var(--ov-surface))',
+                      }
+                    : undefined
+                }
               >
                 <div className="flex items-center gap-2 truncate">
-                  <span className="text-[10px] text-cyan-400 font-semibold min-w-[20px]">
+                  <span className="text-[10px] text-[var(--ov-accent)] font-semibold min-w-[20px]">
                     {i + 1}.
                   </span>
                   <span className="truncate">{st.label}</span>
                 </div>
-                <span className="text-[9px] text-slate-500 shrink-0">L{st.lineNumber}</span>
+                <span className="text-[9px] text-[var(--ov-text-muted)] shrink-0">L{st.lineNumber}</span>
               </button>
             );
           })}

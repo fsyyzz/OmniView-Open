@@ -96,8 +96,12 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **Incremental Re-rendering & Dynamic Viewport Unmount (Zero CLS)**:
   - **FNV-1a Block-Level Memoization**: Reuse stable block object references by line range and hash during partial edits or selection formatting, preventing whole-tree recalculations;
   - **Unloadable Viewport Memory Management**: Heavy diagrams (Mermaid, Graphviz, KaTeX, wide tables) automatically unload outside viewport buffer distance to free DOM and WASM memory, backed by global height cache for **Zero CLS**;
+- **In-place Block Focused Editor (Preview & Split Window)**:
+  - Edit any paragraph, list, table, blockquote, or math block directly inside the preview window via the hover action button, `Alt + Double-Click`, or the selection bubble toolbar;
+  - Includes Source / Live Split Micro-Preview toggle, Spotlight background dimming, and blank-line preserving writeback;
 - **Selection Bubble Toolbar & Safe Writeback Contract**:
-  - Reliable formatting for bold (`**B**`), inline code (`` `C` ``), hyperlinks (`Link`), and bidirectional wiki links (`WikiLink`);
+  - Single-line formatting for bold (`**B**`), italic, strikethrough (`~~S~~`), highlight (`==H==`), superscript/subscript, `<kbd>`, inline code (`` `C` ``), hyperlinks (`Link`), and bidirectional wiki links (`WikiLink`);
+  - Multi-line block conversion into blockquotes (`>`), code fences (` ``` `), and Callout admonitions (`[!NOTE]` / `[!TIP]` / `[!WARNING]`), plus interactive image drag-resize writeback (`<img width="..." />`);
   - Pre-checked with line numbers and contextual text fingerprints to reject silent mis-edits;
 - **Render Time Budget & Slow Block Observability**:
   - Monitored millisecond render budget (800ms threshold) with fallback source cards and outline `ZapOff` warning badges;
@@ -231,7 +235,7 @@ npm run verify
 npm run package:vsix
 
 # 3. Install into local VS Code (keep version in sync with package.json)
-code --install-extension omniview-1.0.28.vsix --force
+code --install-extension omniview-1.3.2.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.

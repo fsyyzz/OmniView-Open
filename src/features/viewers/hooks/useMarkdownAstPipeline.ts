@@ -357,6 +357,7 @@ export function useMarkdownAstPipeline({
       };
 
       const renderHtmlToken = (token: any, startLine: number, endLine: number) => {
+        currentTokenStartLine = startLine;
         const startTime = typeof performance !== 'undefined' ? performance.now() : 0;
         const html = marked.parser([token], { renderer: customRenderer });
         const htmlWithMath = restoreMarkdownMath(html, mathSlots);

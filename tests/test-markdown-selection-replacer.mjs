@@ -144,7 +144,129 @@ console.log('🧪 开始运行 Markdown 划选悬浮格式化测试...');
   assert.ok(todoRes !== null);
   assert.ok(todoRes.newFullContent.includes('- [ ] 完成功能开发任务'));
 
-  console.log('  ✅ 块级格式化扩展 (H1, Quote, Todo) 测试通过');
+  // P1 Callout 提示框转换测试
+  const calloutRes = applyMarkdownSelectionFormat({
+    fullContent: blockSample,
+    selectedText: '重点引用',
+    sourceLine: 3,
+    action: 'callout',
+    linkUrl: 'NOTE',
+  });
+  assert.ok(calloutRes !== null);
+  assert.ok(calloutRes.newFullContent.includes('> [!NOTE]\n> 这是一段重点引用的描述文字'));
+
+  // P0 行内数学公式与 P1 脚注批注测试
+  const mathRes = toggleFormatText('E=mc^2', 'inlineMath');
+  assert.equal(mathRes.resultText, '$E=mc^2$');
+  const unmathRes = toggleFormatText('$E=mc^2$', 'inlineMath');
+  assert.equal(unmathRes.resultText, 'E=mc^2');
+
+  const fnRes = applyMarkdownSelectionFormat({
+    fullContent: blockSample,
+    selectedText: '二级小结',
+    sourceLine: 2,
+    action: 'footnote',
+    linkUrl: '这是新增的补充说明',
+  });
+  assert.ok(fnRes !== null);
+  assert.ok(fnRes.newFullContent.includes('二级小结[^1]'));
+  assert.ok(fnRes.newFullContent.includes('[^1]: 这是新增的补充说明'));
+
+  console.log('  ✅ 块级格式化扩展 (H1, Quote, Todo, Callout, InlineMath, Footnote) 测试通过');
 }
 
-console.log('🎉 所有 Markdown 划选悬浮格式化单元测试全部通过！\n');
+// 4. 测试跨行选区智能辅助转换 (P0 formatMultiLineSelection)
+{
+  const { formatMultiLineSelection } = await import(
+    '../src/features/viewers/lib/markdownSelectionReplacer.ts'
+  );
+  const multiText = '第一行文字\n第二行文字';
+  assert.equal(formatMultiLineSelection(multiText, 'quote'), '> 第一行文字\n> 第二行文字');
+  assert.equal(
+    formatMultiLineSelection(multiText, 'fencedCode'),
+    '```\n第一行文字\n第二行文字\n```'
+  );
+  assert.equal(
+    formatMultiLineSelection(multiText, 'callout', 'TIP'),
+    '> [!TIP]\n> 第一行文字\n> 第二行文字'
+  );
+  console.log('  ✅ 跨行选区智能转换 (引用块/代码围栏/Callout) 测试通过');
+}
+
+// 5. 测试方案 A：预览区块级原地专注编辑引擎 (markdownBlockEditor.ts)
+{
+  const {
+    extractBlockRawMarkdown,
+    replaceBlockRawMarkdown,
+    getBlockTypeLabel,
+    applyEditorQuickSnippet,
+    findBlockBySourceLine,
+  } = await import('../src/features/viewers/lib/markdownBlockEditor.ts');
+
+  const docSample = [
+    '# 系统架构总览',
+    '',
+    '这里包含双链 [[核心模块]] 与行内公式 $E=mc^2$。',
+    '第二行段落内容。',
+    '',
+    '> [!NOTE]',
+    '> 这是一段 Callout 提示。',
+    '',
+    '```mermaid',
+    'graph TD',
+    '  A --> B',
+    '```',
+  ].join('\n');
+
+  // 5.1 提取段落真实源码（自动剥离末尾被 Lexer 吞入的分隔空行 L5）
+  const slice = extractBlockRawMarkdown(docSample, 3, 5);
+  assert.equal(slice.actualStartLine, 3);
+  assert.equal(slice.actualEndLine, 4, '应自动剥离第 5 行块间分隔空行');
+  assert.equal(
+    slice.rawSlice,
+    '这里包含双链 [[核心模块]] 与行内公式 $E=mc^2$。\n第二行段落内容。',
+    '提取的源码必须保持原始双链与公式语法，零宏展开污染'
+  );
+
+  // 5.2 回写修改后的块内容（验证块间空行 L5 不丢失，且正确计算行数差值）
+  const replaced = replaceBlockRawMarkdown(
+    docSample,
+    slice.actualStartLine,
+    slice.actualEndLine,
+    '修改后的第一行\n新增的第二行\n新增的第三行'
+  );
+  assert.equal(replaced.newLineCount, 3);
+  assert.equal(replaced.lineDelta, 1);
+  assert.ok(
+    replaced.newFullContent.includes('新增的第三行\n\n> [!NOTE]'),
+    '回写后相邻块之间的空行必须完好保留，严禁段落粘连'
+  );
+
+  // 5.3 语义块类型识别
+  assert.equal(getBlockTypeLabel('html', undefined, '## 二级标题', 'zh-CN'), 'H2 章节标题');
+  assert.equal(getBlockTypeLabel('html', undefined, '> [!NOTE]\n> 内容', 'zh-CN'), 'Callout 语义提示块');
+  assert.equal(getBlockTypeLabel('html', undefined, '- [x] 已完成事项', 'zh-CN'), '待办任务列表');
+  assert.equal(getBlockTypeLabel('mermaid', undefined, 'graph TD', 'zh-CN'), 'Mermaid 图表源码');
+  assert.equal(getBlockTypeLabel('code', 'typescript', 'const x = 1;', 'zh-CN'), '代码块 (TYPESCRIPT)');
+
+  // 5.4 编辑器内快捷语法插入与包裹
+  const boldSnap = applyEditorQuickSnippet('Hello OmniView', 6, 14, 'bold');
+  assert.equal(boldSnap.nextText, 'Hello **OmniView**');
+  const mathSnap = applyEditorQuickSnippet('公式: ', 4, 4, 'math');
+  assert.equal(mathSnap.nextText, '公式: $E = mc^2$');
+
+  // 5.5 根据源码行号反查 AST 块（跳过 pagebreak）
+  const mockBlocks = [
+    { id: 'b-1', type: 'html', startLine: 1, endLine: 2 },
+    { id: 'b-page', type: 'pagebreak', startLine: 3, endLine: 3 },
+    { id: 'b-2', type: 'html', startLine: 4, endLine: 8 },
+  ];
+  assert.equal(findBlockBySourceLine(mockBlocks, 5)?.id, 'b-2');
+  assert.equal(findBlockBySourceLine(mockBlocks, 3)?.id, 'b-1');
+
+  console.log('  ✅ 方案 A 块级原地专注编辑引擎 (切片保真/空行守恒/快捷语法/行号反查) 测试通过');
+}
+
+console.log('🎉 所有 Markdown 划选悬浮格式化与原地专注编辑单元测试全部通过！\n');
+
+

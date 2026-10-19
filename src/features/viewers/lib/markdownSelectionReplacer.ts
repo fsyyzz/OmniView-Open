@@ -14,15 +14,18 @@ export type MarkdownFormatAction =
   | 'strikethrough'
   | 'code'
   | 'highlight'
+  | 'inlineMath'
   | 'h1'
   | 'h2'
   | 'h3'
   | 'quote'
   | 'todo'
+  | 'callout'
+  | 'footnote'
   | 'link'
   | 'wikilink';
 
-/** 可靠行内回写安全白名单 */
+/** 可靠行内与块级回写安全白名单 */
 export const SAFE_INLINE_ACTIONS = new Set<MarkdownFormatAction>([
   'bold',
   'code',
@@ -31,12 +34,39 @@ export const SAFE_INLINE_ACTIONS = new Set<MarkdownFormatAction>([
   'italic',
   'strikethrough',
   'highlight',
+  'inlineMath',
+  'callout',
+  'footnote',
 ]);
 
 export interface SelectionFormatResult {
   newFullContent: string;
   formattedText: string;
   appliedAction: MarkdownFormatAction;
+}
+
+/**
+ * 跨行选区文本转换辅助函数（用于只读复制或跨行引用/代码围栏包装）
+ */
+export function formatMultiLineSelection(
+  selectedText: string,
+  mode: 'quote' | 'fencedCode' | 'callout',
+  calloutType = 'NOTE'
+): string {
+  const normalized = selectedText.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return '';
+  const lines = normalized.split('\n');
+
+  if (mode === 'quote') {
+    return lines.map(l => `> ${l}`).join('\n');
+  }
+  if (mode === 'callout') {
+    return [`> [!${calloutType.toUpperCase()}]`, ...lines.map(l => `> ${l}`)].join('\n');
+  }
+  if (mode === 'fencedCode') {
+    return ['```', normalized, '```'].join('\n');
+  }
+  return normalized;
 }
 
 /**
@@ -54,6 +84,8 @@ export function getFormatWrappers(action: MarkdownFormatAction, linkUrl = ''): {
       return { prefix: '`', suffix: '`' };
     case 'highlight':
       return { prefix: '==', suffix: '==' };
+    case 'inlineMath':
+      return { prefix: '$', suffix: '$' };
     case 'link':
       return { prefix: '[', suffix: `](${linkUrl || 'https://'})` };
     case 'wikilink':
@@ -117,6 +149,13 @@ export function toggleFormatText(
     return { resultText: `${leadingSpace}==${trimmed}==${trailingSpace}`, isToggledOff: false };
   }
 
+  if (action === 'inlineMath') {
+    if (trimmed.startsWith('$') && trimmed.endsWith('$') && !trimmed.startsWith('$$') && trimmed.length >= 2) {
+      return { resultText: leadingSpace + trimmed.slice(1, -1) + trailingSpace, isToggledOff: true };
+    }
+    return { resultText: `${leadingSpace}$${trimmed}$${trailingSpace}`, isToggledOff: false };
+  }
+
   if (action === 'link') {
     const linkMatch = trimmed.match(/^\[(.*)\]\((.*)\)$/);
     if (linkMatch) {
@@ -164,6 +203,19 @@ export function toggleFormatText(
     return { resultText: `${leadingSpace}> ${trimmed}${trailingSpace}`, isToggledOff: false };
   }
 
+  if (action === 'callout') {
+    const calloutType = (linkUrl || 'NOTE').toUpperCase();
+    if (trimmed.startsWith('> [!')) {
+      const stripped = trimmed.replace(/^>\s*\[![A-Z]+\]\s*\n?>\s*/, '');
+      return { resultText: leadingSpace + stripped + trailingSpace, isToggledOff: true };
+    }
+    const cleanBody = trimmed.replace(/^>\s*/, '');
+    return {
+      resultText: `${leadingSpace}> [!${calloutType}]\n> ${cleanBody}${trailingSpace}`,
+      isToggledOff: false,
+    };
+  }
+
   if (action === 'todo') {
     if (trimmed.startsWith('- [ ] ')) {
       return { resultText: leadingSpace + trimmed.slice(6) + trailingSpace, isToggledOff: true };
@@ -175,6 +227,21 @@ export function toggleFormatText(
   }
 
   return { resultText: rawText, isToggledOff: false };
+}
+
+/**
+ * 计算文档中下一个不冲突的脚注编号
+ */
+function getNextFootnoteId(fullContent: string): string {
+  const matches = fullContent.match(/\[\^(\d+)\]/g) || [];
+  let maxId = 0;
+  for (const m of matches) {
+    const num = parseInt(m.slice(2, -1), 10);
+    if (!isNaN(num) && num > maxId) {
+      maxId = num;
+    }
+  }
+  return String(maxId + 1);
 }
 
 /**
@@ -239,6 +306,7 @@ export function applyMarkdownSelectionFormat({
         `\\*${escapeRegExp(cleanSelected)}\\*`,
         `~~${escapeRegExp(cleanSelected)}~~`,
         `==${escapeRegExp(cleanSelected)}==`,
+        `\\$${escapeRegExp(cleanSelected)}\\$`,
       ];
       for (const pat of wrapperPatterns) {
         const reg = new RegExp(pat);
@@ -261,11 +329,26 @@ export function applyMarkdownSelectionFormat({
 
   const targetLine = lines[foundLineIdx];
 
+  if (action === 'footnote') {
+    const fnId = getNextFootnoteId(fullContent);
+    const noteContent = linkUrl.trim() || '批注说明';
+    const formattedRef = `${targetSlice}[^${fnId}]`;
+    lines[foundLineIdx] =
+      targetLine.slice(0, foundColIdx) + formattedRef + targetLine.slice(foundColIdx + targetSlice.length);
+    const newFullContent = `${lines.join('\n').trimEnd()}\n\n[^${fnId}]: ${noteContent}\n`;
+    return {
+      newFullContent,
+      formattedText: formattedRef,
+      appliedAction: action,
+    };
+  }
+
   const isBlockAction =
     action === 'h1' ||
     action === 'h2' ||
     action === 'h3' ||
     action === 'quote' ||
+    action === 'callout' ||
     action === 'todo';
 
   let updatedLine = '';
