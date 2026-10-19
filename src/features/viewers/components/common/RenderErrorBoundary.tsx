@@ -6,6 +6,7 @@ import React, { ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { t } from '../../../../shared/lib/i18n';
 import { VsCodeApi } from '../../../../shared/lib/vscode';
+import { clearAllDriverCaches } from '../../lib/resilientImport';
 
 export interface RenderErrorBoundaryProps {
   key?: React.Key;
@@ -47,6 +48,11 @@ export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProp
     this.setState({ errorInfo });
     this.props.onCatch?.(error, errorInfo);
 
+    // 若捕获动态模块载入错误，主动清空缓存以备自愈
+    if (error.message?.includes('Failed to fetch dynamically imported module')) {
+      clearAllDriverCaches();
+    }
+
     // 报告给 VS Code 宿主方便统一调试排查
     try {
       this.props.vscode?.postMessage({
@@ -62,6 +68,8 @@ export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProp
   }
 
   private handleReset = () => {
+    // 强制清理驱动缓存，使 React 重新挂载时能够重新发起 dynamic import
+    clearAllDriverCaches();
     this.setState({
       hasError: false,
       error: null,
@@ -134,7 +142,11 @@ ${errorInfo?.componentStack || 'No component stack'}`;
         </div>
 
         <p className="ov-error-desc">
-          {error?.message || t('errorBoundaryDesc', locale)}
+          {error?.message?.includes('Failed to fetch dynamically imported module')
+            ? (locale?.startsWith('en')
+                ? 'Driver module loading was interrupted. Please click "Retry" to reload the driver.'
+                : '驱动模块动态加载被中断或网络抖动，请点击「重试」重新加载驱动。')
+            : (error?.message || t('errorBoundaryDesc', locale))}
         </p>
 
         {error?.stack && (

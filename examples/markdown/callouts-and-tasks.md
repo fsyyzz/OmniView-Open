@@ -156,10 +156,108 @@ flowchart LR
     Renderer --> Intercept{检测 Blockquote 标记}
     Intercept -->|Alert Callout| CalloutDOM[语义告警提示卡片]
     Intercept -->|CARDS:1-6| GridDOM[多列响应式卡片矩阵]
+    Intercept -->|TABS / STEPS| InteractiveDOM[交互式扩展组件]
     Intercept -->|普通引用| QuoteDOM[原生 blockquote]
     CalloutDOM --> Preview[Webview 预览画布]
     GridDOM --> Preview
+    InteractiveDOM --> Preview
     QuoteDOM --> Preview
     Preview -- 用户点击复选框 --> LineLocator[源码行精准定位器]
     LineLocator -- 正则替换状态 --> MD
 ```
+
+---
+
+## 六、基于 Alert 思想的扩展组件全景 (Extended Ecosystem)
+
+GitHub Alert 的精髓在于**「给标准引用块附加语义标识符」**。OmniView 沿袭此思想，深度赋能技术文档常见的 8 类高阶排版场景，在不支持的环境中**全部 100% 优雅降级为清爽的列表与引用**：
+
+### 1. 首屏高光横幅 (`> [!BANNER]`)
+
+> [!BANNER] OmniView 统一全格式多维文档工作台
+> 极速渲染、多格式无缝统一、纯本地离线沙箱安全。深度支持 Markdown、KaTeX 公式、Mermaid、PlantUML、Graphviz、SVG、Excalidraw 与结构化数据驱动。
+> 
+> [开始使用指南](#) · [查阅架构规范](#) · [GitHub 仓库关注](#)
+
+### 2. 多标签页组 (`> [!TABS]`)
+
+点击下方不同 Tab 标签可在同一区域自由切换多语言/多工具命令：
+
+> [!TABS] 包管理器快速安装指令
+> - **pnpm (推荐)**
+>   ```bash
+>   pnpm add -D @omniview/core @omniview/markdown
+>   ```
+> - **npm**
+>   ```bash
+>   npm install -D @omniview/core @omniview/markdown
+>   ```
+> - **yarn**
+>   ```bash
+>   yarn add -D @omniview/core @omniview/markdown
+>   ```
+> - **bun**
+>   ```bash
+>   bun add -d @omniview/core @omniview/markdown
+>   ```
+
+### 3. 步骤引导条 (`> [!STEPS]`)
+
+> [!STEPS] 新手接入三部曲向导
+> 1. **环境预检与依赖准备**
+>    确保本地 Node.js 版本 >= 18.0.0，并在 VS Code 市场安装 OmniView 插件。
+> 2. **工程配置初始化**
+>    在项目根目录创建 `omniview.json`，或直接打开任意 `.md` 文件即可自动激活。
+> 3. **开始多维渲染与实时双向交互**
+>    按 `Ctrl+Shift+P` 调出命令面板，输入 `OmniView: Open Preview` 即刻开启实时热重载工作台。
+
+### 4. 里程碑时间线 (`> [!TIMELINE]`)
+
+> [!TIMELINE] OmniView 架构演进历程
+> - **2024 Q1 · 渲染内核立项**
+>   完成基于 marked 的 AST 流水线抽象与多驱动注册机制。
+> - **2024 Q2 · 矢量与离线图表体系**
+>   集成 Mermaid、PlantUML 与纯本地 WASM 版 Graphviz DOT 引擎。
+> - **2024 Q3 · 交互式编辑与富文本互通**
+>   实现双向同步滚动、原地块级专注编辑（Alt+双击）与剪贴板无损复制。
+> - **2024 Q4 · GitHub Alert 扩展生态**
+>   全面落地多列卡片矩阵（CARDS）、多标签页（TABS）、步骤条（STEPS）与指标看板（METRICS）。
+
+### 5. 方案多维对照 (`> [!COMPARE]`)
+
+> [!COMPARE] 传统 Markdown 插件方案 vs OmniView 架构
+> - **传统插件方案 (Before)**
+>   - 单一进程同步解析，百页大文档极易引起编辑器卡死
+>   - 缺乏富矢量绘图，需要频繁在多款独立扩展之间切换
+>   - 语法侵入严重，大量手写 HTML `<div>` 导致无法跨平台迁移
+> - **OmniView 统一工作台 (After)**
+>   - Web Worker 异步多线程解析与虚拟滚动视口懒挂载
+>   - 深度集成 20+ 工业驱动与专业级 SVG Studio 矢量绘图
+>   - 坚持 GitHub Alert 语义扩展，100% 优雅降级无锁死
+
+### 6. 核心量化指标看板 (`> [!METRICS]`)
+
+> [!METRICS] 核心性能与质量指标
+> - **60 FPS** 视口稳态帧率
+> - **< 16 ms** 渲染运算预算
+> - **100%** 物理门禁测试绿灯
+> - **0 泄露** 纯离线沙箱安全防御
+
+### 7. 交互式问答手风琴 (`> [!FAQ]`)
+
+点击下方问题可折叠/展开详细解答（基于原生 `<details><summary>`，零依赖超轻量）：
+
+> [!FAQ] 常见使用与架构疑问解答
+> - **OmniView 是否需要连接外网服务器进行图表渲染？**
+>   完全不需要！OmniView 的核心准则是“离线优先”。包括 Graphviz、KaTeX、Mermaid 在内的所有计算均在本地 Web Worker 或 WASM 沙箱中执行，零数据外流。
+> - **在不支持 OmniView 的平台（如 GitHub 网页）上查看文档会报错吗？**
+>   绝对不会！所有扩展语法均严格遵循 GitHub Alert 核心哲学，在普通渲染器中会自动降级为整齐清晰的原生引用块与项目符号列表。
+> - **如何在长文档中快速修改某一小节？**
+>   对准需要修改的章节段落、卡片或表格，按下键盘 `Alt + 双击`，即可激活轻量原地专注编辑器，修改完毕按 `Ctrl+Enter` 即可原地保存。
+
+### 8. 用户与名家引言墙 (`> [!QUOTES]`)
+
+> [!QUOTES] 开发者与架构师心声
+> - “好的文档不仅是代码的附庸，更是系统灵魂的蓝图。OmniView 让写技术文档重新变成了一种艺术享受。” —— *资深系统架构师*
+> - “终于不用为了看一个架构图在好几个 VS Code 插件之间来回折腾了，一站式工作台名副其实。” —— *开源项目维护者*
+

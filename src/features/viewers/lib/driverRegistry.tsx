@@ -70,19 +70,54 @@ export interface DriverPlugin {
   isBinary?: boolean;
 }
 
-// Markdown 多模式专用异步驱动
-const MarkdownViewer = lazy(() => import('../components/drivers/MarkdownViewer').then(m => ({ default: m.MarkdownViewer })));
-const MarkmapViewer = lazy(() => import('../components/drivers/MarkmapViewer').then(m => ({ default: m.MarkmapViewer })));
-const CodeViewer = lazy(() => import('../components/drivers/CodeViewer').then(m => ({ default: m.CodeViewer })));
+import { resilientImport, registerDriverCacheClearer } from './resilientImport';
 
 // 惰性懒加载驱动组件映射缓存
-const componentCache: Partial<Record<DriverId, React.LazyExoticComponent<React.ComponentType<any>>>> = {};
+const componentCache: Partial<Record<string, React.LazyExoticComponent<React.ComponentType<any>>>> = {};
+
+// 注册全局自愈缓存清理回调
+registerDriverCacheClearer(() => {
+  for (const key of Object.keys(componentCache)) {
+    delete componentCache[key];
+  }
+});
+
+function createLazyDriver(id: string, importer: () => Promise<{ [key: string]: any }>, exportName: string) {
+  return () => {
+    if (!componentCache[id]) {
+      componentCache[id] = lazy(() =>
+        resilientImport(importer, { tag: `Driver:${id}` })
+          .then((m) => {
+            if (!m || !m[exportName]) {
+              throw new Error(`驱动插件 [${id}] 未导出 "${exportName}" 组件`);
+            }
+            return { default: m[exportName] };
+          })
+          .catch((err) => {
+            // 失败时自愈清理缓存，允许下次渲染或重试时重新发起加载
+            delete componentCache[id];
+            throw err;
+          })
+      );
+    }
+    return componentCache[id]!;
+  };
+}
+
+// Markdown 多模式专用弹性异步驱动工厂
+const getMarkdownViewer = createLazyDriver('markdown', () => import('../components/drivers/MarkdownViewer'), 'MarkdownViewer');
+const getMarkmapViewer = createLazyDriver('mindmap-mode', () => import('../components/drivers/MarkmapViewer'), 'MarkmapViewer');
+const getCodeViewer = createLazyDriver('source-mode', () => import('../components/drivers/CodeViewer'), 'CodeViewer');
 
 /**
  * Markdown 驱动多模式渲染分发 (mindmap / source / split / preview)
  * 内部合法使用 useState 保持 splitRightMode 等渲染上下文的跨渲染生命周期
  */
 function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
+  const MarkdownViewer = getMarkdownViewer();
+  const MarkmapViewer = getMarkmapViewer();
+  const CodeViewer = getCodeViewer();
+
   const {
     file,
     files,
@@ -277,16 +312,6 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
       </div>
     </div>
   );
-}
-
-
-function createLazyDriver(id: DriverId, importer: () => Promise<{ [key: string]: any }>, exportName: string) {
-  return () => {
-    if (!componentCache[id]) {
-      componentCache[id] = lazy(() => importer().then(m => ({ default: m[exportName] })));
-    }
-    return componentCache[id]!;
-  };
 }
 
 /**

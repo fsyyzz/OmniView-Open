@@ -54,6 +54,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-fg-muted: var(--ov-text-secondary);
   --ov-card-bg: var(--ov-surface);
   --ov-sidebar-bg: var(--ov-bg-elevated);
+  --ov-surface-secondary: var(--vscode-editorWidget-background, var(--ov-bg-elevated));
+  --ov-accent-subtle: color-mix(in srgb, var(--ov-accent, #3b82f6) 14%, transparent);
 }
 
 /* OmniView 工作台外壳层深度映射 (像素级无缝融合与主题自适应) */
@@ -142,6 +144,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-fg-muted: var(--ov-text-secondary);
   --ov-card-bg: var(--ov-surface);
   --ov-sidebar-bg: var(--ov-bg-elevated);
+  --ov-surface-secondary: #162032;
+  --ov-accent-subtle: rgba(59, 130, 246, 0.12);
 }
 
 [data-theme="light"] {
@@ -149,6 +153,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-bg-elevated: #ffffff;
   --ov-surface: #ffffff;
   --ov-surface-header: #f1f5f9;
+  --ov-surface-secondary: #f1f5f9;
+  --ov-accent-subtle: rgba(37, 99, 235, 0.08);
   --ov-border: #e2e8f0;
   --ov-border-subtle: #cbd5e1;
   --ov-text: #0f172a;
@@ -176,6 +182,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-bg-elevated: #f4ecd8;
   --ov-surface: #fffbf0;
   --ov-surface-header: #ede4ce;
+  --ov-surface-secondary: #f4ecd8;
+  --ov-accent-subtle: rgba(180, 83, 9, 0.1);
   --ov-border: #ddceb4;
   --ov-border-subtle: #cbbba1;
   --ov-text: #38291a;
@@ -3143,6 +3151,588 @@ details.ov-card-single[open] .ov-callout-fold-icon {
     --ov-card-cols: 1;
   }
 }
+
+/* =========================================================
+   Extended Callout: Tabs Group ([!TABS])
+   ========================================================= */
+.ov-tab-group {
+  margin: 20px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.ov-tab-header-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--ov-surface-header, rgba(0, 0, 0, 0.02));
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  padding: 6px 14px;
+  flex-wrap: wrap;
+}
+
+.ov-tab-group-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ov-text-secondary, rgba(0, 0, 0, 0.6));
+  padding: 4px 0;
+}
+
+.ov-tab-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ov-tab-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.ov-tab-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ov-text-secondary, #64748b);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ov-tab-btn:hover {
+  color: var(--ov-text, #0f172a);
+  background: var(--ov-surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.ov-tab-btn.active {
+  color: var(--ov-accent, #3b82f6);
+  background: var(--ov-accent-subtle, rgba(59, 130, 246, 0.1));
+  font-weight: 600;
+}
+
+.ov-tab-panels {
+  padding: 16px 20px;
+}
+
+.ov-tab-panel {
+  animation: ovFadeIn 0.2s ease-in-out;
+}
+
+.ov-tab-panel > :first-child { margin-top: 0; }
+.ov-tab-panel > :last-child { margin-bottom: 0; }
+
+/* =========================================================
+   Extended Callout: Steps Guide ([!STEPS])
+   ========================================================= */
+.ov-steps-container {
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-steps-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ov-text, #1e293b);
+}
+
+.ov-steps-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-steps-icon {
+  stroke: var(--ov-accent, #3b82f6);
+}
+
+.ov-steps-body > ol,
+.ov-steps-body > ul {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
+  counter-reset: ov-step-counter;
+  position: relative;
+}
+
+.ov-steps-body > ol > li,
+.ov-steps-body > ul > li {
+  position: relative;
+  counter-increment: ov-step-counter;
+  padding-left: 44px !important;
+  margin-bottom: 22px !important;
+}
+
+.ov-steps-body > ol > li:last-child,
+.ov-steps-body > ul > li:last-child {
+  margin-bottom: 0 !important;
+}
+
+.ov-steps-body > ol > li::after,
+.ov-steps-body > ul > li::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 30px;
+  bottom: -16px;
+  width: 2px;
+  background: var(--ov-border, rgba(0, 0, 0, 0.1));
+}
+
+.ov-steps-body > ol > li:last-child::after,
+.ov-steps-body > ul > li:last-child::after {
+  display: none;
+}
+
+.ov-steps-body > ol > li::before,
+.ov-steps-body > ul > li::before {
+  content: counter(ov-step-counter);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--ov-accent, #3b82f6);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.ov-steps-body > ol > li > :first-child,
+.ov-steps-body > ul > li > :first-child {
+  margin-top: 2px;
+}
+
+/* =========================================================
+   Extended Callout: Timeline / Milestones ([!TIMELINE])
+   ========================================================= */
+.ov-timeline-container {
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ov-text, #1e293b);
+}
+
+.ov-timeline-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-timeline-icon {
+  stroke: var(--ov-accent, #8b5cf6);
+}
+
+.ov-timeline-body > ul,
+.ov-timeline-body > ol {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
+  position: relative;
+}
+
+.ov-timeline-body > ul > li,
+.ov-timeline-body > ol > li {
+  position: relative;
+  padding-left: 32px !important;
+  margin-bottom: 20px !important;
+}
+
+.ov-timeline-body > ul > li:last-child,
+.ov-timeline-body > ol > li:last-child {
+  margin-bottom: 0 !important;
+}
+
+.ov-timeline-body > ul > li::after,
+.ov-timeline-body > ol > li::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 14px;
+  bottom: -16px;
+  width: 2px;
+  background: var(--ov-border, rgba(0, 0, 0, 0.12));
+}
+
+.ov-timeline-body > ul > li:last-child::after,
+.ov-timeline-body > ol > li:last-child::after {
+  display: none;
+}
+
+.ov-timeline-body > ul > li::before,
+.ov-timeline-body > ol > li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ov-accent, #8b5cf6);
+  border: 2px solid var(--ov-surface, #ffffff);
+  box-shadow: 0 0 0 2px var(--ov-accent, #8b5cf6);
+}
+
+/* =========================================================
+   Extended Callout: Compare / Diff Cards ([!COMPARE])
+   ========================================================= */
+.ov-compare-container {
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-compare-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ov-text, #1e293b);
+}
+
+.ov-compare-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-compare-icon {
+  stroke: var(--ov-accent, #0ea5e9);
+}
+
+.ov-compare-body > ul,
+.ov-compare-body > ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ov-compare-body > ul > li,
+.ov-compare-body > ol > li {
+  padding: 16px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface-secondary, rgba(0, 0, 0, 0.015));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.ov-compare-body > ul > li:first-child,
+.ov-compare-body > ol > li:first-child {
+  border-top: 3px solid #f43f5e;
+}
+
+.ov-compare-body > ul > li:nth-child(2),
+.ov-compare-body > ol > li:nth-child(2) {
+  border-top: 3px solid #10b981;
+}
+
+.ov-compare-body > ul > li:nth-child(n+3),
+.ov-compare-body > ol > li:nth-child(n+3) {
+  border-top: 3px solid var(--ov-accent, #3b82f6);
+}
+
+/* =========================================================
+   Extended Callout: Metrics Dashboard ([!METRICS])
+   ========================================================= */
+.ov-metrics-container {
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-metrics-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ov-text, #1e293b);
+}
+
+.ov-metrics-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-metrics-icon {
+  stroke: var(--ov-accent, #10b981);
+}
+
+.ov-metrics-body > ul,
+.ov-metrics-body > ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ov-metrics-body > ul > li,
+.ov-metrics-body > ol > li {
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ov-metrics-body > ul > li:hover,
+.ov-metrics-body > ol > li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.ov-metrics-body > ul > li strong,
+.ov-metrics-body > ol > li strong,
+.ov-metrics-body > ul > li b,
+.ov-metrics-body > ol > li b {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 800;
+  font-family: var(--ov-font-mono, monospace);
+  color: var(--ov-accent, #10b981);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+/* =========================================================
+   Extended Callout: FAQ Accordion ([!FAQ])
+   ========================================================= */
+.ov-faq-container {
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-faq-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ov-text, #1e293b);
+}
+
+.ov-faq-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-faq-icon {
+  stroke: var(--ov-accent, #0ea5e9);
+}
+
+.ov-faq-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ov-faq-item {
+  border-radius: 8px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface-secondary, rgba(0, 0, 0, 0.015));
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.ov-faq-item[open] {
+  border-color: var(--ov-accent, #0ea5e9);
+}
+
+.ov-faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ov-text, inherit);
+  list-style: none;
+}
+
+.ov-faq-q::-webkit-details-marker {
+  display: none;
+}
+
+.ov-faq-chevron {
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  stroke: var(--ov-text-secondary, #64748b);
+}
+
+.ov-faq-item[open] .ov-faq-chevron {
+  transform: rotate(180deg);
+  stroke: var(--ov-accent, #0ea5e9);
+}
+
+.ov-faq-a {
+  padding: 12px 16px;
+  border-top: 1px solid var(--ov-border, rgba(0, 0, 0, 0.06));
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ov-text-secondary, rgba(0, 0, 0, 0.75));
+  background: var(--ov-surface, #ffffff);
+}
+
+.ov-faq-a > :first-child { margin-top: 0; }
+.ov-faq-a > :last-child { margin-bottom: 0; }
+
+/* =========================================================
+   Extended Callout: Quotes Wall ([!QUOTES])
+   ========================================================= */
+.ov-quotes-container {
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-quotes-header {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  color: var(--ov-text, #1e293b);
+}
+
+.ov-quotes-body > ul,
+.ov-quotes-body > ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ov-quotes-body > ul > li,
+.ov-quotes-body > ol > li {
+  padding: 18px 20px;
+  border-radius: 10px;
+  border-left: 4px solid var(--ov-accent, #6366f1);
+  background: var(--ov-surface-secondary, rgba(0, 0, 0, 0.02));
+  font-style: italic;
+  position: relative;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* =========================================================
+   Extended Callout: Banner Hero ([!BANNER])
+   ========================================================= */
+.ov-banner-container {
+  margin: 24px 0;
+  border-radius: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
+  padding: 24px 28px;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.ov-banner-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ov-text, #0f172a);
+  margin-bottom: 12px;
+}
+
+.ov-banner-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ov-banner-icon {
+  stroke: var(--ov-accent, #3b82f6);
+  fill: rgba(59, 130, 246, 0.2);
+}
+
+.ov-banner-body {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--ov-text, inherit);
+}
+
+.ov-banner-body > :first-child { margin-top: 0; }
+.ov-banner-body > :last-child { margin-bottom: 0; }
 
 /* =========================================================
    Interactive Task List (Checkbox) Bidirectional Sync

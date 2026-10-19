@@ -22,8 +22,10 @@ import {
   Loader2,
 } from 'lucide-react';
 
+import { resilientImport } from '../viewers/lib/resilientImport';
+
 const MarkdownViewer = React.lazy(() =>
-  import('../viewers/components/drivers/MarkdownViewer').then((m) => ({ default: m.MarkdownViewer }))
+  resilientImport(() => import('../viewers/components/drivers/MarkdownViewer'), { tag: 'DocCenter' }).then((m) => ({ default: m.MarkdownViewer }))
 );
 
 interface DocCenterProps {

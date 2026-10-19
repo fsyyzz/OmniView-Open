@@ -159,6 +159,30 @@ export function getBlockTypeLabel(
     if (/^>\s*\[!CARD\]/i.test(trimmed)) {
       return isZh ? 'Card 独立卡片' : 'Single Card Block';
     }
+    if (/^>\s*\[!(?:TABS?)(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'Tabs 标签页组' : 'Tabs Group';
+    }
+    if (/^>\s*\[!(?:STEPS?)(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'Steps 步骤条向导' : 'Steps Guide Block';
+    }
+    if (/^>\s*\[!TIMELINE(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'Timeline 里程碑时间线' : 'Timeline Block';
+    }
+    if (/^>\s*\[!(?:COMPARE|DIFF)(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'Compare 方案对比卡片' : 'Comparison Block';
+    }
+    if (/^>\s*\[!(?:METRICS?|STATS?|KPI)(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'Metrics 指标看板' : 'Metrics KPI Block';
+    }
+    if (/^>\s*\[!FAQ(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'FAQ 问答手风琴' : 'FAQ Accordion Block';
+    }
+    if (/^>\s*\[!(?:QUOTES?|QUOTE-WALL)(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'Quotes 名言引言墙' : 'Quotes Wall Block';
+    }
+    if (/^>\s*\[!(?:BANNER|HERO)(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
+      return isZh ? 'Banner 宣传横幅' : 'Banner Hero Block';
+    }
     if (/^>\s*\[![a-zA-Z0-9_\-]+(?:[+-]|\s+[^\]]*)?\]/.test(trimmed)) {
       return isZh ? 'Callout 语义提示块' : 'Callout Block';
     }

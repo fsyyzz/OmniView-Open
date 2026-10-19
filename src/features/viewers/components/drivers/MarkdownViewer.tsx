@@ -482,6 +482,30 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     }
   }, [isRendering, blocks.length, onRenderComplete]);
 
+  // 点击事件委托：支持 Tab 切换等交互
+  const handleViewerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+
+    const tabBtn = target.closest('.ov-tab-btn') as HTMLElement | null;
+    if (tabBtn) {
+      const tabIndex = tabBtn.getAttribute('data-tab-index');
+      const tabGroup = tabBtn.closest('.ov-tab-group');
+      if (tabGroup && tabIndex !== null) {
+        tabGroup.querySelectorAll('.ov-tab-btn').forEach(btn => {
+          const isActive = btn.getAttribute('data-tab-index') === tabIndex;
+          btn.classList.toggle('active', isActive);
+          btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        tabGroup.querySelectorAll('.ov-tab-panel').forEach(panel => {
+          const isActive = panel.getAttribute('data-tab-index') === tabIndex;
+          panel.classList.toggle('active', isActive);
+          (panel as HTMLElement).style.display = isActive ? '' : 'none';
+        });
+      }
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -489,6 +513,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       data-density={density}
       data-width={contentWidth}
       className={`markdown-document density-${density}`}
+      onClick={handleViewerClick}
     >
       {isRendering && (
         <div className="flex items-center gap-2 mb-4 text-xs text-blue-400 bg-blue-950/40 border border-blue-800/40 px-3 py-1.5 rounded-md w-fit">

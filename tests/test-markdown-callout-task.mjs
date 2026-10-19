@@ -203,4 +203,30 @@ assert.ok(foldedCards && foldedCards.isCollapsible && !foldedCards.isOpen, '应�
 
 console.log('✅ CARD & CARDS 多列卡片解析测试全部通过');
 
-console.log('🎉 全部 4 组 Markdown Callout / TaskList / KaTeX / CardGrid 单元测试用例 100% 通过！');
+// 5. GitHub Alert Callout 思想扩展组件测试 (Tabs, Steps, Timeline, Compare, Metrics, FAQ, Quotes, Banner)
+console.log('--- 测试 5: GitHub Alert Callout 扩展组件解析测试 ---');
+
+const EXTENDED_TYPES = ['TABS', 'STEPS', 'TIMELINE', 'COMPARE', 'METRICS', 'FAQ', 'QUOTES', 'BANNER'];
+
+for (const extType of EXTENDED_TYPES) {
+  const parsed = parseCardOrCallout(`[!${extType}] 测试${extType}标题\n- 第一项\n- 第二项`);
+  assert.ok(parsed, `应当成功识别 [!${extType}]`);
+  assert.strictEqual(parsed.type, extType, `解析类型应为 ${extType}`);
+  assert.strictEqual(parsed.title, `测试${extType}标题`, `解析标题应匹配`);
+}
+
+// 5.1 别名识别
+const tabAlias = parseCardOrCallout('[!TAB] 别名测试');
+assert.ok(tabAlias && tabAlias.type === 'TAB');
+const stepAlias = parseCardOrCallout('[!STEP] 单步测试');
+assert.ok(stepAlias && stepAlias.type === 'STEP');
+const diffAlias = parseCardOrCallout('[!DIFF] 对比测试');
+assert.ok(diffAlias && diffAlias.type === 'DIFF');
+const kpiAlias = parseCardOrCallout('[!KPI] 核心指标');
+assert.ok(kpiAlias && kpiAlias.type === 'KPI');
+const heroAlias = parseCardOrCallout('[!HERO] 首屏横幅');
+assert.ok(heroAlias && heroAlias.type === 'HERO');
+
+console.log('✅ GitHub Alert Callout 扩展组件测试全部通过');
+
+console.log('🎉 全部 5 组 Markdown Callout / TaskList / KaTeX / CardGrid / ExtendedCallouts 单元测试用例 100% 通过！');

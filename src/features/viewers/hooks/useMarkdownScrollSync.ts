@@ -85,6 +85,36 @@ export function useMarkdownScrollSync({
         return;
       }
 
+      // 1.1 Tab 标签页切换交互
+      const tabBtn = target.closest('.ov-tab-btn') as HTMLElement | null;
+      if (tabBtn) {
+        const tabGroup = tabBtn.closest('.ov-tab-group');
+        if (tabGroup) {
+          const tabIndex = tabBtn.getAttribute('data-tab-index');
+          if (tabIndex !== null) {
+            tabGroup.querySelectorAll('.ov-tab-btn').forEach((btn, idx) => {
+              if (idx.toString() === tabIndex) {
+                btn.classList.add('active');
+                btn.setAttribute('aria-selected', 'true');
+              } else {
+                btn.classList.remove('active');
+                btn.setAttribute('aria-selected', 'false');
+              }
+            });
+            tabGroup.querySelectorAll('.ov-tab-panel').forEach((panel, idx) => {
+              if (idx.toString() === tabIndex) {
+                panel.classList.add('active');
+                (panel as HTMLElement).style.display = 'block';
+              } else {
+                panel.classList.remove('active');
+                (panel as HTMLElement).style.display = 'none';
+              }
+            });
+          }
+        }
+        return;
+      }
+
       // 2. 图片灯箱放大与多图画廊画卷组装
       if (target.tagName.toLowerCase() === 'img') {
         const img = target as HTMLImageElement;

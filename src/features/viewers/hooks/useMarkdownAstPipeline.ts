@@ -318,6 +318,134 @@ export function useMarkdownAstPipeline({
               const isOpen = fold !== '-';
               const chevronSvg = `<svg class="ov-callout-fold-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
+              // 1. 多标签页组 (Tabs): [!TABS], [!TAB]
+              if (upperType === 'TABS' || upperType === 'TAB') {
+                const listToken = restTokens.find(t => t.type === 'list');
+                if (listToken && (listToken as any).items?.length > 0) {
+                  const tabs: Array<{ label: string; html: string }> = [];
+                  for (const item of (listToken as any).items) {
+                    let label = 'Tab';
+                    const itemTokens = [...(item.tokens || [])];
+                    if (itemTokens.length > 0) {
+                      const first = itemTokens[0];
+                      if (first.type === 'text' || first.type === 'paragraph') {
+                        const textStr = first.text || first.raw || '';
+                        const lines = textStr.split('\n');
+                        label = lines[0].replace(/^\*\*|\*\*$/g, '').replace(/^#+\s*/, '').trim() || 'Tab';
+                        if (lines.length > 1 && lines.slice(1).join('\n').trim()) {
+                          const restText = lines.slice(1).join('\n');
+                          const lexed = marked.lexer(restText);
+                          itemTokens.splice(0, 1, ...lexed);
+                        } else {
+                          itemTokens.shift();
+                        }
+                      }
+                    }
+                    const html = itemTokens.length > 0 ? this.parser.parse(itemTokens) : '';
+                    tabs.push({ label, html });
+                  }
+
+                  const titleHtml = customTitle
+                    ? `<span class="ov-tab-group-title">${customTitle}</span>`
+                    : '';
+                  const navButtons = tabs.map((tab, idx) =>
+                    `<button type="button" class="ov-tab-btn ${idx === 0 ? 'active' : ''}" data-tab-index="${idx}" role="tab" aria-selected="${idx === 0 ? 'true' : 'false'}">${tab.label}</button>`
+                  ).join('');
+                  const panels = tabs.map((tab, idx) =>
+                    `<div class="ov-tab-panel ${idx === 0 ? 'active' : ''}" data-tab-index="${idx}" role="tabpanel" style="${idx === 0 ? '' : 'display:none;'}">${tab.html}</div>`
+                  ).join('');
+
+                  return `<div class="ov-tab-group" data-source-line="${currentTokenStartLine}"><div class="ov-tab-header-wrap">${titleHtml}<div class="ov-tab-nav" role="tablist">${navButtons}</div></div><div class="ov-tab-panels">${panels}</div></div>\n`;
+                }
+              }
+
+              // 2. 步骤条 / 流程引导 (Steps): [!STEPS], [!STEP]
+              if (upperType === 'STEPS' || upperType === 'STEP') {
+                const stepsIcon = `<svg class="ov-steps-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+                const titleHtml = customTitle
+                  ? `<div class="ov-steps-header"><span class="ov-steps-title-left">${stepsIcon}<span class="ov-steps-title-text">${customTitle}</span></span></div>`
+                  : '';
+                return `<div class="ov-steps-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-steps-body">${bodyHtml}</div></div>\n`;
+              }
+
+              // 3. 时间线 / 里程碑 (Timeline): [!TIMELINE]
+              if (upperType === 'TIMELINE') {
+                const timeIcon = `<svg class="ov-timeline-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>`;
+                const titleHtml = customTitle
+                  ? `<div class="ov-timeline-header"><span class="ov-timeline-title-left">${timeIcon}<span class="ov-timeline-title-text">${customTitle}</span></span></div>`
+                  : '';
+                return `<div class="ov-timeline-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-timeline-body">${bodyHtml}</div></div>\n`;
+              }
+
+              // 4. 对比卡片 / 方案权衡 (Compare): [!COMPARE], [!DIFF]
+              if (upperType === 'COMPARE' || upperType === 'DIFF') {
+                const compareIcon = `<svg class="ov-compare-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="m21 3-7 7"></path><path d="M8 21H3v-5"></path><path d="m3 21 7-7"></path></svg>`;
+                const titleHtml = customTitle
+                  ? `<div class="ov-compare-header"><span class="ov-compare-title-left">${compareIcon}<span class="ov-compare-title-text">${customTitle}</span></span></div>`
+                  : '';
+                return `<div class="ov-compare-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-compare-body">${bodyHtml}</div></div>\n`;
+              }
+
+              // 5. 数字 KPI 指标看板 (Metrics): [!METRICS], [!STATS], [!KPI]
+              if (upperType === 'METRICS' || upperType === 'STATS' || upperType === 'KPI') {
+                const metricsIcon = `<svg class="ov-metrics-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>`;
+                const titleHtml = customTitle
+                  ? `<div class="ov-metrics-header"><span class="ov-metrics-title-left">${metricsIcon}<span class="ov-metrics-title-text">${customTitle}</span></span></div>`
+                  : '';
+                return `<div class="ov-metrics-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-metrics-body">${bodyHtml}</div></div>\n`;
+              }
+
+              // 6. 问答手风琴 (FAQ): [!FAQ]
+              if (upperType === 'FAQ') {
+                const faqIcon = `<svg class="ov-faq-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+                const titleHtml = customTitle
+                  ? `<div class="ov-faq-header"><span class="ov-faq-title-left">${faqIcon}<span class="ov-faq-title-text">${customTitle}</span></span></div>`
+                  : '';
+                const listToken = restTokens.find(t => t.type === 'list');
+                if (listToken && (listToken as any).items?.length > 0) {
+                  const itemsHtml = (listToken as any).items.map((item: any, idx: number) => {
+                    let q = `Q${idx + 1}`;
+                    const itemTokens = [...(item.tokens || [])];
+                    if (itemTokens.length > 0) {
+                      const first = itemTokens[0];
+                      if (first.type === 'text' || first.type === 'paragraph') {
+                        const textStr = first.text || first.raw || '';
+                        const lines = textStr.split('\n');
+                        q = lines[0].replace(/^\*\*|\*\*$/g, '').replace(/^#+\s*/, '').trim() || q;
+                        if (lines.length > 1 && lines.slice(1).join('\n').trim()) {
+                          const restText = lines.slice(1).join('\n');
+                          const lexed = marked.lexer(restText);
+                          itemTokens.splice(0, 1, ...lexed);
+                        } else {
+                          itemTokens.shift();
+                        }
+                      }
+                    }
+                    const ansHtml = itemTokens.length > 0 ? this.parser.parse(itemTokens) : '';
+                    return `<details class="ov-faq-item"><summary class="ov-faq-q"><span class="ov-faq-q-text">${q}</span><svg class="ov-faq-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="ov-faq-a">${ansHtml}</div></details>`;
+                  }).join('');
+                  return `<div class="ov-faq-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-faq-body">${itemsHtml}</div></div>\n`;
+                }
+                return `<div class="ov-faq-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-faq-body">${bodyHtml}</div></div>\n`;
+              }
+
+              // 7. 引言卡片墙 (Quotes): [!QUOTES], [!QUOTE-WALL]
+              if (upperType === 'QUOTES' || upperType === 'QUOTE-WALL') {
+                const titleHtml = customTitle
+                  ? `<div class="ov-quotes-header"><span class="ov-quotes-title-text">${customTitle}</span></div>`
+                  : '';
+                return `<div class="ov-quotes-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-quotes-body">${bodyHtml}</div></div>\n`;
+              }
+
+              // 8. 宣传横幅 / 首屏推荐 (Banner / Hero): [!BANNER], [!HERO]
+              if (upperType === 'BANNER' || upperType === 'HERO') {
+                const bannerIcon = `<svg class="ov-banner-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+                const titleHtml = customTitle
+                  ? `<div class="ov-banner-header"><span class="ov-banner-title-left">${bannerIcon}<span class="ov-banner-title-text">${customTitle}</span></span></div>`
+                  : '';
+                return `<div class="ov-banner-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-banner-body">${bodyHtml}</div></div>\n`;
+              }
+
               // 卡片矩阵网格 (Card Grid): [!CARDS], [!CARDS:3], [!CARDS:4], [!CARDS:6], [!CARD-GRID], [!GRID]
               if (upperType === 'CARDS' || upperType === 'CARD-GRID' || upperType === 'GRID') {
                 const cols = colParam ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;

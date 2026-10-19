@@ -2,6 +2,45 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.6] - 2026-10-19
+
+### Fixed
+
+- **Vite 6 宿主请求拦截安全限制修复 (`vite.config.ts`)**:
+  - 配置 `server.allowedHosts: true` 与 `preview.allowedHosts: true`，彻底消除在 Cloud Run / AI Studio 代理域名访问时触发的 Vite 6 默认 Host 拦截策略 (`403 Forbidden: Blocked request. This host is not allowed`)；
+  - 修正动态模块加载链路，避免浏览器向 Cloud Run 宿主请求驱动 chunk 时因 403 导致 `Failed to fetch dynamically imported module: MarkdownViewer.tsx`；
+  - 将 `base` 路径在开发环境下恢复为 `'/'` (生产构建维持 `'./'`)，保障动态分块与资源路径规范解析。
+
+## [1.3.5] - 2026-10-19
+
+### Fixed
+
+- **异步驱动动态加载故障与自愈机制修复 (`resilientImport` & `driverRegistry.tsx`)**:
+  - **弹性异步加载机制 (`resilientImport.ts`)**：实现带有指数退避（Exponential Backoff）与 3 次自动重试的动态加载器，根治网络抖动与 Vite 热更时偶发的 `TypeError: Failed to fetch dynamically imported module`；
+  - **自愈式驱动缓存与重置 (`driverRegistry.tsx`)**：在动态加载失败时自动剔除缓存项，避免 React `lazy()` 永久锁死在 rejected 状态，让后续重试与渲染能够重新请求模块；
+  - **统一 Markdown 驱动分发工厂**：消除 `driverRegistry.tsx` 中分散的静态 `lazy()` 定义，使多模式渲染与单模式共用同一套弹性驱动工厂；
+  - **文档中心驱动接入 (`DocCenter.tsx`)**：将文档中心全局懒加载统一接入 `resilientImport`；
+  - **错误边界自愈重置增强 (`RenderErrorBoundary.tsx`)**：捕获动态模块载入故障时自动清空驱动映射缓存，并在重试按钮触发时重置状态，提供友好的故障引导提示。
+
+## [1.3.4] - 2026-10-19
+
+### Added
+
+- **GitHub Alert Callout 核心思想高阶排版组件生态全面落地 (`useMarkdownAstPipeline` & `index.css`)**:
+  - **8 大高阶排版与交互组件完整实现**：
+    1. **多标签页组 (`> [!TABS]` / `> [!TAB]`)**：支持多语言代码命令、包管理器快速安装切换，具备原生交互点击即切换面板；
+    2. **流程步骤条 (`> [!STEPS]` / `> [!STEP]`)**：向导式垂直时间轴与数字编号圆形徽章引导，适用于新手教程与排错三部曲；
+    3. **里程碑时间线 (`> [!TIMELINE]`)**：轴线节点与双环发光圆点，适用于版本发布历程与架构路线图；
+    4. **方案多维对照 (`> [!COMPARE]` / `> [!DIFF]`)**：多栏卡片对比布局，红/绿语义顶边框高光对比重点（Before vs After / 方案选型）；
+    5. **核心 KPI 指标看板 (`> [!METRICS]` / `> [!STATS]` / `> [!KPI]`)**：大号数字与说明文字悬浮卡片，支持网格自适应；
+    6. **交互式问答手风琴 (`> [!FAQ]`)**：基于原生 `<details><summary>` 构建的零 JS 依赖平滑手风琴，支持单项折叠展开与旋转 Chevron 动效；
+    7. **开发者与名家引言墙 (`> [!QUOTES]` / `> [!QUOTE-WALL]`)**：斜体引语、大号引号装饰与左侧高贵紫强调边框；
+    8. **首屏高光宣传横幅 (`> [!BANNER]` / `> [!HERO]`)**：微光渐变背景与矢量徽标，适用于重大发布与文档首屏公告；
+  - **AST 流水线与事件委托打通 (`MarkdownViewer.tsx`)**：在 Markdown 视口增加容器级点击事件委托，秒级完成 Tab 切换与无状态交互；
+  - **块级原地编辑器类型全面识别 (`markdownBlockEditor.ts`)**：支持识别 Tabs 标签页组、Steps 步骤条、Timeline 时间线、Compare 对比卡片、Metrics 指标看板、FAQ 问答手风琴、Quotes 引言墙与 Banner 宣传横幅；
+  - **单元测试 100% 覆盖与演练样本同步**：`tests/test-markdown-callout-task.mjs` 新增第 5 组全量扩展组件解析与别名覆盖测试，并在 `examples/markdown/callouts-and-tasks.md` 中补充第六章完整实战演练；
+  - **技能库全面扩充更新**：在 `.codex/skills/omniview-markdown-authoring/SKILL.md` 中同步更新决策树、8 大组件实操范式与模板代码，并完成 codex 索引重新构建。
+
 ## [1.3.3] - 2026-10-19
 
 ### Added
