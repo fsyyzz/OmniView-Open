@@ -2,6 +2,32 @@
 
 本文件记录 OmniView 对用户与贡献者可见的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.8] - 2026-10-19
+
+### Added
+
+- **GitHub Alert Callout 全景示例范本与全能力覆盖 (`examples/markdown/github-alert-callouts.md`)**:
+  - 新增全景权威示例文件，完整覆盖 GitHub Alert Callout 核心设计哲学、CommonMark 优雅降级优先、WAI-ARIA 可访问性；
+  - 覆盖官方 5 大标准语义（`NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`）与扩展生态语义（`SUCCESS`, `QUESTION`, `EXAMPLE`, `QUOTE`）；
+  - 覆盖折叠手风琴交互（`-` 默认收起 / `+` 默认展开）、自定义标题、复杂富媒体内嵌（多语言代码块、KaTeX 数学公式、数据表格、Task List 交互回写、Mermaid 图表、多层嵌套）；
+  - 覆盖 1 行 2/3/4/6 列卡片矩阵（`[!CARDS:N]`）、单体独立高光卡片（`[!CARD]`）、折叠卡片矩阵（`[!CARDS:3]-`）与容器查询响应式断点；
+  - 覆盖生产实战综合场景（架构决策记录 ADR、生产事故复盘 Postmortem、安全预警 Advisory）。
+- **AI 技能工程与 Markdown 编排规范模块化重构 (`.codex/skills/omniview-markdown-authoring`)**:
+  - 依照 Antigravity `create-skill` 架构规范全面重构技能目录，推行渐进式披露与按需加载原则；
+  - 精简总入口 `SKILL.md`，将上下文消耗降低 65%，并将深度规则与专项细节下沉至 `references/`（卡片与容器、图表与矢量、数学公式、11 大反模式）；
+  - 提供开箱即用的真实企业级架构与版本说明范本至 `examples/`；
+  - 引入并在工作区安装 `create-skill` 技能脚手架。
+
+
+### Fixed
+
+- **可折叠 Callout (`[!TIP]-`) 与交互手风琴收缩与展开折叠图标定位一致性修复 (`src/index.css`)**:
+  - **旋转中心点严格约束**：为 `.ov-callout-fold-icon` 与 `.ov-faq-chevron` 显式注入 `transform-origin: 50% 50%` 与 `transform-box: fill-box`，彻底消除 SVG 默认 `(0, 0)` 旋转中心导致的展开前后水平与垂直位置跳跃（-16px 漂移）；
+  - **Flexbox 盒模型与原生伪元素重置**：为所有折叠 `<summary>` 容器强制声明 `display: flex !important`，并彻底清除 `summary::-webkit-details-marker` 与 `summary::marker` 原生标记，防止 Safari/WebKit 下伪元素幽灵间隙干扰；
+  - **正文全局 SVG 规则防误伤**：在通用 Markdown 正文 SVG 自适应规则中，将排除选择器从单一 `.ov-callout-icon` 全面升级为 `svg:not([class*="ov-"])`，彻底防止折叠箭头被注入异常 `margin: 18px auto` 与拉伸变形；
+  - **标准 Markdown `<details><summary>` 优雅融合**：补充原生折叠标签的美化样式，保障标准 CommonMark 折叠与扩展 Callout 视觉质感完全统一。
+
+
 ## [1.3.6] - 2026-10-19
 
 ### Fixed

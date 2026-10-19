@@ -229,4 +229,42 @@ assert.ok(heroAlias && heroAlias.type === 'HERO');
 
 console.log('✅ GitHub Alert Callout 扩展组件测试全部通过');
 
-console.log('🎉 全部 5 组 Markdown Callout / TaskList / KaTeX / CardGrid / ExtendedCallouts 单元测试用例 100% 通过！');
+// 6. 可折叠 Callout [!TIP]- 与手风琴折叠图标定位与样式一致性校验
+console.log('--- 测试 6: Callout 与手风琴折叠图标定位与样式一致性校验 ---');
+import fs from 'node:fs';
+import path from 'node:path';
+
+const cssPath = path.resolve(process.cwd(), 'src/index.css');
+const cssContent = fs.readFileSync(cssPath, 'utf-8');
+
+// 6.1 验证 .ov-callout-fold-icon 包含精确的 transform-origin 与 transform-box，防止旋转时发生中心偏移与位置跳跃
+assert.ok(
+  cssContent.includes('.ov-callout-fold-icon') &&
+    cssContent.includes('transform-origin: 50% 50%') &&
+    cssContent.includes('transform-box: fill-box'),
+  '.ov-callout-fold-icon 必须具备 transform-origin: 50% 50% 与 transform-box: fill-box，确保旋转中心无偏移'
+);
+
+// 6.2 验证 .ov-faq-chevron 同样具备 transform-origin 约束
+assert.ok(
+  cssContent.includes('.ov-faq-chevron') &&
+    cssContent.includes('transform-origin: 50% 50%'),
+  '.ov-faq-chevron 必须具备居中 transform-origin'
+);
+
+// 6.3 验证所有折叠 summary 容器均强制声明 display: flex !important 与 ::marker 清除
+assert.ok(
+  cssContent.includes('summary.ov-callout-title::marker') &&
+    cssContent.includes('display: none !important'),
+  '必须彻底清除 summary 原生 ::marker 伪元素标记'
+);
+
+// 6.4 验证通用 markdown SVG 规则排除了 ov- 类图标，防止对折叠箭头注入 margin: 18px auto
+assert.ok(
+  cssContent.includes('svg:not([class*="ov-"])'),
+  '必须在正文 SVG 通用样式中排除 [class*="ov-"] 类名，防止折叠箭头被注入异常 margin 与高度'
+);
+
+console.log('✅ Callout 与手风琴折叠图标定位一致性校验全部通过');
+
+console.log('🎉 全部 6 组 Markdown Callout / TaskList / KaTeX / CardGrid / ExtendedCallouts / FoldIcon 单元测试用例 100% 通过！');

@@ -1225,8 +1225,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   vertical-align: middle;
 }
 
-/* Markdown 正文内联与块级 SVG 元素自适应容器显示空间 */
-.markdown-content svg:not(.ov-callout-icon):not([class*="lucide"]) {
+/* Markdown 正文内联与块级 SVG 元素自适应容器显示空间（严格排除所有 OmniView UI 控制图标与 Lucide 图标） */
+.markdown-content svg:not([class*="ov-"]):not([class*="lucide"]) {
   max-width: 100% !important;
   height: auto !important;
   display: block;
@@ -2794,10 +2794,14 @@ mark.ov-search-match.is-active-match {
 details.ov-callout summary.ov-callout-title {
   cursor: pointer;
   list-style: none;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
 }
 
-details.ov-callout summary.ov-callout-title::-webkit-details-marker {
-  display: none;
+details.ov-callout summary.ov-callout-title::-webkit-details-marker,
+details.ov-callout summary.ov-callout-title::marker {
+  display: none !important;
 }
 
 .ov-callout-title-left {
@@ -2813,9 +2817,16 @@ details.ov-callout summary.ov-callout-title::-webkit-details-marker {
 
 .ov-callout-fold-icon {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
   stroke: var(--callout-color, #3b82f6);
   opacity: 0.7;
-  transition: transform 0.2s ease;
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+  display: inline-block;
+  margin: 0 !important;
+  vertical-align: middle;
 }
 
 details.ov-callout[open] .ov-callout-fold-icon {
@@ -2892,6 +2903,32 @@ details.ov-callout[open] .ov-callout-fold-icon {
   --callout-bg: rgba(100, 116, 139, 0.06);
 }
 
+/* Standard Markdown <details><summary> Fallback & Consistency */
+.markdown-content details:not([class*="ov-"]) {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface-secondary, rgba(0, 0, 0, 0.02));
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.markdown-content details:not([class*="ov-"]) > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ov-text, inherit);
+  user-select: none;
+  outline: none;
+  line-height: 1.4;
+}
+
+.markdown-content details:not([class*="ov-"])[open] > summary {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.06));
+}
+
 /* =========================================================
    Card & Multi-Column Card Grid (GitHub Alert Philosophy)
    ========================================================= */
@@ -2929,11 +2966,16 @@ details.ov-card-single summary.ov-card-single-header {
   cursor: pointer;
   user-select: none;
   list-style: none;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
 }
 
 details.ov-card-grid-container summary.ov-card-grid-header::-webkit-details-marker,
-details.ov-card-single summary.ov-card-single-header::-webkit-details-marker {
-  display: none;
+details.ov-card-single summary.ov-card-single-header::-webkit-details-marker,
+details.ov-card-grid-container summary.ov-card-grid-header::marker,
+details.ov-card-single summary.ov-card-single-header::marker {
+  display: none !important;
 }
 
 details.ov-card-grid-container[open] .ov-callout-fold-icon,
@@ -3608,7 +3650,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 }
 
 .ov-faq-q {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
@@ -3620,14 +3662,23 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   list-style: none;
 }
 
-.ov-faq-q::-webkit-details-marker {
-  display: none;
+.ov-faq-q::-webkit-details-marker,
+.ov-faq-q::marker {
+  display: none !important;
 }
 
 .ov-faq-chevron {
-  transition: transform 0.2s ease;
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
   stroke: var(--ov-text-secondary, #64748b);
+  opacity: 0.7;
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+  display: inline-block;
+  margin: 0 !important;
+  vertical-align: middle;
 }
 
 .ov-faq-item[open] .ov-faq-chevron {

@@ -97,12 +97,16 @@ assert.ok(
 console.log('✅ 5. 划选气泡与代码块悬浮工具栏全主题 --ov-* 语义令牌校验通过');
 
 // 6. 验证 P1 代码块智能增强：Shell 提示符剥离与 JSON/YAML/CSV 原地结构化预览
+import esbuild from 'esbuild';
+const enhancerTsPath = path.resolve(rootDir, 'src/features/viewers/lib/codeBlockEnhancer.ts');
+const enhancerTs = fs.readFileSync(enhancerTsPath, 'utf-8');
+const { code: compiledJs } = esbuild.transformSync(enhancerTs, { loader: 'ts', format: 'esm' });
 const {
   hasExplicitShellPrompts,
   stripShellPrompts,
   isStructuredDataLang,
   parseStructuredCodeBlock,
-} = await import('../src/features/viewers/lib/codeBlockEnhancer.ts');
+} = await import(`data:text/javascript;base64,${Buffer.from(compiledJs).toString('base64')}`);
 
 const sampleShell = [
   '# 安装依赖',
