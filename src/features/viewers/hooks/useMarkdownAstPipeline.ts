@@ -187,6 +187,126 @@ export function resolveMarkdownImageHref(
   return rawHref;
 }
 
+export interface ParsedImageModifiers {
+  cleanAlt: string;
+  captionText: string;
+  showCaption: boolean;
+  themeVisibility: 'all' | 'dark-only' | 'light-only';
+  plate: 'none' | 'light' | 'dark' | 'checker';
+  align: 'default' | 'left' | 'right' | 'center';
+  styleAttr: string;
+  extraClasses: string[];
+}
+
+/**
+ * 解析 Markdown 图片轻量修饰符与 GitHub 主题感知后缀
+ * 支持:
+ * - ![说明|480](url), ![说明|60%](url), ![说明|400x300](url)
+ * - ![说明|bg-light](url), ![说明|bg-dark](url), ![说明|bg-checker](url)
+ * - ![说明|left/right/center/rounded/circle/flat/caption](url)
+ * - ![](url#gh-dark-mode-only), ![](url#gh-light-mode-only), ![](url#dark), ![](url#light)
+ */
+export function parseMarkdownImageModifiers(
+  rawAlt = '',
+  rawHref = '',
+  rawTitle = ''
+): ParsedImageModifiers {
+  const extraClasses: string[] = [];
+  const styles: string[] = [];
+  let themeVisibility: 'all' | 'dark-only' | 'light-only' = 'all';
+  let plate: 'none' | 'light' | 'dark' | 'checker' = 'none';
+  let align: 'default' | 'left' | 'right' | 'center' = 'default';
+  let forceCaption = false;
+
+  const trimmedHref = (rawHref || '').trim();
+  if (/#(?:gh-dark-mode-only|dark)$/i.test(trimmedHref)) {
+    themeVisibility = 'dark-only';
+    extraClasses.push('ov-img-dark-only');
+  } else if (/#(?:gh-light-mode-only|light)$/i.test(trimmedHref)) {
+    themeVisibility = 'light-only';
+    extraClasses.push('ov-img-light-only');
+  }
+
+  const parts = (rawAlt || '').split('|').map((s) => s.trim());
+  const cleanAlt = parts[0] || '';
+  const modifiers = parts.slice(1);
+
+  for (const mod of modifiers) {
+    const lower = mod.toLowerCase();
+    if (!lower) continue;
+
+    const widthPxMatch = lower.match(/^(\d+)(?:px)?$/);
+    const widthPctMatch = lower.match(/^(\d+)%$/);
+    const dimMatch = lower.match(/^(\d+)x(\d+)$/);
+
+    if (widthPxMatch) {
+      styles.push(`max-width: ${widthPxMatch[1]}px; width: 100%;`);
+    } else if (widthPctMatch) {
+      styles.push(`max-width: ${widthPctMatch[1]}%; width: 100%;`);
+    } else if (dimMatch) {
+      styles.push(`max-width: ${dimMatch[1]}px; max-height: ${dimMatch[2]}px;`);
+    } else if (lower === 'bg-light' || lower === 'light-bg' || lower === 'plate-light') {
+      plate = 'light';
+      extraClasses.push('ov-img-plate-light');
+    } else if (lower === 'bg-dark' || lower === 'dark-bg' || lower === 'plate-dark') {
+      plate = 'dark';
+      extraClasses.push('ov-img-plate-dark');
+    } else if (lower === 'bg-checker' || lower === 'checker') {
+      plate = 'checker';
+      extraClasses.push('ov-img-plate-checker');
+    } else if (lower === 'left' || lower === 'align-left') {
+      align = 'left';
+      extraClasses.push('ov-img-align-left');
+    } else if (lower === 'right' || lower === 'align-right') {
+      align = 'right';
+      extraClasses.push('ov-img-align-right');
+    } else if (lower === 'center' || lower === 'align-center') {
+      align = 'center';
+      extraClasses.push('ov-img-align-center');
+    } else if (lower === 'rounded' || lower === 'pill') {
+      extraClasses.push('ov-img-rounded');
+    } else if (lower === 'circle' || lower === 'avatar') {
+      extraClasses.push('ov-img-circle');
+    } else if (lower === 'no-shadow' || lower === 'flat') {
+      extraClasses.push('ov-img-flat');
+    } else if (lower === 'caption') {
+      forceCaption = true;
+    }
+  }
+
+  const trimmedTitle = (rawTitle || '').trim();
+  const captionText = trimmedTitle || (forceCaption ? cleanAlt : '');
+  const showCaption = Boolean(captionText);
+  if (showCaption) {
+    extraClasses.push('ov-image-with-caption');
+  }
+
+  return {
+    cleanAlt,
+    captionText,
+    showCaption,
+    themeVisibility,
+    plate,
+    align,
+    styleAttr: styles.join(' '),
+    extraClasses,
+  };
+}
+
+function injectAutoImageCaptions(html: string): string {
+  return html.replace(
+    /<span class="ov-image-container([^"]*)"><img([^>]*?\salt="([^"]*)"[^>]*?)><\/span>/g,
+    (fullMatch, containerClasses, imgAttrs, altVal) => {
+      const trimmedAlt = (altVal || '').trim();
+      if (!trimmedAlt) return fullMatch;
+      const nextClasses = containerClasses.includes('ov-image-with-caption')
+        ? containerClasses
+        : `${containerClasses} ov-image-with-caption`;
+      return `<span class="ov-image-container${nextClasses}"><img${imgAttrs}><span class="ov-image-caption">${trimmedAlt}</span></span>`;
+    }
+  );
+}
+
 export function useMarkdownAstPipeline({
   content,
   files,
@@ -244,12 +364,19 @@ export function useMarkdownAstPipeline({
         const rawHref = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.href : hrefOrToken;
         const alt = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.text : text;
         const imgTitle = typeof hrefOrToken === 'object' && hrefOrToken !== null ? hrefOrToken.title : title;
-        const safeAlt = (alt || '').replace(/"/g, '&quot;');
+
+        const parsed = parseMarkdownImageModifiers(alt || '', rawHref || '', imgTitle || '');
+        const safeAlt = parsed.cleanAlt.replace(/"/g, '&quot;');
         const safeTitle = (imgTitle || '').replace(/"/g, '&quot;');
+        const safeCaption = parsed.captionText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
         const resolvedHref = resolveMarkdownImageHref(rawHref, filesRef.current);
+        const containerClasses = ['ov-image-container', ...parsed.extraClasses].join(' ');
+        const styleAttr = parsed.styleAttr ? ` style="${parsed.styleAttr}"` : '';
+        const themeDataAttr = parsed.themeVisibility !== 'all' ? ` data-theme-mode="${parsed.themeVisibility}"` : '';
+        const captionHtml = parsed.showCaption ? `<span class="ov-image-caption">${safeCaption}</span>` : '';
 
-        return `<span class="ov-image-container"><img src="${resolvedHref}" alt="${safeAlt}" title="${safeTitle}" decoding="async" onerror="this.classList.add('ov-img-broken');this.insertAdjacentHTML('afterend','<span class=\\'ov-image-fallback\\'>⚠️ ${t('imageNotFound', locale)}: <code>${rawHref}</code></span>');this.style.display='none';" /></span>`;
+        return `<span class="${containerClasses}"${themeDataAttr}><img src="${resolvedHref}" alt="${safeAlt}" title="${safeTitle}"${styleAttr} decoding="async" onerror="this.classList.add('ov-img-broken');this.insertAdjacentHTML('afterend','<span class=\\'ov-image-fallback\\'>⚠️ ${t('imageNotFound', locale)}: <code>${rawHref}</code></span>');this.style.display='none';" />${captionHtml}</span>`;
       };
 
       const origHtml = customRenderer.html?.bind(customRenderer);
@@ -295,14 +422,14 @@ export function useMarkdownAstPipeline({
           if (firstToken && (firstToken.type === 'paragraph' || firstToken.type === 'text')) {
             const firstRaw = (firstToken.raw || firstToken.text || '').trimStart();
             const calloutMatch = firstRaw.match(
-              /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]))?(?:[ \t]+cols=([1-6]))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i
+              /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]|right|left))?(?:[ \t]+cols=([1-6])|[ \t]+([^\]\n]+))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i
             );
             if (calloutMatch) {
               const typeRaw = calloutMatch[1];
               const colParam = calloutMatch[2] || calloutMatch[3];
-              const fold = calloutMatch[4];
-              const customTitle = (calloutMatch[5] || '').trim();
-              const remainingText = (calloutMatch[6] || '');
+              const fold = calloutMatch[5];
+              const customTitle = (calloutMatch[6] || calloutMatch[4] || '').trim();
+              const remainingText = (calloutMatch[7] || '');
               const upperType = typeRaw.toUpperCase();
 
               const restTokens = [...tokenOrQuote.tokens];
@@ -446,9 +573,53 @@ export function useMarkdownAstPipeline({
                 return `<div class="ov-banner-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-banner-body">${bodyHtml}</div></div>\n`;
               }
 
+              // 9. 多图画廊网格 (Gallery / Image Grid): [!GALLERY], [!GALLERY:2~6], [!IMAGES], [!PHOTO-GRID]
+              if (upperType === 'GALLERY' || upperType === 'IMAGES' || upperType === 'PHOTO-GRID') {
+                const cols = colParam && /^[1-6]$/.test(colParam) ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;
+                const galleryIcon = `<svg class="ov-gallery-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+                const titleHtml = customTitle
+                  ? `<span class="ov-gallery-title-left">${galleryIcon}<span class="ov-gallery-title-text">${customTitle}</span></span>`
+                  : '';
+                const galleryBodyHtml = injectAutoImageCaptions(bodyHtml);
+
+                if (isCollapsible) {
+                  return `<details class="ov-gallery-container" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-gallery-header">${titleHtml}${chevronSvg}</summary><div class="ov-gallery-grid ov-gallery-cols-${cols}" style="--ov-gallery-cols: ${cols};" data-cols="${cols}"><div class="ov-gallery-body">${galleryBodyHtml}</div></div></details>\n`;
+                }
+
+                const headerBlock = customTitle ? `<div class="ov-gallery-header">${titleHtml}</div>` : '';
+                return `<div class="ov-gallery-container" data-source-line="${currentTokenStartLine}"><div class="ov-gallery-grid ov-gallery-cols-${cols}" style="--ov-gallery-cols: ${cols};" data-cols="${cols}">${headerBlock}<div class="ov-gallery-body">${galleryBodyHtml}</div></div></div>\n`;
+              }
+
+              // 10. 标准技术图件框 (Figure): [!FIGURE], [!FIG]
+              if (upperType === 'FIGURE' || upperType === 'FIG') {
+                const figIcon = `<svg class="ov-figure-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+                const figureBodyHtml = customTitle ? bodyHtml : injectAutoImageCaptions(bodyHtml);
+                const captionBlock = customTitle
+                  ? `<figcaption class="ov-figure-caption">${figIcon}<span class="ov-figure-caption-text">${customTitle}</span></figcaption>`
+                  : '';
+
+                if (isCollapsible) {
+                  const summaryTitle = customTitle || (locale === 'zh-CN' ? '技术图件 (Figure)' : 'Figure');
+                  return `<details class="ov-figure-container" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-figure-header"><span class="ov-figure-title-left">${figIcon}<span class="ov-figure-caption-text">${summaryTitle}</span></span>${chevronSvg}</summary><div class="ov-figure-stage">${figureBodyHtml}</div></details>\n`;
+                }
+
+                return `<figure class="ov-figure-container" data-source-line="${currentTokenStartLine}"><div class="ov-figure-stage">${figureBodyHtml}</div>${captionBlock}</figure>\n`;
+              }
+
+              // 11. 图文并排分栏 (Media Split): [!MEDIA], [!MEDIA:RIGHT], [!MEDIA-RIGHT], [!MEDIA:LEFT], [!MEDIA-LEFT]
+              if (upperType === 'MEDIA' || upperType === 'MEDIA-RIGHT' || upperType === 'MEDIA-LEFT') {
+                const isRight = upperType === 'MEDIA-RIGHT' || (colParam && colParam.toUpperCase() === 'RIGHT');
+                const mediaIcon = `<svg class="ov-media-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M12 3v18"></path></svg>`;
+                const titleHtml = customTitle
+                  ? `<div class="ov-media-header"><span class="ov-media-title-left">${mediaIcon}<span class="ov-media-title-text">${customTitle}</span></span></div>`
+                  : '';
+                const dirClass = isRight ? ' ov-media-reverse' : '';
+                return `<div class="ov-media-container${dirClass}" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-media-body">${bodyHtml}</div></div>\n`;
+              }
+
               // 卡片矩阵网格 (Card Grid): [!CARDS], [!CARDS:3], [!CARDS:4], [!CARDS:6], [!CARD-GRID], [!GRID]
               if (upperType === 'CARDS' || upperType === 'CARD-GRID' || upperType === 'GRID') {
-                const cols = colParam ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;
+                const cols = colParam && /^[1-6]$/.test(colParam) ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;
                 const gridIcon = `<svg class="ov-card-grid-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`;
                 const titleHtml = customTitle
                   ? `<span class="ov-card-grid-title-left">${gridIcon}<span class="ov-card-grid-title-text">${customTitle}</span></span>`

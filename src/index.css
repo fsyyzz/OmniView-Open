@@ -2602,6 +2602,129 @@ mark.ov-search-match.is-active-match {
 .ov-image-container {
   display: inline-block;
   max-width: 100%;
+  vertical-align: middle;
+}
+
+.ov-image-container.ov-image-with-caption {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  margin: 14px auto;
+}
+
+.ov-image-container.ov-image-with-caption img {
+  margin: 0 auto 8px auto !important;
+}
+
+.ov-image-caption {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ov-text-muted, var(--ov-text-secondary, #64748b));
+  text-align: center;
+  padding: 2px 8px;
+  max-width: 92%;
+}
+
+/* 透明 PNG / SVG 图表反差衬底板 (|bg-light, |bg-dark, |bg-checker) */
+.ov-img-plate-light img {
+  background: #f8fafc !important;
+  padding: 12px !important;
+  border: 1px solid var(--ov-border, #e2e8f0) !important;
+  border-radius: 10px !important;
+}
+
+.ov-img-plate-dark img {
+  background: #0f172a !important;
+  padding: 12px !important;
+  border: 1px solid var(--ov-border, #1e293b) !important;
+  border-radius: 10px !important;
+}
+
+.ov-img-plate-checker img {
+  background-color: #f8fafc !important;
+  background-image:
+    linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+    linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+    linear-gradient(-45deg, transparent 75%, #e2e8f0 75%) !important;
+  background-size: 16px 16px !important;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0 !important;
+  padding: 12px !important;
+  border-radius: 10px !important;
+}
+
+/* 图片对齐与造型修饰符 (|left, |right, |center, |rounded, |circle, |flat) */
+.ov-img-align-left {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+}
+.ov-img-align-left img {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+.ov-img-align-right {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-end !important;
+}
+.ov-img-align-right img {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+
+.ov-img-align-center {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center !important;
+}
+
+.ov-img-rounded img {
+  border-radius: 16px !important;
+}
+
+.ov-img-circle img {
+  border-radius: 9999px !important;
+  aspect-ratio: 1 / 1;
+  object-fit: cover !important;
+}
+
+.ov-img-flat img {
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* GitHub 主题感知图片显隐控制 (#gh-dark-mode-only / #gh-light-mode-only / #dark / #light) */
+[data-theme-mode="light"] .ov-img-dark-only,
+[data-theme="light"] .ov-img-dark-only,
+[data-theme="sepia"] .ov-img-dark-only,
+[data-theme="solarized"] .ov-img-dark-only,
+[data-theme="notion"] .ov-img-dark-only,
+body.vscode-light[data-theme="system"] .ov-img-dark-only,
+body.vscode-light[data-theme="vscode"] .ov-img-dark-only,
+body.vscode-high-contrast-light[data-theme="system"] .ov-img-dark-only,
+body.vscode-high-contrast-light[data-theme="vscode"] .ov-img-dark-only {
+  display: none !important;
+}
+
+[data-theme-mode="dark"] .ov-img-light-only,
+[data-theme="dark"] .ov-img-light-only,
+[data-theme="midnight"] .ov-img-light-only,
+[data-theme="cyber"] .ov-img-light-only,
+[data-theme="nord"] .ov-img-light-only,
+[data-theme="dracula"] .ov-img-light-only,
+[data-theme="forest"] .ov-img-light-only,
+[data-theme="github-dark"] .ov-img-light-only,
+[data-theme="catppuccin"] .ov-img-light-only,
+[data-theme="tokyo-night"] .ov-img-light-only,
+body.vscode-dark[data-theme="system"] .ov-img-light-only,
+body.vscode-dark[data-theme="vscode"] .ov-img-light-only,
+body.vscode-high-contrast[data-theme="system"] .ov-img-light-only,
+body.vscode-high-contrast[data-theme="vscode"] .ov-img-light-only {
+  display: none !important;
 }
 
 .ov-image-fallback {
@@ -2611,19 +2734,19 @@ mark.ov-search-match.is-active-match {
   padding: 8px 12px;
   margin: 8px 0;
   border-radius: 6px;
-  border: 1px dashed rgba(245, 158, 11, 0.5);
+  border: 1px dashed rgba(245, 158, 11, 0.45);
   background: rgba(245, 158, 11, 0.08);
-  color: #fbbf24;
-  font-size: 11.5px;
+  color: var(--ov-text, #d97706);
+  font-size: 12px;
   line-height: 1.4;
 }
 
 .ov-image-fallback code {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 1px 4px;
-  border-radius: 3px;
+  background: var(--ov-inline-code-bg, rgba(128, 128, 128, 0.15));
+  padding: 1px 5px;
+  border-radius: 4px;
   font-size: 11px;
-  color: #fef3c7;
+  color: var(--ov-inline-code-color, inherit);
 }
 
 /* =========================================================
@@ -3825,6 +3948,316 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 
 .ov-banner-body > :first-child { margin-top: 0; }
 .ov-banner-body > :last-child { margin-bottom: 0; }
+
+/* =========================================================
+   Card & Container Internal Image Cover Optimization
+   ========================================================= */
+.ov-card-grid-body > ul > li .ov-image-container,
+.ov-card-grid-body > ol > li .ov-image-container,
+.ov-compare-body > ul > li .ov-image-container,
+.ov-compare-body > ol > li .ov-image-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 4px 0 10px 0;
+}
+
+.ov-card-grid-body > ul > li img,
+.ov-card-grid-body > ol > li img,
+.ov-compare-body > ul > li img,
+.ov-compare-body > ol > li img,
+.ov-steps-body > ol > li img,
+.ov-steps-body > ul > li img {
+  margin: 6px auto !important;
+  max-height: 220px;
+  width: auto;
+  max-width: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* =========================================================
+   Extended Callout: Image Gallery Grid ([!GALLERY] / [!IMAGES])
+   ========================================================= */
+.ov-gallery-container {
+  container-type: inline-size;
+  margin: 22px 0;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ov-text, #1e293b);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+}
+
+details.ov-gallery-container summary.ov-gallery-header {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+details.ov-gallery-container summary.ov-gallery-header::-webkit-details-marker {
+  display: none;
+}
+
+details.ov-gallery-container[open] .ov-callout-fold-icon {
+  transform: rotate(180deg);
+}
+
+.ov-gallery-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-gallery-icon {
+  flex-shrink: 0;
+  stroke: var(--ov-accent, #3b82f6);
+}
+
+.ov-gallery-cols-1 { --ov-gallery-cols: 1; }
+.ov-gallery-cols-2 { --ov-gallery-cols: 2; }
+.ov-gallery-cols-3 { --ov-gallery-cols: 3; }
+.ov-gallery-cols-4 { --ov-gallery-cols: 4; }
+.ov-gallery-cols-5 { --ov-gallery-cols: 5; }
+.ov-gallery-cols-6 { --ov-gallery-cols: 6; }
+
+.ov-gallery-body > ul,
+.ov-gallery-body > ol,
+.ov-gallery-body > p:has(.ov-image-container) {
+  display: grid !important;
+  grid-template-columns: repeat(var(--ov-gallery-cols, 3), minmax(0, 1fr));
+  gap: 16px;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  align-items: stretch;
+}
+
+.ov-gallery-body > ul > li,
+.ov-gallery-body > ol > li,
+.ov-gallery-body > p > .ov-image-container {
+  margin: 0 !important;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface-secondary, var(--ov-bg-elevated, rgba(128, 128, 128, 0.04)));
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.ov-gallery-body > ul > li:hover,
+.ov-gallery-body > ol > li:hover,
+.ov-gallery-body > p > .ov-image-container:hover {
+  transform: translateY(-2px);
+  border-color: var(--ov-accent, #3b82f6);
+  box-shadow: var(--ov-shadow, 0 6px 18px rgba(0, 0, 0, 0.08));
+}
+
+.ov-gallery-body img {
+  margin: 0 auto 8px auto !important;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+@container (max-width: 840px) {
+  .ov-gallery-cols-6, .ov-gallery-cols-5, .ov-gallery-cols-4 {
+    --ov-gallery-cols: 2 !important;
+  }
+}
+
+@container (max-width: 560px) {
+  .ov-gallery-grid {
+    --ov-gallery-cols: 1 !important;
+  }
+}
+
+/* =========================================================
+   Extended Callout: Technical Figure Frame ([!FIGURE] / [!FIG])
+   ========================================================= */
+.ov-figure-container {
+  margin: 22px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+.ov-figure-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 18px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ov-text, inherit);
+  background: var(--ov-surface-header, rgba(128, 128, 128, 0.04));
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.ov-figure-header::-webkit-details-marker {
+  display: none;
+}
+
+.ov-figure-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-figure-stage {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--ov-surface-secondary, var(--ov-bg-elevated, transparent));
+}
+
+.ov-figure-stage img {
+  margin: 4px auto !important;
+}
+
+.ov-figure-stage p {
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  color: var(--ov-text-secondary, inherit);
+  text-align: center;
+}
+
+.ov-figure-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: var(--ov-surface, #ffffff);
+  border-top: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ov-text-secondary, #64748b);
+  text-align: center;
+}
+
+.ov-figure-icon {
+  flex-shrink: 0;
+  stroke: var(--ov-accent, #3b82f6);
+}
+
+/* =========================================================
+   Extended Callout: Side-by-Side Media Split ([!MEDIA])
+   ========================================================= */
+.ov-media-container {
+  container-type: inline-size;
+  margin: 22px 0;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  background: var(--ov-surface, #ffffff);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ov-media-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ov-text, inherit);
+}
+
+.ov-media-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-media-icon {
+  flex-shrink: 0;
+  stroke: var(--ov-accent, #3b82f6);
+}
+
+.ov-media-body > ul,
+.ov-media-body > ol {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 5fr) minmax(260px, 7fr);
+  gap: 24px;
+  align-items: center;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ov-media-container.ov-media-reverse .ov-media-body > ul,
+.ov-media-container.ov-media-reverse .ov-media-body > ol {
+  grid-template-columns: minmax(260px, 7fr) minmax(220px, 5fr);
+}
+
+.ov-media-container.ov-media-reverse .ov-media-body > ul > li:first-child,
+.ov-media-container.ov-media-reverse .ov-media-body > ol > li:first-child {
+  order: 2;
+}
+
+.ov-media-container.ov-media-reverse .ov-media-body > ul > li:nth-child(2),
+.ov-media-container.ov-media-reverse .ov-media-body > ol > li:nth-child(2) {
+  order: 1;
+}
+
+.ov-media-body > ul > li,
+.ov-media-body > ol > li {
+  margin: 0 !important;
+  padding: 0 !important;
+  min-width: 0;
+}
+
+.ov-media-body img {
+  margin: 0 auto !important;
+  width: 100%;
+  border-radius: 10px;
+}
+
+@container (max-width: 640px) {
+  .ov-media-body > ul,
+  .ov-media-body > ol,
+  .ov-media-container.ov-media-reverse .ov-media-body > ul,
+  .ov-media-container.ov-media-reverse .ov-media-body > ol {
+    grid-template-columns: 1fr !important;
+  }
+  .ov-media-container.ov-media-reverse .ov-media-body > ul > li:first-child,
+  .ov-media-container.ov-media-reverse .ov-media-body > ol > li:first-child,
+  .ov-media-container.ov-media-reverse .ov-media-body > ul > li:nth-child(2),
+  .ov-media-container.ov-media-reverse .ov-media-body > ol > li:nth-child(2) {
+    order: unset !important;
+  }
+}
 
 /* =========================================================
    Interactive Task List (Checkbox) Bidirectional Sync
@@ -5173,6 +5606,9 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   .ov-code-block,
   .ov-diagram-block,
   .ov-callout,
+  .ov-gallery-container,
+  .ov-figure-container,
+  .ov-media-container,
   .ov-wiki-embed,
   .ov-math-block {
     page-break-inside: avoid !important;

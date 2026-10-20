@@ -23,7 +23,7 @@ export const DOMPURIFY_DIAGRAM_SVG_CONFIG: Record<string, any> = {
     // Mermaid / KaTeX / 富文本节点所需的 HTML 与 MathML 嵌入图元 (重点保留，杜绝 flowchart 文字与 KaTeX 根号/向量消失)
     'foreignObject', 'foreignobject', 'div', 'span', 'p', 'b', 'i', 'strong', 'em',
     'br', 'code', 'pre', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'ul', 'ol', 'li',
-    'sub', 'sup', 'details', 'summary', 'aside', 'label', 'input', 'del', 'mark', 'kbd',
+    'sub', 'sup', 'details', 'summary', 'aside', 'label', 'input', 'del', 'mark', 'kbd', 'figure', 'figcaption',
     'math', 'semantics', 'mrow', 'mi', 'mo', 'mn', 'msup', 'msub', 'msubsup', 'mfrac',
     'msqrt', 'mroot', 'mtable', 'mtr', 'mtd', 'mtext', 'mspace', 'mover', 'munder',
     'munderover', 'menclose', 'mpadded', 'mphantom', 'annotation'

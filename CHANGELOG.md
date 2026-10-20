@@ -8,7 +8,31 @@
 
 ---
 
-## [1.3.12] - 2026-10-20 (当前最新发布)
+## [1.3.13] - 2026-10-20 (当前最新发布)
+
+> [!TIP] v1.3.13 核心升级亮点
+> 基于 GitHub Alert Callout「纯正 CommonMark 语法、零 HTML 侵入、100% 优雅降级」核心哲学，全面落地 Markdown 图片三大扩展语义容器（`[!GALLERY]`、`[!FIGURE]`、`[!MEDIA]`）、轻量管道修饰符（`|宽度|bg-light|caption`）及 GitHub 主题感知后缀（`#gh-dark-mode-only` / `#gh-light-mode-only`），实现 16 套主题与 VS Code 宿主像素级融合。
+
+### ✨ Added (新增功能与排版容器)
+
+- **GitHub Alert 思想三大图片语义容器 (`src/features/viewers/hooks/useMarkdownAstPipeline.ts`, `src/index.css`)**:
+  - **多图画廊网格 (`> [!GALLERY:2~6]` / `[!IMAGES]`)**：支持 1~6 列自适应网格与 CSS Container Queries 响应式折叠，自动提取每张图片的 `alt` 文本生成底部居中图注（`.ov-image-caption`），支持 `+`/`-` 手风琴折叠；
+  - **标准技术图件框 (`> [!FIGURE]` / `[!FIG]`)**：渲染为语义化 `<figure>` 居中舞台与 `<figcaption>` 编号图注，同时兼容括号外标题（`> [!FIGURE] 图 1-1`）与括号内联标题（`> [!FIGURE 图 1-1]`）语法；
+  - **图文并排分栏 (`> [!MEDIA]` / `[!MEDIA:RIGHT]`)**：支持左图右文或左文右图的 5:7 黄金比例并排呈现，窄屏自动流式折行。
+- **图片轻量管道修饰符与主题感知引擎 (`parseMarkdownImageModifiers`)**:
+  - 支持尺寸控制（`|480`、`|60%`、`|400x300`）、对齐与造型（`|left`、`|right`、`|center`、`|rounded`、`|circle`、`|flat`）与显式图注（`|caption`）；
+  - **透明底反差衬板（`|bg-light` / `|bg-dark` / `|bg-checker`）**：彻底解决透明底深色线条架构图在深色主题下“隐形”的痛点；
+  - **GitHub 主题感知显隐（`#gh-dark-mode-only` / `#gh-light-mode-only`）**：联动 `#markdown-viewer-canvas[data-theme-mode]` 与全量 16 套主题，自动按深浅色切换对应图片版本。
+
+### 📚 Documentation & Tests (规范与测试闭环)
+
+- **Markdown 创作技能库与全景样例同步 (`.codex/skills/omniview-markdown-authoring/`, `examples/markdown/`)**:
+  - 全面更新 `SKILL.md`、`callouts-and-cards.md`、`diagrams-and-visuals.md` 以及 `github-alert-callouts.md`、`callouts-and-tasks.md` 实战样例；
+  - 在 `tests/test-markdown-image-resolver.mjs` 与 `tests/test-markdown-callout-task.mjs` 中补齐图片管道修饰符与扩展容器单元测试。
+
+---
+
+## [1.3.12] - 2026-10-20
 
 > [!TIP] v1.3.12 变更亮点
 > 优化 AI 辅助技能配置体系，将工作区私有 skills 目录无缝迁移至系统全局，精简仓库冗余。

@@ -139,23 +139,24 @@ console.log('✅ KaTeX 智能识别与价格防误触测试全部通过');
 // 4. GitHub Alert Callout 思想 CARD & CARDS 多列卡片解析测试
 console.log('--- 测试 4: GitHub Alert Callout 思想 CARD & CARDS 多列卡片解析测试 ---');
 
-const cardRegex = /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]))?(?:[ \t]+cols=([1-6]))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i;
+const cardRegex = /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]|right|left))?(?:[ \t]+cols=([1-6])|[ \t]+([^\]\n]+))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i;
 
 function parseCardOrCallout(input) {
   const match = input.match(cardRegex);
   if (!match) return null;
   const typeRaw = match[1];
   const colParam = match[2] || match[3];
-  const fold = match[4];
-  const customTitle = (match[5] || '').trim();
-  const remainingText = (match[6] || '');
+  const fold = match[5];
+  const customTitle = (match[6] || match[4] || '').trim();
+  const remainingText = (match[7] || '');
   const upperType = typeRaw.toUpperCase();
   const isCards = upperType === 'CARDS' || upperType === 'CARD-GRID' || upperType === 'GRID';
   const isCard = upperType === 'CARD';
-  const cols = colParam ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;
+  const cols = colParam && /^[1-6]$/.test(colParam) ? Math.min(6, Math.max(1, parseInt(colParam, 10))) : 3;
 
   return {
     type: upperType,
+    colParam,
     isCards,
     isCard,
     cols,
@@ -203,10 +204,10 @@ assert.ok(foldedCards && foldedCards.isCollapsible && !foldedCards.isOpen, '应�
 
 console.log('✅ CARD & CARDS 多列卡片解析测试全部通过');
 
-// 5. GitHub Alert Callout 思想扩展组件测试 (Tabs, Steps, Timeline, Compare, Metrics, FAQ, Quotes, Banner)
-console.log('--- 测试 5: GitHub Alert Callout 扩展组件解析测试 ---');
+// 5. GitHub Alert Callout 思想扩展组件测试 (Tabs, Steps, Timeline, Compare, Metrics, FAQ, Quotes, Banner, Gallery, Figure, Media)
+console.log('--- 测试 5: GitHub Alert Callout 扩展组件与图片容器解析测试 ---');
 
-const EXTENDED_TYPES = ['TABS', 'STEPS', 'TIMELINE', 'COMPARE', 'METRICS', 'FAQ', 'QUOTES', 'BANNER'];
+const EXTENDED_TYPES = ['TABS', 'STEPS', 'TIMELINE', 'COMPARE', 'METRICS', 'FAQ', 'QUOTES', 'BANNER', 'GALLERY', 'FIGURE', 'MEDIA'];
 
 for (const extType of EXTENDED_TYPES) {
   const parsed = parseCardOrCallout(`[!${extType}] 测试${extType}标题\n- 第一项\n- 第二项`);
@@ -215,7 +216,7 @@ for (const extType of EXTENDED_TYPES) {
   assert.strictEqual(parsed.title, `测试${extType}标题`, `解析标题应匹配`);
 }
 
-// 5.1 别名识别
+// 5.1 别名与图片扩展容器语法识别
 const tabAlias = parseCardOrCallout('[!TAB] 别名测试');
 assert.ok(tabAlias && tabAlias.type === 'TAB');
 const stepAlias = parseCardOrCallout('[!STEP] 单步测试');
@@ -226,8 +227,14 @@ const kpiAlias = parseCardOrCallout('[!KPI] 核心指标');
 assert.ok(kpiAlias && kpiAlias.type === 'KPI');
 const heroAlias = parseCardOrCallout('[!HERO] 首屏横幅');
 assert.ok(heroAlias && heroAlias.type === 'HERO');
+const galleryCols = parseCardOrCallout('[!GALLERY:4] 四列图集');
+assert.ok(galleryCols && galleryCols.type === 'GALLERY' && galleryCols.cols === 4, '应支持 [!GALLERY:4] 多列画廊');
+const figInline = parseCardOrCallout('[!FIGURE 图 1-1：内联标题语法]');
+assert.ok(figInline && figInline.type === 'FIGURE' && figInline.title === '图 1-1：内联标题语法', '应支持 [!FIGURE 图号] 括号内联标题语法');
+const mediaRight = parseCardOrCallout('[!MEDIA:RIGHT] 左文右图分栏');
+assert.ok(mediaRight && mediaRight.type === 'MEDIA' && mediaRight.colParam === 'RIGHT', '应支持 [!MEDIA:RIGHT] 方向参数');
 
-console.log('✅ GitHub Alert Callout 扩展组件测试全部通过');
+console.log('✅ GitHub Alert Callout 扩展组件与图片容器测试全部通过');
 
 // 6. 可折叠 Callout [!TIP]- 与手风琴折叠图标定位与样式一致性校验
 console.log('--- 测试 6: Callout 与手风琴折叠图标定位与样式一致性校验 ---');

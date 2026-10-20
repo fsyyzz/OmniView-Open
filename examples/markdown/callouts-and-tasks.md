@@ -261,3 +261,36 @@ GitHub Alert 的精髓在于**「给标准引用块附加语义标识符」**。
 > - “好的文档不仅是代码的附庸，更是系统灵魂的蓝图。OmniView 让写技术文档重新变成了一种艺术享受。” —— *资深系统架构师*
 > - “终于不用为了看一个架构图在好几个 VS Code 插件之间来回折腾了，一站式工作台名副其实。” —— *开源项目维护者*
 
+---
+
+## 七、 GitHub Alert 思想图片容器与主题感知图文增强
+
+OmniView 将 GitHub Alert「纯正 Markdown 语法、零 HTML 污染、优雅降级」哲学延伸至图片排版，支持 **多图画廊 (`[!GALLERY]`)**、**技术图件框 (`[!FIGURE]`)**、**图文并排分栏 (`[!MEDIA]`)** 以及 **轻量管道修饰符 (`|宽度|bg-light|caption`)**。
+
+### 1. 多图画廊网格 (`> [!GALLERY:3]`)
+
+自动将列表图片排布为多列对齐画廊，并提取 `alt` 文本生成底部居中图注：
+
+> [!GALLERY:3] OmniView 核心子系统视觉图集
+> - ![AST 流水线解析引擎](data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" rx="12" fill="%231e293b"/><circle cx="90" cy="90" r="36" fill="%233b82f6" opacity="0.85"/><rect x="150" y="65" width="120" height="16" rx="4" fill="%2393c5fd"/><rect x="150" y="95" width="85" height="12" rx="4" fill="%2364748b"/></svg>)
+> - ![WASM 离线沙箱计算](data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" rx="12" fill="%230f172a"/><polygon points="90,50 130,125 50,125" fill="%2310b981" opacity="0.85"/><rect x="150" y="65" width="120" height="16" rx="4" fill="%236ee7b7"/><rect x="150" y="95" width="95" height="12" rx="4" fill="%2364748b"/></svg>)
+> - ![全主题令牌像素融合](data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" rx="12" fill="%231e1b4b"/><rect x="55" y="55" width="70" height="70" rx="14" fill="%238b5cf6" opacity="0.85"/><rect x="150" y="65" width="120" height="16" rx="4" fill="%23c4b5fd"/><rect x="150" y="95" width="100" height="12" rx="4" fill="%2364748b"/></svg>)
+
+### 2. 标准技术图件框 (`> [!FIGURE]`)
+
+为重要架构图提供独立图件舞台与底部编号图注，搭配 `|520|bg-light` 可为透明底深色线条图自动加衬浅色底板：
+
+> [!FIGURE 图 7-1：OmniView 跨驱动统一渲染流水线示意]
+> ![渲染管线拓扑|520|bg-light](data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120"><rect x="15" y="30" width="110" height="60" rx="8" fill="%23eff6ff" stroke="%233b82f6" stroke-width="2"/><text x="70" y="65" text-anchor="middle" fill="%231e3a8a" font-size="13" font-family="sans-serif">Markdown 源码</text><line x1="125" y1="60" x2="180" y2="60" stroke="%2364748b" stroke-width="2"/><rect x="180" y="30" width="120" height="60" rx="8" fill="%23f0fdf4" stroke="%2310b981" stroke-width="2"/><text x="240" y="65" text-anchor="middle" fill="%23065f46" font-size="13" font-family="sans-serif">AST 块级管线</text><line x1="300" y1="60" x2="355" y2="60" stroke="%2364748b" stroke-width="2"/><rect x="355" y="30" width="110" height="60" rx="8" fill="%23f5f3ff" stroke="%238b5cf6" stroke-width="2"/><text x="410" y="65" text-anchor="middle" fill="%234c1d95" font-size="13" font-family="sans-serif">多主题视口</text></svg>)
+> 注：通过 `|bg-light` 修饰符，即使在深色主题下透明底深色文字图片依然清晰锐利。
+
+### 3. 图文并排分栏 (`> [!MEDIA]` / `> [!MEDIA:RIGHT]`)
+
+> [!MEDIA] 渐进式披露与原地专注编辑体验
+> - ![原地编辑器示意](data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200"><rect width="360" height="200" rx="12" fill="%230f172a" stroke="%23334155" stroke-width="2"/><rect x="24" y="24" width="312" height="32" rx="6" fill="%231e293b"/><circle cx="42" cy="40" r="6" fill="%23ef4444"/><circle cx="62" cy="40" r="6" fill="%23f59e0b"/><circle cx="82" cy="40" r="6" fill="%2310b981"/><rect x="24" y="72" width="220" height="14" rx="4" fill="%233b82f6"/><rect x="24" y="100" width="280" height="12" rx="4" fill="%2364748b"/><rect x="24" y="124" width="190" height="12" rx="4" fill="%2364748b"/></svg>)
+> - **所见即所得与纯文本源码的黄金平衡**
+>   - **零上下文切换**：在预览视口按住 `Alt + 双击` 任意块即可唤醒局部源码编辑器；
+>   - **精准行号映射**：基于 AST Token 起止行号无损切片回写，绝不污染相邻公式与宏；
+>   - **响应式自适应**：桌面宽屏下左图右文并排展示，窄屏或分屏模式下自动流式折行。
+
+

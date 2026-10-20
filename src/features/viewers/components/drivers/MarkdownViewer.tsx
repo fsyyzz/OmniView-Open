@@ -512,6 +512,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       id="markdown-viewer-canvas"
       data-density={density}
       data-width={contentWidth}
+      data-theme-mode={isDarkTheme ? 'dark' : 'light'}
       className={`markdown-document density-${density}`}
       onClick={handleViewerClick}
     >

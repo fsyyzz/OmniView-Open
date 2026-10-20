@@ -3,7 +3,7 @@
  * OmniView Markdown 本地图片与相对路径解析引擎自动化测试套件
  */
 import assert from 'node:assert';
-import { resolveMarkdownImageHref } from '../src/features/viewers/hooks/useMarkdownAstPipeline.ts';
+import { resolveMarkdownImageHref, parseMarkdownImageModifiers } from '../src/features/viewers/hooks/useMarkdownAstPipeline.ts';
 
 console.log('🧪 开始 Markdown 本地图片与相对路径解析引擎单元测试...');
 
@@ -97,4 +97,28 @@ assert.strictEqual(
 );
 console.log('✅ 安全防崩溃降级测试通过');
 
-console.log('🎉 全部 4 组 Markdown 本地图片与相对路径解析测试用例 100% 通过！\n');
+// 5. 测试 GitHub Alert 优雅降级思想图片轻量管道修饰符与主题感知后缀
+console.log('--- 测试 5: 图片管道修饰符与 #gh-dark-mode-only / #gh-light-mode-only 解析 ---');
+const mod1 = parseMarkdownImageModifiers('系统架构拓扑|520|bg-light|center|caption', './assets/arch.png#gh-dark-mode-only', '');
+assert.strictEqual(mod1.cleanAlt, '系统架构拓扑', '应剥离管道修饰符保留干净 alt');
+assert.strictEqual(mod1.showCaption, true, '指定 |caption 应激活图注显示');
+assert.strictEqual(mod1.captionText, '系统架构拓扑', '未提供 title 时应回退使用 cleanAlt 作为图注');
+assert.strictEqual(mod1.plate, 'light', '应识别 bg-light 浅色衬底板');
+assert.strictEqual(mod1.align, 'center', '应识别 center 居中对齐');
+assert.strictEqual(mod1.themeVisibility, 'dark-only', '应识别 #gh-dark-mode-only 仅深色主题显示');
+assert.ok(mod1.styleAttr.includes('max-width: 520px;'), '应生成 520px 宽度内联样式');
+assert.ok(mod1.extraClasses.includes('ov-img-plate-light'), '应注入 ov-img-plate-light 类名');
+assert.ok(mod1.extraClasses.includes('ov-img-dark-only'), '应注入 ov-img-dark-only 类名');
+
+const mod2 = parseMarkdownImageModifiers('用户头像|80x80|circle|bg-checker', './avatar.png#gh-light-mode-only', '图 1: 核心维护者');
+assert.strictEqual(mod2.cleanAlt, '用户头像');
+assert.strictEqual(mod2.showCaption, true, '提供 title 时自动启用图注');
+assert.strictEqual(mod2.captionText, '图 1: 核心维护者');
+assert.strictEqual(mod2.plate, 'checker');
+assert.strictEqual(mod2.themeVisibility, 'light-only');
+assert.ok(mod2.styleAttr.includes('max-width: 80px; max-height: 80px;'));
+assert.ok(mod2.extraClasses.includes('ov-img-circle'));
+assert.ok(mod2.extraClasses.includes('ov-img-light-only'));
+console.log('✅ 图片管道修饰符与主题感知后缀测试通过');
+
+console.log('🎉 全部 5 组 Markdown 本地图片、管道修饰符与主题感知解析测试用例 100% 通过！\n');

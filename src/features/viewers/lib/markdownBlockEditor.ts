@@ -183,6 +183,15 @@ export function getBlockTypeLabel(
     if (/^>\s*\[!(?:BANNER|HERO)(?:[+-]|\s+[^\]]*)?\]/i.test(trimmed)) {
       return isZh ? 'Banner 宣传横幅' : 'Banner Hero Block';
     }
+    if (/^>\s*\[!(?:GALLERY|IMAGES?|PHOTO-GRID)(?::[1-6]|\s+cols=[1-6])?\][+-]?/i.test(trimmed)) {
+      return isZh ? 'Gallery 多图画廊网格' : 'Image Gallery Block';
+    }
+    if (/^>\s*\[!(?:FIGURE|FIG)\][+-]?/i.test(trimmed)) {
+      return isZh ? 'Figure 标准技术图件框' : 'Figure Block';
+    }
+    if (/^>\s*\[!(?:MEDIA(?:[-:](?:RIGHT|LEFT))?)\][+-]?/i.test(trimmed)) {
+      return isZh ? 'Media 图文并排分栏' : 'Media Split Block';
+    }
     if (/^>\s*\[![a-zA-Z0-9_\-]+(?:[+-]|\s+[^\]]*)?\]/.test(trimmed)) {
       return isZh ? 'Callout 语义提示块' : 'Callout Block';
     }
