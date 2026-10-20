@@ -76,6 +76,8 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
       if (typeof svg.getScreenCTM === 'function') {
         const ctm = svg.getScreenCTM();
         if (ctm) {
+          const zoom = Math.hypot(ctm.a, ctm.b);
+          if (zoom > 0) runtime.setZoom(zoom);
           try {
             const pt = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
             if (Number.isFinite(pt.x) && Number.isFinite(pt.y)) return { x: pt.x, y: pt.y };
@@ -85,9 +87,11 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
         }
       }
       const rect = svg.getBoundingClientRect();
+      const zoom = view.width > 0 ? rect.width / view.width : 1;
+      if (zoom > 0) runtime.setZoom(zoom);
       return clientToCanvasPoint(clientX, clientY, rect, view);
     },
-    [view],
+    [view, runtime],
   );
 
   const handlePointerDown = useCallback(

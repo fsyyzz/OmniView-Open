@@ -33,7 +33,7 @@ import {
   subPath,
   anchorCorner,
 } from '../model/document';
-import { getSelectionBBox, localNodeBBox, nodeBBox, nodeWorldBBox, unionRects } from '../model/bbox';
+import { getSelectionBBox, localNodeBBox, nodeBBox, nodeWorldBBox, nodeWorldTransform, unionRects } from '../model/bbox';
 import {
   createRectGeometry,
   createEllipseGeometry,
@@ -107,6 +107,10 @@ function hitTestHandles(
   return null;
 }
 
+let lastHoverPoint: Vec2 | null = null;
+let pendingDrilldownTarget: NodeId | null = null;
+let dragOccurred = false;
+
 const selectTool: Tool = {
   id: 'select',
   pointer(ctx, event) {
@@ -118,7 +122,7 @@ const selectTool: Tool = {
   overlay(ctx) {
     return selectOverlay(ctx);
   },
-  cursor() {
+  cursor(ctx) {
     if (activeTransformState) {
       if (activeTransformState.kind === 'rotate') return 'grabbing';
       const k = activeTransformState.handleKey;
@@ -126,6 +130,27 @@ const selectTool: Tool = {
       if (k === 'ne' || k === 'sw') return 'nesw-resize';
       if (k === 'n' || k === 's') return 'ns-resize';
       if (k === 'e' || k === 'w') return 'ew-resize';
+    }
+    if (ctx.gesture?.kind === 'move') {
+      return 'move';
+    }
+    if (ctx.selection.nodeIds.length > 0 && lastHoverPoint) {
+      const selBBox = getSelectionBBox(ctx.doc, ctx.selection.nodeIds);
+      if (selBBox) {
+        const hitH = hitTestHandles(selBBox, lastHoverPoint, ctx.zoom);
+        if (hitH) {
+          if (hitH.key === 'rot') return 'grab';
+          if (hitH.key === 'nw' || hitH.key === 'se') return 'nwse-resize';
+          if (hitH.key === 'ne' || hitH.key === 'sw') return 'nesw-resize';
+          if (hitH.key === 'n' || hitH.key === 's') return 'ns-resize';
+          if (hitH.key === 'e' || hitH.key === 'w') return 'ew-resize';
+        }
+      }
+      const tol = 5 / Math.max(ctx.zoom, 1e-4);
+      const hits = hitTestAllAtPoint(ctx.doc, lastHoverPoint, tol, true);
+      if (hits.some((id) => ctx.selection.nodeIds.includes(id) || findAncestors(ctx.doc, id).some((a) => ctx.selection.nodeIds.includes(a)))) {
+        return 'move';
+      }
     }
     return 'default';
   },
@@ -142,6 +167,10 @@ let lastClickCycleState: ClickCycleState | null = null;
 /** 点击选中 / 拖拽移动 / 空白框选 / 8 向变形缩放与旋转的手势动作序列。 */
 function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArray<Action> {
   if (event.kind === 'down') {
+    dragOccurred = false;
+    pendingDrilldownTarget = null;
+    lastHoverPoint = event.point;
+
     if (ctx.selection.nodeIds.length > 0) {
       const selBBox = getSelectionBBox(ctx.doc, ctx.selection.nodeIds);
       if (selBBox) {
@@ -218,15 +247,17 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         targetHit = leafHits[1] ?? leafHits[0]!;
         lastClickCycleState = { point: event.point, time: now, hits: leafHits, index: 1 };
       } else {
-        // 循序下钻选择 (Progressive Drilldown)：
-        // 检查当前选区中是否已有该叶子的某个上级编组
+        // 循序下钻与拖拽分离：
+        // 检查当前选区中是否已有该叶子的某个节点或上级编组
         const selectedAncestorIdx = chain.findIndex((id) => ctx.selection.nodeIds.includes(id));
-        if (selectedAncestorIdx > 0) {
-          // 当前已选中某个上级 Group -> 循序下钻一层！选中其下一级直接子图元
-          targetHit = chain[selectedAncestorIdx - 1]!;
-        } else if (selectedAncestorIdx === 0) {
-          // 当前已选中该叶子节点自身 -> 保持叶子节点
-          targetHit = rawLeaf;
+        if (selectedAncestorIdx >= 0) {
+          // 当前已选中该链条中的节点（可能是最外层 Group，也可能是更深子级）
+          // 在 down 阶段：坚决保持当前选中层级不变，以便用户正常拖拽移动整个编组！
+          targetHit = chain[selectedAncestorIdx]!;
+          if (selectedAncestorIdx > 0) {
+            // 若用户后续原地松开（未发生拖拽），则在 up 阶段下钻一层到直接子级
+            pendingDrilldownTarget = chain[selectedAncestorIdx - 1]!;
+          }
         } else {
           // 尚未选中链条上的任何节点 -> 默认选择最外层编组整体
           targetHit = outermost;
@@ -261,8 +292,8 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       }
     } else {
       // 普通点击
-      if (inSelection && ctx.selection.nodeIds.length > 1) {
-        // 已有多选态且光标落在其中一个图元上：保持当前整体选区，直接开始移动
+      if (inSelection) {
+        // 已有该选中项（单选或多选之一）：保持当前选区，直接开始移动手势
         return [{ kind: 'Begin', label: '移动', gestureMode: 'move' }];
       }
       return [
@@ -273,7 +304,9 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
   }
 
   if (event.kind === 'move' || event.kind === 'drag') {
+    lastHoverPoint = event.point;
     if (activeTransformState) {
+      dragOccurred = true;
       if (activeTransformState.kind === 'scale') {
         const orig = activeTransformState.origin;
         const sPt = activeTransformState.startPoint;
@@ -320,6 +353,10 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         if (g.ids.length === 0) return [];
         let dx = event.point.x - g.startPoint.x;
         let dy = event.point.y - g.startPoint.y;
+        if (Math.hypot(dx, dy) > 2 / Math.max(ctx.zoom, 1e-4)) {
+          dragOccurred = true;
+          pendingDrilldownTarget = null;
+        }
         activeSnapGuides = [];
 
         // 智能吸附 (Smart Guides)：未按 Alt 时计算与画布其他图元边缘/中心的磁吸对齐
@@ -410,6 +447,15 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       activeTransformState = null;
       return [{ kind: 'Commit' }];
     }
+    if (event.kind === 'up' && !dragOccurred && pendingDrilldownTarget != null) {
+      const drillTarget = pendingDrilldownTarget;
+      pendingDrilldownTarget = null;
+      return [
+        { kind: 'Commit' },
+        { kind: 'Exec', commandId: 'select.set', params: { ids: [drillTarget], additive: false } },
+      ];
+    }
+    pendingDrilldownTarget = null;
     if (ctx.gesture) {
       return [{ kind: 'Commit' }];
     }
@@ -596,7 +642,8 @@ function applyTransformToPoint(t: AffineTransform, p: Vec2): Vec2 {
 function findNearestAnchor(doc: Document, nodeId: NodeId, point: Vec2, tol2: number) {
   const node = doc.nodes.get(nodeId);
   if (!node || node.kind !== 'Path') return null;
-  const local = invertTransformPoint(node.transform, point);
+  const worldT = nodeWorldTransform(doc, nodeId);
+  const local = invertTransformPoint(worldT, point);
   if (!local) return null;
   for (let spIdx = 0; spIdx < node.geometry.subPaths.length; spIdx++) {
     const sp = node.geometry.subPaths[spIdx]!;
@@ -628,7 +675,8 @@ const nodeTool: Tool = {
     if (event.kind === 'drag' && ctx.gesture && nodeActiveAnchor) {
       const node = ctx.doc.nodes.get(nodeActiveAnchor.nodeId);
       if (node && node.kind === 'Path') {
-        const local = invertTransformPoint(node.transform, event.point);
+        const worldT = nodeWorldTransform(ctx.doc, nodeActiveAnchor.nodeId);
+        const local = invertTransformPoint(worldT, event.point);
         if (local) {
           return [
             {
@@ -672,11 +720,12 @@ const nodeTool: Tool = {
     for (const selId of ctx.selection.nodeIds) {
       const node = ctx.doc.nodes.get(selId);
       if (!node || node.kind !== 'Path') continue;
+      const worldT = nodeWorldTransform(ctx.doc, selId);
       for (let spIdx = 0; spIdx < node.geometry.subPaths.length; spIdx++) {
         const sp = node.geometry.subPaths[spIdx]!;
         for (let aIdx = 0; aIdx < sp.anchors.length; aIdx++) {
           const a = sp.anchors[aIdx]!;
-          const world = applyTransformToPoint(node.transform, a.point);
+          const world = applyTransformToPoint(worldT, a.point);
           const isTarget =
             nodeActiveAnchor &&
             nodeActiveAnchor.nodeId === selId &&
@@ -1011,25 +1060,17 @@ function hitNodeLocal(n: Node, doc: Document, local: Vec2, tol2: number): boolea
   }
 
   // 针对 PathNode 进行真实描边与填充判定
-  const hasFill = n.appearance.items.some((it) => {
-    if (it.kind !== 'fill') return false;
-    const f = it.fill;
-    if (f.type === 'none') return false;
-    if (f.type === 'solid' && f.opacity <= 0) return false;
-    return true;
-  });
-  const strokeItem = n.appearance.items.find((it) => {
-    if (it.kind !== 'stroke') return false;
-    const s = it.stroke;
-    if (s.width <= 0) return false;
-    if (s.paint.type === 'none') return false;
-    if (s.paint.type === 'solid' && s.paint.opacity <= 0) return false;
-    return true;
-  });
+  const fillItem = n.appearance.items.find((it) => it.kind === 'fill');
+  const hasStyledClass = Boolean((n as any).className);
+  const hasFill = fillItem
+    ? fillItem.fill.type !== 'none' && (fillItem.fill.type !== 'solid' || fillItem.fill.opacity > 0)
+    : (hasStyledClass || n.appearance.items.length === 0);
+
+  const strokeItem = n.appearance.items.find((it) => it.kind === 'stroke');
   const strokeWidth = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.width : 0;
 
-  // 既无填充又无描边：不可见，不响应命中
-  if (!hasFill && strokeWidth === 0) return false;
+  // 既无填充又无描边且无样式类：不可见，不响应命中
+  if (!hasFill && strokeWidth === 0 && !hasStyledClass) return false;
 
   const strokeTol = Math.max(tol, strokeWidth / 2 + tol);
   const strokeTol2 = strokeTol * strokeTol;
@@ -1059,8 +1100,8 @@ function hitNodeLocal(n: Node, doc: Document, local: Vec2, tol2: number): boolea
     }
   }
 
-  // 2. 若带有填充，检查点是否落在封闭多边形内部
-  if (hasFill) {
+  // 2. 若带有填充或类样式，检查点是否落在封闭多边形内部
+  if (hasFill || hasStyledClass) {
     for (const sp of n.geometry.subPaths) {
       if (sp.anchors.length < 3) continue;
       // 离散化多边形采样
@@ -1089,6 +1130,21 @@ function hitNodeLocal(n: Node, doc: Document, local: Vec2, tol2: number): boolea
         }
       }
       if (pointInPolygon(local, poly)) return true;
+    }
+
+    // 若路径未提供锚点离散数据但点落在包围盒内且具有填充
+    if (
+      n.geometry.subPaths.length === 0 ||
+      n.geometry.subPaths.every((sp) => sp.anchors.length === 0)
+    ) {
+      if (
+        local.x >= bb.x &&
+        local.x <= bb.x + bb.width &&
+        local.y >= bb.y &&
+        local.y <= bb.y + bb.height
+      ) {
+        return true;
+      }
     }
   }
 

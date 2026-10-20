@@ -445,6 +445,109 @@ await it('多选安全防线：父子同时在选区中时移动/删除不重复
   assert.strictEqual(runtime.currentDocument.nodes.has(childId), false, '子节点应当已被移除');
 });
 
+await it('编组已选中时拖拽：保持选中整个 Group 并整体移动，不意外下钻或脱节', async () => {
+  const runtime = createRuntime();
+  await runtime.loadFromSvg(`
+    <svg viewBox="0 0 800 600">
+      <rect id="childA" x="20" y="20" width="60" height="60" fill="#3b82f6" />
+      <rect id="childB" x="100" y="20" width="60" height="60" fill="#ef4444" />
+    </svg>
+  `);
+  // 全选并编组
+  runtime.execute('select.all', {});
+  runtime.execute('object.group', { ids: [...runtime.currentSelection.nodeIds] });
+  const groupId = runtime.currentSelection.nodeIds[0];
+  assert.strictEqual(runtime.currentDocument.nodes.get(groupId)?.kind, 'Group');
+
+  // 模拟按下 Group 并拖拽 50px
+  runtime.dispatchPointer({
+    kind: 'down',
+    point: { x: 30, y: 30 },
+    mods: { shift: false, alt: false, meta: false, ctrl: false, space: false },
+    pressure: 1,
+  });
+  // 必须依然保持 Group 整体选中，未发生意外下钻
+  assert.strictEqual(runtime.currentSelection.nodeIds[0], groupId, '按下时必须保持 Group 选中');
+
+  // 发生拖拽
+  runtime.dispatchPointer({
+    kind: 'drag',
+    point: { x: 80, y: 30 },
+    mods: { shift: false, alt: false, meta: false, ctrl: false, space: false },
+    pressure: 1,
+  });
+  runtime.dispatchPointer({
+    kind: 'up',
+    point: { x: 80, y: 30 },
+    mods: { shift: false, alt: false, meta: false, ctrl: false, space: false },
+    pressure: 1,
+  });
+
+  // 拖拽释放后，选区依然是整个 Group，且 Group 位移了 50px
+  assert.strictEqual(runtime.currentSelection.nodeIds[0], groupId, '释放后仍保持 Group 整体');
+  const movedGroup = runtime.currentDocument.nodes.get(groupId);
+  assert.strictEqual(movedGroup.transform.e, 50, 'Group 整体应当平移 50px');
+});
+
+await it('编组解散 (object.ungroup)：解组后子元素继承编组变换，绝对画布位置保持不变', async () => {
+  const runtime = createRuntime();
+  await runtime.loadFromSvg(`
+    <svg viewBox="0 0 800 600">
+      <rect id="uRect" x="50" y="50" width="40" height="40" />
+    </svg>
+  `);
+  runtime.execute('select.all', {});
+  const rectId = runtime.currentSelection.nodeIds[0];
+  runtime.execute('object.group', { ids: [rectId] });
+  const groupId = runtime.currentSelection.nodeIds[0];
+
+  // 平移 Group 100, 50
+  runtime.execute('object.move', { ids: [groupId], delta: { x: 100, y: 50 } });
+  const bboxBefore = nodeWorldBBox(runtime.currentDocument, rectId);
+
+  // 解散编组
+  const ungroupRes = runtime.execute('object.ungroup', { ids: [groupId] });
+  assert.strictEqual(ungroupRes.ok, true, '解散编组应成功执行');
+  const bboxAfter = nodeWorldBBox(runtime.currentDocument, rectId);
+
+  assert.strictEqual(bboxBefore.x, bboxAfter.x, '解组前后子元素绝对世界 X 坐标必须严格一致');
+  assert.strictEqual(bboxBefore.y, bboxAfter.y, '解组前后子元素绝对世界 Y 坐标必须严格一致');
+});
+
+await it('单个图元基于画布对齐 (object.align relative=canvas)：支持单个图元对齐到画布居中', async () => {
+  const runtime = createRuntime();
+  await runtime.loadFromSvg(`
+    <svg viewBox="0 0 400 400">
+      <rect id="cRect" x="10" y="10" width="100" height="100" />
+    </svg>
+  `);
+  runtime.execute('select.all', {});
+  const id = runtime.currentSelection.nodeIds[0];
+  const alignRes = runtime.execute('object.align', { ids: [id], align: 'centerH', relative: 'canvas' });
+  assert.strictEqual(alignRes.ok, true, '单个图元基于画布水平居中对齐应当执行成功');
+
+  const bbox = nodeWorldBBox(runtime.currentDocument, id);
+  // 画布宽 400，矩形宽 100，水平居中 X 应为 (400 - 100) / 2 = 150
+  assert.strictEqual(bbox.x, 150, '图元世界 X 坐标应当精准居中到 150');
+});
+
+await it('select.all：仅选中图层的直接子图元，避免父子图元双重选中导致位移叠加', async () => {
+  const runtime = createRuntime();
+  await runtime.loadFromSvg(`
+    <svg viewBox="0 0 800 600">
+      <g id="layerGroup">
+        <rect id="child1" x="10" y="10" width="30" height="30"/>
+        <rect id="child2" x="50" y="10" width="30" height="30"/>
+      </g>
+      <circle id="outside" cx="100" cy="100" r="20"/>
+    </svg>
+  `);
+  runtime.execute('select.all', {});
+  const selIds = runtime.currentSelection.nodeIds;
+  // 应只包含顶层的 group 和 outside circle，共 2 个
+  assert.strictEqual(selIds.length, 2, '全选应当只选顶层直接图元，不包含编组内部子图元');
+});
+
 // ============================================================================
 // 汇总报告
 // ============================================================================

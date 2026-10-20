@@ -153,7 +153,10 @@ export const LogViewerModal: React.FC<LogViewerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-      <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden text-slate-200">
+      <div
+        id="log-viewer-modal"
+        className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden text-slate-200"
+      >
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-850/80">
           <div className="flex items-center gap-2.5">
@@ -161,7 +164,7 @@ export const LogViewerModal: React.FC<LogViewerModalProps> = ({
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-semibold text-sm text-white flex items-center gap-2">
+              <div className="font-semibold text-sm text-slate-800 dark:text-white flex items-center gap-2">
                 <span>系统运行与诊断日志中枢</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
                   {filteredLogs.length} / {logs.length} 条

@@ -70,6 +70,7 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
     activeToolId,
     canUndo,
     canRedo,
+    isInteracting,
     execute,
     undo,
     redo,
@@ -108,10 +109,11 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
     };
   }, [runtime, content]);
 
-  // 2) 文档真实变更 → 导出回写 + 首次编辑一次性 .bak
+  // 2) 文档真实变更 → 导出回写 + 首次编辑一次性 .bak（手势进行中不回写，释放后统一回写）
   useEffect(() => {
+    if (isInteracting) return;
     const st = loadedStateRef.current;
-    if (!shouldExport({ loaded: st.loaded, lastExportedDoc: st.doc }, document)) return;
+    if (!shouldExport({ loaded: st.loaded, lastExportedDoc: st.doc, isInteracting }, document)) return;
     let cancelled = false;
     runtime
       .exportToSvg()

@@ -408,6 +408,20 @@ export function rotateTransform(deg: number): AffineTransform {
   return { a: c, b: s, c: -s, d: c, e: 0, f: 0 };
 }
 
+/** 仿射变换求逆矩阵：T^-1。若行列式 det 接近 0（奇异矩阵）返回 null。 */
+export function invertTransform(t: AffineTransform): AffineTransform | null {
+  const det = t.a * t.d - t.b * t.c;
+  if (Math.abs(det) < 1e-12) return null;
+  return {
+    a: t.d / det,
+    b: -t.b / det,
+    c: -t.c / det,
+    d: t.a / det,
+    e: (t.c * t.f - t.d * t.e) / det,
+    f: (t.b * t.e - t.a * t.f) / det,
+  };
+}
+
 // ============================================================================
 // 7. Selection helpers
 // ============================================================================

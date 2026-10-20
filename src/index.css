@@ -5305,47 +5305,257 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 }
 
 /* =========================================================
-   Workbench Settings Modal Theme Harmonization
+   Workbench Settings & Diagnostics Modal Theme Harmonization
    ========================================================= */
-#workbench-settings-modal {
+#workbench-settings-modal,
+#log-viewer-modal {
   background-color: var(--ov-surface) !important;
   border: 1px solid var(--ov-border) !important;
   color: var(--ov-text) !important;
   box-shadow: var(--ov-shadow) !important;
 }
 
-#workbench-settings-modal > div:first-child {
+/* Modal Header & Navigation Bar & Footer Bar */
+#workbench-settings-modal > div:first-child,
+#log-viewer-modal > div:first-child,
+#workbench-settings-modal > div:last-child {
   background-color: var(--ov-surface-header) !important;
-  border-bottom: 1px solid var(--ov-border) !important;
+  border-color: var(--ov-border) !important;
   color: var(--ov-text) !important;
 }
 
-#workbench-settings-modal h2 {
+/* Tab strip */
+#workbench-settings-modal > div:nth-child(2) {
+  background-color: var(--ov-surface-header) !important;
+  border-color: var(--ov-border) !important;
+}
+
+#workbench-settings-modal > div:nth-child(2) button:not([class*="border-blue"]) {
+  color: var(--ov-text-muted) !important;
+}
+#workbench-settings-modal > div:nth-child(2) button:not([class*="border-blue"]):hover {
+  color: var(--ov-text) !important;
+  background-color: var(--ov-surface-hover) !important;
+}
+
+#workbench-settings-modal h2,
+#workbench-settings-modal h3,
+#workbench-settings-modal h4,
+#log-viewer-modal h2,
+#log-viewer-modal h3 {
   color: var(--ov-text) !important;
 }
 
-#workbench-settings-modal p {
+#workbench-settings-modal p,
+#log-viewer-modal p {
   color: var(--ov-text-muted) !important;
 }
 
-#workbench-settings-modal [class*="bg-slate-950/"],
-#workbench-settings-modal [class*="bg-slate-900"] {
+/* Elevated Containers & Sub-sections */
+#workbench-settings-modal [class*="bg-slate-950"],
+#workbench-settings-modal [class*="bg-slate-900"],
+#log-viewer-modal [class*="bg-slate-950"],
+#log-viewer-modal [class*="bg-slate-900"] {
   background-color: var(--ov-bg-elevated) !important;
   border-color: var(--ov-border) !important;
 }
 
+/* Card Tiles & Group Boxes */
+#workbench-settings-modal [class*="bg-slate-850"],
+#log-viewer-modal [class*="bg-slate-850"] {
+  background-color: var(--ov-surface-secondary, var(--ov-bg-elevated)) !important;
+  border-color: var(--ov-border) !important;
+}
+
+/* Control Pills & Inner Group Bars */
+#workbench-settings-modal [class*="bg-slate-800"],
+#log-viewer-modal [class*="bg-slate-800"] {
+  background-color: var(--ov-surface-header, var(--ov-bg-elevated)) !important;
+  border-color: var(--ov-border) !important;
+}
+
+/* Form Controls: Select, Input, Textarea */
+#workbench-settings-modal select,
+#workbench-settings-modal input[type="text"],
+#workbench-settings-modal input[type="url"],
+#workbench-settings-modal input[type="search"],
+#workbench-settings-modal input[type="number"],
+#workbench-settings-modal textarea,
+#log-viewer-modal input[type="text"],
+#log-viewer-modal input[type="search"] {
+  background-color: var(--ov-surface) !important;
+  border: 1px solid var(--ov-border) !important;
+  color: var(--ov-text) !important;
+  box-shadow: none !important;
+}
+
+#workbench-settings-modal select:focus,
+#workbench-settings-modal input:focus,
+#workbench-settings-modal textarea:focus,
+#log-viewer-modal input:focus {
+  border-color: var(--ov-accent) !important;
+}
+
+#workbench-settings-modal select option,
+#log-viewer-modal select option {
+  background-color: var(--ov-surface) !important;
+  color: var(--ov-text) !important;
+}
+
+/* Text Hierarchy */
+#workbench-settings-modal .text-slate-100,
 #workbench-settings-modal .text-slate-200,
-#workbench-settings-modal .text-slate-100 {
+#workbench-settings-modal .text-slate-300,
+#log-viewer-modal .text-slate-100,
+#log-viewer-modal .text-slate-200,
+#log-viewer-modal .text-slate-300 {
   color: var(--ov-text) !important;
 }
 
 #workbench-settings-modal .text-slate-400,
-#workbench-settings-modal .text-slate-500 {
+#workbench-settings-modal .text-slate-500,
+#log-viewer-modal .text-slate-400,
+#log-viewer-modal .text-slate-500 {
   color: var(--ov-text-muted) !important;
 }
 
-#workbench-settings-modal .border-slate-800,
-#workbench-settings-modal .border-slate-700 {
+#workbench-settings-modal label.font-semibold,
+#workbench-settings-modal .font-semibold {
+  color: var(--ov-text) !important;
+}
+
+/* Theme Selection Cards & Radio Cards (Active State) */
+#workbench-settings-modal button[class*="border-blue-500"],
+#workbench-settings-modal label[class*="border-blue-500"] {
+  background-color: var(--ov-accent-subtle, rgba(37, 99, 235, 0.1)) !important;
+  border-color: var(--ov-accent) !important;
+  color: var(--ov-accent) !important;
+}
+
+#workbench-settings-modal button[class*="border-blue-500"] *,
+#workbench-settings-modal label[class*="border-blue-500"] * {
+  color: var(--ov-accent) !important;
+}
+
+/* Unselected Theme Cards & Buttons */
+#workbench-settings-modal button[class*="border-slate-800"],
+#workbench-settings-modal label[class*="border-slate-800"] {
+  background-color: var(--ov-surface-secondary, var(--ov-bg-elevated)) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#workbench-settings-modal button[class*="border-slate-800"] div:first-child,
+#workbench-settings-modal button[class*="border-slate-800"] .text-xs,
+#workbench-settings-modal label[class*="border-slate-800"] .font-medium {
+  color: var(--ov-text) !important;
+}
+
+#workbench-settings-modal button[class*="border-slate-800"] .text-\[10px\],
+#workbench-settings-modal label[class*="border-slate-800"] .text-\[10px\] {
+  color: var(--ov-text-muted) !important;
+}
+
+/* Segment Controller (Density, Outline, Split Right) */
+#workbench-settings-modal div[class*="bg-slate-800"] button:not([class*="bg-blue"]):not([class*="bg-cyan"]),
+#workbench-settings-modal div[class*="bg-slate-900"] button:not([class*="bg-blue"]):not([class*="bg-cyan"]),
+#log-viewer-modal div[class*="bg-slate-950"] button:not([class*="bg-slate-800"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-blue"]) {
+  color: var(--ov-text-muted) !important;
+}
+
+#workbench-settings-modal div[class*="bg-slate-800"] button:not([class*="bg-blue"]):not([class*="bg-cyan"]):hover,
+#workbench-settings-modal div[class*="bg-slate-900"] button:not([class*="bg-blue"]):not([class*="bg-cyan"]):hover,
+#log-viewer-modal div[class*="bg-slate-950"] button:not([class*="bg-slate-800"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-blue"]):hover {
+  color: var(--ov-text) !important;
+  background-color: var(--ov-surface-hover) !important;
+}
+
+/* Native VS Code Theme Box Harmonization */
+#workbench-settings-modal .bg-blue-950\/20 {
+  background-color: var(--ov-accent-subtle, rgba(37, 99, 235, 0.08)) !important;
+  border-color: color-mix(in srgb, var(--ov-accent, #2563eb) 35%, transparent) !important;
+  color: var(--ov-text) !important;
+}
+
+#workbench-settings-modal .bg-blue-950\/20 button:not([class*="border-blue"]) {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+#workbench-settings-modal .bg-blue-950\/20 button[class*="border-blue"] {
+  background-color: var(--ov-accent-subtle) !important;
+  border-color: var(--ov-accent) !important;
+  color: var(--ov-accent) !important;
+}
+
+#workbench-settings-modal .bg-blue-950\/20 button[class*="border-blue"] * {
+  color: var(--ov-accent) !important;
+}
+
+/* Number & Value Monospace Highlights */
+#workbench-settings-modal .font-mono.text-white,
+#workbench-settings-modal .font-bold.text-white,
+#log-viewer-modal .text-white {
+  color: var(--ov-text) !important;
+}
+
+/* Secondary Action Buttons */
+#workbench-settings-modal .bg-slate-850 button,
+#workbench-settings-modal .bg-slate-800 button,
+#workbench-settings-modal .bg-slate-800.rounded-lg,
+#log-viewer-modal .bg-slate-800 button {
+  background-color: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
+/* Danger Reset Button */
+#workbench-settings-modal button[class*="bg-rose-"] {
+  background-color: rgba(225, 29, 72, 0.12) !important;
+  border-color: rgba(225, 29, 72, 0.35) !important;
+  color: #e11d48 !important;
+}
+#workbench-settings-modal button[class*="bg-rose-"]:hover {
+  background-color: rgba(225, 29, 72, 0.22) !important;
+}
+
+/* Keyboard Shortcut Badges */
+#workbench-settings-modal kbd {
+  background-color: var(--ov-surface-header, var(--ov-bg-elevated)) !important;
+  border: 1px solid var(--ov-border) !important;
+  color: var(--ov-text) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Sliders */
+#workbench-settings-modal input[type="range"] {
+  accent-color: var(--ov-accent) !important;
+}
+
+/* Code & Pre Blocks */
+#workbench-settings-modal code,
+#log-viewer-modal code {
+  background-color: var(--ov-inline-code-bg, rgba(128, 128, 128, 0.15)) !important;
+  color: var(--ov-inline-code-color, var(--ov-accent)) !important;
+}
+
+/* Hover Interactivity */
+#workbench-settings-modal [class*="hover:bg-slate-"]:hover,
+#log-viewer-modal [class*="hover:bg-slate-"]:hover {
+  background-color: var(--ov-surface-hover) !important;
+}
+
+#workbench-settings-modal [class*="hover:text-slate-"]:hover,
+#workbench-settings-modal [class*="hover:text-white"]:hover,
+#log-viewer-modal [class*="hover:text-slate-"]:hover,
+#log-viewer-modal [class*="hover:text-white"]:hover {
+  color: var(--ov-text) !important;
+}
+
+/* Borders */
+#workbench-settings-modal [class*="border-slate-"],
+#log-viewer-modal [class*="border-slate-"] {
   border-color: var(--ov-border) !important;
 }
 

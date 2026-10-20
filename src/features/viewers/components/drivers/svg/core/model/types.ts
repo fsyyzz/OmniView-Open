@@ -173,6 +173,8 @@ export interface NodeBase {
   readonly blend: BlendMode;
   readonly visible: boolean;
   readonly locked: boolean;
+  /** CSS class 标识，用于样式匹配与保真。 */
+  readonly className?: string | null;
   /** 子节点 ID 列表（Group / Layer 才有）。Path/Text/Image/Use 为空。 */
   readonly children: ReadonlyArray<NodeId>;
 }

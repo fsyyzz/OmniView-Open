@@ -61,6 +61,7 @@ export class RuntimeImpl implements Runtime {
   private _listeners = new Set<RuntimeListener>();
   /** P0：进行中的指针手势（Tool 纯函数经 ToolContext 只读访问）。 */
   private _gesture: PointerGesture | null = null;
+  private _zoom: number = 1;
 
   constructor(initial?: LoadResult) {
     this._doc = initial?.document ?? createEmptyDocument();
@@ -75,6 +76,13 @@ export class RuntimeImpl implements Runtime {
   get history(): History { return this._history; }
   get activeToolId(): ToolId { return this._activeToolId; }
   get journal(): Journal { return this._journal; }
+  get isInteracting(): boolean { return this._interaction !== null; }
+
+  setZoom(zoom: number): void {
+    if (Number.isFinite(zoom) && zoom > 0) {
+      this._zoom = zoom;
+    }
+  }
 
   // ---- Subscribe ----
   subscribe(listener: RuntimeListener): () => void {
@@ -354,12 +362,12 @@ export class RuntimeImpl implements Runtime {
     return {
       doc: this._doc,
       selection: this._selection,
-      zoom: 1,
+      zoom: this._zoom,
       fillActive: true,
       constrainAngle: 0,
       snapToGrid: false,
       snapToPoint: false,
-      snapTolerance: 4,
+      snapTolerance: 4 / Math.max(this._zoom, 1e-4),
       gesture: this._gesture ?? undefined,
     };
   }
@@ -377,6 +385,7 @@ export class RuntimeImpl implements Runtime {
       activeToolId: this._activeToolId,
       canUndo: this._history.undo.length > 0,
       canRedo: this._history.redo.length > 0,
+      isInteracting: this._interaction !== null,
     };
   }
 }

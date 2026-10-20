@@ -8,10 +8,39 @@
 
 ---
 
-## [1.3.13] - 2026-10-20 (当前最新发布)
+## [1.3.14] - 2026-10-21 (当前最新发布)
+
+> [!TIP] v1.3.14 变更亮点
+> 深度修复 SVG 编辑引擎图元选中、编组拖拽移动、变换手柄、对齐分布与锚点操作的核心交互 Bug，彻底消除拖拽下钻冲突、60 FPS 导出卡顿与解组跳跃。
+
+### 🎨 Fixed & Improved (SVG 编辑引擎交互与几何变换修复)
+
+- **点击下钻与拖拽移动精准解耦 (Drilldown vs Drag Separation)**:
+  - 修复鼠标按下（`down`）已选编组时立即错误下钻到子叶子节点、导致无法移动整个编组且把子图元拖散的严重缺陷；
+  - 建立拖拽状态机：在按下阶段坚决保持当前编组层级并直接进入平移手势，仅在原地点击释放（无位移）时才循序下钻至直接子节点。
+- **拖拽高频重导出卡顿消除 (Drag Throttle & Interaction Mutex)**:
+  - 引入 `Runtime.isInteracting` 状态与互斥门禁，在拖拽缩放（Scale）、旋转（Rotate）与移动（Move）过程中挂起高耗时全量导出与 `onContentChange` 宿主回写；
+  - 仅在指针松开 `Commit` 时原子化触发写回，彻底消除 60 FPS 连续拖拽过程中的重绘卡顿与宿主状态竞争。
+- **编组解散绝对坐标防跳跃 (Ungroup Affine Preservation)**:
+  - 重构 `object.ungroup` 算法，在解散编组时通过仿射矩阵组合（`composeTransforms`）将 Group 变换完整吸收至各子图元，解组后子元素在画布上的绝对世界坐标 100% 保持不变；
+  - 兼容单组 ID（`id`）与多组数组（`ids`）调度，并自动接管所有释放子图元的激活选区。
+- **跨坐标系对齐与画布基准校准 (World Coordinate Alignment & Distribute)**:
+  - 重构 `object.align` 与 `object.distribute`，基于绝对世界包围盒（`nodeWorldBBox`）与逆向父级变换矩阵计算位移增量，彻底解决嵌套 Group 或带局部旋转缩放图元对齐时的轴向偏离；
+  - 修复选区检查条件，支持单个选中图元基于画布基准（Canvas Relative）居中对齐，解除 Inspector 按钮禁用限制。
+- **全选防嵌套双重位移叠加 (Select-All Hierarchy Guard)**:
+  - 修复 `select.all` 全量收集所有内部子节点导致批量移动时子节点承受「自身平移 + 父级平移」双重位移的 Bug，限定全选仅收集可见图层的第一级直接子图元；
+  - 在 v1 引擎 `batchMoveSvgElements` 中同步增加不相交祖先过滤（Disjoint Ancestor Filter），杜绝批量移动时子级元素发生位移叠加。
+- **带类名与缺省填充图形命中率提升 (SVG Hit-Test & CSS Class Support)**:
+  - 遵循 W3C SVG 规范将缺失 fill/stroke 的形状默认填充修正为黑色，修复 Illustrator / Draw.io 等生成的不带内联样式的几何图形无法点选的问题；
+  - 增强 `hitNodeLocal` 对带 CSS `className` 类名图元的命中测试；
+  - 在 `nodeTool`（直接选区与锚点编辑）中接入绝对世界变换（`nodeWorldTransform`），精准捕获多层编组内的顶点锚点并实现 1:1 拖拽同步。
+
+---
+
+## [1.3.13] - 2026-10-21
 
 > [!TIP] v1.3.13 核心升级亮点
-> 基于 GitHub Alert Callout「纯正 CommonMark 语法、零 HTML 侵入、100% 优雅降级」核心哲学，全面落地 Markdown 图片三大扩展语义容器（`[!GALLERY]`、`[!FIGURE]`、`[!MEDIA]`）、轻量管道修饰符（`|宽度|bg-light|caption`）及 GitHub 主题感知后缀（`#gh-dark-mode-only` / `#gh-light-mode-only`），实现 16 套主题与 VS Code 宿主像素级融合。
+> 落地 Markdown 图片三大扩展语义容器（`[!GALLERY]`、`[!FIGURE]`、`[!MEDIA]`）及工作台偏好设置全主题自适应系统，彻底消除浅色主题下的色值失真与对比度缺陷。
 
 ### ✨ Added (新增功能与排版容器)
 
@@ -23,6 +52,16 @@
   - 支持尺寸控制（`|480`、`|60%`、`|400x300`）、对齐与造型（`|left`、`|right`、`|center`、`|rounded`、`|circle`、`|flat`）与显式图注（`|caption`）；
   - **透明底反差衬板（`|bg-light` / `|bg-dark` / `|bg-checker`）**：彻底解决透明底深色线条架构图在深色主题下“隐形”的痛点；
   - **GitHub 主题感知显隐（`#gh-dark-mode-only` / `#gh-light-mode-only`）**：联动 `#markdown-viewer-canvas[data-theme-mode]` 与全量 16 套主题，自动按深浅色切换对应图片版本。
+
+### 🎨 Fixed & Improved (全主题自适应与视觉融合)
+
+- **工作台配置中心（Workbench Settings Modal）全主题像素级融合**:
+  - **下拉框与输入控件（Select / Input）对比度修复**：修复在明雅日光（Clean Light）、暖阳羊皮（Sepia）等浅色主题下原生下拉选择框（界面语言、正文宽度、分屏模式等）呈现暗黑底色导致黑字在深底上无法辨识的问题，全面依托 `--ov-surface` 与 `--ov-border` 实现随主题动态切换底色与文字颜色；
+  - **色彩主题卡片（Theme Selection Cards）高对比度呈现**：修复未选中卡片使用非法类名 `bg-slate-850` 导致的透明底色与浅灰文字（`text-slate-300`）失真，重构为基于 `--ov-surface-secondary` 与 `--ov-border` 的语义化卡片，标题与副标题在所有深浅主题下均具备清晰对比度；
+  - **激活态按钮文本失真修复**：消除激活卡片与单选钮在浅色半透明背景（`bg-blue-600/15`）上使用固定 `text-white` 导致的白底白字失真，改为自适应的高对比度品牌色方案（`text-blue-600 dark:text-blue-400` / `var(--ov-accent)`）；
+  - **分段控制器（Segmented Controls）容器与高亮适配**：信息排版密度、文档大纲位置、文档展示形态与思维导图分屏比例控制器全面接入 `--ov-surface-header` 与 `--ov-border`，未激活按钮具备良好的次级文本反差，激活按钮呈现清晰的填充态高亮；
+  - **宿主注入与第三方模拟切换器适配**：VS Code 原生注入说明面板与 One Dark Pro、Dracula 等模拟注入胶囊按钮在浅色主题下自适应背景与边框，杜绝浅底中突兀的深黑胶囊浮动；
+  - **全六大 Tab 视觉对齐**：快捷键清单 `<kbd>`、六大存储分区统计数值与清理按钮、日志检视面板全面移除硬编码固定深色，100% 依附 `--ov-*` 语义化设计令牌系统。
 
 ### 📚 Documentation & Tests (规范与测试闭环)
 

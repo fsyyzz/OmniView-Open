@@ -700,7 +700,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
-            className="p-1 sm:p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md border border-slate-700 transition shadow-sm"
+            className="p-1 sm:p-1.5 bg-[var(--ov-surface)] hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text)] rounded-md border border-[var(--ov-border)] transition shadow-xs"
             title="打开工作台全局偏好与持久化配置中心"
             aria-label="工作台偏好设置"
           >
@@ -712,7 +712,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         {onOpenShortcuts && (
           <button
             onClick={onOpenShortcuts}
-            className="p-1 sm:p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md border border-slate-700 transition shadow-sm"
+            className="p-1 sm:p-1.5 bg-[var(--ov-surface)] hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text)] rounded-md border border-[var(--ov-border)] transition shadow-xs"
             title="快捷键与交互指南 (Ctrl+?)"
             aria-label="快捷键帮助"
           >

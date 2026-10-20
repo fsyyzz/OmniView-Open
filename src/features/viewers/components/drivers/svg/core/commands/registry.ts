@@ -82,6 +82,7 @@ import {
   emptyAppearance,
   emptySelection,
   identityTransform,
+  invertTransform,
   makeGroup,
   makePath,
   removeNode,
@@ -312,6 +313,9 @@ const objectScale: CommandHandler = (doc, sel, params) => {
   const cleanIds = keepDisjointRoots(next, p.ids);
   for (const id of cleanIds) {
     if (!next.nodes.has(id)) return noNode('object.scale', id);
+    const parentId = findParent(next, id);
+    const parentT = parentId ? nodeWorldTransform(next, parentId) : identityTransform();
+    const invParentT = invertTransform(parentT) ?? identityTransform();
     next = updateNode(next, id, (n) => {
       const t = n.transform;
       // translate to origin, scale, translate back
@@ -319,7 +323,8 @@ const objectScale: CommandHandler = (doc, sel, params) => {
       const post: AffineTransform = { a: 1, b: 0, c: 0, d: 1, e: p.origin.x, f: p.origin.y };
       const scale: AffineTransform = { a: p.factor.x, b: 0, c: 0, d: p.factor.y, e: 0, f: 0 };
       const scaleAboutOrigin = composeTransforms(post, composeTransforms(scale, pre));
-      return { ...n, transform: composeTransforms(scaleAboutOrigin, t) };
+      const localM = composeTransforms(invParentT, composeTransforms(scaleAboutOrigin, parentT));
+      return { ...n, transform: composeTransforms(localM, t) };
     });
   }
   return ok(next, sel);
@@ -334,13 +339,17 @@ const objectRotate: CommandHandler = (doc, sel, params) => {
   const cleanIds = keepDisjointRoots(next, p.ids);
   for (const id of cleanIds) {
     if (!next.nodes.has(id)) return noNode('object.rotate', id);
+    const parentId = findParent(next, id);
+    const parentT = parentId ? nodeWorldTransform(next, parentId) : identityTransform();
+    const invParentT = invertTransform(parentT) ?? identityTransform();
     next = updateNode(next, id, (n) => {
       const t = n.transform;
       const rot: AffineTransform = { a: cos, b: sin, c: -sin, d: cos, e: 0, f: 0 };
       const pre: AffineTransform = { a: 1, b: 0, c: 0, d: 1, e: -p.origin.x, f: -p.origin.y };
       const post: AffineTransform = { a: 1, b: 0, c: 0, d: 1, e: p.origin.x, f: p.origin.y };
       const rotAboutOrigin = composeTransforms(post, composeTransforms(rot, pre));
-      return { ...n, transform: composeTransforms(rotAboutOrigin, t) };
+      const localM = composeTransforms(invParentT, composeTransforms(rotAboutOrigin, parentT));
+      return { ...n, transform: composeTransforms(localM, t) };
     });
   }
   return ok(next, sel);
@@ -371,16 +380,19 @@ const objectDuplicate: CommandHandler = (doc, sel, params) => {
   let next = doc;
   const newIds: NodeId[] = [];
 
-  function cloneSubtree(d: Document, sourceId: NodeId): { d: Document; newId: NodeId } {
+  function cloneSubtree(d: Document, sourceId: NodeId, isRoot: boolean): { d: Document; newId: NodeId } {
     const src = d.nodes.get(sourceId);
     if (!src) return { d, newId: sourceId };
     const newId = d.nextNodeId as NodeId;
     let updatedDoc: Document = { ...d, nextNodeId: ((d.nextNodeId as number) + 1) as NodeId };
+    const t = isRoot
+      ? { ...src.transform, e: src.transform.e + offset.x, f: src.transform.f + offset.y }
+      : src.transform;
 
     if (src.kind === 'Group') {
       const clonedChildIds: NodeId[] = [];
       for (const chId of src.children) {
-        const res = cloneSubtree(updatedDoc, chId);
+        const res = cloneSubtree(updatedDoc, chId, false);
         updatedDoc = res.d;
         clonedChildIds.push(res.newId);
       }
@@ -388,7 +400,7 @@ const objectDuplicate: CommandHandler = (doc, sel, params) => {
         ...src,
         id: newId,
         children: clonedChildIds,
-        transform: { ...src.transform, e: src.transform.e + offset.x, f: src.transform.f + offset.y },
+        transform: t,
       };
       const newNodes = new Map(updatedDoc.nodes);
       newNodes.set(newId, clonedGroup);
@@ -397,7 +409,7 @@ const objectDuplicate: CommandHandler = (doc, sel, params) => {
       const clonedNode: Node = {
         ...src,
         id: newId,
-        transform: { ...src.transform, e: src.transform.e + offset.x, f: src.transform.f + offset.y },
+        transform: t,
       };
       const newNodes = new Map(updatedDoc.nodes);
       newNodes.set(newId, clonedNode);
@@ -410,7 +422,7 @@ const objectDuplicate: CommandHandler = (doc, sel, params) => {
     const parentId = findParent(next, srcId);
     if (!parentId) continue;
 
-    const res = cloneSubtree(next, srcId);
+    const res = cloneSubtree(next, srcId, true);
     next = res.d;
     const clonedId = res.newId;
     newIds.push(clonedId);
@@ -460,20 +472,39 @@ const objectGroup: CommandHandler = (doc, sel, params) => {
 };
 
 const objectUngroup: CommandHandler = (doc, sel, params) => {
-  const p = params as unknown as ObjectUngroupParams;
-  const id = p.id;
-  const group = doc.nodes.get(id);
-  if (!group || group.kind !== 'Group') return noNode('object.ungroup', id);
-  const hostLayer = findHostLayer(doc, id);
-  if (!hostLayer) return badParams('object.ungroup', `node ${id} has no host layer`);
-  // 把 group 的 children 提到图层
+  const p = params as any;
+  const targetIds: NodeId[] = p.id != null ? [p.id] : (Array.isArray(p.ids) ? p.ids : []);
+  if (targetIds.length === 0) return badParams('object.ungroup', 'need id or ids');
   let next = doc;
-  const layerNode = next.nodes.get(hostLayer) as any;
-  const newChildren = layerNode.children.flatMap((c: NodeId) => (c === id ? group.children : [c]));
-  next = updateNode(next, hostLayer, (n) => ({ ...(n as any), children: newChildren }));
-  next = removeNode(next, id);
-  const childIds = [...group.children] as NodeId[];
-  return ok(next, childIds.length > 0 ? selectionWith(childIds[0], childIds.slice(1)) : emptySelection());
+  const allNewSelection: NodeId[] = [];
+  for (const id of targetIds) {
+    const group = next.nodes.get(id);
+    if (!group || group.kind !== 'Group') continue;
+    const parentId = findParent(next, id);
+    if (!parentId) continue;
+    const parentNode = next.nodes.get(parentId);
+    if (!parentNode || !('children' in parentNode)) continue;
+
+    // 把 group 的每个子图元吸收 group.transform，确保解组后在画布上的绝对坐标保持不变
+    for (const cid of group.children) {
+      next = updateNode(next, cid, (child) => ({
+        ...child,
+        transform: composeTransforms(group.transform, child.transform),
+      }));
+    }
+
+    // 把 group 替换为其直接子图元序列
+    const parentChildren = [...(parentNode as any).children];
+    const groupIdx = parentChildren.indexOf(id);
+    const newChildren = groupIdx >= 0
+      ? [...parentChildren.slice(0, groupIdx), ...group.children, ...parentChildren.slice(groupIdx + 1)]
+      : [...parentChildren.filter((c: NodeId) => c !== id), ...group.children];
+
+    next = updateNode(next, parentId, (n) => ({ ...(n as any), children: newChildren }));
+    next = removeNode(next, id);
+    allNewSelection.push(...group.children);
+  }
+  return ok(next, allNewSelection.length > 0 ? selectionWith(allNewSelection[0]!, allNewSelection.slice(1)) : emptySelection());
 };
 
 const objectReorder: CommandHandler = (doc, sel, params) => {
@@ -541,27 +572,43 @@ const objectAlign: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectAlignParams;
   if (p.ids.length === 0) return badParams('object.align', 'need ≥ 1 nodes');
   const relative = p.relative ?? 'selection';
+  const cleanIds = keepDisjointRoots(doc, p.ids);
+  if (cleanIds.length === 0) return badParams('object.align', 'no valid nodes');
   const items: Array<{ id: NodeId; rect: Rect }> = [];
-  for (const id of p.ids) {
+  for (const id of cleanIds) {
     if (!doc.nodes.has(id)) return noNode('object.align', id);
-    const r = nodeBBox(doc, id);
+    const r = nodeWorldBBox(doc, id);
     if (r) items.push({ id, rect: r });
   }
   if (items.length === 0) return badParams('object.align', 'no mappable geometry');
   let target: Rect;
   if (relative === 'canvas') {
-    target = { x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height };
+    target = {
+      x: doc.canvas.viewBox?.x ?? 0,
+      y: doc.canvas.viewBox?.y ?? 0,
+      width: doc.canvas.viewBox?.width ?? doc.canvas.width,
+      height: doc.canvas.viewBox?.height ?? doc.canvas.height,
+    };
   } else {
-    if (p.ids.length < 2) return badParams('object.align', 'selection relative needs ≥ 2 nodes');
+    if (cleanIds.length < 2) return badParams('object.align', 'selection relative needs ≥ 2 nodes');
     target = unionRects(items.map((it) => it.rect))!;
   }
   let next = doc;
   for (const it of items) {
     const d = alignDelta(it.rect, target, p.align);
     if (!d || (d.x === 0 && d.y === 0)) continue;
+    const parentId = findParent(next, it.id);
+    const parentT = parentId ? nodeWorldTransform(next, parentId) : identityTransform();
+    const det = parentT.a * parentT.d - parentT.b * parentT.c;
+    let localDx = d.x;
+    let localDy = d.y;
+    if (Math.abs(det) > 1e-9) {
+      localDx = (parentT.d * d.x - parentT.c * d.y) / det;
+      localDy = (-parentT.b * d.x + parentT.a * d.y) / det;
+    }
     next = updateNode(next, it.id, (n) => ({
       ...n,
-      transform: { ...n.transform, e: n.transform.e + d.x, f: n.transform.f + d.y },
+      transform: { ...n.transform, e: n.transform.e + localDx, f: n.transform.f + localDy },
     }));
   }
   return ok(next, sel);
@@ -569,11 +616,12 @@ const objectAlign: CommandHandler = (doc, sel, params) => {
 
 const objectDistribute: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectDistributeParams;
-  if (p.ids.length < 3) return badParams('object.distribute', 'need ≥ 3 nodes');
+  const cleanIds = keepDisjointRoots(doc, p.ids);
+  if (cleanIds.length < 3) return badParams('object.distribute', 'need ≥ 3 nodes');
   const items: Array<{ id: NodeId; rect: Rect }> = [];
-  for (const id of p.ids) {
+  for (const id of cleanIds) {
     if (!doc.nodes.has(id)) return noNode('object.distribute', id);
-    const r = nodeBBox(doc, id);
+    const r = nodeWorldBBox(doc, id);
     if (r) items.push({ id, rect: r });
   }
   if (items.length < 3) return badParams('object.distribute', 'need ≥ 3 nodes with geometry');
@@ -588,9 +636,18 @@ const objectDistribute: CommandHandler = (doc, sel, params) => {
     if (off === 0) continue;
     const dx = isH ? off : 0;
     const dy = isH ? 0 : off;
+    const parentId = findParent(next, items[i]!.id);
+    const parentT = parentId ? nodeWorldTransform(next, parentId) : identityTransform();
+    const det = parentT.a * parentT.d - parentT.b * parentT.c;
+    let localDx = dx;
+    let localDy = dy;
+    if (Math.abs(det) > 1e-9) {
+      localDx = (parentT.d * dx - parentT.c * dy) / det;
+      localDy = (-parentT.b * dx + parentT.a * dy) / det;
+    }
     next = updateNode(next, items[i]!.id, (n) => ({
       ...n,
-      transform: { ...n.transform, e: n.transform.e + dx, f: n.transform.f + dy },
+      transform: { ...n.transform, e: n.transform.e + localDx, f: n.transform.f + localDy },
     }));
   }
   return ok(next, sel);
@@ -864,8 +921,15 @@ const selectSet: CommandHandler = (doc, sel, params) => {
 
 const selectAll: CommandHandler = (doc, sel) => {
   const ids: NodeId[] = [];
-  for (const [id, n] of doc.nodes) {
-    if (n.kind !== 'Layer') ids.push(id);
+  for (const layerId of doc.layers) {
+    const layer = doc.nodes.get(layerId);
+    if (!layer || layer.kind !== 'Layer' || layer.locked || !layer.visible) continue;
+    for (const childId of layer.children) {
+      const child = doc.nodes.get(childId);
+      if (child && !child.locked && child.visible) {
+        ids.push(childId);
+      }
+    }
   }
   if (ids.length === 0) return ok(doc, emptySelection());
   return ok(doc, selectionWith(ids[0] as NodeId, ids.slice(1)));

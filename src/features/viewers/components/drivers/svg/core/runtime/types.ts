@@ -135,6 +135,12 @@ export interface Runtime {
   /** 当前文档导出为 SVG 字符串。 */
   exportToSvg(opts?: ExportOptions): Promise<string>;
 
+  // ---- 视口与缩放 ----
+  /** 设置当前视口像素缩放比（用于工具手柄尺寸与吸附容差自适应）。 */
+  setZoom(zoom: number): void;
+  /** 当前是否处于临时手势预览交互中（拖拽移动/缩放/旋转中不向宿主写盘）。 */
+  readonly isInteracting: boolean;
+
   // ---- 销毁 ----
   dispose(): void;
 }
@@ -150,6 +156,7 @@ export interface RuntimeSnapshot {
   readonly activeToolId: ToolId;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
+  readonly isInteracting: boolean;
 }
 
 // ============================================================================

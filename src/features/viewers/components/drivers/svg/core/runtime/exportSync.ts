@@ -18,10 +18,13 @@ export interface ExportDecisionState {
   readonly loaded: boolean;
   /** 最近一次导出（或加载基线）的 Document 引用。 */
   readonly lastExportedDoc: Document | null;
+  /** 当前是否处于临时手势预览中（手势过程中不导出，释放 Commit 后才导出）。 */
+  readonly isInteracting?: boolean;
 }
 
 /** 是否应向宿主导出当前文档。 */
 export function shouldExport(state: ExportDecisionState, currentDoc: Document): boolean {
+  if (state.isInteracting) return false;
   if (!state.loaded) return false;
   if (state.lastExportedDoc === null) return false;
   return currentDoc !== state.lastExportedDoc;

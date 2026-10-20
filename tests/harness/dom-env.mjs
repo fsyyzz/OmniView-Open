@@ -27,6 +27,8 @@ const GLOBAL_KEYS = [
   'IS_REACT_ACT_ENVIRONMENT',
   'DOMRect',
   'DOMPoint',
+  'DOMParser',
+  'XMLSerializer',
 ];
 
 export function setupDomEnvironment(options = {}) {
@@ -82,6 +84,8 @@ export function setupDomEnvironment(options = {}) {
       }
       matrixTransform() { return this; }
     },
+    DOMParser: window.DOMParser,
+    XMLSerializer: window.XMLSerializer,
   };
 
   for (const [key, value] of Object.entries(polyfilledGlobals)) {

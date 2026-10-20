@@ -184,30 +184,55 @@ function mulMatrix(a: number[], b: number[]): number[] {
   ];
 }
 
+function getStyleProp(el: Element, prop: string): string | null {
+  const style = el.getAttribute('style');
+  if (!style) return null;
+  const match = style.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, 'i'));
+  return match ? match[1].trim() : null;
+}
+
 function readFill(el: Element): UsvgFill {
-  const fill = el.getAttribute('fill');
-  if (!fill || fill === 'none') return { type: 'none' };
+  const fill = el.getAttribute('fill') || getStyleProp(el, 'fill');
+  if (fill === 'none') return { type: 'none' };
+  if (!fill) {
+    if (el.tagName.toLowerCase() === 'text') {
+      return { type: 'solid', color: '#0f172a', opacity: 1 };
+    }
+    const stroke = el.getAttribute('stroke') || getStyleProp(el, 'stroke');
+    if (!stroke || stroke === 'none') {
+      return { type: 'solid', color: '#000000', opacity: 1 };
+    }
+    return { type: 'none' };
+  }
   if (fill.startsWith('url(')) {
     const id = fill.replace(/^url\(#?/, '').replace(/\)$/, '');
     return { type: 'linear-gradient', id }; // 简化：暂按 linear-gradient 处理
   }
+  const fillOpacity = el.getAttribute('fill-opacity') || getStyleProp(el, 'fill-opacity');
   return {
     type: 'solid',
     color: fill,
-    opacity: Number(el.getAttribute('fill-opacity') ?? '1') || 1,
+    opacity: Number(fillOpacity ?? '1') || 1,
   };
 }
 
 function readStroke(el: Element): UsvgStroke {
-  const stroke = el.getAttribute('stroke');
+  const stroke = el.getAttribute('stroke') || getStyleProp(el, 'stroke');
+  const strokeWidth = el.getAttribute('stroke-width') || getStyleProp(el, 'stroke-width');
+  const strokeLinecap = el.getAttribute('stroke-linecap') || getStyleProp(el, 'stroke-linecap');
+  const strokeLinejoin = el.getAttribute('stroke-linejoin') || getStyleProp(el, 'stroke-linejoin');
+  const strokeMiterlimit = el.getAttribute('stroke-miterlimit') || getStyleProp(el, 'stroke-miterlimit');
+  const strokeDasharray = el.getAttribute('stroke-dasharray') || getStyleProp(el, 'stroke-dasharray');
+  const strokeDashoffset = el.getAttribute('stroke-dashoffset') || getStyleProp(el, 'stroke-dashoffset');
+
   return {
     paint: stroke ? readFillAttr(stroke) : { type: 'none' },
-    width: Number(el.getAttribute('stroke-width') ?? '1') || 1,
-    cap: (el.getAttribute('stroke-linecap') as 'butt' | 'round' | 'square') || 'butt',
-    join: (el.getAttribute('stroke-linejoin') as 'miter' | 'round' | 'bevel') || 'miter',
-    miterLimit: Number(el.getAttribute('stroke-miterlimit') ?? '4') || 4,
-    dashArray: parseDashArray(el.getAttribute('stroke-dasharray')),
-    dashOffset: Number(el.getAttribute('stroke-dashoffset') ?? '0') || 0,
+    width: Number(strokeWidth ?? '1') || 1,
+    cap: (strokeLinecap as 'butt' | 'round' | 'square') || 'butt',
+    join: (strokeLinejoin as 'miter' | 'round' | 'bevel') || 'miter',
+    miterLimit: Number(strokeMiterlimit ?? '4') || 4,
+    dashArray: parseDashArray(strokeDasharray),
+    dashOffset: Number(strokeDashoffset ?? '0') || 0,
     alignment: 'center',
   };
 }
@@ -313,9 +338,9 @@ function readNode(el: Element): UsvgNode {
         text: el.textContent || '',
         x: Number(el.getAttribute('x') ?? '0') || 0,
         y: Number(el.getAttribute('y') ?? '0') || 0,
-        fontSize: Number(el.getAttribute('font-size') ?? '16') || 16,
-        fontFamily: el.getAttribute('font-family') || 'sans-serif',
-        textAnchor: readTextAnchor(el.getAttribute('text-anchor')),
+        fontSize: Number(el.getAttribute('font-size') ?? getStyleProp(el, 'font-size') ?? '16') || 16,
+        fontFamily: el.getAttribute('font-family') ?? getStyleProp(el, 'font-family') ?? 'sans-serif',
+        textAnchor: readTextAnchor(el.getAttribute('text-anchor') || getStyleProp(el, 'text-anchor')),
         fill: readFill(el),
       };
 

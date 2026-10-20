@@ -101,7 +101,7 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
               key={b.mode}
               type="button"
               title={`${b.label}（${relative === 'canvas' ? '画布' : '选区'}基准）`}
-              disabled={ids.length < 2}
+              disabled={relative === 'canvas' ? ids.length < 1 : ids.length < 2}
               className="rounded border border-[var(--ov-border)] py-1 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] disabled:opacity-40"
               onClick={() => execute('object.align', { ids, align: b.mode, relative })}
             >

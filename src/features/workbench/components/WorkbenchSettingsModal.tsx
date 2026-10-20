@@ -385,7 +385,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-white">工作台偏好与持久化配置中心</h2>
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-white">工作台偏好与持久化配置中心</h2>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                   VS Code 双向就绪
                 </span>
@@ -526,7 +526,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                         onClick={() => updateSetting('theme', th.id)}
                         className={`p-2 rounded-lg border text-left flex items-center gap-2 transition ${
                           active
-                            ? 'border-blue-500 bg-blue-600/15 text-white font-medium shadow-xs'
+                            ? 'border-blue-500 bg-blue-600/15 text-blue-600 dark:text-blue-400 font-medium shadow-xs'
                             : 'border-slate-800 bg-slate-850 text-slate-300 hover:bg-slate-800'
                         }`}
                       >
@@ -611,7 +611,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           }}
                           className={`px-2 py-1 rounded text-[11px] flex items-center gap-1.5 border transition ${
                             isActiveSim
-                              ? 'bg-blue-600/30 text-white border-blue-500 font-medium shadow-xs'
+                              ? 'bg-blue-600/30 text-blue-600 dark:text-blue-400 border-blue-500 font-medium shadow-xs'
                               : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800'
                           }`}
                         >
@@ -719,7 +719,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                       onClick={() => updateSetting('viewMode', m.id as ViewMode)}
                       className={`p-2 rounded-lg border text-left transition ${
                         localSettings.viewMode === m.id
-                          ? 'border-blue-500 bg-blue-600/15 text-white font-medium shadow-xs'
+                          ? 'border-blue-500 bg-blue-600/15 text-blue-600 dark:text-blue-400 font-medium shadow-xs'
                           : 'border-slate-800 bg-slate-850 text-slate-300 hover:bg-slate-800'
                       }`}
                     >
@@ -954,7 +954,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                       key={p.id}
                       className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
                         localSettings.plantUmlServerUrl === p.url || (!p.url && !['https://www.plantuml.com/plantuml', 'http://localhost:8080'].includes(localSettings.plantUmlServerUrl || ''))
-                          ? 'border-blue-500 bg-blue-600/15 text-white'
+                          ? 'border-blue-500 bg-blue-600/15 text-blue-600 dark:text-blue-400 font-medium shadow-xs'
                           : 'border-slate-800 bg-slate-850 text-slate-300 hover:bg-slate-800'
                       }`}
                     >
@@ -1097,7 +1097,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           50MB 守护
                         </span>
                       </div>
-                      <div className="text-sm font-bold text-white font-mono mt-1">
+                      <div className="text-sm font-bold text-slate-800 dark:text-white font-mono mt-1">
                         {renderCacheStats.totalKb} KB <span className="text-[11px] font-normal text-slate-500">/ 50 MB</span>
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
@@ -1129,7 +1129,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           IndexedDB
                         </span>
                       </div>
-                      <div className="text-sm font-bold text-white font-mono mt-1">
+                      <div className="text-sm font-bold text-slate-800 dark:text-white font-mono mt-1">
                         {idbStats.blobCount} 项媒体大对象
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
@@ -1161,7 +1161,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           双层引擎
                         </span>
                       </div>
-                      <div className="text-sm font-bold text-white font-mono mt-1">
+                      <div className="text-sm font-bold text-slate-800 dark:text-white font-mono mt-1">
                         {idbStats.supported ? `${Math.round((idbStats.filesEstimatedBytes || 0) / 1024 * 10) / 10} KB` : `${storageStats.usedKb} KB`}
                         <span className="text-[11px] font-normal text-slate-400 ml-1.5">({idbStats.supported ? idbStats.fileCount : storageEngineInfo.hotCacheCount} 篇文档)</span>
                       </div>
@@ -1193,7 +1193,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           LocalStorage
                         </span>
                       </div>
-                      <div className="text-sm font-bold text-white font-mono mt-1">
+                      <div className="text-sm font-bold text-slate-800 dark:text-white font-mono mt-1">
                         {storageStats.usedKb} KB <span className="text-[11px] font-normal text-slate-500">/ 5MB 配额</span>
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
@@ -1224,7 +1224,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           V3 仓库
                         </span>
                       </div>
-                      <div className="text-sm font-bold text-white font-mono mt-1">
+                      <div className="text-sm font-bold text-slate-800 dark:text-white font-mono mt-1">
                         {viewerStateStats.count} 份文档状态
                         <span className="text-[11px] font-normal text-slate-400 ml-1.5">({Math.round((viewerStateStats.totalBytes || 0) / 1024 * 10) / 10} KB)</span>
                       </div>
@@ -1257,7 +1257,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           V4 仓库
                         </span>
                       </div>
-                      <div className="text-sm font-bold text-white font-mono mt-1">
+                      <div className="text-sm font-bold text-slate-800 dark:text-white font-mono mt-1">
                         {logStats.count} 条日志
                         <span className="text-[11px] font-normal text-slate-400 ml-1.5">({Math.round((logStats.totalBytes || 0) / 1024 * 10) / 10} KB)</span>
                       </div>
@@ -1495,7 +1495,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                     <span>持久化日志</span>
                     <FileText className="w-3.5 h-3.5 text-blue-400" />
                   </div>
-                  <div className="text-base font-bold text-white font-mono mt-1">
+                  <div className="text-base font-bold text-slate-800 dark:text-white font-mono mt-1">
                     {logStats.count} <span className="text-xs font-normal text-slate-400">条</span>
                   </div>
                   <div className="text-[10px] text-slate-500 mt-0.5">
@@ -1548,7 +1548,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
               <div className="p-3.5 bg-slate-850 rounded-xl border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-semibold text-white flex items-center gap-2">
+                    <div className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
                       <Download className="w-4 h-4 text-blue-400" />
                       <span>诊断日志导出中枢</span>
                     </div>
@@ -1721,7 +1721,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                           }`}
                         >
                           <div className="flex items-center justify-between text-slate-400 text-[9px] mb-0.5">
-                            <span className="font-bold uppercase tracking-wider text-white">
+                            <span className="font-bold uppercase tracking-wider text-slate-800 dark:text-white">
                               [{item.level}] [{item.source}]
                             </span>
                             <span>{new Date(item.timestamp).toLocaleTimeString()}</span>

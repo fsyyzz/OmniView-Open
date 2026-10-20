@@ -19,6 +19,7 @@ export function useSvgRuntime(initialContent?: string): {
   activeToolId: ToolId;
   canUndo: boolean;
   canRedo: boolean;
+  isInteracting: boolean;
   execute: (id: CommandId, params: CommandParams) => void;
   undo: () => void;
   redo: () => void;
@@ -36,6 +37,7 @@ export function useSvgRuntime(initialContent?: string): {
     activeToolId: runtime.activeToolId,
     canUndo: runtime.history.undo.length > 0,
     canRedo: runtime.history.redo.length > 0,
+    isInteracting: runtime.isInteracting,
   }));
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export function useSvgRuntime(initialContent?: string): {
     activeToolId: snapshot.activeToolId,
     canUndo: snapshot.canUndo,
     canRedo: snapshot.canRedo,
+    isInteracting: snapshot.isInteracting,
     execute,
     undo,
     redo,

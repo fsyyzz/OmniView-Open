@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="680" viewBox="0 0 1120 680">
+<defs>
+    <style xmlns="http://www.w3.org/2000/svg" type="text/css">
+      <![CDATA[
+      .title { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 20px; font-weight: 700; fill: #0f172a; }
+      .sub { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 12px; font-weight: 400; fill: #64748b; }
+      .card-title { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .card-sub { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 11px; font-weight: 500; fill: #475569; }
+      .badge-txt { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 11px; font-weight: 600; fill: #1e293b; }
+      .mono-txt { font-family: Consolas, "SF Mono", monospace; font-size: 11px; font-weight: 600; fill: #0f172a; }
+      .line-main { stroke: #334155; stroke-width: 1.8; fill: none; marker-end: url(#arrow-main); }
+      .line-dashed { stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; marker-end: url(#arrow-dashed); }
+      .lbl { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 11px; font-weight: 600; fill: #334155; }
+    ]]>
+    </style>
+    <marker xmlns="http://www.w3.org/2000/svg" id="arrow-main" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <marker xmlns="http://www.w3.org/2000/svg" id="arrow-dashed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+    <filter xmlns="http://www.w3.org/2000/svg" id="card-shadow" x="-3%" y="-3%" width="106%" height="108%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.04"/>
+    </filter>
+  </defs>
+  <g id="1" data-omniview-layer="Layer 1">
+    <g  id="2" opacity="1" data-omniview-kind="Group">
+
+    </g>
+  </g>
+</svg>

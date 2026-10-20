@@ -2830,11 +2830,19 @@ export function batchMoveSvgElements(
       const doc = parser.parseFromString(trimmed, 'image/svg+xml');
       const elements = getSvgTargetElements(doc);
 
-      targetIndices.forEach(idx => {
-        const el = elements[idx];
-        if (el) {
-          applyDeltaToDomElement(el, deltaX, deltaY);
+      // 过滤掉其祖先已在 targetIndices 中的子图元，防止双重位移叠加
+      const targetEls = targetIndices.map(idx => elements[idx]).filter((el): el is Element => el != null);
+      const disjointEls = targetEls.filter(el => {
+        let parent = el.parentElement;
+        while (parent && parent.nodeType === 1 && parent.tagName.toLowerCase() !== 'svg') {
+          if (targetEls.includes(parent)) return false;
+          parent = parent.parentElement;
         }
+        return true;
+      });
+
+      disjointEls.forEach(el => {
+        applyDeltaToDomElement(el, deltaX, deltaY);
       });
 
       cleanOmniAttributes(doc);
