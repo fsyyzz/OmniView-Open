@@ -89,6 +89,7 @@ function runSuite(item) {
       const esbuildProc = spawn('npx', ['esbuild', ...esbuildArgs], {
         cwd: ROOT_DIR,
         stdio: ['ignore', 'pipe', 'pipe'],
+        shell: process.platform === 'win32',
       });
 
       const nodeProc = spawn(process.execPath, [], {

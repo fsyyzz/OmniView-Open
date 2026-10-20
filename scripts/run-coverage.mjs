@@ -186,6 +186,7 @@ if (isCheckThreshold) {
 const c8Proc = spawn('npx', c8Args, {
   cwd: ROOT_DIR,
   stdio: 'inherit',
+  shell: process.platform === 'win32',
 });
 
 c8Proc.on('close', (code) => {
