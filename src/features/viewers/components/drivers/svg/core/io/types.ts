@@ -100,6 +100,12 @@ export interface SvgWasmBridge {
 /** usvg 归一化树（仅声明顶层结构；具体节点类型由 usvg-wasm 定义）。 */
 export interface UsvgTree {
   readonly size: { readonly width: number; readonly height: number };
+  readonly viewBox?: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  };
   readonly root: UsvgNode;
   readonly defs: ReadonlyArray<UsvgNode>;
 }
@@ -113,6 +119,7 @@ export type UsvgNode =
 
 export interface UsvgNodeBase {
   readonly id: string;
+  readonly className?: string | null;
   readonly transform: ReadonlyArray<number>; // 6 元素 matrix
   readonly opacity: number;
   readonly visibility: 'visible' | 'hidden' | 'collapse';
@@ -131,6 +138,10 @@ export interface UsvgPathNode extends UsvgNodeBase {
   readonly d: string;
   readonly fill: UsvgFill;
   readonly stroke: UsvgStroke;
+  readonly primitiveHint?: 'path' | 'rect' | 'circle' | 'ellipse' | 'line' | 'polyline' | 'polygon';
+  readonly markerStart?: string;
+  readonly markerMid?: string;
+  readonly markerEnd?: string;
 }
 
 export interface UsvgImageNode extends UsvgNodeBase {
@@ -143,6 +154,23 @@ export interface UsvgImageNode extends UsvgNodeBase {
   readonly height: number;
 }
 
+export interface UsvgTextSpan {
+  readonly text: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly dx?: number;
+  readonly dy?: number;
+  readonly fontSize?: number;
+  readonly fontFamily?: string;
+  readonly fontWeight?: string;
+  readonly fontStyle?: string;
+  readonly textAnchor?: 'start' | 'middle' | 'end';
+  readonly dominantBaseline?: string;
+  readonly letterSpacing?: string;
+  readonly fill?: UsvgFill;
+  readonly className?: string | null;
+}
+
 export interface UsvgTextNode extends UsvgNodeBase {
   readonly kind: 'text';
   readonly text: string;
@@ -150,8 +178,14 @@ export interface UsvgTextNode extends UsvgNodeBase {
   readonly y: number;
   readonly fontSize: number;
   readonly fontFamily: string;
+  readonly fontWeight?: string;
+  readonly fontStyle?: string;
   readonly textAnchor?: 'start' | 'middle' | 'end';
+  readonly dominantBaseline?: string;
+  readonly letterSpacing?: string;
   readonly fill: UsvgFill;
+  readonly stroke?: UsvgStroke;
+  readonly tspans?: ReadonlyArray<UsvgTextSpan>;
 }
 
 export interface UsvgUseNode extends UsvgNodeBase {

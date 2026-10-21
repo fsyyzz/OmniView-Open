@@ -229,7 +229,17 @@ export type { LayerTreeRow, DropDrag, DropTarget, ReorderPlan } from './model/tr
 // ---- Runtime（M3 阶段） ----
 export { createRuntime, RuntimeImpl } from './runtime/runtime';
 export { commandRegistry } from './commands/registry';
-export { getTool, hitTestTopmost, hitTestAllAtPoint, tools } from './runtime/tools';
+export {
+  getTool,
+  hitTestTopmost,
+  hitTestAllAtPoint,
+  tools,
+  isTwoPointLineNode,
+  isOpenPolylineNode,
+  getLineWorldEndpoints,
+  getPolylineWorldAnchors,
+  getPolylineWorldMidpoints,
+} from './runtime/tools';
 export { useSvgRuntime } from './runtime/useSvgRuntime';
 export { shouldExport, shouldReloadFromHost, decideBackup } from './runtime/exportSync';
 export {

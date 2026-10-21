@@ -26,7 +26,7 @@ export async function exportSvg(doc: Document, opts?: ExportOptions): Promise<st
 // Document → SVG 字符串（M3 实现：完整序列化）
 // ============================================================================
 
-function documentToSvgString(doc: Document, opts: ExportOptions = {}): string {
+export function documentToSvgString(doc: Document, opts: ExportOptions = {}): string {
   const indentSize = opts.indentSize ?? 2;
   const omitHidden = opts.omitHiddenLayers ?? true;
   const minimizeIds = opts.minimizeIds ?? false;
@@ -46,8 +46,17 @@ function documentToSvgString(doc: Document, opts: ExportOptions = {}): string {
   // <defs> 原样回插（渐变 / clipPath / mask / filter 引用保真）
   const rawDefs = doc.metadata[RAW_DEFS_METADATA_KEY];
   let defsContent = rawDefs ?? '';
-  const hasMarkers = Array.from(doc.nodes.values()).some((n) => n.kind === 'Path' && (n.markerStart || n.markerEnd));
-  if (hasMarkers && !defsContent.includes('ov-marker-arrow')) {
+  const hasBuiltinMarkers = Array.from(doc.nodes.values()).some(
+    (n) =>
+      n.kind === 'Path' &&
+      (n.markerStart === 'arrow' ||
+        n.markerStart === 'dot' ||
+        n.markerMid === 'arrow' ||
+        n.markerMid === 'dot' ||
+        n.markerEnd === 'arrow' ||
+        n.markerEnd === 'dot'),
+  );
+  if (hasBuiltinMarkers && !defsContent.includes('ov-marker-arrow')) {
     defsContent += `\n    <marker id="ov-marker-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" stroke="context-stroke" /></marker>\n    <marker id="ov-marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><circle cx="5" cy="5" r="4" fill="context-stroke" /></marker>`;
   }
   if (defsContent.trim().length > 0) {
@@ -71,25 +80,48 @@ function documentToSvgString(doc: Document, opts: ExportOptions = {}): string {
   return opts.pretty === false ? parts.join('') : parts.join('\n');
 }
 
+function resolveMarkerUrl(marker?: string): string {
+  if (!marker || marker === 'none') return '';
+  if (marker === 'arrow') return 'url(#ov-marker-arrow)';
+  if (marker === 'dot') return 'url(#ov-marker-dot)';
+  if (marker.startsWith('url(')) return marker;
+  return `url(#${marker.replace(/^#/, '')})`;
+}
+
+function serializeCommonAttrs(node: Node): string[] {
+  return [
+    node.className ? `class="${escapeAttr(node.className)}"` : '',
+    node.clipPath ? `clip-path="${escapeAttr(node.clipPath)}"` : '',
+    node.mask ? `mask="${escapeAttr(node.mask)}"` : '',
+    node.filter ? `filter="${escapeAttr(node.filter)}"` : '',
+  ].filter(Boolean);
+}
+
 function serializeNodeWithDoc(doc: Document, node: Node, indent: number, minimizeIds: boolean): string {
   const pad = ' '.repeat(indent);
   const id = minimizeIds ? '' : ` id="${node.id}"`;
   const t = serializeTransform(node.transform);
+  const commonAttrs = serializeCommonAttrs(node);
 
   switch (node.kind) {
     case 'Path': {
       const d = serializePathD(node.geometry);
       const fill = node.appearance.items.find((it) => it.kind === 'fill');
       const stroke = node.appearance.items.find((it) => it.kind === 'stroke');
+      const mStart = resolveMarkerUrl(node.markerStart);
+      const mMid = resolveMarkerUrl(node.markerMid);
+      const mEnd = resolveMarkerUrl(node.markerEnd);
       const attrs = [
         `${id}`,
+        ...commonAttrs,
         `d="${escapeAttr(d)}"`,
         t ? `transform="${t}"` : '',
         `opacity="${node.opacity}"`,
         fill ? serializeFill(fill) : '',
         stroke ? serializeStroke(stroke) : '',
-        node.markerStart ? `marker-start="url(#ov-marker-${node.markerStart})"` : '',
-        node.markerEnd ? `marker-end="url(#ov-marker-${node.markerEnd})"` : '',
+        mStart ? `marker-start="${escapeAttr(mStart)}"` : '',
+        mMid ? `marker-mid="${escapeAttr(mMid)}"` : '',
+        mEnd ? `marker-end="${escapeAttr(mEnd)}"` : '',
         'data-omniview-kind="Path"',
       ].filter(Boolean);
       return `${pad}<path ${attrs.join(' ')} />`;
@@ -103,6 +135,7 @@ function serializeNodeWithDoc(doc: Document, node: Node, indent: number, minimiz
       }
       const attrs = [
         `${id}`,
+        ...commonAttrs,
         t ? `transform="${t}"` : '',
         `opacity="${node.opacity}"`,
         'data-omniview-kind="Group"',
@@ -113,21 +146,51 @@ function serializeNodeWithDoc(doc: Document, node: Node, indent: number, minimiz
       const fill = node.appearance.items.find((it) => it.kind === 'fill');
       const attrs = [
         `${id}`,
+        ...commonAttrs,
         `x="${node.x ?? 0}"`,
         `y="${node.y ?? 0}"`,
         `font-size="${node.fontSize ?? 16}"`,
         `font-family="${escapeAttr(node.fontFamily ?? 'sans-serif')}"`,
+        node.fontWeight ? `font-weight="${escapeAttr(node.fontWeight)}"` : '',
+        node.fontStyle ? `font-style="${escapeAttr(node.fontStyle)}"` : '',
         node.textAnchor ? `text-anchor="${node.textAnchor}"` : '',
+        node.dominantBaseline ? `dominant-baseline="${escapeAttr(node.dominantBaseline)}"` : '',
+        node.letterSpacing ? `letter-spacing="${escapeAttr(node.letterSpacing)}"` : '',
         t ? `transform="${t}"` : '',
         `opacity="${node.opacity}"`,
         fill ? serializeFill(fill) : '',
         'data-omniview-kind="Text"',
       ].filter(Boolean);
+      if (node.tspans && node.tspans.length > 0) {
+        const inner = node.tspans
+          .map((sp) => {
+            const spAttrs = [
+              sp.x !== undefined ? `x="${sp.x}"` : '',
+              sp.y !== undefined ? `y="${sp.y}"` : '',
+              sp.dx !== undefined ? `dx="${sp.dx}"` : '',
+              sp.dy !== undefined ? `dy="${sp.dy}"` : '',
+              sp.fontSize !== undefined ? `font-size="${sp.fontSize}"` : '',
+              sp.fontFamily ? `font-family="${escapeAttr(sp.fontFamily)}"` : '',
+              sp.fontWeight ? `font-weight="${escapeAttr(sp.fontWeight)}"` : '',
+              sp.fontStyle ? `font-style="${escapeAttr(sp.fontStyle)}"` : '',
+              sp.textAnchor ? `text-anchor="${sp.textAnchor}"` : '',
+              sp.dominantBaseline ? `dominant-baseline="${escapeAttr(sp.dominantBaseline)}"` : '',
+              sp.letterSpacing ? `letter-spacing="${escapeAttr(sp.letterSpacing)}"` : '',
+              sp.fill ? serializeFill({ fill: sp.fill }) : '',
+            ].filter(Boolean);
+            return spAttrs.length > 0
+              ? `<tspan ${spAttrs.join(' ')}>${escapeText(sp.text)}</tspan>`
+              : escapeText(sp.text);
+          })
+          .join('');
+        return `${pad}<text ${attrs.join(' ')}>${inner}</text>`;
+      }
       return `${pad}<text ${attrs.join(' ')}>${escapeText(node.text)}</text>`;
     }
     case 'Image': {
       const attrs = [
         `${id}`,
+        ...commonAttrs,
         `x="${node.x ?? 0}"`,
         `y="${node.y ?? 0}"`,
         `width="${node.width}"`,
@@ -142,6 +205,7 @@ function serializeNodeWithDoc(doc: Document, node: Node, indent: number, minimiz
     case 'Use': {
       const attrs = [
         `${id}`,
+        ...commonAttrs,
         `href="${escapeAttr(node.href)}"`,
         node.x !== undefined ? `x="${node.x}"` : '',
         node.y !== undefined ? `y="${node.y}"` : '',
@@ -178,7 +242,11 @@ function serializeStroke(item: any): string {
   const s = item.stroke;
   const parts = [`stroke-width="${s.width}"`, `stroke-linecap="${s.cap}"`, `stroke-linejoin="${s.join}"`];
   if (s.dashArray) parts.push(`stroke-dasharray="${s.dashArray.join(' ')}"`);
-  if (s.paint.type === 'solid') parts.push(`stroke="${s.paint.color}" stroke-opacity="${s.paint.opacity}"`);
+  if (s.paint.type === 'solid') {
+    parts.push(`stroke="${s.paint.color}" stroke-opacity="${s.paint.opacity}"`);
+  } else if (s.paint.type === 'gradient' || s.paint.type === 'pattern') {
+    parts.push(`stroke="url(#${s.paint.id})"`);
+  }
   return parts.join(' ');
 }
 

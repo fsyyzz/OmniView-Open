@@ -28,7 +28,7 @@ import { anchorCorner, anchorSmooth, pathGeometry, subPath, vec2 } from './docum
  */
 export function parsePathD(d: string): PathGeometry {
   const tokens = tokenizePathD(d);
-  const segments: Anchor[][] = [];
+  const segments: Array<{ anchors: Anchor[]; closed: boolean }> = [];
   let cur: Anchor[] = [];
   let closed = false;
   let x = 0;
@@ -43,9 +43,10 @@ export function parsePathD(d: string): PathGeometry {
 
   const commit = () => {
     if (cur.length > 0) {
-      segments.push(cur);
+      segments.push({ anchors: cur, closed });
     }
     cur = [];
+    closed = false;
   };
 
   let i = 0;
@@ -337,14 +338,11 @@ export function parsePathD(d: string): PathGeometry {
   if (segments.length === 0) {
     return pathGeometry([subPath([], false)]);
   }
-  return mapSegments(segments, closed);
+  return mapSegments(segments);
 }
 
-function mapSegments(segments: Anchor[][], closed: boolean): PathGeometry {
-  const subs: SubPath[] = segments.map((anchors) => subPath(anchors, false));
-  if (subs.length > 0 && closed) {
-    subs[subs.length - 1] = subPath(subs[subs.length - 1].anchors, true);
-  }
+function mapSegments(segments: ReadonlyArray<{ anchors: Anchor[]; closed: boolean }>): PathGeometry {
+  const subs: SubPath[] = segments.map((seg) => subPath(seg.anchors, seg.closed));
   return pathGeometry(subs);
 }
 
@@ -497,12 +495,28 @@ function serializeSubPath(sub: SubPath, parts: string[], precision: number): voi
   for (let i = 1; i < anchors.length; i++) {
     const prev = anchors[i - 1]!;
     const cur = anchors[i]!;
-    if (prev.handleOut && cur.handleIn) {
-      const c1 = vec2(prev.point.x + prev.handleOut.x, prev.point.y + prev.handleOut.y);
-      const c2 = vec2(cur.point.x + cur.handleIn.x, cur.point.y + cur.handleIn.y);
+    if (prev.handleOut || cur.handleIn) {
+      const hOut = prev.handleOut ?? { x: 0, y: 0 };
+      const hIn = cur.handleIn ?? { x: 0, y: 0 };
+      const c1 = vec2(prev.point.x + hOut.x, prev.point.y + hOut.y);
+      const c2 = vec2(cur.point.x + hIn.x, cur.point.y + hIn.y);
       parts.push(`C ${fmt(c1.x)} ${fmt(c1.y)} ${fmt(c2.x)} ${fmt(c2.y)} ${fmt(cur.point.x)} ${fmt(cur.point.y)}`);
     } else {
       parts.push(`L ${fmt(cur.point.x)} ${fmt(cur.point.y)}`);
+    }
+  }
+
+  // 闭合子路径若首尾锚点不重合且携带贝塞尔控制柄（如 createEllipseGeometry 4 锚点圆/椭圆），补齐闭合曲线段
+  if (sub.closed && anchors.length > 1) {
+    const last = anchors[anchors.length - 1]!;
+    const notSamePoint =
+      Math.abs(last.point.x - first.point.x) > 1e-6 || Math.abs(last.point.y - first.point.y) > 1e-6;
+    if (notSamePoint && (last.handleOut || first.handleIn)) {
+      const hOut = last.handleOut ?? { x: 0, y: 0 };
+      const hIn = first.handleIn ?? { x: 0, y: 0 };
+      const c1 = vec2(last.point.x + hOut.x, last.point.y + hOut.y);
+      const c2 = vec2(first.point.x + hIn.x, first.point.y + hIn.y);
+      parts.push(`C ${fmt(c1.x)} ${fmt(c1.y)} ${fmt(c2.x)} ${fmt(c2.y)} ${fmt(first.point.x)} ${fmt(first.point.y)}`);
     }
   }
 }

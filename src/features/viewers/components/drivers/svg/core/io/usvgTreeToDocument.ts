@@ -16,7 +16,7 @@
  *   - 未知/不支持节点降级为 Group 并记入 warnings
  */
 
-import type { UsvgFill, UsvgNode, UsvgStroke, UsvgTree } from './types';
+import type { UsvgFill, UsvgNode, UsvgStroke, UsvgTextSpan, UsvgTree } from './types';
 import type {
   AffineTransform,
   Appearance,
@@ -28,6 +28,7 @@ import type {
   NodeId,
   Stroke,
   TextNode,
+  TextSpan,
 } from '../model/types';
 import { emptyAppearance, makeLayer } from '../model/document';
 import { parsePathD } from '../model/path';
@@ -59,12 +60,13 @@ export function usvgTreeToDocument(tree: UsvgTree): Document {
 
   const width = tree.size.width;
   const height = tree.size.height;
+  const vb = tree.viewBox ?? { x: 0, y: 0, width, height };
   const doc: Document = {
     canvas: {
       width,
       height,
       unit: 'px',
-      viewBox: { x: 0, y: 0, width, height },
+      viewBox: vb,
     },
     layers: [layerId],
     nodes: ctx.nodes,
@@ -84,11 +86,15 @@ function convertNode(node: UsvgNode, ctx: ConvertCtx): NodeId | null {
   const base = {
     id,
     name: node.id || null,
+    className: node.className,
     transform: toAffine(node.transform),
     opacity: node.opacity,
     blend: 'normal' as const,
     visible: node.visibility === 'visible',
     locked: false,
+    clipPath: node.clipPath,
+    mask: node.mask,
+    filter: node.filter,
     children: [] as ReadonlyArray<NodeId>,
   };
 
@@ -111,6 +117,9 @@ function convertNode(node: UsvgNode, ctx: ConvertCtx): NodeId | null {
         geometry: parsePathD(node.d),
         appearance: appearanceFrom(node.fill, node.stroke),
         primitiveHint: 'path',
+        markerStart: node.markerStart,
+        markerMid: node.markerMid,
+        markerEnd: node.markerEnd,
       };
       ctx.nodes.set(id, n);
       return id;
@@ -125,7 +134,12 @@ function convertNode(node: UsvgNode, ctx: ConvertCtx): NodeId | null {
         y: node.y,
         fontSize: node.fontSize,
         fontFamily: node.fontFamily,
+        fontWeight: node.fontWeight,
+        fontStyle: node.fontStyle,
         textAnchor: node.textAnchor,
+        dominantBaseline: node.dominantBaseline,
+        letterSpacing: node.letterSpacing,
+        tspans: node.tspans ? node.tspans.map(toTextSpan) : undefined,
         appearance: { items: [{ kind: 'fill', fill: toFill(node.fill), blend: 'normal', opacity: 1 }] },
       };
       ctx.nodes.set(id, t);
@@ -174,6 +188,24 @@ function convertNode(node: UsvgNode, ctx: ConvertCtx): NodeId | null {
 // ============================================================================
 // 属性映射
 // ============================================================================
+
+function toTextSpan(sp: UsvgTextSpan): TextSpan {
+  return {
+    text: sp.text,
+    x: sp.x,
+    y: sp.y,
+    dx: sp.dx,
+    dy: sp.dy,
+    fontSize: sp.fontSize,
+    fontFamily: sp.fontFamily,
+    fontWeight: sp.fontWeight,
+    fontStyle: sp.fontStyle,
+    textAnchor: sp.textAnchor,
+    dominantBaseline: sp.dominantBaseline,
+    letterSpacing: sp.letterSpacing,
+    fill: sp.fill ? toFill(sp.fill) : undefined,
+  };
+}
 
 function toAffine(m: ReadonlyArray<number>): AffineTransform {
   if (m.length !== 6) return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };

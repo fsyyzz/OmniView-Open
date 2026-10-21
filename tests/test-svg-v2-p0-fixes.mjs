@@ -459,6 +459,201 @@ it('hitTestTopmost 命中 Image 包围盒内部 / 空白处不命中', () => {
 });
 
 // ============================================================================
+// 7. SVG 预览保真：CSS <style> 规则级联、<g> 描边/字体继承、<tspan> 与自定义箭头
+// ============================================================================
+function createMiniDomParser() {
+  class MiniTextNode {
+    constructor(value) {
+      this.nodeType = 3;
+      this.nodeValue = value;
+      this.textContent = value;
+      this.parentElement = null;
+    }
+  }
+  class MiniElement {
+    constructor(tagName, attrs = {}) {
+      this.nodeType = 1;
+      this.tagName = tagName;
+      this._attrs = new Map(Object.entries(attrs));
+      this.childNodes = [];
+      this.parentElement = null;
+    }
+    getAttribute(name) {
+      return this._attrs.has(name) ? this._attrs.get(name) : null;
+    }
+    hasAttribute(name) {
+      return this._attrs.has(name);
+    }
+    get textContent() {
+      return this.childNodes.map((c) => c.textContent ?? '').join('');
+    }
+    get innerHTML() {
+      return this.childNodes.map((c) => (c.nodeType === 1 ? c.outerHTML : c.nodeValue)).join('');
+    }
+    get outerHTML() {
+      const attrs = Array.from(this._attrs.entries())
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(' ');
+      const open = attrs ? `<${this.tagName} ${attrs}>` : `<${this.tagName}>`;
+      return `${open}${this.innerHTML}</${this.tagName}>`;
+    }
+    querySelector(sel) {
+      return this.querySelectorAll(sel)[0] ?? null;
+    }
+    querySelectorAll(sel) {
+      const clean = sel.replace(/^:scope\s*>\s*/, '').trim().toLowerCase();
+      const directOnly = sel.startsWith(':scope');
+      const results = [];
+      const visit = (node, depth) => {
+        for (const ch of node.childNodes) {
+          if (ch.nodeType !== 1) continue;
+          if (ch.tagName.toLowerCase() === clean) results.push(ch);
+          if (!directOnly || depth === 0) visit(ch, depth + 1);
+        }
+      };
+      visit(this, 0);
+      return results;
+    }
+  }
+  return class MiniDOMParser {
+    parseFromString(xmlStr) {
+      const cleaned = xmlStr
+        .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+        .replace(/<!--[\s\S]*?-->/g, '');
+      const rootHolder = new MiniElement('document');
+      const stack = [rootHolder];
+      const tokenRe = /<\/?([a-zA-Z0-9:_-]+)([^>]*?)\/?>|([^<]+)/g;
+      let m;
+      while ((m = tokenRe.exec(cleaned)) !== null) {
+        const full = m[0];
+        if (m[3] !== undefined) {
+          const txt = m[3];
+          if (txt.trim().length > 0 || stack[stack.length - 1]?.tagName.toLowerCase() === 'text') {
+            const tn = new MiniTextNode(txt);
+            tn.parentElement = stack[stack.length - 1];
+            stack[stack.length - 1].childNodes.push(tn);
+          }
+          continue;
+        }
+        const tag = m[1];
+        const attrRaw = m[2] || '';
+        if (full.startsWith('</')) {
+          if (stack.length > 1) stack.pop();
+          continue;
+        }
+        const selfClosing = full.endsWith('/>');
+        const attrs = {};
+        const attrRe = /([a-zA-Z0-9:_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+        let am;
+        while ((am = attrRe.exec(attrRaw)) !== null) {
+          attrs[am[1]] = am[2] ?? am[3] ?? '';
+        }
+        const el = new MiniElement(tag, attrs);
+        const parent = stack[stack.length - 1];
+        el.parentElement = parent === rootHolder ? null : parent;
+        parent.childNodes.push(el);
+        if (!selfClosing) stack.push(el);
+      }
+      const docEl = rootHolder.childNodes.find((c) => c.nodeType === 1) ?? null;
+      return {
+        documentElement: docEl,
+        querySelector: (s) => (docEl ? docEl.querySelector(s) : null),
+      };
+    }
+  };
+}
+
+it('fallbackDomParse 解析 <g> 继承描边与字体、<style> CSS 类规则、<tspan> 及自定义 marker', async () => {
+  const prevDOMParser = globalThis.DOMParser;
+  globalThis.DOMParser = createMiniDomParser();
+  try {
+    const { fallbackDomParse } = await import(
+      '../src/features/viewers/components/drivers/svg/core/io/fallbackDomParse.ts'
+    );
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+        <defs>
+          <style type="text/css"><![CDATA[
+            svg { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+            .line-main { fill: none; stroke: #334155; stroke-width: 2px; stroke-dasharray: 5,4; marker-end: url(#arrow-main); }
+            .title { font-size: 20px; font-weight: bold; fill: #0f172a; letter-spacing: 1px; dominant-baseline: central; }
+          ]]></style>
+          <marker id="arrow-main" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/>
+          </marker>
+        </defs>
+        <rect width="100%" height="100%" fill="#f8fafc"/>
+        <g stroke="#38bdf8" stroke-width="2.5" fill="none" stroke-dasharray="6 4">
+          <path d="M 100 100 L 300 100"/>
+          <line x1="100" y1="200" x2="300" y2="200"/>
+        </g>
+        <path d="M 420 190 L 676 190" class="line-main"/>
+        <text x="400" y="40" class="title" text-anchor="middle">标题文本</text>
+        <g font-family="'JetBrains Mono', monospace">
+          <text x="56" y="160" fill="#f8fafc" font-size="24" font-weight="800">14,820 <tspan font-size="11" font-weight="500" fill="#10b981">↑ 12.4%</tspan></text>
+        </g>
+      </svg>
+    `;
+    const { document: doc, warnings } = fallbackDomParse(svg);
+    assert.strictEqual(warnings.length, 0, '不应产生解析警告');
+    const layer = doc.nodes.get(doc.layers[0]);
+    assert.strictEqual(layer.children.length, 5, '顶层应有 5 个节点');
+
+    // 1) 100% 宽高背景矩形应解析为 800x600 而非 NaN
+    const bgRect = doc.nodes.get(layer.children[0]);
+    assert.strictEqual(bgRect.kind, 'Path');
+    const bgAnchors = bgRect.geometry.subPaths[0].anchors;
+    assert.strictEqual(bgAnchors[1].point.x, 800, 'width="100%" 应按画布宽度 800 解析');
+    assert.strictEqual(bgAnchors[2].point.y, 600, 'height="100%" 应按画布高度 600 解析');
+
+    // 2) <g> 包裹下的 <path> 与 <line> 应继承 stroke="#38bdf8" stroke-width="2.5" fill="none"
+    const edgeGroup = doc.nodes.get(layer.children[1]);
+    assert.strictEqual(edgeGroup.kind, 'Group');
+    for (const cid of edgeGroup.children) {
+      const childPath = doc.nodes.get(cid);
+      assert.strictEqual(childPath.kind, 'Path');
+      const fillItem = childPath.appearance.items.find((it) => it.kind === 'fill');
+      const strokeItem = childPath.appearance.items.find((it) => it.kind === 'stroke');
+      assert.strictEqual(fillItem.fill.type, 'none', '线条 fill 应为 none');
+      assert.strictEqual(strokeItem.stroke.paint.type, 'solid', '线条应继承父 <g> 实色描边');
+      assert.strictEqual(strokeItem.stroke.paint.color, '#38bdf8', '线条描边颜色应为 #38bdf8');
+      assert.strictEqual(strokeItem.stroke.width, 2.5, '线条描边宽度应为 2.5');
+      assert.deepStrictEqual(strokeItem.stroke.dashArray, [6, 4], '线条虚线数组应继承 [6, 4]');
+    }
+
+    // 3) CSS <style> .line-main 规则应赋予描边、虚线与自定义 marker-end
+    const cssLine = doc.nodes.get(layer.children[2]);
+    assert.strictEqual(cssLine.kind, 'Path');
+    const cssStroke = cssLine.appearance.items.find((it) => it.kind === 'stroke');
+    assert.strictEqual(cssStroke.stroke.paint.color, '#334155', '.line-main 描边颜色应生效');
+    assert.strictEqual(cssStroke.stroke.width, 2, '2px 单位应正确解析为数值 2');
+    assert.strictEqual(cssLine.markerEnd, 'url(#arrow-main)', '自定义 marker-end url(#arrow-main) 应保留');
+
+    // 4) CSS <style> .title 与 svg 根字体继承
+    const titleNode = doc.nodes.get(layer.children[3]);
+    assert.strictEqual(titleNode.kind, 'Text');
+    assert.strictEqual(titleNode.fontSize, 20, '20px 字号应解析为 20');
+    assert.strictEqual(titleNode.fontWeight, 'bold', '.title 字重 bold 应保留');
+    assert.ok(titleNode.fontFamily.includes('PingFang SC'), '应从 svg 根样式继承 font-family');
+    assert.strictEqual(titleNode.dominantBaseline, 'central', 'dominant-baseline 应保留');
+    assert.strictEqual(titleNode.letterSpacing, '1px', 'letter-spacing 应保留');
+
+    // 5) <g> 字体继承与 <tspan> 子跨度保留
+    const fontGroup = doc.nodes.get(layer.children[4]);
+    const metricText = doc.nodes.get(fontGroup.children[0]);
+    assert.strictEqual(metricText.kind, 'Text');
+    assert.ok(metricText.fontFamily.includes('JetBrains Mono'), '应从父 <g> 继承等宽字体');
+    assert.strictEqual(metricText.fontWeight, '800', 'font-weight="800" 应保留');
+    assert.ok(Array.isArray(metricText.tspans) && metricText.tspans.length === 2, '应解析 2 段 tspan');
+    assert.strictEqual(metricText.tspans[1].fontSize, 11, 'tspan 字号应为 11');
+    assert.strictEqual(metricText.tspans[1].fontWeight, '500', 'tspan 字重应为 500');
+    assert.strictEqual(metricText.tspans[1].fill.color, '#10b981', 'tspan 独立颜色应保留');
+  } finally {
+    globalThis.DOMParser = prevDOMParser;
+  }
+});
+
+// ============================================================================
 // 汇总
 // ============================================================================
 async function main() {

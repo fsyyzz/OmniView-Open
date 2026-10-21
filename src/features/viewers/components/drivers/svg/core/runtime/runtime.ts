@@ -115,7 +115,7 @@ export class RuntimeImpl implements Runtime {
           lastPreview: null,
           undoLabel: action.label,
         };
-        return false;
+        return true;
 
       case 'Preview':
         if (!this._interaction) return false;
@@ -159,6 +159,28 @@ export class RuntimeImpl implements Runtime {
         return false;
 
       case 'Exec':
+        // 若处于 Begin...Commit 交互中且下发了文档变更命令（如形状绘制松手时的最终确认），
+        // 统一作为 lastPreview 在 snapshotDoc 上执行并交由后续 Commit 落盘单条历史，避免与拖拽期间的 Preview 重复创建
+        if (
+          this._interaction &&
+          action.commandId !== 'tool.setActive' &&
+          action.commandId !== 'history.undo' &&
+          action.commandId !== 'history.redo' &&
+          !action.commandId.startsWith('select.')
+        ) {
+          this._interaction.lastPreview = { commandId: action.commandId, params: action.params };
+          const rExec = this.runCommand(
+            this._interaction.snapshotDoc,
+            this._interaction.snapshotSelection,
+            action.commandId,
+            action.params,
+          );
+          if (rExec.ok) {
+            this._doc = rExec.doc;
+            this._selection = rExec.selection;
+          }
+          return rExec.ok;
+        }
         return this.execute(action.commandId, action.params).ok;
 
       default:
@@ -188,9 +210,15 @@ export class RuntimeImpl implements Runtime {
       if (this._gesture || this._interaction) {
         this.handleActions([{ kind: 'Cancel' }]);
         this._gesture = null;
+        this.notify();
       }
       return;
     }
+
+    if ((event.kind === 'drag' || event.kind === 'move') && this._gesture) {
+      this._gesture = { ...this._gesture, currentPoint: event.point };
+    }
+
     const ctx = this.makeToolContext();
     const tool = getTool(this._activeToolId);
     const actions = tool.pointer(ctx, event);
@@ -208,12 +236,15 @@ export class RuntimeImpl implements Runtime {
             ids: begin.gestureMode === 'marquee' ? [] : [...this._selection.nodeIds],
           }
         : null;
+      if (this._gesture) this.notify();
     } else if (event.kind === 'drag' || event.kind === 'move') {
-      if (this._gesture) {
-        this._gesture = { ...this._gesture, currentPoint: event.point };
+      if (this._gesture || this._activeToolId === 'pen') {
+        this.notify();
       }
     } else if (event.kind === 'up') {
+      const hadGesture = this._gesture !== null;
       this._gesture = null;
+      if (hadGesture) this.notify();
     }
   }
 

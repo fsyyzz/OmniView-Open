@@ -29,6 +29,8 @@ import {
   type Selection,
   type ToolId,
   getTool,
+  isTwoPointLineNode,
+  isOpenPolylineNode,
 } from './core';
 import { useSvgV2PointerInput } from './useSvgV2PointerInput';
 import { useSvgV2Viewport } from './useSvgV2Viewport';
@@ -42,28 +44,50 @@ export interface SvgV2CanvasProps {
   readonly activeToolId: ToolId;
 }
 
-/** `<defs>` 净化配置（与 v1 SvgCanvas 一致的 SVG profile 白名单）。 */
+/** `<defs>` 净化配置（支持完整 SVG 滤镜、渐变、marker、style 及内嵌图元白名单）。 */
 const DEFS_SANITIZE = {
   USE_PROFILES: { svg: true, svgFilters: true },
   ADD_TAGS: [
-    'style', 'clipPath', 'linearGradient', 'radialGradient', 'filter', 'feGaussianBlur',
-    'feOffset', 'feMerge', 'feMergeNode', 'marker', 'pattern', 'mask', 'symbol', 'use',
+    'svg', 'defs', 'style', 'clipPath', 'linearGradient', 'radialGradient', 'stop',
+    'filter', 'feDropShadow', 'feGaussianBlur', 'feOffset', 'feMerge', 'feMergeNode',
+    'feBlend', 'feColorMatrix', 'feComponentTransfer', 'feFuncR', 'feFuncG', 'feFuncB', 'feFuncA',
+    'feComposite', 'feFlood', 'feMorphology', 'feTurbulence', 'feDisplacementMap',
+    'marker', 'pattern', 'mask', 'symbol', 'use',
+    'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan',
   ],
   ADD_ATTR: [
-    'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'fx', 'fy', 'rx', 'ry', 'points', 'd',
-    'viewBox', 'xmlns', 'xmlns:xlink', 'xlink:href', 'href', 'transform',
+    'id', 'class', 'style', 'type',
+    'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'fx', 'fy', 'rx', 'ry', 'dx', 'dy',
+    'points', 'd', 'viewBox', 'xmlns', 'xmlns:xlink', 'xlink:href', 'href', 'transform',
     'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
     'stroke-dasharray', 'stroke-dashoffset', 'stroke-miterlimit', 'opacity',
     'fill-opacity', 'stroke-opacity', 'font-family', 'font-size', 'font-weight',
-    'font-style', 'text-anchor', 'letter-spacing', 'dominant-baseline',
-    'width', 'height', 'preserveAspectRatio', 'clip-path', 'filter',
+    'font-style', 'text-anchor', 'letter-spacing', 'dominant-baseline', 'alignment-baseline',
+    'width', 'height', 'preserveAspectRatio', 'clip-path', 'filter', 'mask',
     'offset', 'stop-color', 'stop-opacity', 'gradientUnits', 'gradientTransform',
     'patternUnits', 'patternContentUnits', 'patternTransform', 'clipPathUnits',
     'maskUnits', 'maskContentUnits', 'filterUnits', 'primitiveUnits', 'markerUnits',
     'markerWidth', 'markerHeight', 'refX', 'refY', 'orient', 'spreadMethod',
-    'xlink:title',
+    'stdDeviation', 'flood-color', 'flood-opacity', 'in', 'in2', 'result', 'mode',
+    'values', 'operator', 'k1', 'k2', 'k3', 'k4', 'scale', 'xChannelSelector', 'yChannelSelector',
+    'baseFrequency', 'numOctaves', 'seed', 'stitchTiles', 'xlink:title',
   ],
 };
+
+/**
+ * 在 `<svg><defs>...</defs></svg>` 命名空间上下文中净化 `<defs>` 片段。
+ * 直接对裸 `<linearGradient>` / `<marker>` / `<filter>` 调 DOMPurify 会因 HTML5 解析器处于
+ * HTML 命名空间而剥离驼峰 SVG 标签，导致渐变、阴影与箭头丢失。
+ */
+export function sanitizeDefsFragment(rawDefs: string): string {
+  const trimmed = rawDefs.trim();
+  if (!trimmed) return '';
+  const wrapped = `<svg xmlns="http://www.w3.org/2000/svg"><defs id="__ov_defs_wrap__">${trimmed}</defs></svg>`;
+  const clean = DOMPurify.sanitize(wrapped, DEFS_SANITIZE);
+  const match = clean.match(/<defs[^>]*id=["']__ov_defs_wrap__["'][^>]*>([\s\S]*?)<\/defs>/i)
+    ?? clean.match(/<defs[^>]*>([\s\S]*?)<\/defs>/i);
+  return match ? match[1] ?? '' : '';
+}
 
 export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   document: doc,
@@ -199,10 +223,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   }, [doc, selection]);
 
   const rawDefs = doc.metadata[RAW_DEFS_METADATA_KEY] ?? '';
-  const defsHtml = useMemo(
-    () => (rawDefs.trim() ? DOMPurify.sanitize(rawDefs, DEFS_SANITIZE) : ''),
-    [rawDefs],
-  );
+  const defsHtml = useMemo(() => sanitizeDefsFragment(rawDefs), [rawDefs]);
 
   const overlays = runtime.overlay();
   const selectionBoxes = useMemo(() => {
@@ -257,6 +278,8 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
       >
         <svg
           ref={svgRef}
+          width={view.width}
+          height={view.height}
           viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
           className="block h-auto max-h-full max-w-full border border-[var(--ov-border)] bg-white"
           style={{ aspectRatio: `${view.width} / ${view.height}`, touchAction: 'none', cursor }}
@@ -271,6 +294,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
           onDoubleClick={handleNodeDoubleClick}
           onKeyDown={handleKeyDown}
         >
+          {defsHtml ? <defs dangerouslySetInnerHTML={{ __html: defsHtml }} /> : null}
           <defs>
             <marker id="ov-marker-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" stroke="context-stroke" />
@@ -279,7 +303,6 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
               <circle cx="5" cy="5" r="4" fill="context-stroke" />
             </marker>
           </defs>
-          {defsHtml ? <g dangerouslySetInnerHTML={{ __html: defsHtml }} /> : null}
           {elements}
           {selectionBoxes}
           <g pointerEvents="none">{overlays.map(renderOverlay)}</g>
@@ -287,7 +310,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
       </div>
 
       {/* 悬浮 HUD 快捷工具条 (Floating HUD) */}
-      {hudPosition && selBBox && activeToolId === 'select' && (
+      {hudPosition && selBBox && activeToolId === 'select' && !runtime.isInteracting && (
         <SvgV2FloatingHud
           left={hudPosition.left}
           top={hudPosition.top}
@@ -397,7 +420,18 @@ function renderOverlay(o: OverlayElement, i: number): React.ReactNode {
         />
       );
     case 'circle':
-      return <circle key={key} cx={o.center.x} cy={o.center.y} r={o.radius} fill={o.fill} stroke={o.stroke} strokeWidth={o.lineWidth} />;
+      return (
+        <circle
+          key={key}
+          cx={o.center.x}
+          cy={o.center.y}
+          r={o.radius}
+          fill={o.fill}
+          stroke={o.stroke}
+          strokeWidth={o.lineWidth}
+          strokeDasharray={o.dashed ? `${3 / Math.max(o.lineWidth, 1e-6)} ${2 / Math.max(o.lineWidth, 1e-6)}` : undefined}
+        />
+      );
     case 'polyline':
       return (
         <polyline
@@ -444,6 +478,21 @@ function paintToCss(fill: Fill): string {
   }
 }
 
+function paintOpacity(fill: Fill): number | undefined {
+  if (fill.type === 'solid' && fill.opacity !== undefined && fill.opacity < 1) {
+    return fill.opacity;
+  }
+  return undefined;
+}
+
+function resolveMarkerAttr(marker?: 'none' | 'arrow' | 'dot' | string): string | undefined {
+  if (!marker || marker === 'none') return undefined;
+  if (marker === 'arrow') return 'url(#ov-marker-arrow)';
+  if (marker === 'dot') return 'url(#ov-marker-dot)';
+  if (marker.startsWith('url(')) return marker;
+  return `url(#${marker.replace(/^#/, '')})`;
+}
+
 function matrixAttr(node: Node): string | undefined {
   const t = node.transform;
   return t.a === 1 && t.b === 0 && t.c === 0 && t.d === 1 && t.e === 0 && t.f === 0
@@ -459,11 +508,21 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
   if (!node.visible) return null;
   const isSelected = selection.nodeIds.includes(node.id);
   const transform = matrixAttr(node);
-  const style = selectionStyle(isSelected);
+  const selStyle = isOpenPolylineNode(node) ? undefined : selectionStyle(isSelected);
 
   if (node.kind === 'Group') {
     return (
-      <g key={`g-${node.id}`} data-omni-id={node.id} transform={transform} opacity={node.opacity} style={style}>
+      <g
+        key={`g-${node.id}`}
+        data-omni-id={node.id}
+        className={node.className}
+        transform={transform}
+        opacity={node.opacity}
+        clipPath={node.clipPath ?? undefined}
+        mask={node.mask ?? undefined}
+        filter={node.filter ?? undefined}
+        style={selStyle}
+      >
         {node.children.map((cid) => {
           const child = doc.nodes.get(cid);
           return child ? renderNode(child, doc, selection) : null;
@@ -476,30 +535,66 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
     const fillItem = node.appearance.items.find((it) => it.kind === 'fill');
     const strokeItem = node.appearance.items.find((it) => it.kind === 'stroke');
     const fillValue = fillItem && fillItem.kind === 'fill' ? paintToCss(fillItem.fill) : '#000';
+    const fillAlpha = fillItem && fillItem.kind === 'fill' ? paintOpacity(fillItem.fill) : undefined;
     const strokeValue = strokeItem && strokeItem.kind === 'stroke' ? paintToCss(strokeItem.stroke.paint) : 'none';
-    const strokeWidth = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.width : 0;
+    const strokeAlpha =
+      strokeItem && strokeItem.kind === 'stroke' ? paintOpacity(strokeItem.stroke.paint) : undefined;
+    const strokeWidth =
+      strokeItem && strokeItem.kind === 'stroke' && strokeValue !== 'none'
+        ? strokeItem.stroke.width
+        : 0;
     const strokeDash =
       strokeItem && strokeItem.kind === 'stroke' && strokeItem.stroke.dashArray
         ? strokeItem.stroke.dashArray.join(' ')
         : undefined;
+    const strokeDashOffset =
+      strokeItem && strokeItem.kind === 'stroke' && strokeItem.stroke.dashOffset
+        ? strokeItem.stroke.dashOffset
+        : undefined;
     const strokeCap = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.cap : undefined;
     const strokeJoin = strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.join : undefined;
+    const strokeMiter =
+      strokeItem && strokeItem.kind === 'stroke' ? strokeItem.stroke.miterLimit : undefined;
+    const mStart = resolveMarkerAttr(node.markerStart);
+    const mMid = resolveMarkerAttr(node.markerMid);
+    const mEnd = resolveMarkerAttr(node.markerEnd);
+    const inlineStyle: React.CSSProperties = {
+      cursor: 'default',
+      ...(node.className
+        ? {
+            fill: fillValue,
+            stroke: strokeValue,
+            strokeWidth: strokeWidth || undefined,
+          }
+        : undefined),
+      ...selStyle,
+    };
+
     return (
       <path
         key={`p-${node.id}`}
         data-omni-id={node.id}
+        className={node.className}
         d={serializePathD(node.geometry)}
         fill={fillValue}
+        fillOpacity={fillAlpha}
         stroke={strokeValue}
+        strokeOpacity={strokeAlpha}
         strokeWidth={strokeWidth}
         strokeDasharray={strokeDash}
+        strokeDashoffset={strokeDashOffset}
         strokeLinecap={strokeCap}
         strokeLinejoin={strokeJoin}
-        markerStart={node.markerStart === 'arrow' ? 'url(#ov-marker-arrow)' : node.markerStart === 'dot' ? 'url(#ov-marker-dot)' : undefined}
-        markerEnd={node.markerEnd === 'arrow' ? 'url(#ov-marker-arrow)' : node.markerEnd === 'dot' ? 'url(#ov-marker-dot)' : undefined}
+        strokeMiterlimit={strokeMiter}
+        markerStart={mStart}
+        markerMid={mMid}
+        markerEnd={mEnd}
+        clipPath={node.clipPath ?? undefined}
+        mask={node.mask ?? undefined}
+        filter={node.filter ?? undefined}
         transform={transform}
         opacity={node.opacity}
-        style={style ?? { cursor: 'default' }}
+        style={inlineStyle}
       />
     );
   }
@@ -507,21 +602,66 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
   if (node.kind === 'Text') {
     const fillItem = node.appearance.items.find((it) => it.kind === 'fill');
     const fillValue = fillItem && fillItem.kind === 'fill' ? paintToCss(fillItem.fill) : '#000';
+    const fillAlpha = fillItem && fillItem.kind === 'fill' ? paintOpacity(fillItem.fill) : undefined;
+    const inlineStyle: React.CSSProperties = {
+      cursor: 'default',
+      ...(node.className
+        ? {
+            fill: fillValue,
+            fontSize: node.fontSize ?? 16,
+            fontFamily: node.fontFamily,
+            fontWeight: node.fontWeight as React.CSSProperties['fontWeight'],
+            fontStyle: node.fontStyle as React.CSSProperties['fontStyle'],
+          }
+        : undefined),
+      ...selStyle,
+    };
+
     return (
       <text
         key={`t-${node.id}`}
         data-omni-id={node.id}
+        className={node.className}
         x={node.x ?? 0}
         y={node.y ?? 0}
         fontSize={node.fontSize ?? 16}
         fontFamily={node.fontFamily}
+        fontWeight={node.fontWeight}
+        fontStyle={node.fontStyle}
         textAnchor={node.textAnchor}
+        dominantBaseline={node.dominantBaseline as any}
+        letterSpacing={node.letterSpacing}
         fill={fillValue}
+        fillOpacity={fillAlpha}
+        clipPath={node.clipPath ?? undefined}
+        mask={node.mask ?? undefined}
+        filter={node.filter ?? undefined}
         transform={transform}
         opacity={node.opacity}
-        style={style ?? { cursor: 'default' }}
+        style={inlineStyle}
       >
-        {node.text}
+        {node.tspans && node.tspans.length > 0
+          ? node.tspans.map((sp, idx) => (
+              <tspan
+                key={`ts-${node.id}-${idx}`}
+                x={sp.x}
+                y={sp.y}
+                dx={sp.dx}
+                dy={sp.dy}
+                fontSize={sp.fontSize}
+                fontFamily={sp.fontFamily}
+                fontWeight={sp.fontWeight}
+                fontStyle={sp.fontStyle}
+                textAnchor={sp.textAnchor}
+                dominantBaseline={sp.dominantBaseline as any}
+                letterSpacing={sp.letterSpacing}
+                fill={sp.fill ? paintToCss(sp.fill) : undefined}
+                fillOpacity={sp.fill ? paintOpacity(sp.fill) : undefined}
+              >
+                {sp.text}
+              </tspan>
+            ))
+          : node.text}
       </text>
     );
   }
@@ -531,14 +671,18 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
       <image
         key={`i-${node.id}`}
         data-omni-id={node.id}
+        className={node.className}
         x={node.x ?? 0}
         y={node.y ?? 0}
         width={node.width}
         height={node.height}
         href={node.href}
+        clipPath={node.clipPath ?? undefined}
+        mask={node.mask ?? undefined}
+        filter={node.filter ?? undefined}
         transform={transform}
         opacity={node.opacity}
-        style={style ?? { cursor: 'default' }}
+        style={selStyle ?? { cursor: 'default' }}
       />
     );
   }
@@ -548,14 +692,18 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
       <use
         key={`u-${node.id}`}
         data-omni-id={node.id}
+        className={node.className}
         x={node.x ?? 0}
         y={node.y ?? 0}
         width={node.width}
         height={node.height}
         href={node.href}
+        clipPath={node.clipPath ?? undefined}
+        mask={node.mask ?? undefined}
+        filter={node.filter ?? undefined}
         transform={transform}
         opacity={node.opacity}
-        style={style ?? { cursor: 'default' }}
+        style={selStyle ?? { cursor: 'default' }}
       />
     );
   }

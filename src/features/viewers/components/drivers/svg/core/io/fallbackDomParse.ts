@@ -72,22 +72,24 @@ export function fallbackDomParse(svg: string): LoadResult {
     return { document: emptyDocument(), warnings };
   }
 
-  // 解析画布尺寸
-  const size = readSize(root);
+  // 解析画布尺寸与 viewBox
+  const { size, viewBox } = readCanvasGeometry(root);
+  // 解析全部 <style> CSS 规则，供节点级联计算
+  const cssRules = parseSvgCssRules(root);
   // 递归构建 UsvgTree
-  const rootNode = readGroupLike(root);
-  const defs = collectDefs(root);
-  // <defs> 原始片段 → metadata（导出时原样回插，保证渐变/clipPath/mask 引用不断裂）
-  const defsEl = root.querySelector(':scope > defs');
+  const rootNode = readGroupLike(root, cssRules, size, true);
+  const defs = collectDefs(root, cssRules, size);
+  // 收集 <defs> 原始片段与顶层 <style>/渐变/滤镜/marker（保证导出和渲染引用不断裂）
+  const rawDefs = collectRawDefsHtml(root);
 
   const tree: UsvgTree = {
     size,
+    viewBox,
     root: rootNode,
     defs,
   };
 
   const document = treeToDocument(tree);
-  const rawDefs = defsEl ? defsEl.innerHTML : '';
   return {
     document: rawDefs.trim().length > 0
       ? { ...document, metadata: { ...document.metadata, [RAW_DEFS_METADATA_KEY]: rawDefs } }
@@ -97,8 +99,47 @@ export function fallbackDomParse(svg: string): LoadResult {
 }
 
 // ============================================================================
-// 2. 内部辅助
+// 2. 内部辅助：数值/单位、CSS <style> 规则与属性级联
 // ============================================================================
+
+interface CanvasSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+interface CssRule {
+  readonly selector: string;
+  readonly specificity: number;
+  readonly order: number;
+  readonly declarations: ReadonlyMap<string, { value: string; important: boolean }>;
+}
+
+const NON_RENDERING_TAGS = new Set([
+  'defs',
+  'style',
+  'metadata',
+  'title',
+  'desc',
+  'lineargradient',
+  'radialgradient',
+  'filter',
+  'marker',
+  'clippath',
+  'mask',
+  'pattern',
+]);
+
+const TOP_LEVEL_DEF_TAGS = new Set([
+  'style',
+  'lineargradient',
+  'radialgradient',
+  'filter',
+  'marker',
+  'clippath',
+  'mask',
+  'pattern',
+  'symbol',
+]);
 
 function emptyDocument(): any {
   return {
@@ -111,17 +152,238 @@ function emptyDocument(): any {
   };
 }
 
-function readSize(svg: Element): { width: number; height: number } {
+/** 解析 SVG 数值（支持纯数字、px/pt/em/rem 单位与相对于画布的百分比）。 */
+function parseSvgLength(
+  raw: string | null | undefined,
+  refSize = 0,
+  fallback = 0,
+): number {
+  if (raw === null || raw === undefined) return fallback;
+  const trimmed = raw.trim();
+  if (!trimmed) return fallback;
+  if (trimmed.endsWith('%')) {
+    const pct = parseFloat(trimmed);
+    if (!Number.isFinite(pct)) return fallback;
+    return refSize > 0 ? (pct / 100) * refSize : pct;
+  }
+  const num = parseFloat(trimmed);
+  if (!Number.isFinite(num)) return fallback;
+  if (/pt$/i.test(trimmed)) return num * (4 / 3);
+  if (/rem$|em$/i.test(trimmed)) return num * 16;
+  return num;
+}
+
+function parseOptionalSvgLength(
+  raw: string | null | undefined,
+  refSize = 0,
+): number | undefined {
+  if (raw === null || raw === undefined || !raw.trim()) return undefined;
+  const val = parseSvgLength(raw, refSize, Number.NaN);
+  return Number.isFinite(val) ? val : undefined;
+}
+
+function parseSvgNumber(raw: string | null | undefined, fallback: number): number {
+  if (raw === null || raw === undefined) return fallback;
+  const trimmed = raw.trim();
+  if (!trimmed) return fallback;
+  if (trimmed.endsWith('%')) {
+    const pct = parseFloat(trimmed);
+    return Number.isFinite(pct) ? pct / 100 : fallback;
+  }
+  const n = parseFloat(trimmed);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function readCanvasGeometry(svg: Element): {
+  size: CanvasSize;
+  viewBox?: { x: number; y: number; width: number; height: number };
+} {
+  let viewBox: { x: number; y: number; width: number; height: number } | undefined;
   const vb = svg.getAttribute('viewBox');
   if (vb) {
-    const parts = vb.split(/[\s,]+/).map(Number);
+    const parts = vb.trim().split(/[\s,]+/).map(Number);
     if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
-      return { width: parts[2] as number, height: parts[3] as number };
+      viewBox = {
+        x: parts[0] as number,
+        y: parts[1] as number,
+        width: parts[2] as number,
+        height: parts[3] as number,
+      };
     }
   }
-  const w = Number(svg.getAttribute('width')) || 0;
-  const h = Number(svg.getAttribute('height')) || 0;
-  return { width: w, height: h };
+  const rawW = svg.getAttribute('width');
+  const rawH = svg.getAttribute('height');
+  const vbW = viewBox?.width ?? 0;
+  const vbH = viewBox?.height ?? 0;
+  const w = rawW && !rawW.trim().endsWith('%') ? parseSvgLength(rawW, vbW, vbW) : vbW;
+  const h = rawH && !rawH.trim().endsWith('%') ? parseSvgLength(rawH, vbH, vbH) : vbH;
+  const finalW = w > 0 ? w : vbW;
+  const finalH = h > 0 ? h : vbH;
+  return {
+    size: { width: finalW, height: finalH },
+    viewBox: viewBox ?? (finalW > 0 && finalH > 0 ? { x: 0, y: 0, width: finalW, height: finalH } : undefined),
+  };
+}
+
+function collectRawDefsHtml(root: Element): string {
+  const chunks: string[] = [];
+  const defsEls = root.querySelectorAll('defs');
+  for (let i = 0; i < defsEls.length; i++) {
+    const html = defsEls[i]?.innerHTML?.trim();
+    if (html) chunks.push(html);
+  }
+  // 收集直接挂在 <svg> 下（不在 <defs> 内）的 <style> / 渐变 / marker / filter
+  for (let i = 0; i < root.childNodes.length; i++) {
+    const child = root.childNodes[i];
+    if (child.nodeType !== 1) continue;
+    const el = child as Element;
+    const tag = el.tagName.toLowerCase();
+    if (TOP_LEVEL_DEF_TAGS.has(tag)) {
+      chunks.push(el.outerHTML);
+    }
+  }
+  return chunks.join('\n');
+}
+
+function parseSvgCssRules(root: Element): CssRule[] {
+  const styleEls = root.querySelectorAll('style');
+  if (styleEls.length === 0) return [];
+  const rules: CssRule[] = [];
+  let order = 0;
+
+  for (let i = 0; i < styleEls.length; i++) {
+    const rawCss = styleEls[i]?.textContent || '';
+    const cleaned = rawCss
+      .replace(/<!\[CDATA\[/g, '')
+      .replace(/\]\]>/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+
+    const ruleRe = /([^{}@]+)\{([^}]*)\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = ruleRe.exec(cleaned)) !== null) {
+      const selectorGroup = (m[1] ?? '').trim();
+      const body = (m[2] ?? '').trim();
+      if (!selectorGroup || !body) continue;
+
+      const declarations = new Map<string, { value: string; important: boolean }>();
+      const declParts = body.split(';');
+      for (const part of declParts) {
+        const colonIdx = part.indexOf(':');
+        if (colonIdx <= 0) continue;
+        const prop = part.slice(0, colonIdx).trim().toLowerCase();
+        let val = part.slice(colonIdx + 1).trim();
+        if (!prop || !val) continue;
+        const important = /!\s*important$/i.test(val);
+        if (important) {
+          val = val.replace(/!\s*important$/i, '').trim();
+        }
+        declarations.set(prop, { value: val, important });
+      }
+      if (declarations.size === 0) continue;
+
+      const selectors = selectorGroup.split(',').map((s) => s.trim()).filter(Boolean);
+      for (const selector of selectors) {
+        rules.push({
+          selector,
+          specificity: computeSpecificity(selector),
+          order: order++,
+          declarations,
+        });
+      }
+    }
+  }
+  return rules;
+}
+
+function computeSpecificity(selector: string): number {
+  const s = selector.replace(/:not\(([^)]*)\)/g, ' $1 ');
+  const ids = (s.match(/#[a-zA-Z0-9_-]+/g) || []).length;
+  const classes = (s.match(/\.[a-zA-Z0-9_-]+|\[[^\]]+\]|:[a-zA-Z0-9_-]+/g) || []).length;
+  const cleanedTags = s
+    .replace(/#[a-zA-Z0-9_-]+/g, ' ')
+    .replace(/\.[a-zA-Z0-9_-]+/g, ' ')
+    .replace(/\[[^\]]+\]/g, ' ')
+    .replace(/:[a-zA-Z0-9_-]+/g, ' ');
+  const tags = (cleanedTags.match(/\b[a-zA-Z][a-zA-Z0-9_-]*\b/g) || []).length;
+  return ids * 10000 + classes * 100 + tags;
+}
+
+function elementMatchesSelector(el: Element, selector: string): boolean {
+  try {
+    if (typeof el.matches === 'function') {
+      return el.matches(selector);
+    }
+  } catch {
+    // 降级到基础选择器匹配
+  }
+  const trimmed = selector.trim();
+  if (trimmed === '*' || trimmed.toLowerCase() === el.tagName.toLowerCase()) return true;
+  if (trimmed.startsWith('.')) {
+    const cls = trimmed.slice(1);
+    const elClasses = (el.getAttribute('class') || '').split(/\s+/);
+    return elClasses.includes(cls);
+  }
+  if (trimmed.startsWith('#')) {
+    return el.getAttribute('id') === trimmed.slice(1);
+  }
+  return false;
+}
+
+function getStyleProp(el: Element, prop: string): string | null {
+  const style = el.getAttribute('style');
+  if (!style) return null;
+  const match = style.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, 'i'));
+  if (!match || !match[1]) return null;
+  return match[1].replace(/!\s*important$/i, '').trim();
+}
+
+function getOwnProp(el: Element, prop: string, cssRules: ReadonlyArray<CssRule>): string | null {
+  const inlineVal = getStyleProp(el, prop);
+  if (inlineVal !== null && inlineVal !== '') return inlineVal;
+
+  let bestVal: string | null = null;
+  let bestScore = -1;
+  for (const rule of cssRules) {
+    const decl = rule.declarations.get(prop);
+    if (!decl) continue;
+    if (!elementMatchesSelector(el, rule.selector)) continue;
+    const score = (decl.important ? 1e8 : 0) + rule.specificity * 1e3 + rule.order;
+    if (score >= bestScore) {
+      bestScore = score;
+      bestVal = decl.value;
+    }
+  }
+  if (bestVal !== null) return bestVal;
+
+  const attrVal = el.getAttribute(prop);
+  if (attrVal !== null && attrVal.trim() !== '') return attrVal.trim();
+  return null;
+}
+
+function getCascadedProp(
+  el: Element,
+  prop: string,
+  cssRules: ReadonlyArray<CssRule>,
+  inheritable = true,
+): string | null {
+  const own = getOwnProp(el, prop, cssRules);
+  if (own !== null && own !== 'inherit') return own;
+  if (!inheritable) return null;
+
+  let curr = el.parentElement;
+  while (curr) {
+    const tag = curr.tagName.toLowerCase();
+    if (tag === 'html' || tag === 'body' || tag === 'head') break;
+    const val = getOwnProp(curr, prop, cssRules);
+    if (val !== null && val !== 'inherit') return val;
+    if (tag === 'svg') break;
+    curr = curr.parentElement;
+  }
+  return null;
+}
+
+function hasExplicitFill(el: Element, cssRules: ReadonlyArray<CssRule>): boolean {
+  return getOwnProp(el, 'fill', cssRules) !== null || getOwnProp(el, 'fill-opacity', cssRules) !== null;
 }
 
 function readTransform(el: Element): number[] {
@@ -184,71 +446,101 @@ function mulMatrix(a: number[], b: number[]): number[] {
   ];
 }
 
-function getStyleProp(el: Element, prop: string): string | null {
-  const style = el.getAttribute('style');
-  if (!style) return null;
-  const match = style.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, 'i'));
-  return match ? match[1].trim() : null;
-}
-
-function readFill(el: Element): UsvgFill {
-  const fill = el.getAttribute('fill') || getStyleProp(el, 'fill');
-  if (fill === 'none') return { type: 'none' };
+function readFill(el: Element, cssRules: ReadonlyArray<CssRule>): UsvgFill {
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'line') {
+    return { type: 'none' };
+  }
+  const fill = getCascadedProp(el, 'fill', cssRules, true);
+  const fillOpacity = parseSvgNumber(getCascadedProp(el, 'fill-opacity', cssRules, true), 1);
+  if (fill === 'none' || fill === 'transparent') return { type: 'none' };
   if (!fill) {
-    if (el.tagName.toLowerCase() === 'text') {
-      return { type: 'solid', color: '#0f172a', opacity: 1 };
+    if (tag === 'text' || tag === 'tspan') {
+      return { type: 'solid', color: '#0f172a', opacity: fillOpacity };
     }
-    const stroke = el.getAttribute('stroke') || getStyleProp(el, 'stroke');
+    const stroke = getCascadedProp(el, 'stroke', cssRules, true);
     if (!stroke || stroke === 'none') {
-      return { type: 'solid', color: '#000000', opacity: 1 };
+      return { type: 'solid', color: '#000000', opacity: fillOpacity };
     }
     return { type: 'none' };
   }
   if (fill.startsWith('url(')) {
-    const id = fill.replace(/^url\(#?/, '').replace(/\)$/, '');
-    return { type: 'linear-gradient', id }; // 简化：暂按 linear-gradient 处理
+    const id = extractUrlRefId(fill);
+    return { type: 'linear-gradient', id };
   }
-  const fillOpacity = el.getAttribute('fill-opacity') || getStyleProp(el, 'fill-opacity');
   return {
     type: 'solid',
     color: fill,
-    opacity: Number(fillOpacity ?? '1') || 1,
+    opacity: fillOpacity,
   };
 }
 
-function readStroke(el: Element): UsvgStroke {
-  const stroke = el.getAttribute('stroke') || getStyleProp(el, 'stroke');
-  const strokeWidth = el.getAttribute('stroke-width') || getStyleProp(el, 'stroke-width');
-  const strokeLinecap = el.getAttribute('stroke-linecap') || getStyleProp(el, 'stroke-linecap');
-  const strokeLinejoin = el.getAttribute('stroke-linejoin') || getStyleProp(el, 'stroke-linejoin');
-  const strokeMiterlimit = el.getAttribute('stroke-miterlimit') || getStyleProp(el, 'stroke-miterlimit');
-  const strokeDasharray = el.getAttribute('stroke-dasharray') || getStyleProp(el, 'stroke-dasharray');
-  const strokeDashoffset = el.getAttribute('stroke-dashoffset') || getStyleProp(el, 'stroke-dashoffset');
+function readStroke(
+  el: Element,
+  cssRules: ReadonlyArray<CssRule>,
+  canvasSize: CanvasSize,
+): UsvgStroke {
+  const stroke = getCascadedProp(el, 'stroke', cssRules, true);
+  const strokeOpacity = parseSvgNumber(getCascadedProp(el, 'stroke-opacity', cssRules, true), 1);
+  const strokeWidth = getCascadedProp(el, 'stroke-width', cssRules, true);
+  const strokeLinecap = getCascadedProp(el, 'stroke-linecap', cssRules, true);
+  const strokeLinejoin = getCascadedProp(el, 'stroke-linejoin', cssRules, true);
+  const strokeMiterlimit = getCascadedProp(el, 'stroke-miterlimit', cssRules, true);
+  const strokeDasharray = getCascadedProp(el, 'stroke-dasharray', cssRules, true);
+  const strokeDashoffset = getCascadedProp(el, 'stroke-dashoffset', cssRules, true);
 
   return {
-    paint: stroke ? readFillAttr(stroke) : { type: 'none' },
-    width: Number(strokeWidth ?? '1') || 1,
+    paint: stroke ? readFillAttr(stroke, strokeOpacity) : { type: 'none' },
+    width: parseSvgLength(strokeWidth, canvasSize.width, 1),
     cap: (strokeLinecap as 'butt' | 'round' | 'square') || 'butt',
     join: (strokeLinejoin as 'miter' | 'round' | 'bevel') || 'miter',
-    miterLimit: Number(strokeMiterlimit ?? '4') || 4,
+    miterLimit: parseSvgNumber(strokeMiterlimit, 4),
     dashArray: parseDashArray(strokeDasharray),
-    dashOffset: Number(strokeDashoffset ?? '0') || 0,
+    dashOffset: parseSvgLength(strokeDashoffset, canvasSize.width, 0),
     alignment: 'center',
   };
 }
 
-function readFillAttr(value: string): UsvgFill {
-  if (!value || value === 'none') return { type: 'none' };
+function extractUrlRefId(value: string): string {
+  return value
+    .replace(/^url\(\s*['"]?#?/i, '')
+    .replace(/['"]?\s*\)$/, '')
+    .trim();
+}
+
+function readFillAttr(value: string, opacity = 1): UsvgFill {
+  if (!value || value === 'none' || value === 'transparent') return { type: 'none' };
   if (value.startsWith('url(')) {
-    const id = value.replace(/^url\(#?/, '').replace(/\)$/, '');
+    const id = extractUrlRefId(value);
     return { type: 'linear-gradient', id };
   }
-  return { type: 'solid', color: value, opacity: 1 };
+  return { type: 'solid', color: value, opacity };
+}
+
+function readMarkerProp(
+  el: Element,
+  prop: 'marker-start' | 'marker-mid' | 'marker-end',
+  cssRules: ReadonlyArray<CssRule>,
+): string | undefined {
+  const raw = getCascadedProp(el, prop, cssRules, false) ?? getCascadedProp(el, 'marker', cssRules, false);
+  if (!raw || raw === 'none') return undefined;
+  if (raw === 'arrow' || raw === 'dot') return raw;
+  if (raw.startsWith('url(')) {
+    const id = extractUrlRefId(raw);
+    if (id === 'ov-marker-arrow') return 'arrow';
+    if (id === 'ov-marker-dot') return 'dot';
+    return `url(#${id})`;
+  }
+  return raw;
 }
 
 function parseDashArray(raw: string | null): number[] | null {
   if (!raw || raw === 'none') return null;
-  return raw.split(/[\s,]+/).map(Number).filter((n) => Number.isFinite(n));
+  const nums = raw
+    .split(/[\s,]+/)
+    .map((part) => parseFloat(part))
+    .filter((n) => Number.isFinite(n));
+  return nums.length > 0 ? nums : null;
 }
 
 function readTextAnchor(raw: string | null): 'start' | 'middle' | 'end' | undefined {
@@ -256,54 +548,83 @@ function readTextAnchor(raw: string | null): 'start' | 'middle' | 'end' | undefi
   return undefined;
 }
 
-function readGroupLike(el: Element): UsvgNode {
+function readGroupLike(
+  el: Element,
+  cssRules: ReadonlyArray<CssRule>,
+  canvasSize: CanvasSize,
+  isRoot = false,
+): UsvgNode {
   const children: UsvgNode[] = [];
   for (let i = 0; i < el.childNodes.length; i++) {
     const child = el.childNodes[i];
     if (child.nodeType !== 1) continue;
     const c = child as Element;
     const tag = c.tagName.toLowerCase();
-    if (tag === 'defs' || tag === 'metadata' || tag === 'title' || tag === 'desc') continue;
-    children.push(readNode(c));
+    if (NON_RENDERING_TAGS.has(tag)) continue;
+    if (isRoot && tag === 'g' && c.hasAttribute('data-omniview-layer')) {
+      // 解包 OmniView 自身导出的图层包裹 <g data-omniview-layer="...">，避免重复嵌套
+      const layerGroup = readGroupLike(c, cssRules, canvasSize, false);
+      if (layerGroup.kind === 'group') {
+        children.push(...layerGroup.children);
+        continue;
+      }
+    }
+    children.push(readNode(c, cssRules, canvasSize));
   }
   return {
     kind: 'group',
     id: el.getAttribute('id') || '',
+    className: el.getAttribute('class') || undefined,
     transform: readTransform(el),
-    opacity: Number(el.getAttribute('opacity') ?? '1') || 1,
-    visibility: (el.getAttribute('visibility') as 'visible' | 'hidden' | 'collapse') || 'visible',
-    clipPath: el.getAttribute('clip-path') || null,
-    mask: el.getAttribute('mask') || null,
-    filter: el.getAttribute('filter') || null,
+    opacity: parseSvgNumber(getCascadedProp(el, 'opacity', cssRules, false), 1),
+    visibility:
+      (getCascadedProp(el, 'visibility', cssRules, true) as 'visible' | 'hidden' | 'collapse') ||
+      'visible',
+    clipPath: getCascadedProp(el, 'clip-path', cssRules, false) || null,
+    mask: getCascadedProp(el, 'mask', cssRules, false) || null,
+    filter: getCascadedProp(el, 'filter', cssRules, false) || null,
     children,
   };
 }
 
-function readNode(el: Element): UsvgNode {
+function readNode(
+  el: Element,
+  cssRules: ReadonlyArray<CssRule>,
+  canvasSize: CanvasSize,
+): UsvgNode {
   const tag = el.tagName.toLowerCase();
+  const display = getCascadedProp(el, 'display', cssRules, false);
+  const rawVis =
+    (getCascadedProp(el, 'visibility', cssRules, true) as 'visible' | 'hidden' | 'collapse') ||
+    'visible';
   const base = {
     id: el.getAttribute('id') || '',
+    className: el.getAttribute('class') || undefined,
     transform: readTransform(el),
-    opacity: Number(el.getAttribute('opacity') ?? '1') || 1,
-    visibility: (el.getAttribute('visibility') as 'visible' | 'hidden' | 'collapse') || 'visible',
-    clipPath: el.getAttribute('clip-path') || null,
-    mask: el.getAttribute('mask') || null,
-    filter: el.getAttribute('filter') || null,
+    opacity: parseSvgNumber(getCascadedProp(el, 'opacity', cssRules, false), 1),
+    visibility: display === 'none' ? ('hidden' as const) : rawVis,
+    clipPath: getCascadedProp(el, 'clip-path', cssRules, false) || null,
+    mask: getCascadedProp(el, 'mask', cssRules, false) || null,
+    filter: getCascadedProp(el, 'filter', cssRules, false) || null,
   };
 
   switch (tag) {
     case 'g':
     case 'svg':
     case 'symbol':
-      return readGroupLike(el);
+    case 'a':
+      return readGroupLike(el, cssRules, canvasSize, false);
 
     case 'path':
       return {
         ...base,
         kind: 'path',
         d: el.getAttribute('d') || '',
-        fill: readFill(el),
-        stroke: readStroke(el),
+        fill: readFill(el, cssRules),
+        stroke: readStroke(el, cssRules, canvasSize),
+        markerStart: readMarkerProp(el, 'marker-start', cssRules),
+        markerMid: readMarkerProp(el, 'marker-mid', cssRules),
+        markerEnd: readMarkerProp(el, 'marker-end', cssRules),
       };
 
     case 'rect':
@@ -315,9 +636,12 @@ function readNode(el: Element): UsvgNode {
       return {
         ...base,
         kind: 'path',
-        d: primitiveToPathD(tag, el),
-        fill: readFill(el),
-        stroke: readStroke(el),
+        d: primitiveToPathD(tag, el, canvasSize),
+        fill: readFill(el, cssRules),
+        stroke: readStroke(el, cssRules, canvasSize),
+        markerStart: readMarkerProp(el, 'marker-start', cssRules),
+        markerMid: readMarkerProp(el, 'marker-mid', cssRules),
+        markerEnd: readMarkerProp(el, 'marker-end', cssRules),
       };
 
     case 'image':
@@ -325,74 +649,185 @@ function readNode(el: Element): UsvgNode {
         ...base,
         kind: 'image',
         href: el.getAttribute('href') || el.getAttribute('xlink:href') || '',
-        x: Number(el.getAttribute('x') ?? '0') || 0,
-        y: Number(el.getAttribute('y') ?? '0') || 0,
-        width: Number(el.getAttribute('width') ?? '0') || 0,
-        height: Number(el.getAttribute('height') ?? '0') || 0,
+        x: parseSvgLength(el.getAttribute('x'), canvasSize.width, 0),
+        y: parseSvgLength(el.getAttribute('y'), canvasSize.height, 0),
+        width: parseSvgLength(el.getAttribute('width'), canvasSize.width, 0),
+        height: parseSvgLength(el.getAttribute('height'), canvasSize.height, 0),
       };
 
     case 'text':
-      return {
-        ...base,
-        kind: 'text',
-        text: el.textContent || '',
-        x: Number(el.getAttribute('x') ?? '0') || 0,
-        y: Number(el.getAttribute('y') ?? '0') || 0,
-        fontSize: Number(el.getAttribute('font-size') ?? getStyleProp(el, 'font-size') ?? '16') || 16,
-        fontFamily: el.getAttribute('font-family') ?? getStyleProp(el, 'font-family') ?? 'sans-serif',
-        textAnchor: readTextAnchor(el.getAttribute('text-anchor') || getStyleProp(el, 'text-anchor')),
-        fill: readFill(el),
-      };
+      return readTextElement(el, base, cssRules, canvasSize);
 
     case 'use':
       return {
         ...base,
         kind: 'use',
         href: el.getAttribute('href') || el.getAttribute('xlink:href') || '',
-        x: Number(el.getAttribute('x') ?? '0') || 0,
-        y: Number(el.getAttribute('y') ?? '0') || 0,
-        width: Number(el.getAttribute('width') ?? '0') || 0,
-        height: Number(el.getAttribute('height') ?? '0') || 0,
+        x: parseSvgLength(el.getAttribute('x'), canvasSize.width, 0),
+        y: parseSvgLength(el.getAttribute('y'), canvasSize.height, 0),
+        width: parseSvgLength(el.getAttribute('width'), canvasSize.width, 0),
+        height: parseSvgLength(el.getAttribute('height'), canvasSize.height, 0),
       };
 
     default:
-      // 未知节点：作为 group 处理（保留原属性但不解析子节点）
+      // 未知节点：作为 group 处理
       return { ...base, kind: 'group', children: [] };
   }
 }
 
-function primitiveToPathD(tag: string, el: Element): string {
+function readTextElement(
+  el: Element,
+  base: {
+    id: string;
+    className?: string;
+    transform: number[];
+    opacity: number;
+    visibility: 'visible' | 'hidden' | 'collapse';
+    clipPath: string | null;
+    mask: string | null;
+    filter: string | null;
+  },
+  cssRules: ReadonlyArray<CssRule>,
+  canvasSize: CanvasSize,
+): UsvgNode {
+  const x = parseSvgLength(el.getAttribute('x'), canvasSize.width, 0);
+  const y = parseSvgLength(el.getAttribute('y'), canvasSize.height, 0);
+  const fontSize = parseSvgLength(
+    getCascadedProp(el, 'font-size', cssRules, true),
+    canvasSize.height,
+    16,
+  );
+  const fontFamily = getCascadedProp(el, 'font-family', cssRules, true) ?? 'sans-serif';
+  const fontWeight = getCascadedProp(el, 'font-weight', cssRules, true) ?? undefined;
+  const fontStyle = getCascadedProp(el, 'font-style', cssRules, true) ?? undefined;
+  const textAnchor = readTextAnchor(getCascadedProp(el, 'text-anchor', cssRules, true));
+  const dominantBaseline =
+    getCascadedProp(el, 'dominant-baseline', cssRules, true) ??
+    getCascadedProp(el, 'alignment-baseline', cssRules, true) ??
+    undefined;
+  const letterSpacing = getCascadedProp(el, 'letter-spacing', cssRules, true) ?? undefined;
+  const fill = readFill(el, cssRules);
+
+  // 检查是否包含 <tspan> 子节点
+  let hasTspanElement = false;
+  for (let i = 0; i < el.childNodes.length; i++) {
+    const child = el.childNodes[i];
+    if (child.nodeType === 1 && (child as Element).tagName.toLowerCase() === 'tspan') {
+      hasTspanElement = true;
+      break;
+    }
+  }
+
+  const tspans = hasTspanElement
+    ? readTextSpans(el, cssRules, canvasSize)
+    : undefined;
+
+  return {
+    ...base,
+    kind: 'text',
+    text: el.textContent || '',
+    x,
+    y,
+    fontSize,
+    fontFamily,
+    fontWeight,
+    fontStyle,
+    textAnchor,
+    dominantBaseline,
+    letterSpacing,
+    fill,
+    tspans,
+  };
+}
+
+function readTextSpans(
+  textEl: Element,
+  cssRules: ReadonlyArray<CssRule>,
+  canvasSize: CanvasSize,
+) {
+  const spans: Array<{
+    text: string;
+    x?: number;
+    y?: number;
+    dx?: number;
+    dy?: number;
+    fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: string;
+    fontStyle?: string;
+    textAnchor?: 'start' | 'middle' | 'end';
+    dominantBaseline?: string;
+    letterSpacing?: string;
+    fill?: UsvgFill;
+  }> = [];
+
+  for (let i = 0; i < textEl.childNodes.length; i++) {
+    const child = textEl.childNodes[i];
+    if (child.nodeType === 3) {
+      const txt = child.nodeValue || '';
+      if (txt.length > 0) {
+        spans.push({ text: txt });
+      }
+      continue;
+    }
+    if (child.nodeType !== 1) continue;
+    const c = child as Element;
+    if (c.tagName.toLowerCase() !== 'tspan') continue;
+    const spanFontSizeRaw = getOwnProp(c, 'font-size', cssRules);
+    spans.push({
+      text: c.textContent || '',
+      x: parseOptionalSvgLength(c.getAttribute('x'), canvasSize.width),
+      y: parseOptionalSvgLength(c.getAttribute('y'), canvasSize.height),
+      dx: parseOptionalSvgLength(c.getAttribute('dx'), canvasSize.width),
+      dy: parseOptionalSvgLength(c.getAttribute('dy'), canvasSize.height),
+      fontSize: spanFontSizeRaw ? parseSvgLength(spanFontSizeRaw, canvasSize.height, 16) : undefined,
+      fontFamily: getOwnProp(c, 'font-family', cssRules) ?? undefined,
+      fontWeight: getOwnProp(c, 'font-weight', cssRules) ?? undefined,
+      fontStyle: getOwnProp(c, 'font-style', cssRules) ?? undefined,
+      textAnchor: readTextAnchor(getOwnProp(c, 'text-anchor', cssRules)),
+      dominantBaseline:
+        getOwnProp(c, 'dominant-baseline', cssRules) ??
+        getOwnProp(c, 'alignment-baseline', cssRules) ??
+        undefined,
+      letterSpacing: getOwnProp(c, 'letter-spacing', cssRules) ?? undefined,
+      fill: hasExplicitFill(c, cssRules) ? readFill(c, cssRules) : undefined,
+    });
+  }
+  return spans.length > 0 ? spans : undefined;
+}
+
+function primitiveToPathD(tag: string, el: Element, canvasSize: CanvasSize): string {
   switch (tag) {
     case 'rect': {
-      const x = Number(el.getAttribute('x') ?? '0');
-      const y = Number(el.getAttribute('y') ?? '0');
-      const w = Number(el.getAttribute('width') ?? '0');
-      const h = Number(el.getAttribute('height') ?? '0');
-      let rx = Number(el.getAttribute('rx') ?? 'NaN');
-      let ry = Number(el.getAttribute('ry') ?? 'NaN');
-      if (!Number.isFinite(rx) && !Number.isFinite(ry)) return rectPathD(x, y, w, h, 0, 0);
-      if (!Number.isFinite(rx)) rx = ry as number;
-      if (!Number.isFinite(ry)) ry = rx as number;
-      return rectPathD(x, y, w, h, Math.min(rx as number, w / 2), Math.min(ry as number, h / 2));
+      const x = parseSvgLength(el.getAttribute('x'), canvasSize.width, 0);
+      const y = parseSvgLength(el.getAttribute('y'), canvasSize.height, 0);
+      const w = parseSvgLength(el.getAttribute('width'), canvasSize.width, 0);
+      const h = parseSvgLength(el.getAttribute('height'), canvasSize.height, 0);
+      const rxOpt = parseOptionalSvgLength(el.getAttribute('rx'), canvasSize.width);
+      const ryOpt = parseOptionalSvgLength(el.getAttribute('ry'), canvasSize.height);
+      if (rxOpt === undefined && ryOpt === undefined) return rectPathD(x, y, w, h, 0, 0);
+      const rx = rxOpt ?? (ryOpt as number);
+      const ry = ryOpt ?? (rxOpt as number);
+      return rectPathD(x, y, w, h, Math.min(rx, w / 2), Math.min(ry, h / 2));
     }
     case 'circle': {
-      const cx = Number(el.getAttribute('cx') ?? '0');
-      const cy = Number(el.getAttribute('cy') ?? '0');
-      const r = Number(el.getAttribute('r') ?? '0');
+      const cx = parseSvgLength(el.getAttribute('cx'), canvasSize.width, 0);
+      const cy = parseSvgLength(el.getAttribute('cy'), canvasSize.height, 0);
+      const r = parseSvgLength(el.getAttribute('r'), canvasSize.width, 0);
       return ellipsePathD(cx, cy, r, r);
     }
     case 'ellipse': {
-      const cx = Number(el.getAttribute('cx') ?? '0');
-      const cy = Number(el.getAttribute('cy') ?? '0');
-      const rx = Number(el.getAttribute('rx') ?? '0');
-      const ry = Number(el.getAttribute('ry') ?? '0');
+      const cx = parseSvgLength(el.getAttribute('cx'), canvasSize.width, 0);
+      const cy = parseSvgLength(el.getAttribute('cy'), canvasSize.height, 0);
+      const rx = parseSvgLength(el.getAttribute('rx'), canvasSize.width, 0);
+      const ry = parseSvgLength(el.getAttribute('ry'), canvasSize.height, 0);
       return ellipsePathD(cx, cy, rx, ry);
     }
     case 'line': {
-      const x1 = Number(el.getAttribute('x1') ?? '0');
-      const y1 = Number(el.getAttribute('y1') ?? '0');
-      const x2 = Number(el.getAttribute('x2') ?? '0');
-      const y2 = Number(el.getAttribute('y2') ?? '0');
+      const x1 = parseSvgLength(el.getAttribute('x1'), canvasSize.width, 0);
+      const y1 = parseSvgLength(el.getAttribute('y1'), canvasSize.height, 0);
+      const x2 = parseSvgLength(el.getAttribute('x2'), canvasSize.width, 0);
+      const y2 = parseSvgLength(el.getAttribute('y2'), canvasSize.height, 0);
       return `M ${x1} ${y1} L ${x2} ${y2}`;
     }
     case 'polyline':
@@ -400,7 +835,7 @@ function primitiveToPathD(tag: string, el: Element): string {
       const pts = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
       if (pts.length < 4) return '';
       let d = `M ${pts[0]} ${pts[1]}`;
-      for (let i = 2; i < pts.length; i += 2) {
+      for (let i = 2; i + 1 < pts.length; i += 2) {
         d += ` L ${pts[i]} ${pts[i + 1]}`;
       }
       if (tag === 'polygon') d += ' Z';
@@ -444,14 +879,18 @@ function ellipsePathD(cx: number, cy: number, rx: number, ry: number): string {
   ].join(' ');
 }
 
-function collectDefs(root: Element): UsvgNode[] {
+function collectDefs(
+  root: Element,
+  cssRules: ReadonlyArray<CssRule>,
+  canvasSize: CanvasSize,
+): UsvgNode[] {
   const defs: UsvgNode[] = [];
   const defsEl = root.querySelector(':scope > defs');
   if (!defsEl) return defs;
   for (let i = 0; i < defsEl.childNodes.length; i++) {
     const child = defsEl.childNodes[i];
     if (child.nodeType !== 1) continue;
-    defs.push(readNode(child as Element));
+    defs.push(readNode(child as Element, cssRules, canvasSize));
   }
   return defs;
 }
@@ -490,17 +929,20 @@ function regexFallbackParse(svg: string): LoadResult {
 
   let w = 0;
   let h = 0;
+  let vb = { x: 0, y: 0, width: 0, height: 0 };
   if (viewBoxMatch && viewBoxMatch[1]) {
-    const parts = viewBoxMatch[1].split(/[\s,]+/).map(Number);
+    const parts = viewBoxMatch[1].trim().split(/[\s,]+/).map(Number);
     if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
       w = parts[2]!;
       h = parts[3]!;
+      vb = { x: parts[0]!, y: parts[1]!, width: w, height: h };
     }
   }
   if (widthMatch && widthMatch[1]) w = Number(widthMatch[1]);
   if (heightMatch && heightMatch[1]) h = Number(heightMatch[1]);
+  if (vb.width === 0 && w > 0) vb = { x: 0, y: 0, width: w, height: h };
 
-  doc.canvas = { width: w, height: h, unit: 'px', viewBox: { x: 0, y: 0, width: w, height: h } };
+  doc.canvas = { width: w, height: h, unit: 'px', viewBox: vb };
 
   // 创建一个默认 layer
   const layerId = 1 as NodeId;

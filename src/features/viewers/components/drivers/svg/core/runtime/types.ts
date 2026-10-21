@@ -48,8 +48,8 @@ export type Action =
 // 2. Tool (UI 工具)
 // ============================================================================
 
-/** Tool 标识（select / node / pen / rect / ellipse / line / text）。 */
-export type ToolId = 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'text';
+/** Tool 标识（select / node / pen / rect / ellipse / line / arrow / text）。 */
+export type ToolId = 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text';
 
 /** Tool 接口。Tool 永远**纯函数式**：所有状态由 Runtime 持有。 */
 export interface Tool {
@@ -68,7 +68,7 @@ export interface Tool {
 /** Tool 在画布上的 overlay 元素（由 UI 渲染层解释）。 */
 export type OverlayElement =
   | { readonly kind: 'rect'; readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }; readonly stroke: string; readonly fill: string; readonly dashed: boolean; readonly lineWidth: number }
-  | { readonly kind: 'circle'; readonly center: { readonly x: number; readonly y: number }; readonly radius: number; readonly stroke: string; readonly fill: string; readonly lineWidth: number }
+  | { readonly kind: 'circle'; readonly center: { readonly x: number; readonly y: number }; readonly radius: number; readonly stroke: string; readonly fill: string; readonly lineWidth: number; readonly dashed?: boolean }
   | { readonly kind: 'line'; readonly from: { readonly x: number; readonly y: number }; readonly to: { readonly x: number; readonly y: number }; readonly stroke: string; readonly dashed: boolean; readonly lineWidth: number }
   | { readonly kind: 'polyline'; readonly points: ReadonlyArray<{ readonly x: number; readonly y: number }>; readonly stroke: string; readonly dashed: boolean; readonly lineWidth: number }
   | { readonly kind: 'handle'; readonly center: { readonly x: number; readonly y: number }; readonly color: 'fill' | 'stroke' | 'anchor' | 'control'; readonly size: number };

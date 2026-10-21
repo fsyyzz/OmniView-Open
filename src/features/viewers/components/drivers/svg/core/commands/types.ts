@@ -143,9 +143,20 @@ export interface CommandRegistry {
 // --- path.* ---
 /** 改写节点几何。 */
 export interface PathSetParams { readonly id: NodeId; readonly geometry: PathGeometry; }
-export interface PathInsertAnchorParams { readonly id: NodeId; readonly segmentIndex: number; readonly point: { readonly x: number; readonly y: number }; readonly kind: 'corner' | 'smooth'; }
-export interface PathDeleteAnchorParams { readonly id: NodeId; readonly anchorIndex: number; }
+export interface PathInsertAnchorParams {
+  readonly id: NodeId;
+  readonly segmentIndex?: number;
+  readonly insertIndex?: number;
+  readonly subPathIndex?: number;
+  readonly point: { readonly x: number; readonly y: number };
+  readonly kind: 'corner' | 'smooth';
+}
+export interface PathDeleteAnchorParams { readonly id: NodeId; readonly anchorIndex: number; readonly subPathIndex?: number; }
 export interface PathCloseParams { readonly id: NodeId; readonly closed: boolean; }
+export interface PathConvertLineStyleParams {
+  readonly id: NodeId;
+  readonly style: 'straight' | 'orthogonal-z' | 'orthogonal-v' | 'orthogonal-l';
+}
 
 // --- object.* ---
 export interface ObjectMoveParams { readonly ids: ReadonlyArray<NodeId>; readonly delta: { readonly x: number; readonly y: number }; }
@@ -214,6 +225,8 @@ export interface ObjectCreatePathParams {
   readonly appearance?: Appearance;
   readonly hint?: 'path' | 'rect' | 'circle' | 'ellipse' | 'line' | 'polyline' | 'polygon';
   readonly name?: string;
+  readonly markerStart?: string;
+  readonly markerEnd?: string;
 }
 
 export interface ObjectCreateTextParams {
@@ -233,6 +246,8 @@ export interface TextSetTextParams {
   readonly text?: string;
   readonly fontSize?: number;
   readonly fontFamily?: string;
+  readonly fontWeight?: string;
+  readonly fontStyle?: string;
   readonly textAnchor?: 'start' | 'middle' | 'end';
 }
 

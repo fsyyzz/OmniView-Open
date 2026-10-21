@@ -203,15 +203,15 @@ it('path.updateAnchor 精确更新锚点坐标并支持撤销', () => {
 // ============================================================================
 console.log('--- 测试 5: 工具箱注册与手势交互 ---');
 
-it('所有 7 种核心工具全量注册', () => {
-  const expectedTools = ['select', 'node', 'pen', 'rect', 'ellipse', 'line', 'text'];
+it('所有 8 种核心工具全量注册（含 arrow 箭头工具）', () => {
+  const expectedTools = ['select', 'node', 'pen', 'rect', 'ellipse', 'line', 'arrow', 'text'];
   for (const tid of expectedTools) {
     assert.ok(tools[tid] !== undefined, `工具 ${tid} 必须注册`);
     assert.ok(typeof tools[tid].cursor === 'function', `工具 ${tid} 需提供光标`);
   }
 });
 
-it('rectTool 拖拽手势触发 Begin -> Preview -> Commit', () => {
+it('rectTool 拖拽手势触发 Begin -> Preview (实时绘制) -> Exec + Commit + 自动切回 select', () => {
   const t = tools['rect'];
   const dummyCtx = {
     doc: createDocument({ width: 200, height: 200 }),
@@ -235,6 +235,17 @@ it('rectTool 拖拽手势触发 Begin -> Preview -> Commit', () => {
     currentPoint: vec2(60, 70),
     ids: [],
   };
+
+  const dragActions = t.pointer(dummyCtx, {
+    kind: 'drag',
+    point: vec2(60, 70),
+    mods: { shift: false, alt: false, meta: false, ctrl: false },
+    pressure: 0.5,
+  });
+  assert.strictEqual(dragActions.length, 1);
+  assert.strictEqual(dragActions[0].kind, 'Preview');
+  assert.strictEqual(dragActions[0].commandId, 'object.createPath');
+
   const overlays = t.overlay(dummyCtx);
   assert.strictEqual(overlays.length, 1);
   assert.strictEqual(overlays[0].kind, 'rect');
@@ -249,6 +260,72 @@ it('rectTool 拖拽手势触发 Begin -> Preview -> Commit', () => {
   assert.strictEqual(upActions[0].kind, 'Exec');
   assert.strictEqual(upActions[0].commandId, 'object.createPath');
   assert.strictEqual(upActions[1].kind, 'Commit');
+  assert.strictEqual(upActions[2].kind, 'Exec');
+  assert.strictEqual(upActions[2].commandId, 'tool.setActive');
+});
+
+it('arrowTool 鼠标拖拽绘制双端点箭头并自动附加 markerEnd=arrow，支持 selectTool 双端点独立拖拽调整', () => {
+  const rt = createRuntime();
+  rt.setActiveTool('arrow');
+  assert.strictEqual(rt.activeToolId, 'arrow');
+
+  // 1. 按下起点 (20, 30) -> 拖拽至 (120, 30) -> 释放完成箭头创建
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+  rt.dispatchPointer({ kind: 'down', point: vec2(20, 30), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(80, 30), mods: noMods, pressure: 0.5 });
+  // 拖拽中途文档已实时出现预览节点
+  assert.strictEqual(rt.currentSelection.nodeIds.length, 1);
+  rt.dispatchPointer({ kind: 'up', point: vec2(120, 30), mods: noMods, pressure: 0.5 });
+
+  // 释放后自动切回 select 工具，且仅产生 1 个箭头节点
+  assert.strictEqual(rt.activeToolId, 'select');
+  assert.strictEqual(rt.currentSelection.nodeIds.length, 1);
+  const arrowId = rt.currentSelection.nodeIds[0];
+  const arrowNode = rt.currentDocument.nodes.get(arrowId);
+  assert.strictEqual(arrowNode.kind, 'Path');
+  assert.strictEqual(arrowNode.markerEnd, 'arrow');
+  assert.deepStrictEqual(arrowNode.geometry.subPaths[0].anchors[0].point, { x: 20, y: 30 });
+  assert.deepStrictEqual(arrowNode.geometry.subPaths[0].anchors[1].point, { x: 120, y: 30 });
+
+  // 2. 选中双端点箭头时，selectOverlay 应渲染 1 条虚线 + 2 个圆形端点手柄（而非 8 向矩形框）
+  const selOverlays = rt.overlay();
+  const circleHandles = selOverlays.filter((o) => o.kind === 'circle' && !o.dashed);
+  assert.strictEqual(circleHandles.length, 2, '双端点线条/箭头应显示 2 个端点控制圆柄');
+
+  // 3. 在 select 工具下直接按住终点 (120, 30) 拖拽到 (160, 90)，验证终点精确跟随且起点保持 (20, 30)
+  rt.dispatchPointer({ kind: 'down', point: vec2(120, 30), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(160, 90), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(160, 90), mods: noMods, pressure: 0.5 });
+
+  const updatedArrow = rt.currentDocument.nodes.get(arrowId);
+  assert.deepStrictEqual(updatedArrow.geometry.subPaths[0].anchors[0].point, { x: 20, y: 30 });
+  assert.deepStrictEqual(updatedArrow.geometry.subPaths[0].anchors[1].point, { x: 160, y: 90 });
+});
+
+it('rectTool / ellipseTool 支持 Shift 等比（正方形/正圆）与 Alt 中心对称起绘，原地误触单击自动取消', () => {
+  const rt = createRuntime();
+
+  // 1. 原地单击不产生垃圾固定图形
+  rt.setActiveTool('rect');
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+  const initialCount = rt.currentDocument.nodes.size;
+  rt.dispatchPointer({ kind: 'down', point: vec2(50, 50), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(50, 50), mods: noMods, pressure: 0.5 });
+  assert.strictEqual(rt.currentDocument.nodes.size, initialCount, '原地单击不应创建图形');
+
+  // 2. Shift + 拖拽绘制正方形
+  rt.setActiveTool('rect');
+  const shiftMods = { shift: true, alt: false, meta: false, ctrl: false };
+  rt.dispatchPointer({ kind: 'down', point: vec2(10, 10), mods: shiftMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(70, 40), mods: shiftMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(70, 40), mods: shiftMods, pressure: 0.5 });
+  const sqId = rt.currentSelection.nodeIds[0];
+  const sqNode = rt.currentDocument.nodes.get(sqId);
+  const sqAnchors = sqNode.geometry.subPaths[0].anchors;
+  const sqW = sqAnchors[1].point.x - sqAnchors[0].point.x;
+  const sqH = sqAnchors[2].point.y - sqAnchors[1].point.y;
+  assert.strictEqual(sqW, 60);
+  assert.strictEqual(sqH, 60, 'Shift 拖拽矩形应锁定为正方形');
 });
 
 it('textTool 点击手势直接提交 Exec (object.createText)', () => {
@@ -275,6 +352,80 @@ it('textTool 点击手势直接提交 Exec (object.createText)', () => {
   assert.strictEqual(downActions[0].commandId, 'object.createText');
   assert.strictEqual(downActions[0].params.x, 120);
   assert.strictEqual(downActions[0].params.y, 150);
+});
+
+it('支持直线中点拖拽即折 (Ghost Midpoint drag) 转化为折线，并支持 path.deleteAnchor 恢复直线', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+
+  // 1. 绘制一条从 (20, 50) 到 (120, 50) 的水平直线
+  rt.setActiveTool('line');
+  rt.dispatchPointer({ kind: 'down', point: vec2(20, 50), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(120, 50), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(120, 50), mods: noMods, pressure: 0.5 });
+  assert.strictEqual(rt.activeToolId, 'select');
+  const lineId = rt.currentSelection.nodeIds[0];
+
+  // 2. 直线中点为 (70, 50)，在 select 工具下直接点击并拖拽中点至 (70, 110)
+  rt.dispatchPointer({ kind: 'down', point: vec2(70, 50), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(70, 110), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(70, 110), mods: noMods, pressure: 0.5 });
+
+  // 3. 验证此时已自动转换为拥有 3 个顶点的折线
+  const polyNode = rt.currentDocument.nodes.get(lineId);
+  assert.strictEqual(polyNode.kind, 'Path');
+  const anchors = polyNode.geometry.subPaths[0].anchors;
+  assert.strictEqual(anchors.length, 3, '中点拖拽后应变为 3 锚点折线');
+  assert.deepStrictEqual(anchors[0].point, { x: 20, y: 50 });
+  assert.deepStrictEqual(anchors[1].point, { x: 70, y: 110 });
+  assert.deepStrictEqual(anchors[2].point, { x: 120, y: 50 });
+
+  // 4. 删除中间折点，验证恢复为两点直线
+  rt.execute('path.deleteAnchor', { id: lineId, anchorIndex: 1 });
+  const restoredNode = rt.currentDocument.nodes.get(lineId);
+  const restoredAnchors = restoredNode.geometry.subPaths[0].anchors;
+  assert.strictEqual(restoredAnchors.length, 2);
+  assert.deepStrictEqual(restoredAnchors[0].point, { x: 20, y: 50 });
+  assert.deepStrictEqual(restoredAnchors[1].point, { x: 120, y: 50 });
+});
+
+it('支持 path.convertLineStyle 一键切换线型（直线 ↔ Z形直角 ↔ V形直角 ↔ L形直角）', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+
+  // 1. 创建起点 (0, 0) 至终点 (100, 100) 的直线
+  rt.setActiveTool('line');
+  rt.dispatchPointer({ kind: 'down', point: vec2(0, 0), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(100, 100), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(100, 100), mods: noMods, pressure: 0.5 });
+  const id = rt.currentSelection.nodeIds[0];
+
+  // 2. 切换为 Z形直角折线（水平优先）
+  rt.execute('path.convertLineStyle', { id, style: 'orthogonal-z' });
+  let n = rt.currentDocument.nodes.get(id);
+  let anc = n.geometry.subPaths[0].anchors;
+  assert.strictEqual(anc.length, 4);
+  assert.deepStrictEqual(anc[0].point, { x: 0, y: 0 });
+  assert.deepStrictEqual(anc[1].point, { x: 50, y: 0 });
+  assert.deepStrictEqual(anc[2].point, { x: 50, y: 100 });
+  assert.deepStrictEqual(anc[3].point, { x: 100, y: 100 });
+
+  // 3. 切换为 L形直角连接线
+  rt.execute('path.convertLineStyle', { id, style: 'orthogonal-l' });
+  n = rt.currentDocument.nodes.get(id);
+  anc = n.geometry.subPaths[0].anchors;
+  assert.strictEqual(anc.length, 3);
+  assert.deepStrictEqual(anc[0].point, { x: 0, y: 0 });
+  assert.deepStrictEqual(anc[1].point, { x: 100, y: 0 });
+  assert.deepStrictEqual(anc[2].point, { x: 100, y: 100 });
+
+  // 4. 一键恢复为直线
+  rt.execute('path.convertLineStyle', { id, style: 'straight' });
+  n = rt.currentDocument.nodes.get(id);
+  anc = n.geometry.subPaths[0].anchors;
+  assert.strictEqual(anc.length, 2);
+  assert.deepStrictEqual(anc[0].point, { x: 0, y: 0 });
+  assert.deepStrictEqual(anc[1].point, { x: 100, y: 100 });
 });
 
 // ============================================================================

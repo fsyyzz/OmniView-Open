@@ -16,12 +16,14 @@ import {
   FlipHorizontal,
   FlipVertical,
 } from 'lucide-react';
-import type {
-  CommandId,
-  CommandParams,
-  Document,
-  NodeId,
-  Selection,
+import {
+  defaultStroke,
+  isTwoPointLineNode,
+  isOpenPolylineNode,
+  type CommandId,
+  type CommandParams,
+  type Document,
+  type Selection,
 } from './core';
 
 export interface SvgV2FloatingHudProps {
@@ -48,11 +50,15 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
   left,
   top,
   selection,
+  document: doc,
   selBBox,
   execute,
 }) => {
   const ids = selection.nodeIds;
   if (ids.length === 0) return null;
+
+  const primary = selection.primaryId ? doc.nodes.get(selection.primaryId) : doc.nodes.get(ids[0]!);
+  const isLineOrArrow = Boolean(primary && isOpenPolylineNode(primary));
 
   const center = {
     x: selBBox.x + selBBox.width / 2,
@@ -75,7 +81,17 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
     });
   };
 
-  const handleSetFill = (color: string) => {
+  const handleSetColorPreset = (color: string) => {
+    if (isLineOrArrow) {
+      if (color === 'none') return;
+      execute('paint.setColor', {
+        ids: [...ids],
+        target: 'stroke',
+        color,
+        opacity: 1,
+      });
+      return;
+    }
     execute('paint.setFill', {
       ids: [...ids],
       fill: {
@@ -87,17 +103,16 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
   };
 
   const handleSetStrokeWidth = (width: number) => {
+    const existingStroke =
+      primary && primary.kind === 'Path'
+        ? primary.appearance.items.find((it) => it.kind === 'stroke')
+        : undefined;
+    const baseStroke = existingStroke && existingStroke.kind === 'stroke' ? existingStroke.stroke : defaultStroke();
     execute('paint.setStroke', {
       ids: [...ids],
       stroke: {
-        paint: { type: 'solid', color: '#0f172a' },
+        ...baseStroke,
         width,
-        cap: 'butt',
-        join: 'miter',
-        miterLimit: 4,
-        dashArray: [],
-        dashOffset: 0,
-        opacity: 1,
       },
     });
   };
@@ -110,13 +125,19 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* 快捷色板 */}
+      {/* 快捷色板（线条/箭头自动作用于描边色，其余图形作用于填充色） */}
       <div className="flex items-center gap-1 pr-1 border-r border-[var(--ov-border)]">
-        {COLOR_PRESETS.map((c) => (
+        {COLOR_PRESETS.filter((c) => !(isLineOrArrow && c === 'none')).map((c) => (
           <button
             key={c}
             type="button"
-            title={c === 'none' ? '无填充' : `填充颜色 ${c}`}
+            title={
+              c === 'none'
+                ? '无填充'
+                : isLineOrArrow
+                  ? `线条颜色 ${c}`
+                  : `填充颜色 ${c}`
+            }
             className="h-4 w-4 rounded-full border border-black/20 dark:border-white/20 transition-transform hover:scale-125 focus:outline-none"
             style={{
               backgroundColor: c === 'none' ? 'transparent' : c,
@@ -128,7 +149,7 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center',
             }}
-            onClick={() => handleSetFill(c)}
+            onClick={() => handleSetColorPreset(c)}
           />
         ))}
       </div>
@@ -147,6 +168,66 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
           </button>
         ))}
       </div>
+
+      {/* 单选路径/线条快速箭头与线型切换 */}
+      {ids.length === 1 && primary && primary.kind === 'Path' && (
+        <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">
+          {[
+            { label: '—', title: '无箭头', start: 'none', end: 'none' },
+            { label: '→', title: '单向箭头', start: 'none', end: 'arrow' },
+            { label: '↔', title: '双向箭头', start: 'arrow', end: 'arrow' },
+          ].map((m) => {
+            const curStart = (primary as any).markerStart ?? 'none';
+            const curEnd = (primary as any).markerEnd ?? 'none';
+            const active = curStart === m.start && curEnd === m.end;
+            return (
+              <button
+                key={m.label}
+                type="button"
+                title={m.title}
+                className={`flex h-5 px-1 items-center justify-center rounded font-mono text-[10px] transition-colors ${
+                  active
+                    ? 'bg-[var(--ov-accent-soft)] text-[var(--ov-accent)] font-semibold'
+                    : 'text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]'
+                }`}
+                onClick={() =>
+                  execute('path.setMarker', {
+                    id: primary.id,
+                    markerStart: m.start,
+                    markerEnd: m.end,
+                  })
+                }
+              >
+                {m.label}
+              </button>
+            );
+          })}
+          {isOpenPolylineNode(primary) && (
+            <div className="flex items-center gap-0.5 pl-1 border-l border-[var(--ov-border)]/60">
+              {[
+                { label: '直线', title: '一键还原为直线', style: 'straight' },
+                { label: 'Z折', title: '水平直角折线', style: 'orthogonal-z' },
+                { label: 'L折', title: 'L形直角折线', style: 'orthogonal-l' },
+              ].map((s) => (
+                <button
+                  key={s.style}
+                  type="button"
+                  title={s.title}
+                  className="flex h-5 px-1 items-center justify-center rounded text-[10px] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)] transition-colors"
+                  onClick={() =>
+                    execute('path.convertLineStyle', {
+                      id: primary.id,
+                      style: s.style,
+                    })
+                  }
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 水平 / 垂直镜像翻转 */}
       <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">

@@ -13,37 +13,11 @@
 
 import type { Document } from '../model/types';
 import type { ExportOptions } from '../runtime/types';
+import { documentToSvgString } from './import-export';
 
 export function fallbackDomSerialize(
   doc: Document,
-  _opts?: ExportOptions,
+  opts?: ExportOptions,
 ): string {
-  if (typeof XMLSerializer === 'undefined' || typeof DOMParser === 'undefined') {
-    // Node.js / 非浏览器环境：返回最小可解析 SVG
-    return [
-      '<?xml version="1.0" encoding="UTF-8"?>',
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${doc.canvas.width}" height="${doc.canvas.height}">`,
-      '<!-- fallbackDomSerialize: 非浏览器环境，节点未展开 -->',
-      '</svg>',
-    ].join('\n');
-  }
-
-  const indentSize = _opts?.indentSize ?? 2;
-  const indent = ' '.repeat(indentSize);
-
-  const w = doc.canvas.width;
-  const h = doc.canvas.height;
-  const vb = doc.canvas.viewBox
-    ? `${doc.canvas.viewBox.x} ${doc.canvas.viewBox.y} ${doc.canvas.viewBox.width} ${doc.canvas.viewBox.height}`
-    : `0 0 ${w} ${h}`;
-
-  // M2 阶段：遍历 doc.nodes 渲染每个 Node
-  // P1 占位：仅输出画布信息 + 注释
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${vb}">`,
-    `${indent}<!-- fallbackDomSerialize P1 placeholder (M2: render full Document tree) -->`,
-    `${indent}<!-- nextNodeId: ${doc.nextNodeId}, nodes: ${doc.nodes.size}, layers: ${doc.layers.length} -->`,
-    '</svg>',
-  ].join('\n');
+  return documentToSvgString(doc, opts);
 }

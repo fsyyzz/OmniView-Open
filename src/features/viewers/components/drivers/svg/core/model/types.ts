@@ -175,6 +175,10 @@ export interface NodeBase {
   readonly locked: boolean;
   /** CSS class 标识，用于样式匹配与保真。 */
   readonly className?: string | null;
+  /** SVG 裁剪、蒙版与滤镜引用（url(#...)）。 */
+  readonly clipPath?: string | null;
+  readonly mask?: string | null;
+  readonly filter?: string | null;
   /** 子节点 ID 列表（Group / Layer 才有）。Path/Text/Image/Use 为空。 */
   readonly children: ReadonlyArray<NodeId>;
 }
@@ -199,7 +203,25 @@ export interface PathNode extends NodeBase {
   /** 导出时映射回 SVG 标签：`path` / `rect` / `circle` / `ellipse` / `line` / `polyline` / `polygon`。 */
   readonly primitiveHint: 'path' | 'rect' | 'circle' | 'ellipse' | 'line' | 'polyline' | 'polygon';
   readonly markerStart?: string;
+  readonly markerMid?: string;
   readonly markerEnd?: string;
+}
+
+export interface TextSpan {
+  readonly text: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly dx?: number;
+  readonly dy?: number;
+  readonly fontSize?: number;
+  readonly fontFamily?: string;
+  readonly fontWeight?: string;
+  readonly fontStyle?: string;
+  readonly textAnchor?: 'start' | 'middle' | 'end';
+  readonly dominantBaseline?: string;
+  readonly letterSpacing?: string;
+  readonly fill?: Fill;
+  readonly className?: string | null;
 }
 
 export interface TextNode extends NodeBase {
@@ -211,7 +233,12 @@ export interface TextNode extends NodeBase {
   readonly y?: number;
   readonly fontSize?: number;
   readonly fontFamily?: string;
+  readonly fontWeight?: string;
+  readonly fontStyle?: string;
   readonly textAnchor?: 'start' | 'middle' | 'end';
+  readonly dominantBaseline?: string;
+  readonly letterSpacing?: string;
+  readonly tspans?: ReadonlyArray<TextSpan>;
 }
 
 export interface ImageNode extends NodeBase {

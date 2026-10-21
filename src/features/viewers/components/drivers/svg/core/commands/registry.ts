@@ -55,9 +55,11 @@ import type {
   PathUpdateAnchorParams,
   PathToggleAnchorKindParams,
   PathSetMarkerParams,
+  PathConvertLineStyleParams,
 } from './types';
 import type {
   AffineTransform,
+  Anchor,
   BlendMode,
   Color,
   Document,
@@ -71,6 +73,7 @@ import type {
   Stroke,
 } from '../model/types';
 import {
+  anchorCorner,
   appendLayer,
   appendToLayer,
   applyTransform,
@@ -149,23 +152,28 @@ const pathInsertAnchor: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as PathInsertAnchorParams;
   return withNode('path.insertAnchor', doc, p.id, (n) => {
     if (n.kind !== 'Path') return badParams('path.insertAnchor', `node ${p.id} is not a Path`);
-    const next = updateNode(doc, p.id, (node) => {
-      const pathNode = node as any;
-      const subPaths = pathNode.geometry.subPaths.map((sp: any, idx: number) => {
-        if (idx !== p.segmentIndex && p.segmentIndex >= pathNode.geometry.subPaths.length) return sp;
-        if (idx !== Math.min(p.segmentIndex, pathNode.geometry.subPaths.length - 1)) return sp;
-        const anchors = [...sp.anchors];
-        const insertAt = Math.min(p.segmentIndex === 0 ? anchors.length : Math.min(anchors.length, p.segmentIndex + 1), anchors.length);
-        anchors.splice(insertAt, 0, {
-          point: { x: p.point.x, y: p.point.y },
-          handleIn: null,
-          handleOut: null,
-          kind: p.kind,
-        });
-        return { ...sp, anchors };
+    const pathNode = n as PathNode;
+    const targetSpIdx = p.subPathIndex ?? 0;
+    const subPaths = pathNode.geometry.subPaths.map((sp, idx) => {
+      if (idx !== targetSpIdx) return sp;
+      const anchors = [...sp.anchors];
+      const insertAt =
+        p.insertIndex !== undefined
+          ? Math.max(0, Math.min(anchors.length, p.insertIndex))
+          : Math.max(0, Math.min(anchors.length, (p.segmentIndex ?? 0) + 1));
+      anchors.splice(insertAt, 0, {
+        point: { x: p.point.x, y: p.point.y },
+        handleIn: null,
+        handleOut: null,
+        kind: p.kind ?? 'corner',
       });
-      return { ...pathNode, geometry: { ...pathNode.geometry, subPaths } };
+      return { ...sp, anchors };
     });
+    const next = updateNode(doc, p.id, (node) => ({
+      ...node,
+      hint: 'polyline',
+      geometry: { ...pathNode.geometry, subPaths },
+    }));
     return ok(next, sel);
   }) as CommandResult;
 };
@@ -174,16 +182,84 @@ const pathDeleteAnchor: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as PathDeleteAnchorParams;
   return withNode('path.deleteAnchor', doc, p.id, (n) => {
     if (n.kind !== 'Path') return badParams('path.deleteAnchor', `node ${p.id} is not a Path`);
-    const next = updateNode(doc, p.id, (node) => {
-      const pathNode = node as any;
-      const subPaths = pathNode.geometry.subPaths.map((sp: any) => {
-        if (p.anchorIndex >= sp.anchors.length) return sp;
-        const anchors = sp.anchors.filter((_: any, i: number) => i !== p.anchorIndex);
-        return { ...sp, anchors };
-      });
-      return { ...pathNode, geometry: { ...pathNode.geometry, subPaths } };
+    const pathNode = n as PathNode;
+    const targetSpIdx = p.subPathIndex ?? 0;
+    const subPaths = pathNode.geometry.subPaths.map((sp, idx) => {
+      if (idx !== targetSpIdx) return sp;
+      if (p.anchorIndex >= sp.anchors.length) return sp;
+      const anchors = sp.anchors.filter((_, i) => i !== p.anchorIndex);
+      return { ...sp, anchors };
     });
+    const next = updateNode(doc, p.id, (node) => ({
+      ...node,
+      geometry: { ...pathNode.geometry, subPaths },
+    }));
     return ok(next, sel);
+  }) as CommandResult;
+};
+
+const pathConvertLineStyle: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PathConvertLineStyleParams;
+  return withNode('path.convertLineStyle', doc, p.id, (n) => {
+    if (n.kind !== 'Path') return badParams('path.convertLineStyle', `node ${p.id} is not a Path`);
+    const pathNode = n as PathNode;
+    if (pathNode.geometry.subPaths.length === 0) return badParams('path.convertLineStyle', 'no subpath');
+    const sp = pathNode.geometry.subPaths[0]!;
+    if (sp.anchors.length < 2) return badParams('path.convertLineStyle', 'need at least 2 anchors');
+    const firstAnchor = sp.anchors[0]!;
+    const lastAnchor = sp.anchors[sp.anchors.length - 1]!;
+    const p1 = firstAnchor.point;
+    const p2 = lastAnchor.point;
+
+    let newAnchors: Anchor[];
+    switch (p.style) {
+      case 'straight':
+        newAnchors = [
+          anchorCorner(p1),
+          anchorCorner(p2),
+        ];
+        break;
+      case 'orthogonal-z': {
+        const midX = (p1.x + p2.x) / 2;
+        newAnchors = [
+          anchorCorner(p1),
+          anchorCorner({ x: midX, y: p1.y }),
+          anchorCorner({ x: midX, y: p2.y }),
+          anchorCorner(p2),
+        ];
+        break;
+      }
+      case 'orthogonal-v': {
+        const midY = (p1.y + p2.y) / 2;
+        newAnchors = [
+          anchorCorner(p1),
+          anchorCorner({ x: p1.x, y: midY }),
+          anchorCorner({ x: p2.x, y: midY }),
+          anchorCorner(p2),
+        ];
+        break;
+      }
+      case 'orthogonal-l': {
+        newAnchors = [
+          anchorCorner(p1),
+          anchorCorner({ x: p2.x, y: p1.y }),
+          anchorCorner(p2),
+        ];
+        break;
+      }
+      default:
+        newAnchors = [anchorCorner(p1), anchorCorner(p2)];
+    }
+
+    const nextDoc = updateNode(doc, p.id, (node) => ({
+      ...node,
+      hint: p.style === 'straight' ? 'line' : 'polyline',
+      geometry: {
+        ...pathNode.geometry,
+        subPaths: [{ ...sp, closed: false, anchors: newAnchors }],
+      },
+    }));
+    return ok(nextDoc, sel);
   }) as CommandResult;
 };
 
@@ -655,8 +731,16 @@ const objectDistribute: CommandHandler = (doc, sel, params) => {
 
 const objectCreatePath: CommandHandler = (doc, _sel, params) => {
   const p = params as unknown as ObjectCreatePathParams;
-  const targetLayer = p.layerId ?? (doc.layers.length > 0 ? doc.layers[doc.layers.length - 1] : null);
-  if (!targetLayer) return badParams('object.createPath', 'no layer available in document');
+  let workingDoc = doc;
+  let targetLayer = p.layerId ?? (workingDoc.layers.length > 0 ? workingDoc.layers[workingDoc.layers.length - 1] : null);
+  if (!targetLayer && !p.layerId) {
+    const added = appendLayer(workingDoc, 'Layer 1');
+    workingDoc = added.doc;
+    targetLayer = added.layerId;
+  }
+  if (!targetLayer || !workingDoc.nodes.has(targetLayer)) {
+    return badParams('object.createPath', 'no layer available in document');
+  }
   const pathNode = makePath(
     0 as NodeId,
     p.geometry,
@@ -664,14 +748,24 @@ const objectCreatePath: CommandHandler = (doc, _sel, params) => {
     p.hint ?? 'path'
   );
   if (p.name) (pathNode as any).name = p.name;
-  const { doc: nextDoc, nodeId } = appendToLayer(doc, targetLayer, pathNode);
+  if (p.markerStart && p.markerStart !== 'none') (pathNode as any).markerStart = p.markerStart;
+  if (p.markerEnd && p.markerEnd !== 'none') (pathNode as any).markerEnd = p.markerEnd;
+  const { doc: nextDoc, nodeId } = appendToLayer(workingDoc, targetLayer, pathNode);
   return ok(nextDoc, selectionWith(nodeId));
 };
 
 const objectCreateText: CommandHandler = (doc, _sel, params) => {
   const p = params as unknown as ObjectCreateTextParams;
-  const targetLayer = p.layerId ?? (doc.layers.length > 0 ? doc.layers[doc.layers.length - 1] : null);
-  if (!targetLayer) return badParams('object.createText', 'no layer available in document');
+  let workingDoc = doc;
+  let targetLayer = p.layerId ?? (workingDoc.layers.length > 0 ? workingDoc.layers[workingDoc.layers.length - 1] : null);
+  if (!targetLayer && !p.layerId) {
+    const added = appendLayer(workingDoc, 'Layer 1');
+    workingDoc = added.doc;
+    targetLayer = added.layerId;
+  }
+  if (!targetLayer || !workingDoc.nodes.has(targetLayer)) {
+    return badParams('object.createText', 'no layer available in document');
+  }
   const textNode: TextNode = {
     id: 0 as NodeId,
     kind: 'Text',
@@ -699,7 +793,7 @@ const objectCreateText: CommandHandler = (doc, _sel, params) => {
       ],
     },
   };
-  const { doc: nextDoc, nodeId } = appendToLayer(doc, targetLayer, textNode);
+  const { doc: nextDoc, nodeId } = appendToLayer(workingDoc, targetLayer, textNode);
   return ok(nextDoc, selectionWith(nodeId));
 };
 
@@ -709,12 +803,16 @@ const textSetText: CommandHandler = (doc, sel, params) => {
     if (n.kind !== 'Text') return badParams('text.setText', `node ${p.id} is not a Text`);
     const next = updateNode(doc, p.id, (node) => {
       const tn = node as TextNode;
+      const textChanged = p.text !== undefined && p.text !== tn.text;
       return {
         ...tn,
         text: p.text !== undefined ? p.text : tn.text,
         fontSize: p.fontSize !== undefined ? p.fontSize : tn.fontSize,
         fontFamily: p.fontFamily !== undefined ? p.fontFamily : tn.fontFamily,
+        fontWeight: p.fontWeight !== undefined ? p.fontWeight : tn.fontWeight,
+        fontStyle: p.fontStyle !== undefined ? p.fontStyle : tn.fontStyle,
         textAnchor: p.textAnchor !== undefined ? p.textAnchor : tn.textAnchor,
+        tspans: textChanged ? undefined : tn.tspans,
       };
     });
     return ok(next, sel);
@@ -778,10 +876,24 @@ const paintSetColor: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as PaintSetColorParams;
   const fillPaint: Fill = { type: 'solid', color: p.color, opacity: p.opacity };
   if (p.target === 'fill') return paintSetFill(doc, sel, { ids: p.ids, fill: fillPaint });
-  return paintSetStroke(doc, sel, {
-    ids: p.ids,
-    stroke: { ...defaultStroke(), paint: fillPaint },
-  });
+  let next = doc;
+  for (const id of p.ids) {
+    if (!next.nodes.has(id)) return noNode('paint.setColor', id);
+    next = updateNode(next, id, (n) => {
+      if (n.kind !== 'Path' && n.kind !== 'Group') return n;
+      const existingStroke = (n as any).appearance.items.find((it: any) => it.kind === 'stroke');
+      const baseStroke = existingStroke ? existingStroke.stroke : defaultStroke();
+      const updatedStroke = { ...baseStroke, paint: fillPaint };
+      const items = (n as any).appearance.items.map((it: any) =>
+        it.kind === 'stroke' ? { ...it, stroke: updatedStroke } : it
+      );
+      if (!items.some((it: any) => it.kind === 'stroke')) {
+        items.push({ kind: 'stroke', stroke: updatedStroke, blend: 'normal', opacity: 1 });
+      }
+      return { ...(n as any), appearance: { items } };
+    });
+  }
+  return ok(next, sel);
 };
 
 // ============================================================================
@@ -962,6 +1074,7 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'path.updateAnchor', title: '更新锚点', undoLabel: '移动锚点', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathUpdateAnchor });
   reg({ id: 'path.toggleAnchorKind', title: '切换锚点类型', undoLabel: '切换锚点类型', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathToggleAnchorKind });
   reg({ id: 'path.setMarker', title: '设置端点箭头', undoLabel: '设置箭头', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathSetMarker });
+  reg({ id: 'path.convertLineStyle', title: '切换线型', undoLabel: '切换线型', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }, { key: 'style', type: 'string', required: true, description: '线型' }], handler: pathConvertLineStyle });
   reg({ id: 'path.close', title: '开闭路径', undoLabel: '开闭路径', params: pathParamsSpec('close'), handler: pathClose });
 
   // object.*

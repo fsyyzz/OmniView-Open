@@ -22,6 +22,7 @@ import {
   Square,
   Circle,
   Minus,
+  MoveUpRight,
   Type,
   AlignStartHorizontal,
   AlignCenterHorizontal,
@@ -181,9 +182,10 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
         <ToolButton icon={<CircleDot size={17} />} active={activeToolId === 'node'} label="直接选区 / 锚点编辑 (A)" onClick={() => setActiveTool('node')} />
         <ToolButton icon={<PenLine size={17} />} active={activeToolId === 'pen'} label="钢笔工具 (P)" onClick={() => setActiveTool('pen')} />
         <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
-        <ToolButton icon={<Square size={17} />} active={activeToolId === 'rect'} label="矩形工具 (R)" onClick={() => setActiveTool('rect')} />
-        <ToolButton icon={<Circle size={17} />} active={activeToolId === 'ellipse'} label="椭圆工具 (O)" onClick={() => setActiveTool('ellipse')} />
-        <ToolButton icon={<Minus size={17} />} active={activeToolId === 'line'} label="直线工具 (L)" onClick={() => setActiveTool('line')} />
+        <ToolButton icon={<Square size={17} />} active={activeToolId === 'rect'} label="矩形工具 (R — 拖拽绘制，Shift 正方形 / Alt 中心起绘)" onClick={() => setActiveTool('rect')} />
+        <ToolButton icon={<Circle size={17} />} active={activeToolId === 'ellipse'} label="椭圆/圆形工具 (O — 拖拽绘制，Shift 正圆 / Alt 中心起绘)" onClick={() => setActiveTool('ellipse')} />
+        <ToolButton icon={<Minus size={17} />} active={activeToolId === 'line'} label="直线工具 (L — 拖拽连接两端点，Shift 45° 锁定)" onClick={() => setActiveTool('line')} />
+        <ToolButton icon={<MoveUpRight size={17} />} active={activeToolId === 'arrow'} label="箭头工具 (W — 拖拽连接两端点，Shift 45° 锁定)" onClick={() => setActiveTool('arrow')} />
         <ToolButton icon={<Type size={17} />} active={activeToolId === 'text'} label="文本工具 (T)" onClick={() => setActiveTool('text')} />
         <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
         <ToolButton icon={<Undo2 size={17} />} active={false} label="撤销 (Ctrl+Z)" disabled={!canUndo} onClick={undo} />

@@ -1,32 +1,185 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="680" viewBox="0 0 1120 680">
-<defs>
-    <style xmlns="http://www.w3.org/2000/svg" type="text/css">
-      <![CDATA[
-      .title { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 20px; font-weight: 700; fill: #0f172a; }
-      .sub { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 12px; font-weight: 400; fill: #64748b; }
-      .card-title { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
-      .card-sub { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 11px; font-weight: 500; fill: #475569; }
-      .badge-txt { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 11px; font-weight: 600; fill: #1e293b; }
-      .mono-txt { font-family: Consolas, "SF Mono", monospace; font-size: 11px; font-weight: 600; fill: #0f172a; }
-      .line-main { stroke: #334155; stroke-width: 1.8; fill: none; marker-end: url(#arrow-main); }
-      .line-dashed { stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; marker-end: url(#arrow-dashed); }
-      .lbl { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 11px; font-weight: 600; fill: #334155; }
-    ]]>
-    </style>
-    <marker xmlns="http://www.w3.org/2000/svg" id="arrow-main" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#334155"/>
-    </marker>
-    <marker xmlns="http://www.w3.org/2000/svg" id="arrow-dashed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
-    </marker>
-    <filter xmlns="http://www.w3.org/2000/svg" id="card-shadow" x="-3%" y="-3%" width="106%" height="108%" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.04"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 780" width="1100" height="780">
+  <defs>
+    <style type="text/css"><![CDATA[
+      svg { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .title { font-size: 20px; font-weight: bold; fill: #0f172a; }
+      .subtitle { font-size: 12px; fill: #64748b; }
+      .card-title { font-size: 14px; font-weight: bold; }
+      .card-sub { font-size: 11px; }
+      .item-title { font-size: 12px; font-weight: bold; fill: #1e293b; }
+      .item-desc { font-size: 11px; fill: #475569; }
+      .badge-txt { font-size: 11px; font-weight: bold; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+      .scen-title { font-size: 15px; font-weight: bold; fill: #9a3412; text-anchor: middle; }
+      .scen-sub { font-size: 11px; fill: #c2410c; text-anchor: middle; }
+      .line-main { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#arrow-main); }
+      .line-dev { fill: none; stroke: #2563eb; stroke-width: 1.8; stroke-dasharray: 5,4; marker-end: url(#arrow-dev); }
+      .line-proc { fill: none; stroke: #7c3aed; stroke-width: 1.8; stroke-dasharray: 5,4; marker-end: url(#arrow-proc); }
+      .line-phys { fill: none; stroke: #059669; stroke-width: 1.8; stroke-dasharray: 5,4; marker-end: url(#arrow-phys); }
+      .line-scen { fill: none; stroke: #ea580c; stroke-width: 2; marker-end: url(#arrow-scen); }
+      .label-bg { font-size: 10px; font-weight: bold; fill: #475569; text-anchor: middle; }
+    ]]></style>
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.08"/>
     </filter>
+    <marker id="arrow-main" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-dev" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-proc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-phys" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669"/>
+    </marker>
+    <marker id="arrow-scen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ea580c"/>
+    </marker>
   </defs>
-  <g id="1" data-omniview-layer="Layer 1">
-    <g  id="2" opacity="1" data-omniview-kind="Group">
 
-    </g>
+  <!-- 背景 -->
+  <rect x="0" y="0" width="1100" height="780" fill="#f8fafc"/>
+
+  <!-- 顶部标题栏 -->
+  <text x="550" y="38" class="title" text-anchor="middle">Kruchten 4+1 架构视图模型 (4+1 Architectural View Model)</text>
+  <text x="550" y="60" class="subtitle" text-anchor="middle">以核心场景 (+1) 为驱动轴心，协同演进逻辑、开发、进程与物理四大架构视图</text>
+
+  <!-- 1. 逻辑视图 (左上) -->
+  <g id="logical-view" filter="url(#card-shadow)">
+    <rect x="60" y="90" width="360" height="230" rx="12" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+    <rect x="60" y="90" width="360" height="46" rx="12" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+    <circle cx="88" cy="113" r="13" fill="#2563eb"/>
+    <text x="88" y="113" class="badge-txt">1</text>
+    <text x="112" y="110" class="card-title" fill="#1e40af">逻辑视图 (Logical View)</text>
+    <text x="112" y="126" class="card-sub" fill="#3b82f6">面向最终用户 · 功能性需求与领域对象模型</text>
+
+    <rect x="80" y="152" width="150" height="68" rx="8" fill="#f8fafc" stroke="#bfdbfe" stroke-width="1.2"/>
+    <text x="92" y="174" class="item-title">领域模型与类图</text>
+    <text x="92" y="192" class="item-desc">• 聚合根 / 实体 / 值对象</text>
+    <text x="92" y="208" class="item-desc">• 接口契约与状态机</text>
+
+    <rect x="248" y="152" width="152" height="68" rx="8" fill="#f8fafc" stroke="#bfdbfe" stroke-width="1.2"/>
+    <text x="260" y="174" class="item-title">关键干系人</text>
+    <text x="260" y="192" class="item-desc">• 业务方 / 产品经理</text>
+    <text x="260" y="208" class="item-desc">• 领域架构师</text>
+
+    <rect x="80" y="234" width="320" height="68" rx="8" fill="#eff6ff" stroke="#93c5fd" stroke-width="1"/>
+    <text x="92" y="256" class="item-title" fill="#1e3a8a">UML 建模载体</text>
+    <text x="92" y="274" class="item-desc">Class Diagram（类图）、State Machine（状态图）、Object Diagram</text>
+    <text x="92" y="290" class="item-desc">核心目标：系统对外提供什么业务能力？</text>
   </g>
+
+  <!-- 2. 开发视图 (右上) -->
+  <g id="development-view" filter="url(#card-shadow)">
+    <rect x="680" y="90" width="360" height="230" rx="12" fill="#ffffff" stroke="#6366f1" stroke-width="2"/>
+    <rect x="680" y="90" width="360" height="46" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+    <circle cx="708" cy="113" r="13" fill="#4f46e5"/>
+    <text x="708" y="113" class="badge-txt">2</text>
+    <text x="732" y="110" class="card-title" fill="#3730a3">开发视图 (Development View)</text>
+    <text x="732" y="126" class="card-sub" fill="#4f46e5">面向研发工程师 · 代码模块组织与构建依赖</text>
+
+    <rect x="700" y="152" width="150" height="68" rx="8" fill="#f8fafc" stroke="#c7d2fe" stroke-width="1.2"/>
+    <text x="712" y="174" class="item-title">模块与分层架构</text>
+    <text x="712" y="192" class="item-desc">• 子系统 / 包 / 组件库</text>
+    <text x="712" y="208" class="item-desc">• 依赖方向与防腐层</text>
+
+    <rect x="868" y="152" width="152" height="68" rx="8" fill="#f8fafc" stroke="#c7d2fe" stroke-width="1.2"/>
+    <text x="880" y="174" class="item-title">关键干系人</text>
+    <text x="880" y="192" class="item-desc">• 开发人员 / Tech Lead</text>
+    <text x="880" y="208" class="item-desc">• 构建与质量工程团队</text>
+
+    <rect x="700" y="234" width="320" height="68" rx="8" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1"/>
+    <text x="712" y="256" class="item-title" fill="#312e81">UML 建模载体</text>
+    <text x="712" y="274" class="item-desc">Component Diagram（组件图）、Package Diagram（包图）</text>
+    <text x="712" y="290" class="item-desc">核心目标：软件在编译期与代码库中如何分层解耦？</text>
+  </g>
+
+  <!-- 3. 进程视图 (左下) -->
+  <g id="process-view" filter="url(#card-shadow)">
+    <rect x="60" y="490" width="360" height="230" rx="12" fill="#ffffff" stroke="#8b5cf6" stroke-width="2"/>
+    <rect x="60" y="490" width="360" height="46" rx="12" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+    <circle cx="88" cy="513" r="13" fill="#7c3aed"/>
+    <text x="88" y="513" class="badge-txt">3</text>
+    <text x="112" y="510" class="card-title" fill="#5b21b6">进程视图 (Process View)</text>
+    <text x="112" y="526" class="card-sub" fill="#7c3aed">面向系统集成商 · 运行时并发、吞吐与容错</text>
+
+    <rect x="80" y="552" width="150" height="68" rx="8" fill="#f8fafc" stroke="#ddd6fe" stroke-width="1.2"/>
+    <text x="92" y="574" class="item-title">并发与通信机制</text>
+    <text x="92" y="592" class="item-desc">• 进程 / 线程 / 协程池</text>
+    <text x="92" y="608" class="item-desc">• RPC / 消息队列同步异步</text>
+
+    <rect x="248" y="552" width="152" height="68" rx="8" fill="#f8fafc" stroke="#ddd6fe" stroke-width="1.2"/>
+    <text x="260" y="574" class="item-title">关键干系人</text>
+    <text x="260" y="592" class="item-desc">• 性能与系统架构师</text>
+    <text x="260" y="608" class="item-desc">• 系统集成工程师</text>
+
+    <rect x="80" y="634" width="320" height="68" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+    <text x="92" y="656" class="item-title" fill="#4c1d95">UML 建模载体</text>
+    <text x="92" y="674" class="item-desc">Activity Diagram（活动图）、Sequence / Timing Diagram（时序图）</text>
+    <text x="92" y="690" class="item-desc">核心目标：运行时如何保障高并发、低延迟与数据一致性？</text>
+  </g>
+
+  <!-- 4. 物理视图 (右下) -->
+  <g id="physical-view" filter="url(#card-shadow)">
+    <rect x="680" y="490" width="360" height="230" rx="12" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+    <rect x="680" y="490" width="360" height="46" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+    <circle cx="708" cy="513" r="13" fill="#059669"/>
+    <text x="708" y="513" class="badge-txt">4</text>
+    <text x="732" y="510" class="card-title" fill="#065f46">物理视图 (Physical / Deployment View)</text>
+    <text x="732" y="526" class="card-sub" fill="#059669">面向运维与 SRE · 拓扑部署、K8s 与容灾</text>
+
+    <rect x="700" y="552" width="150" height="68" rx="8" fill="#f8fafc" stroke="#a7f3d0" stroke-width="1.2"/>
+    <text x="712" y="574" class="item-title">基础设施拓扑</text>
+    <text x="712" y="592" class="item-desc">• 多可用区 / K8s 集群</text>
+    <text x="712" y="608" class="item-desc">• 网关 / 存储 / 专线网络</text>
+
+    <rect x="868" y="552" width="152" height="68" rx="8" fill="#f8fafc" stroke="#a7f3d0" stroke-width="1.2"/>
+    <text x="880" y="574" class="item-title">关键干系人</text>
+    <text x="880" y="592" class="item-desc">• SRE / DevOps 工程师</text>
+    <text x="880" y="608" class="item-desc">• 网络与云安全工程师</text>
+
+    <rect x="700" y="634" width="320" height="68" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1"/>
+    <text x="712" y="656" class="item-title" fill="#064e3b">UML 建模载体</text>
+    <text x="712" y="674" class="item-desc">Deployment Diagram（部署图）、Network Topology（网络拓扑图）</text>
+    <text x="712" y="690" class="item-desc">核心目标：软件制品如何映射到云原生节点与物理基础设施？</text>
+  </g>
+
+  <!-- +1. 场景视图 (中央核心枢纽) -->
+  <g id="scenarios-view" filter="url(#card-shadow)">
+    <rect x="415" y="340" width="270" height="130" rx="16" fill="#fff7ed" stroke="#ea580c" stroke-width="2.5"/>
+    <circle cx="550" cy="364" r="14" fill="#ea580c"/>
+    <text x="550" y="364" class="badge-txt">+1</text>
+    <text x="550" y="396" class="scen-title">场景视图 (Scenarios / Use Cases)</text>
+    <text x="550" y="416" class="scen-sub">架构设计的起点与端到端验证主线</text>
+    <text x="550" y="438" class="item-desc" text-anchor="middle">Use Case Diagram · 核心业务链路走查</text>
+    <text x="550" y="456" class="item-desc" text-anchor="middle">串联并验证四大视图的一致性与完备性</text>
+  </g>
+
+  <!-- 四大视图之间的协同映射连线 -->
+  <!-- 逻辑视图 -> 开发视图 -->
+  <path d="M 420 190 L 676 190" class="line-dev"/>
+  <rect x="485" y="168" width="130" height="18" rx="4" fill="#f8fafc"/>
+  <text x="550" y="180" class="label-bg" fill="#2563eb">领域对象映射为代码模块</text>
+
+  <!-- 逻辑视图 -> 进程视图 -->
+  <path d="M 240 320 L 240 486" class="line-proc"/>
+  <rect x="165" y="392" width="150" height="18" rx="4" fill="#f8fafc"/>
+  <text x="240" y="404" class="label-bg" fill="#7c3aed">职责流映射为并发执行流</text>
+
+  <!-- 开发视图 -> 物理视图 -->
+  <path d="M 860 320 L 860 486" class="line-phys"/>
+  <rect x="785" y="392" width="150" height="18" rx="4" fill="#f8fafc"/>
+  <text x="860" y="404" class="label-bg" fill="#059669">构建产物打包为部署容器</text>
+
+  <!-- 进程视图 -> 物理视图 -->
+  <path d="M 420 610 L 676 610" class="line-phys"/>
+  <rect x="485" y="588" width="130" height="18" rx="4" fill="#f8fafc"/>
+  <text x="550" y="600" class="label-bg" fill="#059669">运行时进程调度至物理节点</text>
+
+  <!-- 中央 +1 场景视图辐射至四大视图的驱动连线 -->
+  <path d="M 455 340 L 365 305" class="line-scen"/>
+  <path d="M 645 340 L 735 305" class="line-scen"/>
+  <path d="M 455 470 L 365 505" class="line-scen"/>
+  <path d="M 645 470 L 735 505" class="line-scen"/>
 </svg>

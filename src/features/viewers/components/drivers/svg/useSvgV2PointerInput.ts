@@ -17,6 +17,7 @@ import {
   clientToCanvasPoint,
   findParent,
   hitTestAllAtPoint,
+  getPolylineWorldAnchors,
   type NodeId,
   type PointerEvent as SvgPointerEvent,
   type Runtime,
@@ -153,6 +154,23 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
       const point = toCanvas(e.clientX, e.clientY);
       if (!point) return;
       const doc = runtime.currentDocument;
+
+      // 若当前已单选折线，双击中间折点时快速删除该折点
+      if (runtime.currentSelection.nodeIds.length === 1) {
+        const selId = runtime.currentSelection.nodeIds[0]!;
+        const anchors = getPolylineWorldAnchors(doc, selId);
+        if (anchors && anchors.length > 2) {
+          const tol2 = 64; // 8px tolerance
+          for (let i = 1; i < anchors.length - 1; i++) {
+            const d2 = (point.x - anchors[i]!.point.x) ** 2 + (point.y - anchors[i]!.point.y) ** 2;
+            if (d2 <= tol2) {
+              runtime.execute('path.deleteAnchor', { id: selId, anchorIndex: i });
+              return;
+            }
+          }
+        }
+      }
+
       const allHits = hitTestAllAtPoint(doc, point, 5, true);
       if (allHits.length === 0) return;
 
@@ -259,6 +277,26 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
           runtime.execute('object.reorder', { id, direction: dir });
         }
         return;
+      }
+
+      // 单键切换工具 (V: 选择, A: 锚点, P: 钢笔, R: 矩形, O: 椭圆, L: 直线, W: 箭头, T: 文本)
+      if (!mod && !e.altKey) {
+        const toolShortcutMap: Record<string, 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text'> = {
+          v: 'select',
+          a: 'node',
+          p: 'pen',
+          r: 'rect',
+          o: 'ellipse',
+          l: 'line',
+          w: 'arrow',
+          t: 'text',
+        };
+        const targetTool = toolShortcutMap[key];
+        if (targetTool) {
+          e.preventDefault();
+          runtime.setActiveTool(targetTool);
+          return;
+        }
       }
 
       const toolKey = TOOL_KEY_MAP[e.key];
