@@ -4,11 +4,12 @@
  * 方案 B (全文检索、双页翻书排版、层级大纲书签树) 与
  * 方案 C (TextLayer 选词复制、彩色划词高亮、便签批注导出、高清快照与全屏演示)
  */
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ZoomIn,
   ZoomOut,
   Download,
@@ -32,6 +33,8 @@ import {
   Sun,
   Moon,
   Palette,
+  Hand,
+  MousePointer,
 } from 'lucide-react';
 import {
   loadPdfDocument,
@@ -50,6 +53,20 @@ import { PdfSearchBar } from './pdf/PdfSearchBar';
 import { PdfOutlineView } from './pdf/PdfOutlineView';
 import { PdfAnnotationsView, type PdfAnnotation } from './pdf/PdfAnnotationsView';
 import { PdfPageCanvas, type PdfPaperFilter } from './pdf/PdfPageCanvas';
+import {
+  MIN_PDF_ZOOM,
+  MAX_PDF_ZOOM,
+  DEFAULT_PDF_ZOOM,
+  PDF_ZOOM_PRESETS,
+  calculatePdfWheelZoom,
+  calculatePdfFocalScroll,
+  getNextPdfZoomIn,
+  getNextPdfZoomOut,
+  calculateFitWidthZoom,
+  calculateFitPageZoom,
+  clampPdfZoom,
+  calculatePanOffset,
+} from './pdf/pdfZoomHelper';
 
 interface PdfViewerProps {
   fileName?: string;
@@ -160,6 +177,47 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasRestoredProgressRef = useRef<boolean>(false);
 
+  // 视口平移与交互模式 (选择 vs 抓手漫游)
+  const [toolMode, setToolMode] = useState<'select' | 'hand'>('select');
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{ clientX: number; clientY: number; scrollLeft: number; scrollTop: number } | null>(null);
+
+  // 缩放预设菜单下拉状态
+  const [showZoomMenu, setShowZoomMenu] = useState(false);
+
+  // 保持最新 zoom 引用以供原生事件监听器读取
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
+  // 光标焦点无级缩放待应用的精确定位偏移 (在 DOM 布局生效后立即无抖动同步)
+  const pendingFocalScrollRef = useRef<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (pendingFocalScrollRef.current && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = pendingFocalScrollRef.current.left;
+      scrollContainerRef.current.scrollTop = pendingFocalScrollRef.current.top;
+      pendingFocalScrollRef.current = null;
+    }
+  }, [zoom]);
+
+  // 浮动缩放反馈指示器状态与计时器 (Ctrl+滚轮/快捷键缩放时提示)
+  const [zoomIndicator, setZoomIndicator] = useState<{ zoom: number; visible: boolean }>({
+    zoom: 100,
+    visible: false,
+  });
+  const zoomIndicatorTimerRef = useRef<number | null>(null);
+
+  const triggerZoomIndicator = useCallback((z: number) => {
+    setZoomIndicator({ zoom: z, visible: true });
+    if (zoomIndicatorTimerRef.current !== null) {
+      window.clearTimeout(zoomIndicatorTimerRef.current);
+    }
+    zoomIndicatorTimerRef.current = window.setTimeout(() => {
+      setZoomIndicator((prev) => ({ ...prev, visible: false }));
+    }, 900);
+  }, []);
+
   // 提示信息定时隐藏
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -167,6 +225,36 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 2400);
   }, []);
+
+  const handlePageLoaded = useCallback((dims: { width: number; height: number }) => {
+    setPageSize(dims);
+  }, []);
+
+  const handleAddAnnotation = useCallback((ann: Omit<PdfAnnotation, 'id' | 'createdAt'>) => {
+    const newAnn: PdfAnnotation = {
+      ...ann,
+      id: `ann_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: Date.now(),
+    };
+    setAnnotations((prev) => [newAnn, ...prev]);
+    showToast(`已添加第 ${ann.pageNumber} 页高亮批注`);
+  }, [showToast]);
+
+  const handleDeleteAnnotation = useCallback((id: string) => {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+    showToast('已删除批注');
+  }, [showToast]);
+
+  const handleUpdateAnnotationNote = useCallback((id: string, note: string) => {
+    setAnnotations((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, note } : a))
+    );
+  }, []);
+
+  const handleClearAllAnnotations = useCallback(() => {
+    setAnnotations([]);
+    showToast('已清空全部批注');
+  }, [showToast]);
 
   // 文档成功载入后自动恢复历史阅读进度（页码、缩放、排版模式与高亮标注）
   useEffect(() => {
@@ -285,6 +373,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       }
       if (searchDebounceTimerRef.current !== null) {
         clearTimeout(searchDebounceTimerRef.current);
+      }
+      if (zoomIndicatorTimerRef.current !== null) {
+        clearTimeout(zoomIndicatorTimerRef.current);
       }
     };
   }, []);
@@ -438,88 +529,271 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     handlePageJump(searchMatches[prevIdx].pageNumber);
   };
 
-  // 4. 键盘全局快捷键 (Cmd+F / Esc / 左右箭头)
+  // 6. 视口排版、缩放与旋转
+  const handleZoomIn = useCallback(() => {
+    setZoom((z) => {
+      const next = getNextPdfZoomIn(z);
+      triggerZoomIndicator(next);
+      return next;
+    });
+  }, [triggerZoomIndicator]);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((z) => {
+      const next = getNextPdfZoomOut(z);
+      triggerZoomIndicator(next);
+      return next;
+    });
+  }, [triggerZoomIndicator]);
+
+  const handleResetZoom = useCallback(() => {
+    setZoom(DEFAULT_PDF_ZOOM);
+    triggerZoomIndicator(DEFAULT_PDF_ZOOM);
+  }, [triggerZoomIndicator]);
+
+  const handleFitWidth = useCallback(() => {
+    if (!scrollContainerRef.current || pageSize.width <= 0) return;
+    const newScale = calculateFitWidthZoom(scrollContainerRef.current.clientWidth, pageSize.width, viewMode);
+    setZoom(newScale);
+    triggerZoomIndicator(newScale);
+  }, [pageSize.width, viewMode, triggerZoomIndicator]);
+
+  const handleFitPage = useCallback(() => {
+    if (!scrollContainerRef.current || pageSize.height <= 0) return;
+    const newScale = calculateFitPageZoom(scrollContainerRef.current.clientHeight, pageSize.height);
+    setZoom(newScale);
+    triggerZoomIndicator(newScale);
+  }, [pageSize.height, triggerZoomIndicator]);
+
+  const handleRotate = () => setRotation((r) => (r + 90) % 360);
+
+  // 双击视口空白区域快速在「适宽」与「100%」之间切换
+  const handleContainerDoubleClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('button, input, textarea, a, .pdf-selection-popup')) {
+      return;
+    }
+    if (window.getSelection()?.toString().trim()) {
+      return;
+    }
+    if (zoom === DEFAULT_PDF_ZOOM) {
+      handleFitWidth();
+    } else {
+      handleResetZoom();
+    }
+  }, [zoom, handleFitWidth, handleResetZoom]);
+
+  // 4. 键盘全局快捷键 (Cmd+F / Esc / Ctrl+加减号缩放 / Ctrl+0 重置 / W 适宽 / H 适页 / R 旋转 / Home / End / PageUp / PageDown)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+F / Ctrl+F 全文检索
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      } else if (e.key === 'Escape') {
+      const target = e.target as HTMLElement | null;
+      const inInput = !!target?.closest('input, textarea, [contenteditable="true"]');
+
+      if (e.key === 'Escape') {
         if (isSearchOpen) {
           setIsSearchOpen(false);
+          return;
+        }
+        if (showZoomMenu) {
+          setShowZoomMenu(false);
+          return;
+        }
+      }
+
+      if (inInput) return;
+
+      const isCtrlOrMeta = e.metaKey || e.ctrlKey;
+
+      // Cmd+F / Ctrl+F 全文检索
+      if (isCtrlOrMeta && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      } else if (isCtrlOrMeta && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        handleZoomIn();
+      } else if (isCtrlOrMeta && (e.key === '-' || e.key === '_')) {
+        e.preventDefault();
+        handleZoomOut();
+      } else if (isCtrlOrMeta && e.key === '0') {
+        e.preventDefault();
+        handleResetZoom();
+      } else if (!isCtrlOrMeta && !e.altKey) {
+        if (e.key === 'Home') {
+          e.preventDefault();
+          handlePageJump(1);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          handlePageJump(totalPages);
+        } else if (e.key === 'PageUp') {
+          e.preventDefault();
+          handlePrevPage();
+        } else if (e.key === 'PageDown') {
+          e.preventDefault();
+          handleNextPage();
+        } else if (e.key.toLowerCase() === 'w') {
+          e.preventDefault();
+          handleFitWidth();
+        } else if (e.key.toLowerCase() === 'h') {
+          e.preventDefault();
+          handleFitPage();
+        } else if (e.key.toLowerCase() === 'r') {
+          e.preventDefault();
+          handleRotate();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSearchOpen]);
+  }, [
+    isSearchOpen,
+    showZoomMenu,
+    handleZoomIn,
+    handleZoomOut,
+    handleResetZoom,
+    handleFitWidth,
+    handleFitPage,
+    handleRotate,
+    handlePageJump,
+    handlePrevPage,
+    handleNextPage,
+    totalPages,
+  ]);
 
-  // 视口尺寸更新防抖防护（防止无意义的重新渲染）
-  const handlePageLoaded = useCallback((dim: { width: number; height: number }) => {
-    setPageSize((prev) => {
-      if (prev.width === dim.width && prev.height === dim.height) return prev;
-      return dim;
-    });
+  // 抓手平移拖拽 (鼠标中键或抓手模式/按住空格拖拽)
+  const handleContainerMouseDown = (e: React.MouseEvent<HTMLElement>) => {
+    const isMiddle = e.button === 1;
+    const isHand = (toolMode === 'hand' || isSpacePressed) && e.button === 0;
+    if (!isMiddle && !isHand) return;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    e.preventDefault();
+    setIsPanning(true);
+    panStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      scrollLeft: container.scrollLeft,
+      scrollTop: container.scrollTop,
+    };
+  };
+
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const container = scrollContainerRef.current;
+      if (!container || !panStartRef.current) return;
+      const dx = e.clientX - panStartRef.current.clientX;
+      const dy = e.clientY - panStartRef.current.clientY;
+      const next = calculatePanOffset(
+        panStartRef.current.scrollLeft,
+        panStartRef.current.scrollTop,
+        dx,
+        dy
+      );
+      container.scrollLeft = next.scrollLeft;
+      container.scrollTop = next.scrollTop;
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsPanning(false);
+      panStartRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isPanning]);
+
+  // 空格键长按临时激活抓手漫游 (Space + Drag)
+  useEffect(() => {
+    const handleSpaceDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest('input, textarea, [contenteditable="true"]')) return;
+        e.preventDefault();
+        setIsSpacePressed(true);
+      }
+    };
+
+    const handleSpaceUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleSpaceDown);
+    window.addEventListener('keyup', handleSpaceUp);
+    return () => {
+      window.removeEventListener('keydown', handleSpaceDown);
+      window.removeEventListener('keyup', handleSpaceUp);
+    };
   }, []);
 
-  // 5. 批注管理 (方案 C)
-  const handleAddAnnotation = useCallback((ann: Omit<PdfAnnotation, 'id' | 'createdAt'>) => {
-    const newAnn: PdfAnnotation = {
-      ...ann,
-      id: `ann-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      createdAt: Date.now(),
+  // 点击外部关闭缩放预设菜单
+  useEffect(() => {
+    if (!showZoomMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('#pdf-zoom-presets-container')) {
+        setShowZoomMenu(false);
+      }
     };
-    setAnnotations((prev) => [newAnn, ...prev]);
-    showToast(`已添加第 ${ann.pageNumber} 页高亮批注`);
-  }, [showToast]);
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [showZoomMenu]);
 
-  const handleDeleteAnnotation = (id: string) => {
-    setAnnotations((prev) => prev.filter((a) => a.id !== id));
-    showToast('已删除批注');
-  };
+  // 鼠标滚轮 + Ctrl/Meta 键进行以光标为锚点的无级缩放 (Focal Point Wheel Zoom)
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  const handleUpdateAnnotationNote = (id: string, note: string) => {
-    setAnnotations((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, note } : a))
-    );
-    showToast('便签笔记已更新');
-  };
+    const handleWheel = (e: WheelEvent) => {
+      // 仅当按住 Ctrl 或 Meta 键（Windows/Linux 的 Ctrl、macOS 的 Cmd，或 Mac 触控板捏合手势）时触发缩放
+      if (!e.ctrlKey && !e.metaKey) return;
 
-  const handleClearAllAnnotations = () => {
-    if (window.confirm('确定要清空该文档的所有高亮批注吗？此操作无法撤销。')) {
-      setAnnotations([]);
-      showToast('已清空全部批注');
-    }
-  };
+      e.preventDefault();
 
-  // 6. 视口排版、缩放与旋转
-  const handleZoomIn = () => setZoom((z) => Math.min(250, z + 15));
-  const handleZoomOut = () => setZoom((z) => Math.max(50, z - 15));
-  const handleResetZoom = () => setZoom(100);
+      const currentZoom = zoomRef.current;
+      const nextZoom = calculatePdfWheelZoom(currentZoom, e.deltaY, true);
+      if (nextZoom === currentZoom) return;
 
-  const handleFitWidth = () => {
-    if (!scrollContainerRef.current || pageSize.width <= 0) return;
-    const padding = viewMode === 'dual' ? 140 : 80;
-    const baseW = viewMode === 'dual' ? pageSize.width * 2 : pageSize.width;
-    const containerWidth = scrollContainerRef.current.clientWidth - padding;
-    if (containerWidth > 200) {
-      const newScale = Math.round((containerWidth / baseW) * 100);
-      setZoom(Math.max(40, Math.min(200, newScale)));
-    }
-  };
+      const rect = container.getBoundingClientRect();
+      const { targetScrollLeft, targetScrollTop } = calculatePdfFocalScroll({
+        containerRect: rect,
+        cursorClientX: e.clientX,
+        cursorClientY: e.clientY,
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+        oldZoom: currentZoom,
+        newZoom: nextZoom,
+      });
 
-  const handleFitPage = () => {
-    if (!scrollContainerRef.current || pageSize.height <= 0) return;
-    const containerHeight = scrollContainerRef.current.clientHeight - 80;
-    if (containerHeight > 200) {
-      const newScale = Math.round((containerHeight / pageSize.height) * 100);
-      setZoom(Math.max(40, Math.min(180, newScale)));
-    }
-  };
+      // 记录待同步的光标焦点滚动坐标
+      pendingFocalScrollRef.current = { left: targetScrollLeft, top: targetScrollTop };
+      setZoom(nextZoom);
+      triggerZoomIndicator(nextZoom);
 
-  const handleRotate = () => setRotation((r) => (r + 90) % 360);
+      // 双重保障维持光标所指位置的内容不发生跳动与漂移
+      requestAnimationFrame(() => {
+        if (container && pendingFocalScrollRef.current) {
+          container.scrollLeft = pendingFocalScrollRef.current.left;
+          container.scrollTop = pendingFocalScrollRef.current.top;
+          pendingFocalScrollRef.current = null;
+        }
+      });
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [triggerZoomIndicator]);
 
   // 7. 页面高清快照导出 (方案 C)
   const handleExportSnapshot = () => {
@@ -822,6 +1096,48 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               <span className="hidden md:inline">双页</span>
             </button>
           </div>
+
+          {/* 交互工具模式：文本选词 vs 抓手漫游 */}
+          <div
+            style={{
+              backgroundColor: 'var(--ov-surface)',
+              borderColor: 'var(--ov-border)',
+            }}
+            className="hidden sm:flex items-center rounded border p-0.5"
+          >
+            <button
+              onClick={() => setToolMode('select')}
+              style={{
+                backgroundColor: toolMode === 'select' ? 'var(--ov-surface-hover)' : 'transparent',
+                color: toolMode === 'select' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              }}
+              className={`p-1 flex items-center justify-center rounded transition ${
+                toolMode === 'select'
+                  ? 'font-medium shadow-xs'
+                  : 'hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]'
+              }`}
+              title="文本选词与高亮模式"
+              id="pdf-btn-tool-select"
+            >
+              <MousePointer className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setToolMode('hand')}
+              style={{
+                backgroundColor: toolMode === 'hand' ? 'var(--ov-surface-hover)' : 'transparent',
+                color: toolMode === 'hand' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              }}
+              className={`p-1 flex items-center justify-center rounded transition ${
+                toolMode === 'hand'
+                  ? 'font-medium shadow-xs'
+                  : 'hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)]'
+              }`}
+              title="抓手漫游模式 (或按住空格键/鼠标中键拖拽平移视口)"
+              id="pdf-btn-tool-hand"
+            >
+              <Hand className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* 右侧：阅读滤镜、检索、缩放、快照、全屏、打开与下载 */}
@@ -966,41 +1282,116 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           {/* 缩放控制器 */}
           <button
             onClick={handleZoomOut}
-            disabled={isLoading || zoom <= 40}
+            disabled={isLoading || zoom <= MIN_PDF_ZOOM}
             style={{
               backgroundColor: 'var(--ov-surface)',
               borderColor: 'var(--ov-border)',
               color: 'var(--ov-text-secondary)',
             }}
             className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] disabled:opacity-40"
-            title="缩小"
+            title="缩小 (Ctrl + - / Ctrl + 滚轮)"
+            id="pdf-btn-zoom-out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
 
-          <button
-            onClick={handleResetZoom}
-            style={{
-              backgroundColor: 'var(--ov-surface)',
-              borderColor: 'var(--ov-border)',
-              color: 'var(--ov-accent)',
-            }}
-            className="font-mono text-[11px] px-1.5 py-1 rounded border min-w-[42px] text-center transition hover:bg-[var(--ov-surface-hover)]"
-            title="重置缩放 100%"
-          >
-            {zoom}%
-          </button>
+          {/* 缩放控制器与预设下拉菜单 */}
+          <div className="relative" id="pdf-zoom-presets-container">
+            <button
+              onClick={() => setShowZoomMenu((v) => !v)}
+              style={{
+                backgroundColor: showZoomMenu ? 'var(--ov-surface-hover)' : 'var(--ov-surface)',
+                borderColor: showZoomMenu ? 'var(--ov-accent)' : 'var(--ov-border)',
+                color: 'var(--ov-accent)',
+              }}
+              className="font-mono text-[11px] px-1.5 py-1 rounded border min-w-[56px] flex items-center justify-between gap-1 transition hover:bg-[var(--ov-surface-hover)]"
+              title="缩放比例与预设菜单 (Ctrl+0 重置 100% / 双击空白适宽)"
+              id="pdf-btn-zoom-reset"
+            >
+              <span>{zoom}%</span>
+              <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+
+            {showZoomMenu && (
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface-header)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                  boxShadow: 'var(--ov-shadow, 0 10px 25px -5px rgba(0, 0, 0, 0.3))',
+                }}
+                className="absolute right-0 top-full mt-1.5 w-36 rounded-lg border shadow-xl p-1 z-30 flex flex-col gap-0.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div
+                  className="px-2 py-1 text-[10px] font-semibold border-b"
+                  style={{ color: 'var(--ov-text-muted)', borderColor: 'var(--ov-border-subtle)' }}
+                >
+                  缩放预设
+                </div>
+                <button
+                  onClick={() => {
+                    handleFitWidth();
+                    setShowZoomMenu(false);
+                  }}
+                  className="flex items-center justify-between px-2 py-1 rounded transition hover:bg-[var(--ov-surface-hover)] text-left"
+                >
+                  <span>适合宽度</span>
+                  <span className="text-[10px] opacity-50 font-mono">W</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleFitPage();
+                    setShowZoomMenu(false);
+                  }}
+                  className="flex items-center justify-between px-2 py-1 rounded transition hover:bg-[var(--ov-surface-hover)] text-left"
+                >
+                  <span>适合页面</span>
+                  <span className="text-[10px] opacity-50 font-mono">H</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleResetZoom();
+                    setShowZoomMenu(false);
+                  }}
+                  className="flex items-center justify-between px-2 py-1 rounded transition hover:bg-[var(--ov-surface-hover)] text-left font-medium"
+                  style={{ color: zoom === 100 ? 'var(--ov-accent)' : undefined }}
+                >
+                  <span>实际大小 100%</span>
+                  <span className="text-[10px] opacity-50 font-mono">0</span>
+                </button>
+
+                <div className="w-full h-px my-0.5" style={{ backgroundColor: 'var(--ov-border-subtle)' }} />
+
+                {PDF_ZOOM_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => {
+                      setZoom(preset);
+                      triggerZoomIndicator(preset);
+                      setShowZoomMenu(false);
+                    }}
+                    className="flex items-center justify-between px-2 py-1 rounded transition hover:bg-[var(--ov-surface-hover)] text-left font-mono text-[11px]"
+                    style={{ color: zoom === preset ? 'var(--ov-accent)' : undefined }}
+                  >
+                    <span>{preset}%</span>
+                    {zoom === preset && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={handleZoomIn}
-            disabled={isLoading || zoom >= 250}
+            disabled={isLoading || zoom >= MAX_PDF_ZOOM}
             style={{
               backgroundColor: 'var(--ov-surface)',
               borderColor: 'var(--ov-border)',
               color: 'var(--ov-text-secondary)',
             }}
             className="p-1.5 rounded border transition hover:bg-[var(--ov-surface-hover)] disabled:opacity-40"
-            title="放大"
+            title="放大 (Ctrl + + / Ctrl + 滚轮)"
+            id="pdf-btn-zoom-in"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
@@ -1242,11 +1633,15 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         <main
           ref={scrollContainerRef}
           onScroll={handleScroll}
+          onDoubleClick={handleContainerDoubleClick}
+          onMouseDown={handleContainerMouseDown}
           style={{
             backgroundColor: 'var(--ov-bg)',
             color: 'var(--ov-text)',
+            cursor: isPanning ? 'grabbing' : (toolMode === 'hand' || isSpacePressed ? 'grab' : 'default'),
+            userSelect: (isPanning || toolMode === 'hand' || isSpacePressed) ? 'none' : 'auto',
           }}
-          className="flex-1 overflow-auto p-6 sm:p-10 flex flex-col items-center justify-start relative"
+          className="flex-1 overflow-auto p-6 sm:p-10 flex flex-col items-center justify-start relative select-none"
         >
           {isLoading && (
             <div className="my-auto flex flex-col items-center gap-3" style={{ color: 'var(--ov-text-muted)' }}>
@@ -1358,6 +1753,36 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 </div>
               )}
             </>
+          )}
+
+          {/* 浮动缩放反馈指示器 (Ctrl+滚轮/快捷键缩放时提示，HUD 胶囊) */}
+          {zoomIndicator.visible && (
+            <div
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+                boxShadow: 'var(--ov-shadow, 0 12px 30px -4px rgba(0, 0, 0, 0.35))',
+              }}
+              className="fixed bottom-14 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full border text-xs font-mono font-medium flex items-center gap-3 pointer-events-none transition-all duration-150 animate-in fade-in zoom-in-95 backdrop-blur-md shadow-2xl ring-1 ring-[var(--ov-border-subtle)]"
+            >
+              <div className="flex items-center gap-1.5">
+                <ZoomIn className="w-3.5 h-3.5" style={{ color: 'var(--ov-accent)' }} />
+                <span className="font-semibold text-sm">{zoomIndicator.zoom}%</span>
+              </div>
+              <div className="w-20 h-1.5 rounded-full bg-[var(--ov-surface-hover)] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-100"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, ((zoomIndicator.zoom - 25) / (500 - 25)) * 100))}%`,
+                    backgroundColor: 'var(--ov-accent)',
+                  }}
+                />
+              </div>
+              <span className="text-[10px] text-[var(--ov-text-muted)] font-sans">
+                {zoomIndicator.zoom === 100 ? '实际大小' : zoomIndicator.zoom > 100 ? '放大' : '缩小'}
+              </span>
+            </div>
           )}
         </main>
       </div>

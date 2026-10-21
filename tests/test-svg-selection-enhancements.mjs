@@ -26,6 +26,10 @@ import {
   vec2,
   anchorCorner,
   commandRegistry,
+  tools,
+  getSelectionBBox,
+  selectionAdd,
+  selectionClear,
 } from '../src/features/viewers/components/drivers/svg/core/index.ts';
 
 console.log('🧪 开始 SVG v2 元素选择专项增强单元测试...\n');
@@ -297,8 +301,220 @@ it('select.box 自动保护覆盖全图的大背景层，小选框不会误选�
 });
 
 // ============================================================================
-// 汇总报告
+// 7. CAD 模式鼠标框选验证 (从左向右窗选实线 vs 从右向左交叉虚线)
 // ============================================================================
+console.log('\n--- 测试 7: 鼠标选择参考 CAD 规范 (窗选 vs 交叉选) ---');
+
+it('CAD 规范：从左向右为窗选实线 (enclosed)，从右向左为交叉虚线 (intersect)', () => {
+  const selectTool = tools.select;
+  assert.ok(selectTool);
+
+  let doc = createDocument({ width: 800, height: 600 });
+  const layerId = doc.layers[0];
+  const nodeA = makePath(0, createRectGeometry(100, 100, 50, 50));
+  const resA = appendToLayer(doc, layerId, nodeA);
+  doc = resA.doc;
+
+  const mockCtx = {
+    doc,
+    selection: { nodeIds: [], primaryId: null },
+    zoom: 1,
+    activeToolId: 'select',
+    gesture: null,
+  };
+
+  // 1. 从左向右拉框 (p1.x: 50 -> p2.x: 200)
+  mockCtx.gesture = {
+    kind: 'marquee',
+    startPoint: { x: 50, y: 50 },
+    currentPoint: { x: 200, y: 200 },
+  };
+  const overlayLeftToRight = selectTool.overlay?.(mockCtx);
+  assert.ok(overlayLeftToRight && overlayLeftToRight.length > 0);
+  const rectL2R = overlayLeftToRight[0];
+  assert.strictEqual(rectL2R.kind, 'rect');
+  assert.strictEqual(rectL2R.dashed, false, '从左向右窗选应当是 CAD 实线边框！');
+  assert.strictEqual(rectL2R.stroke, '#2563eb', '从左向右窗选应当是经典 CAD 蓝框！');
+
+  // 2. 从右向左拉框 (p1.x: 200 -> p2.x: 50)
+  mockCtx.gesture = {
+    kind: 'marquee',
+    startPoint: { x: 200, y: 50 },
+    currentPoint: { x: 50, y: 200 },
+  };
+  const overlayRightToLeft = selectTool.overlay?.(mockCtx);
+  assert.ok(overlayRightToLeft && overlayRightToLeft.length > 0);
+  const rectR2L = overlayRightToLeft[0];
+  assert.strictEqual(rectR2L.kind, 'rect');
+  assert.strictEqual(rectR2L.dashed, true, '从右向左交叉选应当是 CAD 虚线边框！');
+  assert.strictEqual(rectR2L.stroke, '#10b981', '从右向左交叉选应当是经典 CAD 绿框！');
+});
+
+// ============================================================================
+// 8. 点击选择可以通过 Ctrl / Cmd 实现多选及反选
+// ============================================================================
+console.log('\n--- 测试 8: Ctrl / Cmd 鼠标点击多选与反选剔除 ---');
+
+it('Ctrl / Cmd 点击实现多选追加；再次点击同一图元实现反选剔除', () => {
+  const selectTool = tools.select;
+  let doc = createDocument({ width: 800, height: 600 });
+  const layerId = doc.layers[0];
+
+  const node1 = makePath(0, createRectGeometry(50, 50, 40, 40));
+  const node2 = makePath(0, createRectGeometry(150, 50, 40, 40));
+  const node3 = makePath(0, createRectGeometry(250, 50, 40, 40));
+
+  const r1 = appendToLayer(doc, layerId, node1);
+  doc = r1.doc;
+  const id1 = r1.nodeId;
+
+  const r2 = appendToLayer(doc, layerId, node2);
+  doc = r2.doc;
+  const id2 = r2.nodeId;
+
+  const r3 = appendToLayer(doc, layerId, node3);
+  doc = r3.doc;
+  const id3 = r3.nodeId;
+
+  const setCmd = commandRegistry.find('select.set');
+  assert.ok(setCmd);
+
+  // 初始：选中 id1
+  let sel = { nodeIds: [id1], primaryId: id1 };
+
+  // 1. 模拟按住 Ctrl 点击 id2 (mods.ctrl = true) -> 应当追加 id2，选区变为 [id1, id2]
+  const toolCtx1 = { doc, selection: sel, zoom: 1, activeToolId: 'select', gesture: null };
+  const actions1 = selectTool.pointer?.(toolCtx1, {
+    kind: 'down',
+    point: { x: 170, y: 70 }, // 命中 node2
+    mods: { shift: false, ctrl: true, meta: false, alt: false, space: false },
+    pressure: 1,
+  });
+  assert.ok(actions1 && actions1.length > 0);
+  const execAdd = actions1.find((a) => a.kind === 'Exec');
+  assert.ok(execAdd);
+  assert.strictEqual(execAdd.commandId, 'select.set');
+  assert.strictEqual(execAdd.params.additive, true);
+
+  // 执行该命令
+  const resAdd = setCmd.handler(doc, sel, execAdd.params);
+  assert.ok(resAdd.ok);
+  sel = resAdd.selection;
+  assert.deepStrictEqual(sel.nodeIds, [id1, id2], 'Ctrl+点击应当成功追加至多选选区');
+
+  // 2. 模拟按住 Ctrl 点击已选中的 id2 -> 应当反选剔除 id2，选区变回 [id1]
+  const toolCtx2 = { doc, selection: sel, zoom: 1, activeToolId: 'select', gesture: null };
+  const actions2 = selectTool.pointer?.(toolCtx2, {
+    kind: 'down',
+    point: { x: 170, y: 70 }, // 再次命中已选中的 node2
+    mods: { shift: false, ctrl: true, meta: false, alt: false, space: false },
+    pressure: 1,
+  });
+  assert.ok(actions2 && actions2.length > 0);
+  const execToggle = actions2.find((a) => a.kind === 'Exec');
+  assert.ok(execToggle);
+  assert.strictEqual(execToggle.commandId, 'select.set');
+  assert.strictEqual(execToggle.params.additive, true);
+  assert.strictEqual(execToggle.params.toggle, true, 'Ctrl 点击已选图元应触发反选剔除');
+
+  const resToggle = setCmd.handler(doc, sel, execToggle.params);
+  assert.ok(resToggle.ok);
+  sel = resToggle.selection;
+  assert.deepStrictEqual(sel.nodeIds, [id1], '反选剔除后应只剩未剔除的图元');
+});
+
+// ============================================================================
+// 9. 选中多个图元的共性操作全套检验
+// ============================================================================
+console.log('\n--- 测试 9: 选中多个图元的共性操作全套检验 ---');
+
+it('多选共性操作：联合包围盒、批量对齐、批量分布、批量一键编组与解组、批量显隐与锁定', () => {
+  let doc = createDocument({ width: 800, height: 600 });
+  const layerId = doc.layers[0];
+
+  // 创建三个分散放置的矩形
+  const n1 = makePath(0, createRectGeometry(100, 100, 40, 40));
+  const n2 = makePath(0, createRectGeometry(200, 150, 40, 40));
+  const n3 = makePath(0, createRectGeometry(350, 200, 40, 40));
+
+  const r1 = appendToLayer(doc, layerId, n1);
+  doc = r1.doc;
+  const id1 = r1.nodeId;
+
+  const r2 = appendToLayer(doc, layerId, n2);
+  doc = r2.doc;
+  const id2 = r2.nodeId;
+
+  const r3 = appendToLayer(doc, layerId, n3);
+  doc = r3.doc;
+  const id3 = r3.nodeId;
+
+  const ids = [id1, id2, id3];
+  const sel = { nodeIds: ids, primaryId: id1 };
+
+  // 1. 联合包围盒 getSelectionBBox
+  const unionBox = getSelectionBBox(doc, ids);
+  assert.ok(unionBox);
+  assert.strictEqual(unionBox.x, 100);
+  assert.strictEqual(unionBox.y, 100);
+  assert.strictEqual(unionBox.x + unionBox.width, 390); // 350 + 40
+  assert.strictEqual(unionBox.y + unionBox.height, 240); // 200 + 40
+
+  // 2. 批量对齐：全部左对齐到 x: 100
+  const alignCmd = commandRegistry.find('object.align');
+  assert.ok(alignCmd);
+  const resAlign = alignCmd.handler(doc, sel, { ids, align: 'left', relative: 'selection' });
+  assert.ok(resAlign.ok);
+  doc = resAlign.doc;
+
+  // 3. 批量一键编组 object.group
+  const groupCmd = commandRegistry.find('object.group');
+  assert.ok(groupCmd);
+  const resGroup = groupCmd.handler(doc, sel, { ids });
+  assert.ok(resGroup.ok);
+  doc = resGroup.doc;
+  const groupId = resGroup.selection.primaryId;
+  assert.ok(groupId);
+  const groupNode = doc.nodes.get(groupId);
+  assert.strictEqual(groupNode.kind, 'Group');
+  assert.strictEqual(groupNode.children.length, 3);
+
+  // 4. 批量解散编组 object.ungroup
+  const ungroupCmd = commandRegistry.find('object.ungroup');
+  assert.ok(ungroupCmd);
+  const resUngroup = ungroupCmd.handler(doc, resGroup.selection, { id: groupId });
+  assert.ok(resUngroup.ok);
+  doc = resUngroup.doc;
+  assert.strictEqual(resUngroup.selection.nodeIds.length, 3);
+
+  // 5. 批量锁定与解锁 object.setLocked
+  const lockCmd = commandRegistry.find('object.setLocked');
+  assert.ok(lockCmd);
+  const resLock = lockCmd.handler(doc, sel, { ids, locked: true });
+  assert.ok(resLock.ok);
+  doc = resLock.doc;
+  for (const id of ids) {
+    assert.strictEqual(doc.nodes.get(id).locked, true, '所有图元应全部被批量锁定');
+  }
+
+  // 批量解锁
+  const resUnlock = lockCmd.handler(doc, sel, { ids, locked: false });
+  assert.ok(resUnlock.ok);
+  doc = resUnlock.doc;
+  for (const id of ids) {
+    assert.strictEqual(doc.nodes.get(id).locked, false, '所有图元应全部被批量解锁');
+  }
+
+  // 6. 批量显隐 object.setVisible
+  const visibleCmd = commandRegistry.find('object.setVisible');
+  assert.ok(visibleCmd);
+  const resHide = visibleCmd.handler(doc, sel, { ids, visible: false });
+  assert.ok(resHide.ok);
+  doc = resHide.doc;
+  for (const id of ids) {
+    assert.strictEqual(doc.nodes.get(id).visible, false, '所有图元应全部被批量隐藏');
+  }
+});
 console.log(`\n📊 元素选择专项增强测试结果: ${passed} 通过, ${failed} 失败`);
 if (failed > 0) {
   process.exit(1);

@@ -22,6 +22,11 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignVerticalDistributeCenter,
 } from 'lucide-react';
 import type {
   CommandId,
@@ -225,34 +230,84 @@ export const SvgV2ContextMenu: React.FC<SvgV2ContextMenuProps> = ({
       {canGroup && (
         <>
           <div className="my-1 h-px bg-[var(--ov-border)]" />
-          <div className="flex items-center justify-between px-2 py-1 text-[11px] text-[var(--ov-fg-muted)]">
-            <span>对齐</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                title="左对齐"
-                className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
-                onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'left' }))}
-              >
-                <AlignLeft size={12} />
-              </button>
-              <button
-                type="button"
-                title="水平居中"
-                className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
-                onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'centerH' }))}
-              >
-                <AlignCenter size={12} />
-              </button>
-              <button
-                type="button"
-                title="右对齐"
-                className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
-                onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'right' }))}
-              >
-                <AlignRight size={12} />
-              </button>
+          <div className="flex flex-col gap-1 px-2 py-1 text-[11px] text-[var(--ov-fg-muted)]">
+            <div className="flex items-center justify-between">
+              <span>对齐</span>
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  title="左对齐"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                  onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'left' }))}
+                >
+                  <AlignLeft size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="水平居中"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                  onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'centerH' }))}
+                >
+                  <AlignCenter size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="右对齐"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                  onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'right' }))}
+                >
+                  <AlignRight size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="顶对齐"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                  onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'top' }))}
+                >
+                  <AlignStartVertical size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="垂直居中"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                  onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'centerV' }))}
+                >
+                  <AlignCenterVertical size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="底对齐"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                  onClick={() => handleAction(() => execute('object.align', { ids: [...selection.nodeIds], align: 'bottom' }))}
+                >
+                  <AlignEndVertical size={12} />
+                </button>
+              </div>
             </div>
+
+            {selCount >= 3 && (
+              <div className="flex items-center justify-between pt-0.5">
+                <span>分布</span>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    title="水平等间距分布"
+                    className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                    onClick={() => handleAction(() => execute('object.distribute', { ids: [...selection.nodeIds], axis: 'h' }))}
+                  >
+                    <AlignHorizontalDistributeCenter size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    title="垂直等间距分布"
+                    className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                    onClick={() => handleAction(() => execute('object.distribute', { ids: [...selection.nodeIds], axis: 'v' }))}
+                  >
+                    <AlignVerticalDistributeCenter size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

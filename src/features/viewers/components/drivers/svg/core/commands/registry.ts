@@ -577,6 +577,8 @@ const objectUngroup: CommandHandler = (doc, sel, params) => {
       : [...parentChildren.filter((c: NodeId) => c !== id), ...group.children];
 
     next = updateNode(next, parentId, (n) => ({ ...(n as any), children: newChildren }));
+    // 先清空 group 的 children，防止 removeNode 递归删除已提升出来的子图元
+    next = updateNode(next, id, (n) => ({ ...(n as any), children: [] }));
     next = removeNode(next, id);
     allNewSelection.push(...group.children);
   }

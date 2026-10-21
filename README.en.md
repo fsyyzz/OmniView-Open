@@ -137,11 +137,15 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **3D Page Flip Effect**: GPU-accelerated 3D page flip animation with lighting transitions, toggleable at any time;
 - **Typography & Reading Progress Persistence (`epubSettingsStorage`)**: Instant persistence for font size (A-/A+), font family (Serif, Sans, Kai, Mono), first-line indent, alignment (justify/left), line height (1.5x/1.75x/2.0x), page width (720px/960px/100%), eye-care themes (Auto, Sepia, Light, Dark), and book-specific reading progress (chapter, page, percentage).
 
-### 6. Modern PDF Reader
-- Mozilla PDF.js v4+ binary parse + Canvas rendering;
-- **Three layouts**: continuous flow, single-page, dual-page book view;
-- **Reading awareness**: scroll-spy progress, lazy viewport rendering;
-- **Annotate & search**: cross-page search highlight, outline bookmarks, selection highlights with Markdown export, PNG snapshot, and print.
+### 6. Industrial-Grade PDF Studio
+- Mozilla PDF.js v4+ binary parsing + Hi-DPI Canvas rasterization;
+- **Focal Point Wheel Zoom**: Ctrl/Cmd + wheel / trackpad pinch smooth focal zoom with 100% stable cursor coordinate invariant lock, synchronized via React `useLayoutEffect`;
+- **Zero-Flicker Canvas Layering**: Preserves previous sharp bitmap via GPU hardware-accelerated CSS scaling during zoom gestures, replacing with crisp high-DPI rasterization upon gesture pause;
+- **Hand Pan Tool & Space+Drag**: Toggle between Select and Hand modes, hold Spacebar or click-drag middle mouse button to pan freely in any direction;
+- **Zoom Presets Dropdown Menu**: One-click quick selection for 50%, 75%, 100% (Actual Size), 125%, 150%, 200%, 300%, 400%, 500%, Fit Width (W), and Fit Page (H);
+- **Centered HUD Zoom Capsule**: Translucent floating glass badge in the viewport showing real-time zoom percentage with a visual scale track;
+- **Three layouts**: continuous waterfall flow, single-page reading, dual-page book view;
+- **Annotate & search**: cross-page search highlight, outline bookmarks, selection highlights with Markdown export, PNG snapshot, and system printing.
 
 ### 7. Excalidraw Whiteboard Studio
 - Native `.excalidraw` hand-drawn diagram file format support;
@@ -238,7 +242,7 @@ npm run verify
 npm run package:vsix
 
 # 3. Install into local VS Code (keep version in sync with package.json)
-code --install-extension omniview-1.3.16.vsix --force
+code --install-extension omniview-1.3.17.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.

@@ -333,6 +333,29 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
         />
       )}
 
+      {/* CAD 框选模式提示徽章 (参考 AutoCAD 窗选与交叉选实时反馈) */}
+      {(() => {
+        const marquee = overlays.find((o) => o.kind === 'rect' && (o.stroke === '#10b981' || o.stroke === '#2563eb'));
+        if (!marquee || marquee.kind !== 'rect') return null;
+        return (
+          <div
+            data-canvas-ui="true"
+            className={`absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-2xl backdrop-blur-md border animate-fadeIn ${
+              marquee.dashed
+                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60 shadow-emerald-950/40'
+                : 'bg-blue-950/90 text-blue-300 border-blue-500/60 shadow-blue-950/40'
+            }`}
+          >
+            <span className="inline-block h-2 w-2 rounded-full animate-ping" style={{ backgroundColor: marquee.stroke }} />
+            <span>
+              {marquee.dashed
+                ? '🟩 CAD 交叉选择 (从右向左 · 虚线触碰即选)'
+                : '🟦 CAD 窗口选择 (从左向右 · 实线严格全包含)'}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* 底部视口浮动控制条 (Viewport HUD) */}
       <div
         data-canvas-ui="true"
@@ -380,6 +403,18 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
           <Move size={11} />
           <span className="hidden sm:inline">平移</span>
         </span>
+        {selection.nodeIds.length > 1 && (
+          <>
+            <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+            <span
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--ov-accent-soft)] text-[11px] font-medium text-[var(--ov-accent)]"
+              title="按住 Ctrl / Shift 点击图元可反选或继续加选"
+            >
+              <span>已多选 {selection.nodeIds.length} 项</span>
+              <span className="hidden md:inline text-[10px] opacity-75 font-normal">· Ctrl 增减选</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -403,7 +438,7 @@ function renderOverlay(o: OverlayElement, i: number): React.ReactNode {
           fill={o.fill}
           stroke={o.stroke}
           strokeWidth={o.lineWidth}
-          strokeDasharray={o.dashed ? `${4 / Math.max(o.lineWidth, 1e-6)} ${2 / Math.max(o.lineWidth, 1e-6)}` : undefined}
+          strokeDasharray={o.dashed ? `${Math.max(1, 5 * o.lineWidth)} ${Math.max(1, 3 * o.lineWidth)}` : undefined}
         />
       );
     case 'line':

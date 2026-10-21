@@ -15,6 +15,18 @@ import {
   Trash2,
   FlipHorizontal,
   FlipVertical,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignVerticalDistributeCenter,
+  Folder,
+  FolderOpen,
+  ArrowUpToLine,
+  ArrowDownToLine,
 } from 'lucide-react';
 import {
   defaultStroke,
@@ -56,6 +68,9 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
 }) => {
   const ids = selection.nodeIds;
   if (ids.length === 0) return null;
+
+  const hasGroup = ids.some((id) => doc.nodes.get(id)?.kind === 'Group');
+  const isMulti = ids.length > 1;
 
   const primary = selection.primaryId ? doc.nodes.get(selection.primaryId) : doc.nodes.get(ids[0]!);
   const isLineOrArrow = Boolean(primary && isOpenPolylineNode(primary));
@@ -120,11 +135,154 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
   return (
     <div
       data-floating-hud="true"
-      className="absolute z-40 -translate-x-1/2 flex items-center gap-1.5 rounded-xl border border-[var(--ov-border)] bg-[var(--ov-surface)]/95 px-2 py-1 shadow-2xl backdrop-blur-md text-xs text-[var(--ov-text)] select-none pointer-events-auto transition-transform duration-75 animate-fadeIn"
+      className="absolute z-40 -translate-x-1/2 flex items-center gap-1.5 rounded-xl border border-[var(--ov-border)] bg-[var(--ov-surface)]/95 px-2 py-1 shadow-2xl backdrop-blur-md text-xs text-[var(--ov-text)] select-none pointer-events-auto transition-transform duration-75 animate-fadeIn max-w-[95vw] overflow-x-auto"
       style={{ left, top }}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      {/* 多选标识 */}
+      {isMulti && (
+        <div className="flex items-center gap-1 pr-1.5 border-r border-[var(--ov-border)] font-medium text-[11px] text-[var(--ov-accent)]">
+          <span className="px-1.5 py-0.5 rounded-md bg-[var(--ov-accent-soft)] whitespace-nowrap">
+            已选 {ids.length} 项
+          </span>
+        </div>
+      )}
+
+      {/* 多选快捷对齐 (左中右 / 顶中底) */}
+      {isMulti && (
+        <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">
+          <button
+            type="button"
+            title="左对齐"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.align', { ids: [...ids], align: 'left', relative: 'selection' })}
+          >
+            <AlignLeft size={13} />
+          </button>
+          <button
+            type="button"
+            title="水平居中"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.align', { ids: [...ids], align: 'centerH', relative: 'selection' })}
+          >
+            <AlignCenter size={13} />
+          </button>
+          <button
+            type="button"
+            title="右对齐"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.align', { ids: [...ids], align: 'right', relative: 'selection' })}
+          >
+            <AlignRight size={13} />
+          </button>
+          <button
+            type="button"
+            title="顶对齐"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.align', { ids: [...ids], align: 'top', relative: 'selection' })}
+          >
+            <AlignStartVertical size={13} />
+          </button>
+          <button
+            type="button"
+            title="垂直居中"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.align', { ids: [...ids], align: 'centerV', relative: 'selection' })}
+          >
+            <AlignCenterVertical size={13} />
+          </button>
+          <button
+            type="button"
+            title="底对齐"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.align', { ids: [...ids], align: 'bottom', relative: 'selection' })}
+          >
+            <AlignEndVertical size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* 多选等间距分布（≥3 个图元） */}
+      {ids.length >= 3 && (
+        <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">
+          <button
+            type="button"
+            title="水平等间距分布"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.distribute', { ids: [...ids], axis: 'h' })}
+          >
+            <AlignHorizontalDistributeCenter size={13} />
+          </button>
+          <button
+            type="button"
+            title="垂直等间距分布"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => execute('object.distribute', { ids: [...ids], axis: 'v' })}
+          >
+            <AlignVerticalDistributeCenter size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* 编组 / 解散编组 */}
+      {isMulti && (
+        <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">
+          <button
+            type="button"
+            title="一键编组 (⌘G)"
+            className="flex h-5 px-1.5 items-center gap-1 rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors text-[10px]"
+            onClick={() => execute('object.group', { ids: [...ids] })}
+          >
+            <Folder size={12} />
+            <span>编组</span>
+          </button>
+          {hasGroup && (
+            <button
+              type="button"
+              title="解散编组 (⇧⌘G)"
+              className="flex h-5 px-1.5 items-center gap-1 rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors text-[10px]"
+              onClick={() => {
+                for (const id of ids) {
+                  if (doc.nodes.get(id)?.kind === 'Group') {
+                    execute('object.ungroup', { id });
+                  }
+                }
+              }}
+            >
+              <FolderOpen size={12} />
+              <span>解组</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 图层置顶 / 置底 */}
+      {isMulti && (
+        <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">
+          <button
+            type="button"
+            title="置于顶层 (⇧⌘])"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => {
+              for (const id of ids) execute('object.reorder', { id, direction: 'front' });
+            }}
+          >
+            <ArrowUpToLine size={13} />
+          </button>
+          <button
+            type="button"
+            title="置于底层 (⇧⌘[)"
+            className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+            onClick={() => {
+              for (const id of ids) execute('object.reorder', { id, direction: 'back' });
+            }}
+          >
+            <ArrowDownToLine size={13} />
+          </button>
+        </div>
+      )}
+
       {/* 快捷色板（线条/箭头自动作用于描边色，其余图形作用于填充色） */}
       <div className="flex items-center gap-1 pr-1 border-r border-[var(--ov-border)]">
         {COLOR_PRESETS.filter((c) => !(isLineOrArrow && c === 'none')).map((c) => (

@@ -61,7 +61,7 @@ vscode-extension, markdown-viewer, office-viewer, docx-viewer, pptx-viewer, xlsx
 - **一句话介绍**:  
   `一款纯前端离线、全格式增强的 VS Code 文件可视化工作台与插件，支持 Office、Markdown、PDF、图表等 23+ 格式。`
 - **详细描述**:  
-  `OmniView 基于 React 19 构建，采用微内核驱动模型。它不仅能让开发者在 VS Code 中免安装外部环境秒开 DOCX、PPTX、XLSX、EPUB，还独创了同步剪贴板清洗流水线，完美解决 Markdown 图文复制到 Word 格式散架的历史难题。全链路离线可用，代码规范完备，包含 85 组自动化测试。`
+  `OmniView 基于 React 19 构建，采用微内核驱动模型。它不仅能让开发者在 VS Code 中免安装外部环境秒开 DOCX、PPTX、XLSX、EPUB，还独创了同步剪贴板清洗流水线，完美解决 Markdown 图文复制到 Word 格式散架的历史难题。全链路离线可用，代码规范完备，包含 86 组自动化测试。`
 
 ---
 

@@ -95,6 +95,27 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
     onPageLoadedRef.current = onPageLoaded;
   });
 
+  const hasRenderedRef = useRef(false);
+
+  // 组件卸载时释放 GPU 显存
+  useEffect(() => {
+    return () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
+      }
+    };
+  }, []);
+
+  // 移出可视视口时卸载显存
+  useEffect(() => {
+    if (!isVisible && canvasRef.current) {
+      canvasRef.current.width = 0;
+      canvasRef.current.height = 0;
+      hasRenderedRef.current = false;
+    }
+  }, [isVisible]);
+
   // 1. 渲染主 Canvas 与 TextLayer
   useEffect(() => {
     let isCancelled = false;
@@ -116,6 +137,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
     canvasPromise
       .then(async () => {
         if (isCancelled) return;
+        hasRenderedRef.current = true;
         setIsRendering(false);
 
         // 回传当前页渲染视口尺寸（仅当组件仍挂载时）
@@ -157,11 +179,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
       if (cancelTextLayer) {
         cancelTextLayer();
       }
-      if (canvas) {
-        // 关键性能优化：重置 canvas 宽高为 0，通知浏览器立即回收底层的 GPU 光栅位图显存
-        canvas.width = 0;
-        canvas.height = 0;
-      }
+      // 保持已有 canvas 位图不立即清零，交由 CSS width/height 硬件加速拉伸实现零白屏无缝缩放
     };
   }, [doc, pageNumber, scale, rotation, searchQuery, isVisible]);
 
@@ -253,13 +271,13 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = React.memo(({
               ...getPaperFilterStyle(paperFilter),
             }}
           >
-            {/* 渲染加载中的半透明轻遮罩 */}
-            {isRendering && (
+            {/* 渲染加载中的半透明轻遮罩（仅首次无位图时提示，缩放时上帧位图平滑过渡不闪烁） */}
+            {isRendering && !hasRenderedRef.current && (
               <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[0.5px] z-10 pointer-events-none" />
             )}
 
-            {/* 真实 Canvas 图像光栅层 */}
-            <canvas ref={canvasRef} className="block mx-auto" />
+            {/* 真实 Canvas 图像光栅层 (支持 CSS 硬件加速平滑拉伸过渡) */}
+            <canvas ref={canvasRef} className="block mx-auto" style={{ width: '100%', height: '100%' }} />
 
             {/* PDF.js 文本选择与匹配高亮 DOM 层 */}
             <div ref={textLayerRef} className="pdf-text-layer" />

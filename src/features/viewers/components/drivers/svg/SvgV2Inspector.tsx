@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
-import { Trash2, ArrowLeftRight } from 'lucide-react';
+import {
+  Trash2,
+  ArrowLeftRight,
+  Folder,
+  FolderOpen,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  ArrowUp,
+  ArrowDown,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import {
   getBoundingBox,
+  getSelectionBBox,
   defaultStroke,
   isTwoPointLineNode,
   isOpenPolylineNode,
@@ -587,92 +601,228 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
           );
         }
 
-        const bb = nodeWorldBBox(doc, primary.id) ?? getBoundingBox(primary.geometry);
+        const isMulti = ids.length > 1;
+        const bb = isMulti
+          ? (getSelectionBBox(doc, ids) ?? { x: 0, y: 0, width: 0, height: 0 })
+          : (nodeWorldBBox(doc, primary.id) ?? getBoundingBox(primary.geometry));
+
+        const hasAnyGroup = ids.some((id) => doc.nodes.get(id)?.kind === 'Group');
+
         return (
-          <div className="mb-2 space-y-1.5 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/40 p-2 text-xs">
-            <div className="flex items-center justify-between font-semibold text-[var(--ov-fg-muted)]">
-              <span>位置与尺寸</span>
-              <span className="font-normal text-[10px]">
-                {bb.width.toFixed(1)} × {bb.height.toFixed(1)}
-              </span>
+          <>
+            {/* 多选共性操作：编组、层级、锁定与显隐 */}
+            {isMulti && (
+              <div className="mb-2 space-y-1.5 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/40 p-2 text-xs">
+                <div className="flex items-center justify-between font-semibold text-[var(--ov-fg-muted)]">
+                  <span>共性编组与层级</span>
+                  <span className="font-normal text-[10px] text-[var(--ov-accent)] font-medium">
+                    已选 {ids.length} 项
+                  </span>
+                </div>
+
+                {/* 编组与解散编组 */}
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    title="一键编组 (⌘G)"
+                    className="flex items-center justify-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-1 text-[11px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] transition-colors"
+                    onClick={() => execute('object.group', { ids: [...ids] })}
+                  >
+                    <Folder size={12} className="text-[var(--ov-accent)]" />
+                    <span>一键编组</span>
+                  </button>
+                  <button
+                    type="button"
+                    title="解散编组 (⇧⌘G)"
+                    disabled={!hasAnyGroup}
+                    className="flex items-center justify-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-1 text-[11px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] disabled:opacity-40 transition-colors"
+                    onClick={() => {
+                      for (const id of ids) {
+                        if (doc.nodes.get(id)?.kind === 'Group') {
+                          execute('object.ungroup', { id });
+                        }
+                      }
+                    }}
+                  >
+                    <FolderOpen size={12} />
+                    <span>解散编组</span>
+                  </button>
+                </div>
+
+                {/* 批量层级置顶与置底 */}
+                <div className="grid grid-cols-4 gap-1">
+                  <button
+                    type="button"
+                    title="置于顶层 (⇧⌘])"
+                    className="flex items-center justify-center gap-0.5 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-1 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] transition-colors"
+                    onClick={() => {
+                      for (const id of ids) execute('object.reorder', { id, direction: 'front' });
+                    }}
+                  >
+                    <ArrowUpToLine size={11} /> 置顶
+                  </button>
+                  <button
+                    type="button"
+                    title="上移一层 (⌘])"
+                    className="flex items-center justify-center gap-0.5 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-1 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] transition-colors"
+                    onClick={() => {
+                      for (const id of ids) execute('object.reorder', { id, direction: 'forward' });
+                    }}
+                  >
+                    <ArrowUp size={11} /> 上移
+                  </button>
+                  <button
+                    type="button"
+                    title="下移一层 (⌘[)"
+                    className="flex items-center justify-center gap-0.5 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-1 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] transition-colors"
+                    onClick={() => {
+                      for (const id of ids) execute('object.reorder', { id, direction: 'backward' });
+                    }}
+                  >
+                    <ArrowDown size={11} /> 下移
+                  </button>
+                  <button
+                    type="button"
+                    title="置于底层 (⇧⌘[)"
+                    className="flex items-center justify-center gap-0.5 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-1 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] transition-colors"
+                    onClick={() => {
+                      for (const id of ids) execute('object.reorder', { id, direction: 'back' });
+                    }}
+                  >
+                    <ArrowDownToLine size={11} /> 置底
+                  </button>
+                </div>
+
+                {/* 批量锁定与显隐 */}
+                <div className="grid grid-cols-2 gap-1 pt-0.5 border-t border-[var(--ov-border)]/50">
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      title="批量锁定选中对象"
+                      className="flex-1 flex items-center justify-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-0.5 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)]"
+                      onClick={() => execute('object.setLocked', { ids: [...ids], locked: true })}
+                    >
+                      <Lock size={10} /> 锁定
+                    </button>
+                    <button
+                      type="button"
+                      title="批量解锁选中对象"
+                      className="flex-1 flex items-center justify-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-0.5 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)]"
+                      onClick={() => execute('object.setLocked', { ids: [...ids], locked: false })}
+                    >
+                      <Unlock size={10} /> 解锁
+                    </button>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      title="批量隐藏选中对象"
+                      className="flex-1 flex items-center justify-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-0.5 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)]"
+                      onClick={() => execute('object.setVisible', { ids: [...ids], visible: false })}
+                    >
+                      <EyeOff size={10} /> 隐藏
+                    </button>
+                    <button
+                      type="button"
+                      title="批量显示选中对象"
+                      className="flex-1 flex items-center justify-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-0.5 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)]"
+                      onClick={() => execute('object.setVisible', { ids: [...ids], visible: true })}
+                    >
+                      <Eye size={10} /> 显示
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 位置与尺寸（单选为自身坐标，多选为联合包围盒 Collective Bounding Box） */}
+            <div className="mb-2 space-y-1.5 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/40 p-2 text-xs">
+              <div className="flex items-center justify-between font-semibold text-[var(--ov-fg-muted)]">
+                <span>{isMulti ? '联合位置与尺寸' : '位置与尺寸'}</span>
+                <span className="font-normal text-[10px]">
+                  {bb.width.toFixed(1)} × {bb.height.toFixed(1)}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <label className="flex items-center justify-between gap-1">
+                  <span className="text-[var(--ov-fg-muted)]">X</span>
+                  <input
+                    type="number"
+                    value={Math.round(bb.x * 10) / 10}
+                    className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
+                    onChange={(e) => {
+                      const nextX = Number(e.target.value);
+                      if (!Number.isFinite(nextX)) return;
+                      execute('object.move', { ids: isMulti ? [...ids] : [primary.id], delta: { x: nextX - bb.x, y: 0 } });
+                    }}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-1">
+                  <span className="text-[var(--ov-fg-muted)]">Y</span>
+                  <input
+                    type="number"
+                    value={Math.round(bb.y * 10) / 10}
+                    className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
+                    onChange={(e) => {
+                      const nextY = Number(e.target.value);
+                      if (!Number.isFinite(nextY)) return;
+                      execute('object.move', { ids: isMulti ? [...ids] : [primary.id], delta: { x: 0, y: nextY - bb.y } });
+                    }}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-1">
+                  <span className="text-[var(--ov-fg-muted)]">宽</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={Math.round(bb.width * 10) / 10}
+                    className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
+                    onChange={(e) => {
+                      const nextW = Math.max(1, Number(e.target.value));
+                      if (!Number.isFinite(nextW) || bb.width < 1e-6) return;
+                      execute('object.scale', {
+                        ids: isMulti ? [...ids] : [primary.id],
+                        factor: { x: nextW / bb.width, y: 1 },
+                        origin: { x: bb.x, y: bb.y },
+                      });
+                    }}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-1">
+                  <span className="text-[var(--ov-fg-muted)]">高</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={Math.round(bb.height * 10) / 10}
+                    className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
+                    onChange={(e) => {
+                      const nextH = Math.max(1, Number(e.target.value));
+                      if (!Number.isFinite(nextH) || bb.height < 1e-6) return;
+                      execute('object.scale', {
+                        ids: isMulti ? [...ids] : [primary.id],
+                        factor: { x: 1, y: nextH / bb.height },
+                        origin: { x: bb.x, y: bb.y },
+                      });
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex justify-between pt-0.5">
+                <span className="text-[var(--ov-fg-muted)]">{isMulti ? '联合尺寸' : '尺寸'}</span>
+                <span>{`${bb.width.toFixed(1)} × ${bb.height.toFixed(1)}`}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--ov-fg-muted)]">{isMulti ? '左上坐标' : '坐标'}</span>
+                <span>{`(${bb.x.toFixed(1)}, ${bb.y.toFixed(1)})`}</span>
+              </div>
+              {!isMulti && (
+                <div className="flex justify-between">
+                  <span className="text-[var(--ov-fg-muted)]">名称</span>
+                  <span className="max-w-[120px] truncate">{primary.name ?? '—'}</span>
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <label className="flex items-center justify-between gap-1">
-                <span className="text-[var(--ov-fg-muted)]">X</span>
-                <input
-                  type="number"
-                  value={Math.round(bb.x * 10) / 10}
-                  className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
-                  onChange={(e) => {
-                    const nextX = Number(e.target.value);
-                    if (!Number.isFinite(nextX)) return;
-                    execute('object.move', { ids: [primary.id], delta: { x: nextX - bb.x, y: 0 } });
-                  }}
-                />
-              </label>
-              <label className="flex items-center justify-between gap-1">
-                <span className="text-[var(--ov-fg-muted)]">Y</span>
-                <input
-                  type="number"
-                  value={Math.round(bb.y * 10) / 10}
-                  className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
-                  onChange={(e) => {
-                    const nextY = Number(e.target.value);
-                    if (!Number.isFinite(nextY)) return;
-                    execute('object.move', { ids: [primary.id], delta: { x: 0, y: nextY - bb.y } });
-                  }}
-                />
-              </label>
-              <label className="flex items-center justify-between gap-1">
-                <span className="text-[var(--ov-fg-muted)]">宽</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={Math.round(bb.width * 10) / 10}
-                  className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
-                  onChange={(e) => {
-                    const nextW = Math.max(1, Number(e.target.value));
-                    if (!Number.isFinite(nextW) || bb.width < 1e-6) return;
-                    execute('object.scale', {
-                      ids: [primary.id],
-                      factor: { x: nextW / bb.width, y: 1 },
-                      origin: { x: bb.x, y: bb.y },
-                    });
-                  }}
-                />
-              </label>
-              <label className="flex items-center justify-between gap-1">
-                <span className="text-[var(--ov-fg-muted)]">高</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={Math.round(bb.height * 10) / 10}
-                  className="w-16 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-0.5 text-right text-[var(--ov-fg)]"
-                  onChange={(e) => {
-                    const nextH = Math.max(1, Number(e.target.value));
-                    if (!Number.isFinite(nextH) || bb.height < 1e-6) return;
-                    execute('object.scale', {
-                      ids: [primary.id],
-                      factor: { x: 1, y: nextH / bb.height },
-                      origin: { x: bb.x, y: bb.y },
-                    });
-                  }}
-                />
-              </label>
-            </div>
-            <div className="flex justify-between pt-0.5">
-              <span className="text-[var(--ov-fg-muted)]">尺寸</span>
-              <span>{`${bb.width.toFixed(1)} × ${bb.height.toFixed(1)}`}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--ov-fg-muted)]">坐标</span>
-              <span>{`(${bb.x.toFixed(1)}, ${bb.y.toFixed(1)})`}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--ov-fg-muted)]">名称</span>
-              <span className="max-w-[120px] truncate">{primary.name ?? '—'}</span>
-            </div>
-          </div>
+          </>
         );
       })()}
 

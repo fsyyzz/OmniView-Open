@@ -473,7 +473,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         targetHit = lastClickCycleState.hits[nextIdx] ?? leafHits[0]!;
         lastClickCycleState = { point: event.point, time: now, hits: lastClickCycleState.hits, index: nextIdx };
       } else if (deepSelect) {
-        // Cmd / Ctrl + Click 穿透直选底层叶子/原子图元
+        // 按住 Alt 穿透直选底层叶子/原子图元
         targetHit = rawLeaf;
         lastClickCycleState = { point: event.point, time: now, hits: leafHits, index: 0 };
       } else if (event.mods.alt && leafHits.length > 1) {
@@ -502,7 +502,8 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       lastClickCycleState = null;
     }
 
-    const additive = event.mods.shift;
+    // 支持 Ctrl / Cmd / Shift 实现多选（增选与反选剔除）
+    const additive = Boolean(event.mods.shift || event.mods.ctrl || event.mods.meta);
 
     if (targetHit == null) {
       const actions: Action[] = [];
@@ -515,17 +516,17 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
     const inSelection = ctx.selection.nodeIds.includes(targetHit);
     if (additive) {
       if (inSelection) {
-        // Shift 点击已选图元 -> 反选剔除（不触发拖拽）
+        // Ctrl / Cmd / Shift 点击已选图元 -> 反选剔除（不触发拖拽）
         return [{ kind: 'Exec', commandId: 'select.set', params: { ids: [targetHit], additive: true, toggle: true } }];
       } else {
-        // Shift 点击未选图元 -> 追加至选区并允许继续拖拽
+        // Ctrl / Cmd / Shift 点击未选图元 -> 追加至多选选区并允许继续拖拽
         return [
           { kind: 'Exec', commandId: 'select.set', params: { ids: [targetHit], additive: true } },
           { kind: 'Begin', label: '移动', gestureMode: 'move' },
         ];
       }
     } else {
-      // 普通点击
+      // 普通点击（无修饰键）
       if (inSelection) {
         // 已有该选中项（单选或多选之一）：保持当前选区，直接开始移动手势
         return [{ kind: 'Begin', label: '移动', gestureMode: 'move' }];
@@ -717,9 +718,13 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         return [{ kind: 'Preview', commandId: 'object.move', params: { ids: [...g.ids], delta } }];
       }
       const rect = normalizeRect(g.startPoint, event.point);
-      const additive = event.mods.shift;
-      // 从左向右拉框：enclosed（完全包含）；从右向左拉框或按 Alt：intersect（触碰相交）
-      const mode = (event.mods.alt || event.point.x < g.startPoint.x) ? 'intersect' : 'enclosed';
+      // 支持按住 Ctrl / Cmd / Shift 框选时追加至当前选区 (CAD / 设计软件通用习惯)
+      const additive = Boolean(event.mods.shift || event.mods.ctrl || event.mods.meta);
+      // CAD 标准准则：
+      // 1. 从左向右拉框：窗选 (enclosed，完全包含模式)
+      // 2. 从右向左拉框或按住 Alt：交叉选择 (intersect，触碰相交模式)
+      const isCrossing = event.point.x < g.startPoint.x;
+      const mode = (event.mods.alt || isCrossing) ? 'intersect' : 'enclosed';
       return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive, mode } }];
     }
   }
@@ -759,16 +764,22 @@ function marqueeOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
   if (g && g.kind === 'marquee') {
     const rect = normalizeRect(g.startPoint, g.currentPoint);
     const isIntersectMode = g.currentPoint.x < g.startPoint.x;
-    const stroke = isIntersectMode ? 'var(--ov-success, #10b981)' : 'var(--ov-accent, #4c9aff)';
-    const fill = isIntersectMode ? 'rgba(16, 185, 129, 0.12)' : 'var(--ov-accent-soft, rgba(76,154,255,0.12))';
+    // CAD 工业标准规范：
+    // - 窗选 (Left -> Right)：实线边框 (dashed: false)、经典 CAD 蓝底透光、严格全包含
+    // - 交叉选 (Right -> Left)：虚线边框 (dashed: true)、经典 CAD 绿底透光、触碰相交即选
+    const stroke = isIntersectMode ? '#10b981' : '#2563eb';
+    const fill = isIntersectMode ? 'rgba(16, 185, 129, 0.16)' : 'rgba(37, 99, 235, 0.16)';
+    const dashed = isIntersectMode;
+    const lineWidth = 1.2 / Math.max(ctx.zoom, 1e-4);
+
     return [
       {
         kind: 'rect',
         rect,
         stroke,
         fill,
-        lineWidth: 1 / Math.max(ctx.zoom, 1e-6),
-        dashed: true,
+        lineWidth,
+        dashed,
       },
     ];
   }

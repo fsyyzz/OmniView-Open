@@ -138,11 +138,15 @@
 - **3D 拟真翻书微光效 (Page Flip Effect)**: 具备 GPU 硬件加速的 3D 页面翻转物理光影过渡动效，可根据偏好随时一键开关；
 - **排版偏好与阅读进度持久化 (`epubSettingsStorage`)**: 支持点击切换字号大小 (A-/A+)、字体族（宋体/黑体/楷体/等宽）、两字符首行缩进、两端对齐/靠左对齐、行距倍率（1.5x/1.75x/2.0x）、版心宽度（标准/宽幅/全幅）、护眼阅读主题（自动/羊皮纸/明亮/夜间）与书籍专属阅读进度（章节、页码、百分比）无感自动持久化。
 
-### 6. PDF 现代阅读器 (Modern PDF Reader)
-- 基于 Mozilla PDF.js v4+ 内核驱动，支持真实二进制 PDF 解析与 Canvas 高清渲染；
+### 6. PDF 工业级全能阅读器 (Industrial-Grade PDF Studio)
+- 基于 Mozilla PDF.js v4+ 真实光栅化内核，支持二进制解析与 Hi-DPI Canvas 极清渲染；
+- **光标绝对锚定无级缩放 (Focal Point Wheel Zoom)**: Ctrl/Cmd + 鼠标滚轮及触控板平滑捏合无级缩放，光标所在文档内容像素 100% 稳锁无漂移，配合 `useLayoutEffect` DOM 几何同步；
+- **零白屏闪烁平滑硬件加速拉伸**: 缩放过程中依托 CSS GPU 加速即时无缝缩放上帧位图承托，后台异步完成超高分辨率矢量渲染后无感替换，彻底终结白屏闪烁；
+- **自由抓手漫游模式 (Hand Pan Tool & Space+Drag)**: 文本选词/抓手模式自由切换，长按空格键或鼠标中键随时开启自由平移拖拽 (`grab` / `grabbing`)；
+- **常用缩放预设快捷菜单**: 一键快速切换 50%、75%、100% 实际大小、125%、150%、200%、300%、400%、500% 以及适合宽度 (W)、适合整页 (H)；
+- **视口居中 HUD 胶囊**: 滚轮缩放时在屏幕底部中央显示半透明毛玻璃指示胶囊，带动态百分比与线性刻度条；
 - **三重视图排版**: 多页连续流式瀑布流 (Continuous Flow)、单页居中翻页与双页图书并排开本；
-- **阅读感知**: 视口滚动联动阅读进度感知 (Scroll Spy)、视口懒渲染防卡顿 (Lazy Viewport)；
-- **批注与检索**: 全文跨页检索高亮、多级大纲书签树、划词高亮批注与 Markdown 格式导出、无损快照 PNG 导出与打印。
+- **批注、大纲与检索**: 全文跨页检索高亮、多级大纲书签树、划词高亮批注与 Markdown 格式导出、无损快照 PNG 导出与系统矢量打印。
 
 ### 7. Excalidraw 手绘白板工作室 (Excalidraw Whiteboard Studio)
 - 原生支持 `.excalidraw` 手绘工程文件解析与交互；
@@ -276,7 +280,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-1.3.16.vsix --force
+code --install-extension omniview-1.3.17.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。

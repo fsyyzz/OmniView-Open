@@ -221,12 +221,12 @@ flowchart LR
     G2 --> G3["check:doc-code-consistency<br/>(文档事实一致性)"]
     G3 --> G4["check:react-governance<br/>(Hook 依赖治理)"]
     G4 --> G5["lint<br/>(tsc --noEmit)"]
-    G5 --> G6["test<br/>(85 组全链路单测)"]
+    G5 --> G6["test<br/>(86 组全链路单测)"]
     G6 --> G7["build:plugin<br/>(Webview + Extension 构建)"]
     G7 --> Pass["✅ 合格准入"]
 ```
 
-### 8.1 85 组自动化测试套件全覆盖矩阵
+### 8.1 86 组自动化测试套件全覆盖矩阵
 - **图表与矢量渲染 (18 组)**: Mermaid 配置/状态/步骤播放、PlantUML URL/代理/高分辨率、Graphviz WASM/多布局引擎、SVG v2 核心模型/命令管线/形状绘制工具/高级交互/视口滚轮平滑缩放、思维导图、Domain Storytelling 业务建模/Polyglot 导出、Excalidraw 白板、图表诊断降级、图表缓存、图表安全清洗、KaTeX 数学公式；
 - **文档与版式引擎 (16 组)**: Markdown 选区替换、Markdown 大纲提取、Markdown 脚注、Markdown WikiLinks、Markdown Callout、Markdown Pandoc 扩展、Markdown 原地块级 CRUD 与撤销浮条、Markdown 打印导出、Word 富文本剪贴板清洗、A4 打印分页、A4 工业排版引擎、Typst 排版编译器；
 - **现代格式与电子书 (14 组)**: EPUB 流式解析引擎、PDF 阅读与标注引擎、Word DOCX 引擎、PowerPoint PPTX 引擎、Excel XLSX 引擎、现代图像引擎、Jupyter Notebook 离线分析器；

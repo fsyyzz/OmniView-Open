@@ -17,7 +17,7 @@ OmniView 采用轻量化、按需加载的微内核驱动架构。整个系统�
 | **01** | `MarkdownViewer` | `.md`, `.markdown` | Marked Lexer AST + KaTeX + Prism.js | 块级虚拟化、慢块预算、双向行号锚定、大纲 Heading Spy | Word/WPS 原生双列表格复制、A4 出版打印 |
 | **02** | `PlantUmlViewer` | `.puml`, `.plantuml`, `.iuml` | PlantUML Server API / 本地离线引擎 | 双栏实时编辑/预览、暗黑/明亮高对比度模式 | 300+ DPI SVG / PNG 导出、复制图像 |
 | **03** | `SvgViewer` | `.svg` | SVG v2 不可变文档模型 + 8 核心矢量工具 + SVGO | SVG Studio v2 矢量工作台、鼠标拖拽直觉起绘、双端点箭头、幽灵中点折线演化、直角走线转换 | SVGO 压缩、React JSX / Vue 3 组件导出、无损 SVG |
-| **04** | `PdfViewer` | `.pdf` | Mozilla PDF.js v4+ (Canvas 渲染) | 多页连续流式/单页/双页并排、全文检索高亮、选区批注抽屉 | Markdown 读书笔记导出、系统原生高保真打印 |
+| **04** | `PdfViewer` | `.pdf` | Mozilla PDF.js v4+ (Canvas 硬件加速) | Ctrl+滚轮光标锚定缩放、零白屏闪烁拉伸、抓手漫游 (Space+Drag/鼠标中键)、缩放预设菜单、中央 HUD 胶囊、多页连续/单页/双页排版 | Markdown 读书笔记导出、高清 PNG 快照、工业级系统打印 |
 | **05** | `CsvViewer` | `.csv`, `.tsv` | RFC 4180 流式解析器 + 虚拟化表格 | 列宽自由拖拽、多列联合排序、字段统计画像 (Profiling) | CSV/TSV/JSON/Markdown 多格式互转导出 |
 | **06** | `MermaidViewer` | `.mmd`, `.mermaid` | Mermaid.js v11+ (安全隔离渲染) | 流程图、时序图、甘特图、类图、状态机、Git 拓扑交互视口 | 300+ DPI PNG/SVG 导出、全屏沉浸检视 |
 | **07** | `GraphvizViewer` | `.dot`, `.gv` | `@hpcc-js/wasm` (Web Worker / WASM) | 复杂有向图/无向图、多布局引擎 (dot/neato/fdp/circo) | 高清 SVG / PNG 导出、WASM 异常自愈 |
@@ -144,4 +144,35 @@ SVG Viewer 具备可视化画布、源码双向联动与现代矢量 Studio 双�
      - **常用直角走线风格一键转换 (`path.convertLineStyle`)**: 属性栏与悬浮 HUD 支持在「直线 ↔ Z形直角 ↔ V形直角 ↔ L形单折角」之间一键切换；
    - **全链路无损导出**: 支持 SVGO 极简优化、React JSX、Vue 3 模板与 Base64 Data URI 一键导出。
 
+---
 
+## 6. PDF 工业级全能阅读器与交互架构 (PDF Industrial-Grade Interactive Studio)
+
+OmniView 采用 Mozilla PDF.js v4+ 真实光栅化内核，结合 React 19 并发渲染与 GPU 硬件加速技术，彻底解决传统 Webview 阅读 PDF 时的「滚轮缩放白屏闪烁」、「大倍率漫游困难」、「光标锚点跳动」三大体验顽疾：
+
+```mermaid
+flowchart TD
+    Wheel["Ctrl + 滚轮 / 触控板捏合"] --> Math["calculatePdfFocalScroll<br/>(以光标物理像素为几何不动点)"]
+    Math --> Fast["CSS 硬件加速即时平滑拉伸<br/>(保留上一帧 Canvas 位图，0ms 零白屏闪烁)"]
+    Fast --> RAF["useLayoutEffect DOM 同步<br/>(微秒级对齐 scrollLeft/Top，无抖动)"]
+    Fast --> Debounce["后台 PDF.js 异步超清光栅化<br/>(防抖空闲调度，生成 Hi-DPI 矢量像素)"]
+    Debounce --> Swap["无感热替换高清位图"]
+```
+
+1. **光标几何不变性无级缩放 (Focal Point Wheel Zoom)**:
+   - 滚轮缩放时，纯函数 `calculatePdfFocalScroll` 依据当前光标在视口中的物理坐标，精确反算新缩放比下的目标 `scrollLeft` 与 `scrollTop`；
+   - 结合 React `useLayoutEffect` 在浏览器 Paint 前同步写入 DOM，保证鼠标正下方的段落文字或图元永远稳锁，绝不产生视口跳动与视觉漂移；
+2. **零白屏闪烁平滑拉伸过渡机制 (Zero-Flicker Canvas Layering)**:
+   - 彻底废除旧版缩放时粗暴清空 `canvas.width = 0` 的缺陷设计；
+   - 缩放过渡阶段依托 CSS `width: 100%; height: 100%` 让上帧位图充当硬件加速平滑占位，后台 PDF.js 线程以 Worker 完成高分辨率渲染后无缝交换像素缓冲，用户体验丝滑如 Google Chrome / Adobe Acrobat；
+3. **抓手漫游模式与全场景平移 (Hand Pan Mode & Space+Drag)**:
+   - 顶部工具栏提供「选择 (`select`)」与「抓手 (`hand`)」一键切换；
+   - 支持主流设计工具标准的 **长按空格键 + 鼠标左键拖拽 (Space + Drag)** 与 **鼠标中键（滚轮按键）拖拽**，在 150%~500% 超宽缩放下随意漫游；
+4. **缩放预设快捷下拉菜单与中央浮动 HUD 胶囊**:
+   - 点击缩放百分比按钮，呼出 50%、75%、100% (实际大小)、125%、150%、200%、300%、400%、500% 常用预设，以及适合宽度 (W)、适合页面 (H)；
+   - 滚轮缩放时屏幕底部正中央弹出毛玻璃 HUD 胶囊，带动态百分比与线性刻度条，900ms 自动平滑渐隐；
+5. **深度提升点评估与后续演进路线 (Comprehensive Evaluation & Future Roadmap)**:
+   - **全屏沉浸演示模式 (Presentation Mode)**: 专为技术分享与学术汇报设计，一键隐藏所有侧边栏与工具栏，提供激光笔小圆点与极简浮动切页器；
+   - **实体书本对开模式的封面偏移 (Cover Page Spread Offset)**: 通常图书刊物第 1 页为独立封面，支持首页单独居中，第 2/3、4/5 页作为成对内页对开显示，还原实体书刊真实阅读习惯；
+   - **缩略图侧栏拖拽重排与单页提取/导出 (Page Reordering & Split)**: 在左侧缩略图抽屉中支持拖拽调整页面物理顺序、单页删除或一键导出为独立单页 PDF；
+   - **离线轻量 OCR 文本图层增强 (Scanned PDF OCR)**: 针对纯图片扫描件或无文字层的 PDF 文档，挂载端侧离线轻量 OCR 引擎补充生成可检索与选词的 TextLayer。
