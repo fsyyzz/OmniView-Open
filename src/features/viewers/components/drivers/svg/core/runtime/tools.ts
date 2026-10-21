@@ -38,6 +38,7 @@ import {
   createRectGeometry,
   createEllipseGeometry,
   createLineGeometry,
+  createCurveGeometry,
 } from '../model/path';
 import { findAncestors, findOutermostGroup, findParent } from '../model/tree';
 
@@ -66,6 +67,8 @@ interface PolylineVertexState {
   readonly nodeId: NodeId;
   readonly anchorIndex: number;
   readonly isMidpoint: boolean;
+  readonly handleKind?: 'anchor' | 'handleIn' | 'handleOut' | 'curveBend';
+  readonly segmentIndex?: number;
   readonly fixedWorldPoint?: Vec2;
 }
 
@@ -73,12 +76,19 @@ let activeTransformState: TransformHandleState | null = null;
 let activePolylineVertexState: PolylineVertexState | null = null;
 let activeSnapGuides: SnapGuideLine[] = [];
 
-/** 判断节点是否为开放折线或两点直线（具有 1 条未闭合单子路径且锚点数 >= 2）。 */
+/** 判断节点是否为开放折线、曲线或两点直线（具有 1 条未闭合单子路径且锚点数 >= 2）。 */
 export function isOpenPolylineNode(node: Node | undefined | null): node is PathNode {
   if (!node || node.kind !== 'Path') return false;
   if (node.geometry.subPaths.length !== 1) return false;
   const sp = node.geometry.subPaths[0]!;
   return !sp.closed && sp.anchors.length >= 2;
+}
+
+/** 判断节点是否为带有贝塞尔控制柄的开放曲线。 */
+export function isCurvedLineNode(node: Node | undefined | null): node is PathNode {
+  if (!isOpenPolylineNode(node)) return false;
+  const sp = node.geometry.subPaths[0]!;
+  return sp.anchors.some((a) => a.handleIn != null || a.handleOut != null);
 }
 
 /** 判断节点是否为两点开放直线或直线箭头。 */
@@ -91,11 +101,17 @@ export function isTwoPointLineNode(node: Node | undefined | null): node is PathN
   return a0.handleOut == null && a1.handleIn == null;
 }
 
-/** 获取开放折线/直线所有顶点在世界坐标系下的坐标列表。 */
+/** 获取开放折线/曲线/直线所有顶点及贝塞尔控制柄在世界坐标系下的坐标列表。 */
 export function getPolylineWorldAnchors(
   doc: Document,
   nodeId: NodeId,
-): Array<{ readonly index: number; readonly point: Vec2 }> | null {
+): Array<{
+  readonly index: number;
+  readonly point: Vec2;
+  readonly handleInPoint: Vec2 | null;
+  readonly handleOutPoint: Vec2 | null;
+  readonly kind: 'corner' | 'smooth' | 'symmetric';
+}> | null {
   const node = doc.nodes.get(nodeId);
   if (!isOpenPolylineNode(node)) return null;
   const sp = node.geometry.subPaths[0]!;
@@ -103,25 +119,56 @@ export function getPolylineWorldAnchors(
   return sp.anchors.map((a, idx) => ({
     index: idx,
     point: applyTransformToPoint(worldT, a.point),
+    handleInPoint: a.handleIn
+      ? applyTransformToPoint(worldT, { x: a.point.x + a.handleIn.x, y: a.point.y + a.handleIn.y })
+      : null,
+    handleOutPoint: a.handleOut
+      ? applyTransformToPoint(worldT, { x: a.point.x + a.handleOut.x, y: a.point.y + a.handleOut.y })
+      : null,
+    kind: a.kind,
   }));
 }
 
-/** 获取开放折线/直线各线段中点在世界坐标系下的坐标列表（幽灵中点折叠手柄）。 */
+/** 获取开放折线/曲线/直线各线段中点在世界坐标系下的坐标列表（曲线取 t=0.5 弧顶，直线取几何中点）。 */
 export function getPolylineWorldMidpoints(
   doc: Document,
   nodeId: NodeId,
-): Array<{ readonly segmentIndex: number; readonly insertIndex: number; readonly point: Vec2 }> | null {
-  const anchors = getPolylineWorldAnchors(doc, nodeId);
-  if (!anchors || anchors.length < 2) return null;
-  const midpoints: Array<{ readonly segmentIndex: number; readonly insertIndex: number; readonly point: Vec2 }> = [];
-  for (let i = 0; i < anchors.length - 1; i++) {
-    const a = anchors[i]!.point;
-    const b = anchors[i + 1]!.point;
-    midpoints.push({
-      segmentIndex: i,
-      insertIndex: i + 1,
-      point: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-    });
+): Array<{ readonly segmentIndex: number; readonly insertIndex: number; readonly point: Vec2; readonly isCurved: boolean }> | null {
+  const node = doc.nodes.get(nodeId);
+  if (!isOpenPolylineNode(node)) return null;
+  const sp = node.geometry.subPaths[0]!;
+  if (sp.anchors.length < 2) return null;
+  const worldT = nodeWorldTransform(doc, nodeId);
+  const midpoints: Array<{ readonly segmentIndex: number; readonly insertIndex: number; readonly point: Vec2; readonly isCurved: boolean }> = [];
+  for (let i = 0; i < sp.anchors.length - 1; i++) {
+    const a = sp.anchors[i]!;
+    const b = sp.anchors[i + 1]!;
+    const isCurved = a.handleOut != null || b.handleIn != null;
+    if (isCurved) {
+      const p0 = a.point;
+      const p1 = { x: a.point.x + (a.handleOut?.x ?? 0), y: a.point.y + (a.handleOut?.y ?? 0) };
+      const p2 = { x: b.point.x + (b.handleIn?.x ?? 0), y: b.point.y + (b.handleIn?.y ?? 0) };
+      const p3 = b.point;
+      const localMid = {
+        x: 0.125 * p0.x + 0.375 * p1.x + 0.375 * p2.x + 0.125 * p3.x,
+        y: 0.125 * p0.y + 0.375 * p1.y + 0.375 * p2.y + 0.125 * p3.y,
+      };
+      midpoints.push({
+        segmentIndex: i,
+        insertIndex: i + 1,
+        point: applyTransformToPoint(worldT, localMid),
+        isCurved: true,
+      });
+    } else {
+      const wa = applyTransformToPoint(worldT, a.point);
+      const wb = applyTransformToPoint(worldT, b.point);
+      midpoints.push({
+        segmentIndex: i,
+        insertIndex: i + 1,
+        point: { x: (wa.x + wb.x) / 2, y: (wa.y + wb.y) / 2 },
+        isCurved: false,
+      });
+    }
   }
   return midpoints;
 }
@@ -295,6 +342,12 @@ const selectTool: Tool = {
             if ((lastHoverPoint.x - a.point.x) ** 2 + (lastHoverPoint.y - a.point.y) ** 2 <= epTol2) {
               return 'crosshair';
             }
+            if (a.handleInPoint && (lastHoverPoint.x - a.handleInPoint.x) ** 2 + (lastHoverPoint.y - a.handleInPoint.y) ** 2 <= epTol2) {
+              return 'crosshair';
+            }
+            if (a.handleOutPoint && (lastHoverPoint.x - a.handleOutPoint.x) ** 2 + (lastHoverPoint.y - a.handleOutPoint.y) ** 2 <= epTol2) {
+              return 'crosshair';
+            }
           }
           const midpoints = getPolylineWorldMidpoints(ctx.doc, ctx.selection.nodeIds[0]!);
           if (midpoints) {
@@ -358,7 +411,38 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
             const epTol = 10 / Math.max(ctx.zoom, 1e-4);
             const epTol2 = epTol * epTol;
 
-            // 1. 优先检测是否按住某个已有顶点 (端点或折点)
+            // 0. 优先检测是否按住某个贝塞尔控制柄 (handleOut / handleIn)
+            for (let i = 0; i < polyAnchors.length; i++) {
+              const anc = polyAnchors[i]!;
+              if (anc.handleOutPoint) {
+                const d2 = (event.point.x - anc.handleOutPoint.x) ** 2 + (event.point.y - anc.handleOutPoint.y) ** 2;
+                if (d2 <= epTol2) {
+                  activePolylineVertexState = {
+                    nodeId: selId,
+                    anchorIndex: i,
+                    isMidpoint: false,
+                    handleKind: 'handleOut',
+                    fixedWorldPoint: anc.point,
+                  };
+                  return [{ kind: 'Begin', label: '调节曲线控制柄' }];
+                }
+              }
+              if (anc.handleInPoint) {
+                const d2 = (event.point.x - anc.handleInPoint.x) ** 2 + (event.point.y - anc.handleInPoint.y) ** 2;
+                if (d2 <= epTol2) {
+                  activePolylineVertexState = {
+                    nodeId: selId,
+                    anchorIndex: i,
+                    isMidpoint: false,
+                    handleKind: 'handleIn',
+                    fixedWorldPoint: anc.point,
+                  };
+                  return [{ kind: 'Begin', label: '调节曲线控制柄' }];
+                }
+              }
+            }
+
+            // 1. 检测是否按住某个已有顶点 (端点或折点)
             for (let i = 0; i < polyAnchors.length; i++) {
               const pt = polyAnchors[i]!.point;
               const d2 = (event.point.x - pt.x) ** 2 + (event.point.y - pt.y) ** 2;
@@ -373,23 +457,35 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
                   nodeId: selId,
                   anchorIndex: i,
                   isMidpoint: false,
+                  handleKind: 'anchor',
                   fixedWorldPoint: fixedPoint,
                 };
                 return [{ kind: 'Begin', label: '调整折点' }];
               }
             }
 
-            // 2. 其次检测是否按住线段中点的「幽灵中点折叠手柄」
-            // 只要一拖拽中点，立即在此处插入新折点并跟随光标拖动！
+            // 2. 其次检测是否按住线段中点（曲线段中点直接拖拽改变弧度；直线段中点拖拽拉出折点）
             const midpoints = getPolylineWorldMidpoints(ctx.doc, selId);
             if (midpoints) {
               for (const mid of midpoints) {
                 const d2 = (event.point.x - mid.point.x) ** 2 + (event.point.y - mid.point.y) ** 2;
                 if (d2 <= epTol2) {
+                  if (mid.isCurved) {
+                    activePolylineVertexState = {
+                      nodeId: selId,
+                      anchorIndex: mid.insertIndex,
+                      segmentIndex: mid.segmentIndex,
+                      isMidpoint: true,
+                      handleKind: 'curveBend',
+                    };
+                    return [{ kind: 'Begin', label: '拖拽调节曲线弧度' }];
+                  }
                   activePolylineVertexState = {
                     nodeId: selId,
                     anchorIndex: mid.insertIndex,
+                    segmentIndex: mid.segmentIndex,
                     isMidpoint: true,
+                    handleKind: 'anchor',
                     fixedWorldPoint: polyAnchors[mid.segmentIndex]!.point,
                   };
                   return [{ kind: 'Begin', label: '拉出折点' }];
@@ -547,7 +643,12 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       if (event.mods.shift && activePolylineVertexState.fixedWorldPoint) {
         targetWorld = constrainLineAngle15Deg(activePolylineVertexState.fixedWorldPoint, targetWorld);
       }
-      if (!event.mods.alt) {
+      if (
+        !event.mods.alt &&
+        activePolylineVertexState.handleKind !== 'handleIn' &&
+        activePolylineVertexState.handleKind !== 'handleOut' &&
+        activePolylineVertexState.handleKind !== 'curveBend'
+      ) {
         const snapped = snapPointToShapePorts(
           ctx.doc,
           targetWorld,
@@ -561,6 +662,98 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       }
       const worldT = nodeWorldTransform(ctx.doc, activePolylineVertexState.nodeId);
       const localPt = invertTransformPoint(worldT, targetWorld) ?? targetWorld;
+
+      if (
+        activePolylineVertexState.handleKind === 'handleOut' ||
+        activePolylineVertexState.handleKind === 'handleIn'
+      ) {
+        const pathNode = ctx.doc.nodes.get(activePolylineVertexState.nodeId);
+        if (pathNode && pathNode.kind === 'Path') {
+          const sp = pathNode.geometry.subPaths[0];
+          const anc = sp?.anchors[activePolylineVertexState.anchorIndex];
+          if (anc) {
+            const rel = { x: localPt.x - anc.point.x, y: localPt.y - anc.point.y };
+            if (activePolylineVertexState.handleKind === 'handleOut') {
+              let nextHandleIn = anc.handleIn;
+              if (anc.kind === 'smooth' && anc.handleIn && !event.mods.alt) {
+                const inLen = Math.hypot(anc.handleIn.x, anc.handleIn.y);
+                const outLen = Math.hypot(rel.x, rel.y);
+                if (outLen > 1e-4) {
+                  nextHandleIn = { x: (-rel.x / outLen) * inLen, y: (-rel.y / outLen) * inLen };
+                }
+              }
+              return [
+                {
+                  kind: 'Preview',
+                  commandId: 'path.updateAnchor',
+                  params: {
+                    id: activePolylineVertexState.nodeId,
+                    subPathIndex: 0,
+                    anchorIndex: activePolylineVertexState.anchorIndex,
+                    handleOut: rel,
+                    handleIn: nextHandleIn,
+                  },
+                },
+              ];
+            } else {
+              let nextHandleOut = anc.handleOut;
+              if (anc.kind === 'smooth' && anc.handleOut && !event.mods.alt) {
+                const outLen = Math.hypot(anc.handleOut.x, anc.handleOut.y);
+                const inLen = Math.hypot(rel.x, rel.y);
+                if (inLen > 1e-4) {
+                  nextHandleOut = { x: (-rel.x / inLen) * outLen, y: (-rel.y / inLen) * outLen };
+                }
+              }
+              return [
+                {
+                  kind: 'Preview',
+                  commandId: 'path.updateAnchor',
+                  params: {
+                    id: activePolylineVertexState.nodeId,
+                    subPathIndex: 0,
+                    anchorIndex: activePolylineVertexState.anchorIndex,
+                    handleIn: rel,
+                    handleOut: nextHandleOut,
+                  },
+                },
+              ];
+            }
+          }
+        }
+      }
+
+      if (activePolylineVertexState.handleKind === 'curveBend') {
+        const pathNode = ctx.doc.nodes.get(activePolylineVertexState.nodeId);
+        if (pathNode && pathNode.kind === 'Path') {
+          const sp = pathNode.geometry.subPaths[0];
+          const segIdx = activePolylineVertexState.segmentIndex ?? 0;
+          const a = sp?.anchors[segIdx];
+          const b = sp?.anchors[segIdx + 1];
+          if (sp && a && b) {
+            // 让曲线在 t=0.5 处精确穿过光标 localPt：二次控制点 C = 2*M - 0.5*(P0 + P3)
+            const ctrlX = 2 * localPt.x - 0.5 * (a.point.x + b.point.x);
+            const ctrlY = 2 * localPt.y - 0.5 * (a.point.y + b.point.y);
+            const hOut = { x: (2 / 3) * (ctrlX - a.point.x), y: (2 / 3) * (ctrlY - a.point.y) };
+            const hIn = { x: (2 / 3) * (ctrlX - b.point.x), y: (2 / 3) * (ctrlY - b.point.y) };
+            const newAnchors = sp.anchors.map((anc, idx) => {
+              if (idx === segIdx) return { ...anc, handleOut: hOut, kind: 'smooth' as const };
+              if (idx === segIdx + 1) return { ...anc, handleIn: hIn, kind: 'smooth' as const };
+              return anc;
+            });
+            return [
+              {
+                kind: 'Preview',
+                commandId: 'path.set',
+                params: {
+                  id: activePolylineVertexState.nodeId,
+                  geometry: { ...pathNode.geometry, subPaths: [{ ...sp, anchors: newAnchors }] },
+                },
+              },
+            ];
+          }
+        }
+      }
+
       if (activePolylineVertexState.isMidpoint) {
         return [
           {
@@ -804,16 +997,60 @@ function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
       const selId = ctx.selection.nodeIds[0]!;
       const polyAnchors = getPolylineWorldAnchors(ctx.doc, selId);
       if (polyAnchors && polyAnchors.length >= 2) {
-        // 1. 沿折线所有线段绘制骨架虚线
+        // 1. 沿各线段绘制直线骨架虚线，或为曲线段绘制贝塞尔切线控制杆与控制圆柄
         for (let i = 0; i < polyAnchors.length - 1; i++) {
-          overlays.push({
-            kind: 'line',
-            from: polyAnchors[i]!.point,
-            to: polyAnchors[i + 1]!.point,
-            stroke: 'var(--ov-accent, #4c9aff)',
-            lineWidth: lw,
-            dashed: true,
-          });
+          const a = polyAnchors[i]!;
+          const b = polyAnchors[i + 1]!;
+          const isCurved = a.handleOutPoint != null || b.handleInPoint != null;
+          if (!isCurved) {
+            overlays.push({
+              kind: 'line',
+              from: a.point,
+              to: b.point,
+              stroke: 'var(--ov-accent, #4c9aff)',
+              lineWidth: lw,
+              dashed: true,
+            });
+          } else {
+            if (a.handleOutPoint) {
+              overlays.push({
+                kind: 'line',
+                from: a.point,
+                to: a.handleOutPoint,
+                stroke: '#f59e0b',
+                lineWidth: lw,
+                dashed: true,
+              });
+              overlays.push({
+                kind: 'circle',
+                center: a.handleOutPoint,
+                radius: 4 / zoom,
+                stroke: '#f59e0b',
+                fill: '#ffffff',
+                lineWidth: 1.5 * lw,
+                dashed: true,
+              });
+            }
+            if (b.handleInPoint) {
+              overlays.push({
+                kind: 'line',
+                from: b.point,
+                to: b.handleInPoint,
+                stroke: '#f59e0b',
+                lineWidth: lw,
+                dashed: true,
+              });
+              overlays.push({
+                kind: 'circle',
+                center: b.handleInPoint,
+                radius: 4 / zoom,
+                stroke: '#f59e0b',
+                fill: '#ffffff',
+                lineWidth: 1.5 * lw,
+                dashed: true,
+              });
+            }
+          }
         }
 
         // 2. 绘制每个已有折点与首尾端点的控制圆柄
@@ -837,16 +1074,16 @@ function selectOverlay(ctx: ToolContext): ReadonlyArray<OverlayElement> {
           });
         }
 
-        // 3. 绘制线段中点的「幽灵中点折叠手柄 (Ghost Midpoints)」
-        // 拖拽这些中点手柄可直接将该直线段拉成折线！
+        // 3. 绘制线段中点的「幽灵中点折叠手柄 / 曲线弧顶手柄」
+        // 直线段拖拽可拉成折线；曲线段拖拽可直接弯曲调节弧顶曲率！
         const midpoints = getPolylineWorldMidpoints(ctx.doc, selId) ?? [];
         for (const mid of midpoints) {
           overlays.push({
             kind: 'circle',
             center: mid.point,
-            radius: 3.5 / zoom,
-            stroke: 'var(--ov-accent, #4c9aff)',
-            fill: 'var(--ov-accent-soft, rgba(76,154,255,0.45))',
+            radius: (mid.isCurved ? 4.2 : 3.5) / zoom,
+            stroke: mid.isCurved ? '#f59e0b' : 'var(--ov-accent, #4c9aff)',
+            fill: mid.isCurved ? 'rgba(245, 158, 11, 0.35)' : 'var(--ov-accent-soft, rgba(76,154,255,0.45))',
             lineWidth: lw,
             dashed: true,
           });
@@ -1526,6 +1763,144 @@ function makeLineOrArrowTool(id: 'line' | 'arrow', withArrowEnd: boolean): Tool 
 const lineTool: Tool = makeLineOrArrowTool('line', false);
 const arrowTool: Tool = makeLineOrArrowTool('arrow', true);
 
+const curveTool: Tool = {
+  id: 'curve',
+  pointer(ctx, event) {
+    lastShapeMods = { shift: event.mods.shift, alt: event.mods.alt };
+    if (event.kind === 'down') {
+      activeSnapGuides = [];
+      return [{ kind: 'Begin', label: '绘制曲线', gestureMode: 'marquee' }];
+    }
+    if (event.kind === 'drag' && ctx.gesture && ctx.gesture.kind === 'marquee') {
+      const { p1, p2, guides } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, {
+        shift: false,
+        alt: event.mods.alt,
+      });
+      activeSnapGuides = guides;
+      if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 2) return [];
+      const mode = event.mods.shift ? 'arc' : 's';
+      const geometry = createCurveGeometry(p1.x, p1.y, p2.x, p2.y, mode);
+      return [
+        {
+          kind: 'Preview',
+          commandId: 'object.createPath',
+          params: {
+            geometry,
+            appearance: LINE_DEFAULT_APPEARANCE,
+            hint: 'path',
+            name: '曲线',
+          },
+        },
+      ];
+    }
+    if (event.kind === 'up' && ctx.gesture && ctx.gesture.kind === 'marquee') {
+      const { p1, p2 } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, {
+        shift: false,
+        alt: event.mods.alt,
+      });
+      activeSnapGuides = [];
+      lastShapeMods = { shift: false, alt: false };
+      if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 2) {
+        return [{ kind: 'Cancel' }];
+      }
+      const mode = event.mods.shift ? 'arc' : 's';
+      const geometry = createCurveGeometry(p1.x, p1.y, p2.x, p2.y, mode);
+      return [
+        {
+          kind: 'Exec',
+          commandId: 'object.createPath',
+          params: {
+            geometry,
+            appearance: LINE_DEFAULT_APPEARANCE,
+            hint: 'path',
+            name: '曲线',
+          },
+        },
+        { kind: 'Commit' },
+        { kind: 'Exec', commandId: 'tool.setActive', params: { tool: 'select' } },
+      ];
+    }
+    return [];
+  },
+  key(ctx, key, mods) { return handleCommonKeys(ctx, key, mods); },
+  overlay(ctx) {
+    if (!ctx.gesture || ctx.gesture.kind !== 'marquee') return [];
+    const zoom = Math.max(ctx.zoom, 1e-4);
+    const lw = 1.5 / zoom;
+    const { p1, p2, guides } = computeLineEndpoints(ctx, ctx.gesture.startPoint, ctx.gesture.currentPoint, {
+      shift: false,
+      alt: lastShapeMods.alt,
+    });
+    const mode = lastShapeMods.shift ? 'arc' : 's';
+    const geom = createCurveGeometry(p1.x, p1.y, p2.x, p2.y, mode);
+    const sp = geom.subPaths[0]!;
+    const a0 = sp.anchors[0]!;
+    const a1 = sp.anchors[1]!;
+    const c1 = { x: a0.point.x + (a0.handleOut?.x ?? 0), y: a0.point.y + (a0.handleOut?.y ?? 0) };
+    const c2 = { x: a1.point.x + (a1.handleIn?.x ?? 0), y: a1.point.y + (a1.handleIn?.y ?? 0) };
+    const samplePts: Vec2[] = [];
+    const STEPS = 16;
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS;
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const t2 = t * t;
+      samplePts.push({
+        x: mt2 * mt * a0.point.x + 3 * mt2 * t * c1.x + 3 * mt * t2 * c2.x + t2 * t * a1.point.x,
+        y: mt2 * mt * a0.point.y + 3 * mt2 * t * c1.y + 3 * mt * t2 * c2.y + t2 * t * a1.point.y,
+      });
+    }
+    const overlays: OverlayElement[] = [
+      {
+        kind: 'polyline',
+        points: samplePts,
+        stroke: 'var(--ov-accent, #6366f1)',
+        lineWidth: lw,
+        dashed: true,
+      },
+      {
+        kind: 'circle',
+        center: p1,
+        radius: 4.5 / zoom,
+        stroke: 'var(--ov-accent, #6366f1)',
+        fill: '#ffffff',
+        lineWidth: lw,
+      },
+      {
+        kind: 'circle',
+        center: p2,
+        radius: 4.5 / zoom,
+        stroke: '#ffffff',
+        fill: 'var(--ov-accent, #6366f1)',
+        lineWidth: lw,
+      },
+    ];
+    for (const guide of guides) {
+      if (guide.orientation === 'vertical') {
+        overlays.push({
+          kind: 'line',
+          from: { x: guide.position, y: guide.from },
+          to: { x: guide.position, y: guide.to },
+          stroke: '#ec4899',
+          lineWidth: 1 / zoom,
+          dashed: true,
+        });
+      } else {
+        overlays.push({
+          kind: 'line',
+          from: { x: guide.from, y: guide.position },
+          to: { x: guide.to, y: guide.position },
+          stroke: '#ec4899',
+          lineWidth: 1 / zoom,
+          dashed: true,
+        });
+      }
+    }
+    return overlays;
+  },
+  cursor() { return 'crosshair'; },
+};
+
 const textTool: Tool = {
   id: 'text',
   pointer(_ctx, event) {
@@ -1674,7 +2049,9 @@ function hitNodeLocal(n: Node, doc: Document, local: Vec2, tol2: number): boolea
       const b = anchors[(i + 1) % anchors.length]!;
       const hasCurves = a.handleOut != null || b.handleIn != null;
       if (hasCurves) {
-        const d2 = distanceSqToBezier(local, a.point, a.handleOut ?? a.point, b.handleIn ?? b.point, b.point);
+        const c1 = a.handleOut ? { x: a.point.x + a.handleOut.x, y: a.point.y + a.handleOut.y } : a.point;
+        const c2 = b.handleIn ? { x: b.point.x + b.handleIn.x, y: b.point.y + b.handleIn.y } : b.point;
+        const d2 = distanceSqToBezier(local, a.point, c1, c2, b.point);
         if (d2 <= strokeTol2) return true;
       } else {
         const d2 = distanceSqToSegment(local, a.point, b.point);
@@ -1696,15 +2073,15 @@ function hitNodeLocal(n: Node, doc: Document, local: Vec2, tol2: number): boolea
         poly.push(a.point);
         if (a.handleOut != null || b.handleIn != null) {
           const STEPS = 4;
+          const p0 = a.point;
+          const p1 = a.handleOut ? { x: a.point.x + a.handleOut.x, y: a.point.y + a.handleOut.y } : a.point;
+          const p2 = b.handleIn ? { x: b.point.x + b.handleIn.x, y: b.point.y + b.handleIn.y } : b.point;
+          const p3 = b.point;
           for (let s = 1; s < STEPS; s++) {
             const t = s / STEPS;
             const mt = 1 - t;
             const mt2 = mt * mt;
             const t2 = t * t;
-            const p0 = a.point;
-            const p1 = a.handleOut ?? a.point;
-            const p2 = b.handleIn ?? b.point;
-            const p3 = b.point;
             poly.push({
               x: mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
               y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y,
@@ -1809,6 +2186,7 @@ export const tools: Record<ToolId, Tool> = {
   rect: rectTool,
   ellipse: ellipseTool,
   line: lineTool,
+  curve: curveTool,
   arrow: arrowTool,
   text: textTool,
 };

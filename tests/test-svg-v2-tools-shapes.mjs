@@ -9,6 +9,10 @@ import {
   createRectGeometry,
   createEllipseGeometry,
   createLineGeometry,
+  createCurveGeometry,
+  isCurvedLineNode,
+  getPolylineWorldMidpoints,
+  getPolylineWorldAnchors,
   tools,
   vec2,
   pathGeometry,
@@ -426,6 +430,65 @@ it('支持 path.convertLineStyle 一键切换线型（直线 ↔ Z形直角 ↔ 
   assert.strictEqual(anc.length, 2);
   assert.deepStrictEqual(anc[0].point, { x: 0, y: 0 });
   assert.deepStrictEqual(anc[1].point, { x: 100, y: 100 });
+});
+
+it('支持 curveTool 绘制平滑贝塞尔曲线及 path.convertLineStyle 切换 S形曲线 / C形弧线 / 连续平滑曲线，并支持画布拖拽弧顶中点与控制柄', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+
+  // 1. 验证 createCurveGeometry 生成带贝塞尔控制柄的平滑开放路径
+  const sGeom = createCurveGeometry(0, 0, 120, 80, 's');
+  assert.strictEqual(sGeom.subPaths.length, 1);
+  assert.strictEqual(sGeom.subPaths[0].closed, false);
+  assert.strictEqual(sGeom.subPaths[0].anchors.length, 2);
+  assert.ok(sGeom.subPaths[0].anchors[0].handleOut !== null, '起点应包含出控制柄 handleOut');
+  assert.ok(sGeom.subPaths[0].anchors[1].handleIn !== null, '终点应包含入控制柄 handleIn');
+
+  // 2. 使用 curveTool 在画布上从 (20, 100) 拖拽至 (220, 100) 创建曲线
+  rt.setActiveTool('curve');
+  assert.strictEqual(rt.activeToolId, 'curve');
+  rt.dispatchPointer({ kind: 'down', point: vec2(20, 100), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(220, 100), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(220, 100), mods: noMods, pressure: 0.5 });
+  assert.strictEqual(rt.activeToolId, 'select', '释放后自动切回 select 工具');
+
+  const curveId = rt.currentSelection.nodeIds[0];
+  let curveNode = rt.currentDocument.nodes.get(curveId);
+  assert.strictEqual(isCurvedLineNode(curveNode), true, '新创建的曲线应识别为 isCurvedLineNode');
+
+  // 3. 切换为 C形拱形弧线 (curve-arc)，并验证拖拽曲线弧顶中点使曲线精确穿过目标点 (120, 40)
+  rt.execute('path.convertLineStyle', { id: curveId, style: 'curve-arc' });
+  curveNode = rt.currentDocument.nodes.get(curveId);
+  assert.strictEqual(isCurvedLineNode(curveNode), true);
+
+  const midsBefore = getPolylineWorldMidpoints(rt.currentDocument, curveId);
+  assert.ok(midsBefore && midsBefore.length === 1 && midsBefore[0].isCurved, '应返回曲线段弧顶中点');
+  const startMid = midsBefore[0].point;
+
+  // 在 select 工具下按住弧顶中点拖拽至 (120, 30)
+  rt.dispatchPointer({ kind: 'down', point: startMid, mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(120, 30), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(120, 30), mods: noMods, pressure: 0.5 });
+
+  const midsAfter = getPolylineWorldMidpoints(rt.currentDocument, curveId);
+  assert.ok(Math.abs(midsAfter[0].point.x - 120) < 1e-3, '拖拽后曲线 t=0.5 弧顶 X 应精确位于 120');
+  assert.ok(Math.abs(midsAfter[0].point.y - 30) < 1e-3, '拖拽后曲线 t=0.5 弧顶 Y 应精确位于 30');
+
+  // 4. 直接拖拽起点贝塞尔控制柄 handleOutPoint，验证控制柄实时更新
+  const worldAnchors = getPolylineWorldAnchors(rt.currentDocument, curveId);
+  const hOutPt = worldAnchors[0].handleOutPoint;
+  assert.ok(hOutPt !== null, '应暴露世界坐标系下的 handleOutPoint');
+  rt.dispatchPointer({ kind: 'down', point: hOutPt, mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(80, 10), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(80, 10), mods: noMods, pressure: 0.5 });
+  const updatedAnchors = getPolylineWorldAnchors(rt.currentDocument, curveId);
+  assert.deepStrictEqual(updatedAnchors[0].handleOutPoint, { x: 80, y: 10 }, '控制柄应精确移动到 (80, 10)');
+
+  // 5. 切换为多点连续平滑曲线 (curve-smooth)
+  rt.execute('path.convertLineStyle', { id: curveId, style: 'curve-smooth' });
+  curveNode = rt.currentDocument.nodes.get(curveId);
+  assert.strictEqual(curveNode.geometry.subPaths[0].anchors.length, 3, '2点线条转 curve-smooth 应生成3锚点连续平滑曲线');
+  assert.strictEqual(isCurvedLineNode(curveNode), true);
 });
 
 // ============================================================================

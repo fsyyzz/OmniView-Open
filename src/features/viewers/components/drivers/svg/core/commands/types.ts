@@ -155,7 +155,7 @@ export interface PathDeleteAnchorParams { readonly id: NodeId; readonly anchorIn
 export interface PathCloseParams { readonly id: NodeId; readonly closed: boolean; }
 export interface PathConvertLineStyleParams {
   readonly id: NodeId;
-  readonly style: 'straight' | 'orthogonal-z' | 'orthogonal-v' | 'orthogonal-l';
+  readonly style: 'straight' | 'orthogonal-z' | 'orthogonal-v' | 'orthogonal-l' | 'curve-s' | 'curve-arc' | 'curve-smooth';
 }
 
 // --- object.* ---
@@ -274,5 +274,5 @@ export interface PathSetMarkerParams {
 }
 
 // --- tool.* ---
-export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'text'; }
+export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text'; }
 export interface ToolSetOptionParams { readonly key: string; readonly value: unknown; }

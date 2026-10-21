@@ -199,6 +199,7 @@ export {
   createRectGeometry,
   createEllipseGeometry,
   createLineGeometry,
+  createCurveGeometry,
 } from './model/path';
 
 // ---- Model 几何与树（图层/批量增强） ----
@@ -236,6 +237,7 @@ export {
   tools,
   isTwoPointLineNode,
   isOpenPolylineNode,
+  isCurvedLineNode,
   getLineWorldEndpoints,
   getPolylineWorldAnchors,
   getPolylineWorldMidpoints,

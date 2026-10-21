@@ -19,6 +19,7 @@ import {
   defaultStroke,
   isTwoPointLineNode,
   isOpenPolylineNode,
+  isCurvedLineNode,
   getLineWorldEndpoints,
   getPolylineWorldAnchors,
   nodeWorldBBox,
@@ -507,19 +508,20 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
             });
           };
 
+          const isCurved = isCurvedLineNode(primary);
           return (
             <div className="mb-2 space-y-1.5 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/40 p-2 text-xs">
               <div className="flex items-center justify-between font-semibold text-[var(--ov-fg-muted)]">
-                <span>线型与折线走线</span>
+                <span>线型、折线与曲线走线</span>
                 <span className="font-normal text-[10px]">
-                  {total === 2 ? '直线' : `${total} 个顶点`} · {directLength.toFixed(0)}px
+                  {isCurved ? '贝塞尔曲线' : total === 2 ? '直线' : `${total} 个顶点`} · {directLength.toFixed(0)}px
                 </span>
               </div>
 
-              {/* 一键切换线型：直线 ↔ Z形直角 ↔ V形直角 ↔ L形直角 */}
+              {/* 一键切换线型：直线 / 直角折线 */}
               <div className="grid grid-cols-4 gap-1">
                 {[
-                  { key: 'straight', label: '直线', title: '收起所有折角，还原为两端点直线' },
+                  { key: 'straight', label: '直线', title: '收起所有折角与曲率，还原为两端点直线' },
                   { key: 'orthogonal-z', label: 'Z形直角', title: '水平优先直角走线（首段水平）' },
                   { key: 'orthogonal-v', label: 'V形直角', title: '垂直优先直角走线（首段垂直）' },
                   { key: 'orthogonal-l', label: 'L形直角', title: '单折角直角连接线' },
@@ -541,8 +543,32 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
                 ))}
               </div>
 
+              {/* 一键切换曲线：C形弧线 / S形曲线 / 连续平滑曲线 */}
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { key: 'curve-arc', label: 'C形弧线', title: '单拱平滑弧线（拖拽画布弧顶中点或控制柄可自由弯曲）' },
+                  { key: 'curve-s', label: 'S形曲线', title: '平滑 S 形贝塞尔连接线（适合流程图与思维导图连线）' },
+                  { key: 'curve-smooth', label: '平滑曲线', title: '将折线所有折点平滑拟合为 Catmull-Rom 连续曲线' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    title={item.title}
+                    className="rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] py-1 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] transition-colors"
+                    onClick={() =>
+                      execute('path.convertLineStyle', {
+                        id: primary.id,
+                        style: item.key,
+                      })
+                    }
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="text-[10px] text-[var(--ov-fg-muted)] leading-tight pt-0.5">
-                💡 画布交互：拖拽线段中点可拉出折点；双击折点可删除。
+                💡 画布交互：拖拽曲线弧顶中点或橙色控制柄可自由调弧度；拖拽直线中点可拉出折点；双击折点可删除。
               </div>
 
               {/* 顶点坐标编辑器 */}

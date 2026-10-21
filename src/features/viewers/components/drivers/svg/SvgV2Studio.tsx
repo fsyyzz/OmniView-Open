@@ -22,6 +22,7 @@ import {
   Square,
   Circle,
   Minus,
+  Spline,
   MoveUpRight,
   Type,
   AlignStartHorizontal,
@@ -38,8 +39,6 @@ import {
 } from 'lucide-react';
 import {
   decideBackup,
-  getSvgEngineFlag,
-  setSvgEngineFlag,
   shouldExport,
   shouldReloadFromHost,
   shouldWriteBackup,
@@ -125,7 +124,7 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
         loadedStateRef.current = { loaded: true, doc: document };
         lastExportedContentRef.current = svg;
         if (
-          decideBackup(backupOnceRef.current, firstEdit, content, getSvgEngineFlag(), shouldWriteBackup)
+          decideBackup(backupOnceRef.current, firstEdit, content, 'v2', shouldWriteBackup)
         ) {
           backupOnceRef.current = true;
           const tagged = tagBackupContent(svg, document, content);
@@ -184,8 +183,9 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
         <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
         <ToolButton icon={<Square size={17} />} active={activeToolId === 'rect'} label="矩形工具 (R — 拖拽绘制，Shift 正方形 / Alt 中心起绘)" onClick={() => setActiveTool('rect')} />
         <ToolButton icon={<Circle size={17} />} active={activeToolId === 'ellipse'} label="椭圆/圆形工具 (O — 拖拽绘制，Shift 正圆 / Alt 中心起绘)" onClick={() => setActiveTool('ellipse')} />
-        <ToolButton icon={<Minus size={17} />} active={activeToolId === 'line'} label="直线工具 (L — 拖拽连接两端点，Shift 45° 锁定)" onClick={() => setActiveTool('line')} />
-        <ToolButton icon={<MoveUpRight size={17} />} active={activeToolId === 'arrow'} label="箭头工具 (W — 拖拽连接两端点，Shift 45° 锁定)" onClick={() => setActiveTool('arrow')} />
+        <ToolButton icon={<Minus size={17} />} active={activeToolId === 'line'} label="直线工具 (L — 拖拽连接两端点，Shift 15° 锁定)" onClick={() => setActiveTool('line')} />
+        <ToolButton icon={<Spline size={17} />} active={activeToolId === 'curve'} label="曲线工具 (C — 拖拽绘制贝塞尔曲线，Shift 切换拱形弧线)" onClick={() => setActiveTool('curve')} />
+        <ToolButton icon={<MoveUpRight size={17} />} active={activeToolId === 'arrow'} label="箭头工具 (W — 拖拽连接两端点，Shift 15° 锁定)" onClick={() => setActiveTool('arrow')} />
         <ToolButton icon={<Type size={17} />} active={activeToolId === 'text'} label="文本工具 (T)" onClick={() => setActiveTool('text')} />
         <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
         <ToolButton icon={<Undo2 size={17} />} active={false} label="撤销 (Ctrl+Z)" disabled={!canUndo} onClick={undo} />
@@ -314,7 +314,6 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
       <aside className="flex w-72 flex-col border-l border-[var(--ov-border)] bg-[var(--ov-panel)]">
         <SvgV2LayersPanel document={document} selection={selection} execute={execute} />
         <SvgV2Inspector document={document} selection={selection} execute={execute} />
-        <SvgV2EngineSwitcher />
       </aside>
     </div>
   );
@@ -361,27 +360,5 @@ const ActionButton: React.FC<ActionButtonProps> = ({ icon, label, disabled, onCl
     {icon}
   </button>
 );
-
-const SvgV2EngineSwitcher: React.FC = () => {
-  const [engine, setEngine] = useState<'v1' | 'v2'>(() => getSvgEngineFlag());
-  return (
-    <div className="mt-auto border-t border-[var(--ov-border)] p-2 text-xs text-[var(--ov-fg-muted)]">
-      <div className="mb-1">编辑引擎</div>
-      <select
-        className="w-full rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1 py-1 text-[var(--ov-fg)]"
-        value={engine}
-        onChange={(e) => {
-          const v = e.target.value as 'v1' | 'v2';
-          setEngine(v);
-          setSvgEngineFlag(v);
-          if (typeof window !== 'undefined') window.location.reload();
-        }}
-      >
-        <option value="v1">v1（当前）</option>
-        <option value="v2">v2（实验）</option>
-      </select>
-    </div>
-  );
-};
 
 export default SvgV2Studio;

@@ -48,8 +48,8 @@ export type Action =
 // 2. Tool (UI 工具)
 // ============================================================================
 
-/** Tool 标识（select / node / pen / rect / ellipse / line / arrow / text）。 */
-export type ToolId = 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text';
+/** Tool 标识（select / node / pen / rect / ellipse / line / curve / arrow / text）。 */
+export type ToolId = 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text';
 
 /** Tool 接口。Tool 永远**纯函数式**：所有状态由 Runtime 持有。 */
 export interface Tool {

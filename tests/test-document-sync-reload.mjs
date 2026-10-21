@@ -51,7 +51,20 @@ assert.ok(
   toolbarTsx.includes('isReloading'),
   'MarkdownToolbar 必须支持 isReloading 旋转微动效状态'
 );
-console.log('✅ MarkdownToolbar 重新加载按钮与属性声明校验通过');
+assert.ok(
+  !toolbarTsx.includes('className="markdown-toolbar-title'),
+  'MarkdownToolbar 顶部工具栏已移除冗余的文件名展示区域'
+);
+assert.ok(
+  toolbarTsx.includes('markdown-toolbar-group') && toolbarTsx.includes('data-ov-tooltip') && toolbarTsx.includes('markdown-instant-tooltip'),
+  'MarkdownToolbar 必须对工具栏按钮进行逻辑分组并支持鼠标悬浮即时提示 (data-ov-tooltip)'
+);
+const workbenchHeaderTsx = readFileSync(join(ROOT, 'src/features/workbench/components/WorkbenchHeader.tsx'), 'utf8');
+assert.ok(
+  !workbenchHeaderTsx.includes('Active File Pill') && workbenchHeaderTsx.includes('data-ov-tooltip') && workbenchHeaderTsx.includes('markdown-instant-tooltip'),
+  'WorkbenchHeader 顶部工具栏已移除冗余文件名徽章并为所有工具配备即时悬浮提示'
+);
+console.log('✅ MarkdownToolbar & WorkbenchHeader 分组重构、移除文件名与悬浮提示校验通过');
 
 // 测试 3: PluginDocumentView 全局快捷键拦截与重载调度
 console.log('--- 测试 3: PluginDocumentView 快捷键与重载调度 ---');
@@ -72,3 +85,4 @@ assert.ok(
 console.log('✅ PluginDocumentView 快捷键与重载调度校验通过');
 
 console.log('🎉 全部 3 组外部编辑热同步与重载机制测试用例 100% 通过！');
+

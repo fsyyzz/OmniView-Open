@@ -97,7 +97,7 @@ import {
   selectionWith,
   updateNode,
 } from '../model/document';
-import { parsePathD, serializePathD } from '../model/path';
+import { createCurveGeometry, parsePathD, serializePathD } from '../model/path';
 import { alignDelta, distributeOffsets, nodeBBox, nodeWorldBBox, nodeWorldTransform, unionRects } from '../model/bbox';
 import { findParent, keepDisjointRoots } from '../model/tree';
 
@@ -212,12 +212,14 @@ const pathConvertLineStyle: CommandHandler = (doc, sel, params) => {
     const p2 = lastAnchor.point;
 
     let newAnchors: Anchor[];
+    let nextHint: PathNode['primitiveHint'] = 'polyline';
     switch (p.style) {
       case 'straight':
         newAnchors = [
           anchorCorner(p1),
           anchorCorner(p2),
         ];
+        nextHint = 'line';
         break;
       case 'orthogonal-z': {
         const midX = (p1.x + p2.x) / 2;
@@ -227,6 +229,7 @@ const pathConvertLineStyle: CommandHandler = (doc, sel, params) => {
           anchorCorner({ x: midX, y: p2.y }),
           anchorCorner(p2),
         ];
+        nextHint = 'polyline';
         break;
       }
       case 'orthogonal-v': {
@@ -237,6 +240,7 @@ const pathConvertLineStyle: CommandHandler = (doc, sel, params) => {
           anchorCorner({ x: p2.x, y: midY }),
           anchorCorner(p2),
         ];
+        nextHint = 'polyline';
         break;
       }
       case 'orthogonal-l': {
@@ -245,15 +249,65 @@ const pathConvertLineStyle: CommandHandler = (doc, sel, params) => {
           anchorCorner({ x: p2.x, y: p1.y }),
           anchorCorner(p2),
         ];
+        nextHint = 'polyline';
+        break;
+      }
+      case 'curve-s': {
+        const curveGeom = createCurveGeometry(p1.x, p1.y, p2.x, p2.y, 's');
+        newAnchors = [...curveGeom.subPaths[0]!.anchors];
+        nextHint = 'path';
+        break;
+      }
+      case 'curve-arc': {
+        const curveGeom = createCurveGeometry(p1.x, p1.y, p2.x, p2.y, 'arc');
+        newAnchors = [...curveGeom.subPaths[0]!.anchors];
+        nextHint = 'path';
+        break;
+      }
+      case 'curve-smooth': {
+        nextHint = 'path';
+        // 若当前只有 2 个顶点，自动在拱顶位置插入一个中间控制折点，再执行 Catmull-Rom 连续平滑拟合
+        let pts = sp.anchors.map((a) => a.point);
+        if (pts.length === 2) {
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const len = Math.max(Math.hypot(dx, dy), 1);
+          let nx = dy / len;
+          let ny = -dx / len;
+          if (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)) {
+            nx = -nx;
+            ny = -ny;
+          }
+          const sagitta = Math.max(len * 0.22, 16);
+          pts = [
+            p1,
+            { x: (p1.x + p2.x) / 2 + nx * sagitta, y: (p1.y + p2.y) / 2 + ny * sagitta },
+            p2,
+          ];
+        }
+        const nPts = pts.length;
+        newAnchors = pts.map((pt, i) => {
+          const prevPt = pts[Math.max(0, i - 1)]!;
+          const nextPt = pts[Math.min(nPts - 1, i + 1)]!;
+          const tx = (nextPt.x - prevPt.x) * 0.25;
+          const ty = (nextPt.y - prevPt.y) * 0.25;
+          return {
+            point: { x: pt.x, y: pt.y },
+            handleIn: i === 0 ? null : { x: -tx, y: -ty },
+            handleOut: i === nPts - 1 ? null : { x: tx, y: ty },
+            kind: 'smooth' as const,
+          };
+        });
         break;
       }
       default:
         newAnchors = [anchorCorner(p1), anchorCorner(p2)];
+        nextHint = 'line';
     }
 
     const nextDoc = updateNode(doc, p.id, (node) => ({
       ...node,
-      hint: p.style === 'straight' ? 'line' : 'polyline',
+      primitiveHint: nextHint,
       geometry: {
         ...pathNode.geometry,
         subPaths: [{ ...sp, closed: false, anchors: newAnchors }],
@@ -320,14 +374,16 @@ const pathToggleAnchorKind: CommandHandler = (doc, sel, params) => {
         if (nextKind === 'corner') {
           return { ...anc, kind: 'corner' as const, handleIn: null, handleOut: null };
         } else {
-          const prev = sub.anchors[(aIdx - 1 + sub.anchors.length) % sub.anchors.length]!;
-          const next = sub.anchors[(aIdx + 1) % sub.anchors.length]!;
+          const prevIdx = sub.closed ? (aIdx - 1 + sub.anchors.length) % sub.anchors.length : Math.max(0, aIdx - 1);
+          const nextIdx = sub.closed ? (aIdx + 1) % sub.anchors.length : Math.min(sub.anchors.length - 1, aIdx + 1);
+          const prev = sub.anchors[prevIdx]!;
+          const next = sub.anchors[nextIdx]!;
           const tangent = { x: (next.point.x - prev.point.x) * 0.25, y: (next.point.y - prev.point.y) * 0.25 };
           return {
             ...anc,
             kind: 'smooth' as const,
-            handleIn: { x: -tangent.x, y: -tangent.y },
-            handleOut: { x: tangent.x, y: tangent.y },
+            handleIn: !sub.closed && aIdx === 0 ? null : { x: -tangent.x, y: -tangent.y },
+            handleOut: !sub.closed && aIdx === sub.anchors.length - 1 ? null : { x: tangent.x, y: tangent.y },
           };
         }
       });

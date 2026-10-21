@@ -525,19 +525,47 @@ function serializeSubPath(sub: SubPath, parts: string[], precision: number): voi
 // 3. 几何辅助
 // ============================================================================
 
-/** 计算 PathGeometry 的轴对齐包围盒（不考虑曲线控制柄）。 */
+/** 计算 PathGeometry 的轴对齐包围盒（含贝塞尔曲线段采样极值）。 */
 export function getBoundingBox(g: PathGeometry): { x: number; y: number; width: number; height: number } {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
+  const expand = (px: number, py: number) => {
+    if (px < minX) minX = px;
+    if (py < minY) minY = py;
+    if (px > maxX) maxX = px;
+    if (py > maxY) maxY = py;
+  };
   for (const sub of g.subPaths) {
-    for (const a of sub.anchors) {
-      const p = a.point;
-      if (p.x < minX) minX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y > maxY) maxY = p.y;
+    const anchors = sub.anchors;
+    for (const a of anchors) {
+      expand(a.point.x, a.point.y);
+    }
+    if (anchors.length >= 2) {
+      const segCount = sub.closed ? anchors.length : anchors.length - 1;
+      for (let i = 0; i < segCount; i++) {
+        const a = anchors[i]!;
+        const b = anchors[(i + 1) % anchors.length]!;
+        if (a.handleOut || b.handleIn) {
+          const p0x = a.point.x;
+          const p0y = a.point.y;
+          const p1x = a.point.x + (a.handleOut?.x ?? 0);
+          const p1y = a.point.y + (a.handleOut?.y ?? 0);
+          const p2x = b.point.x + (b.handleIn?.x ?? 0);
+          const p2y = b.point.y + (b.handleIn?.y ?? 0);
+          const p3x = b.point.x;
+          const p3y = b.point.y;
+          for (const t of [0.2, 0.4, 0.5, 0.6, 0.8]) {
+            const mt = 1 - t;
+            const mt2 = mt * mt;
+            const t2 = t * t;
+            const cx = mt2 * mt * p0x + 3 * mt2 * t * p1x + 3 * mt * t2 * p2x + t2 * t * p3x;
+            const cy = mt2 * mt * p0y + 3 * mt2 * t * p1y + 3 * mt * t2 * p2y + t2 * t * p3y;
+            expand(cx, cy);
+          }
+        }
+      }
     }
   }
   if (!isFinite(minX)) {
@@ -596,5 +624,87 @@ export function createLineGeometry(x1: number, y1: number, x2: number, y2: numbe
       anchorCorner(vec2(x1, y1)),
       anchorCorner(vec2(x2, y2)),
     ], false),
+  ]);
+}
+
+/**
+ * 创建平滑贝塞尔曲线几何（支持 S 形平滑连接曲线与 C 形拱形弧线）。
+ *
+ * - `'s'` (默认)：根据起止点主方向生成平滑 S 形三次贝塞尔连接线
+ * - `'arc'`：沿起止连线法向拱起生成对称 C 形平滑弧线
+ */
+export function createCurveGeometry(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  mode: 's' | 'arc' = 's',
+): PathGeometry {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+
+  if (mode === 'arc') {
+    const safeLen = Math.max(len, 1);
+    let nx = dy / safeLen;
+    let ny = -dx / safeLen;
+    // 默认向画布上方（ny <= 0）或左侧拱起，保持视觉直觉一致
+    if (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const sagitta = Math.max(len * 0.28, 20);
+    const midX = (x1 + x2) / 2 + nx * sagitta;
+    const midY = (y1 + y2) / 2 + ny * sagitta;
+    // 等价二次贝塞尔控制点 C = 2*M - 0.5*(P0 + P3)，再按 2/3 映射至三次贝塞尔手柄
+    const ctrlX = 2 * midX - 0.5 * (x1 + x2);
+    const ctrlY = 2 * midY - 0.5 * (y1 + y2);
+    const hOut = vec2((2 / 3) * (ctrlX - x1), (2 / 3) * (ctrlY - y1));
+    const hIn = vec2((2 / 3) * (ctrlX - x2), (2 / 3) * (ctrlY - y2));
+    return pathGeometry([
+      subPath(
+        [
+          { point: vec2(x1, y1), handleIn: null, handleOut: hOut, kind: 'smooth' },
+          { point: vec2(x2, y2), handleIn: hIn, handleOut: null, kind: 'smooth' },
+        ],
+        false,
+      ),
+    ]);
+  }
+
+  // S 形平滑连接曲线：当水平与垂直跨度均较小时，退化为带法向偏移的优雅微弧，避免纯直线重合
+  if (Math.abs(dx) < 8 || Math.abs(dy) < 8) {
+    const safeLen = Math.max(len, 1);
+    let nx = dy / safeLen;
+    let ny = -dx / safeLen;
+    if (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const bend = Math.max(len * 0.25, 18);
+    const hOut = vec2(dx * 0.33 + nx * bend, dy * 0.33 + ny * bend);
+    const hIn = vec2(-dx * 0.33 - nx * bend, -dy * 0.33 - ny * bend);
+    return pathGeometry([
+      subPath(
+        [
+          { point: vec2(x1, y1), handleIn: null, handleOut: hOut, kind: 'smooth' },
+          { point: vec2(x2, y2), handleIn: hIn, handleOut: null, kind: 'smooth' },
+        ],
+        false,
+      ),
+    ]);
+  }
+
+  const isHorizontal = Math.abs(dx) >= Math.abs(dy);
+  const hOut = isHorizontal ? vec2(dx * 0.5, 0) : vec2(0, dy * 0.5);
+  const hIn = isHorizontal ? vec2(-dx * 0.5, 0) : vec2(0, -dy * 0.5);
+  return pathGeometry([
+    subPath(
+      [
+        { point: vec2(x1, y1), handleIn: null, handleOut: hOut, kind: 'smooth' },
+        { point: vec2(x2, y2), handleIn: hIn, handleOut: null, kind: 'smooth' },
+      ],
+      false,
+    ),
   ]);
 }

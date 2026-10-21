@@ -279,15 +279,16 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
         return;
       }
 
-      // 单键切换工具 (V: 选择, A: 锚点, P: 钢笔, R: 矩形, O: 椭圆, L: 直线, W: 箭头, T: 文本)
+      // 单键切换工具 (V: 选择, A: 锚点, P: 钢笔, R: 矩形, O: 椭圆, L: 直线, C: 曲线, W: 箭头, T: 文本)
       if (!mod && !e.altKey) {
-        const toolShortcutMap: Record<string, 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text'> = {
+        const toolShortcutMap: Record<string, 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text'> = {
           v: 'select',
           a: 'node',
           p: 'pen',
           r: 'rect',
           o: 'ellipse',
           l: 'line',
+          c: 'curve',
           w: 'arrow',
           t: 'text',
         };

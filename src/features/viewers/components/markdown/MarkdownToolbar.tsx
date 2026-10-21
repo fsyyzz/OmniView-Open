@@ -1,7 +1,7 @@
 /**
- * Markdown 阅读控制顶部工具栏组件 (极简纯图标 + 悬浮文字提示 + 多语言国际化)
+ * Markdown 阅读控制顶部工具栏组件 (逻辑分组重构 + 即时悬浮提示 + 多语言国际化)
  */
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   List,
   Search,
@@ -34,6 +34,7 @@ import {
   Replace,
   X,
   PanelTop,
+  Columns,
 } from 'lucide-react';
 import { ThemeId, RENDER_THEMES, DensityMode, DENSITY_PRESETS, ViewMode, ContentWidthMode } from '../../../../shared/types';
 import { MarkdownHeading } from '../../lib/markdownAst';
@@ -108,10 +109,7 @@ interface MarkdownToolbarProps {
 }
 
 export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
-  fileName,
-  filePath,
   headingsCount,
-  currentHeading,
   readingProgress,
   outlineOpen,
   onToggleOutline,
@@ -161,8 +159,6 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   onMouseEnter,
   locale,
   onLocaleChange,
-  isMindmap = false,
-  onToggleMindmap,
   viewMode = 'preview',
   onViewModeChange,
   enableOkf = true,
@@ -179,12 +175,21 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   const [fontSizeMenuOpen, setFontSizeMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [hoverTooltip, setHoverTooltip] = useState<{
+    text: string;
+    x: number;
+    y: number;
+    align: 'left' | 'center' | 'right';
+  } | null>(null);
 
+  const headerRef = useRef<HTMLElement>(null);
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const densityMenuRef = useRef<HTMLDivElement>(null);
   const fontSizeMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const langMenuRef = useRef<HTMLDivElement>(null);
+
+  const isAnyMenuOpen = themeMenuOpen || densityMenuOpen || fontSizeMenuOpen || moreMenuOpen || langMenuOpen;
 
   // Close menus on outside click
   useEffect(() => {
@@ -195,11 +200,52 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setMoreMenuOpen(false);
       if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) setLangMenuOpen(false);
     };
-    if (themeMenuOpen || densityMenuOpen || fontSizeMenuOpen || moreMenuOpen || langMenuOpen) {
+    if (isAnyMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [themeMenuOpen, densityMenuOpen, fontSizeMenuOpen, moreMenuOpen, langMenuOpen]);
+  }, [isAnyMenuOpen]);
+
+  const handleHeaderMouseOver = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (isAnyMenuOpen) {
+        setHoverTooltip(null);
+        return;
+      }
+      const target = (e.target as HTMLElement | null)?.closest('[data-ov-tooltip]') as HTMLElement | null;
+      if (!target || !headerRef.current) {
+        setHoverTooltip(null);
+        return;
+      }
+      // 忽略弹层菜单内部元素，避免遮挡菜单项
+      if (target.closest('.markdown-more-menu, #omniview-markdown-replace-panel')) {
+        setHoverTooltip(null);
+        return;
+      }
+      const text = target.getAttribute('data-ov-tooltip');
+      if (!text) {
+        setHoverTooltip(null);
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+      const centerX = rect.left + rect.width / 2;
+      const align: 'left' | 'center' | 'right' =
+        centerX < 140 ? 'left' : centerX > vw - 140 ? 'right' : 'center';
+      const x = align === 'left' ? Math.max(8, rect.left) : align === 'right' ? Math.min(vw - 8, rect.right) : centerX;
+      setHoverTooltip({
+        text,
+        x,
+        y: rect.bottom + 7,
+        align,
+      });
+    },
+    [isAnyMenuOpen]
+  );
+
+  const handleHeaderMouseLeave = useCallback(() => {
+    setHoverTooltip(null);
+  }, []);
 
   const activeTheme = RENDER_THEMES.find(tItem => tItem.id === theme) || RENDER_THEMES[0];
   const activeDensity = DENSITY_PRESETS.find(d => d.id === density) || DENSITY_PRESETS[0];
@@ -212,25 +258,39 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
     a4: `${t('width', locale)}: ${t('widthA4', locale)}`,
   }[contentWidth];
 
+  const isZh = locale === 'zh-CN';
+
   return (
     <header
+      ref={headerRef}
       className={`markdown-toolbar ${isVisible || !focusMode ? 'is-visible' : ''}`}
       onMouseEnter={onMouseEnter}
+      onMouseOver={handleHeaderMouseOver}
+      onMouseLeave={handleHeaderMouseLeave}
     >
-      {/* Left: Outline, Search & Title */}
+      {/* Left Group: 导航与全文检索 (大纲目录 + 搜索与替换) */}
       <div className="flex items-center gap-1.5 min-w-0">
         <button
+          type="button"
           className={`markdown-tool-button ${outlineOpen ? 'is-active font-semibold' : ''}`}
           onClick={onToggleOutline}
-          title={t('outlineTooltip', locale)}
+          title={`${t('outlineTooltip', locale)} (${headingsCount} ${t('sectionsCount', locale)})`}
+          data-ov-tooltip={`${t('outlineTooltip', locale)} (${headingsCount} ${t('sectionsCount', locale)})`}
           aria-label={t('outline', locale)}
         >
           <List size={14} />
+          {headingsCount > 0 && (
+            <span className="text-[10px] font-mono opacity-75">{headingsCount}</span>
+          )}
         </button>
 
         <div className="relative flex items-center min-w-0">
-          <div className="markdown-search-box flex items-center">
-            <Search size={14} className="shrink-0" />
+          <div
+            className="markdown-search-box flex items-center"
+            title={`${t('searchPlaceholder', locale)} (Ctrl+F)`}
+            data-ov-tooltip={`${t('searchPlaceholder', locale)} (Ctrl+F)`}
+          >
+            <Search size={13} className="shrink-0 opacity-75" />
             <input
               id="omniview-markdown-search-input"
               value={searchText}
@@ -262,13 +322,31 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                 type="button"
                 onClick={() => onSearchTextChange('')}
                 className="text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] text-xs px-1"
-                title="清除搜索 (Esc)"
+                title={isZh ? '清除搜索 (Esc)' : 'Clear search (Esc)'}
+                data-ov-tooltip={isZh ? '清除搜索 (Esc)' : 'Clear search (Esc)'}
+                aria-label={isZh ? '清除搜索' : 'Clear search'}
               >
                 ×
               </button>
             )}
-            <button type="button" onClick={() => onFindText(true)} title={`${t('prevMatch', locale)} (Shift+Enter / ↑)`}>↑</button>
-            <button type="button" onClick={() => onFindText(false)} title={`${t('nextMatch', locale)} (Enter / ↓)`}>↓</button>
+            <button
+              type="button"
+              onClick={() => onFindText(true)}
+              title={`${t('prevMatch', locale)} (Shift+Enter / ↑)`}
+              data-ov-tooltip={`${t('prevMatch', locale)} (Shift+Enter / ↑)`}
+              aria-label={t('prevMatch', locale)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => onFindText(false)}
+              title={`${t('nextMatch', locale)} (Enter / ↓)`}
+              data-ov-tooltip={`${t('nextMatch', locale)} (Enter / ↓)`}
+              aria-label={t('nextMatch', locale)}
+            >
+              ↓
+            </button>
             {onToggleReplace && (
               <button
                 type="button"
@@ -280,6 +358,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                     : 'text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover)]'
                 }`}
                 title={t('toggleReplace', locale)}
+                data-ov-tooltip={t('toggleReplace', locale)}
+                aria-label={t('toggleReplace', locale)}
               >
                 <Replace size={13} />
               </button>
@@ -321,6 +401,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                   }
                 }}
                 placeholder={t('replacePlaceholder', locale)}
+                title={t('replacePlaceholder', locale)}
                 className="w-32 sm:w-44 border rounded px-2 py-0.5 text-xs focus:outline-hidden font-sans"
                 style={{
                   background: 'var(--ov-code-bg)',
@@ -364,21 +445,16 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                 type="button"
                 onClick={onToggleReplace}
                 className="p-1 rounded cursor-pointer hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-secondary)] transition ml-0.5"
-                title="收起替换面板 (Esc)"
+                title={isZh ? '收起替换面板 (Esc)' : 'Close replace panel (Esc)'}
               >
                 <X size={13} />
               </button>
             </div>
           )}
         </div>
-
-        <div className="markdown-toolbar-title items-center gap-1.5" title={filePath}>
-          <span className="font-semibold truncate max-w-[180px]">{fileName}</span>
-          <span className="text-[11px] opacity-60 font-mono">({headingsCount} {t('sectionsCount', locale)})</span>
-        </div>
       </div>
 
-      {/* Center: View Mode Switcher & Native Editor Quick Launch */}
+      {/* Center Group: 视图模式切换器 (预览 / 分屏 / 源码 / 思维导图) */}
       <div className="flex items-center gap-1.5 shrink-0">
         <div className="markdown-view-mode-switcher">
           <button
@@ -386,6 +462,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             onClick={() => onViewModeChange?.('preview')}
             className={`markdown-view-mode-btn ${viewMode === 'preview' ? 'is-active' : ''}`}
             title={t('viewModePreviewTooltip', locale)}
+            data-ov-tooltip={t('viewModePreviewTooltip', locale)}
             aria-label={t('viewModePreview', locale)}
           >
             <Eye size={13} />
@@ -397,6 +474,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             onClick={() => onViewModeChange?.('split')}
             className={`markdown-view-mode-btn ${viewMode === 'split' ? 'is-active' : ''}`}
             title={t('viewModeSplitTooltip', locale)}
+            data-ov-tooltip={t('viewModeSplitTooltip', locale)}
             aria-label={t('viewModeSplit', locale)}
           >
             <Split size={13} />
@@ -408,6 +486,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             onClick={() => onViewModeChange?.('source')}
             className={`markdown-view-mode-btn ${viewMode === 'source' ? 'is-active' : ''}`}
             title={t('viewModeSourceTooltip', locale)}
+            data-ov-tooltip={t('viewModeSourceTooltip', locale)}
             aria-label={t('viewModeSource', locale)}
           >
             <Code size={13} />
@@ -419,6 +498,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             onClick={() => onViewModeChange?.('mindmap')}
             className={`markdown-view-mode-btn ${viewMode === 'mindmap' ? 'is-active' : ''}`}
             title={t('viewModeMindmapTooltip', locale)}
+            data-ov-tooltip={t('viewModeMindmapTooltip', locale)}
             aria-label={t('viewModeMindmap', locale)}
           >
             <Network size={13} />
@@ -427,485 +507,629 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
         </div>
       </div>
 
-      {/* Right: Pure-Icon Reading Controls & Actions with Tooltips */}
+      {/* Right Group: 按认知语义分组组织的工具栏按钮群 */}
       <div className="markdown-toolbar-actions">
-        {/* Language dropdown */}
-        <div className="relative" ref={langMenuRef}>
-          <button
-            className="markdown-tool-button"
-            onClick={() => {
-              setLangMenuOpen(prev => !prev);
-              setThemeMenuOpen(false);
-              setDensityMenuOpen(false);
-              setFontSizeMenuOpen(false);
-              setMoreMenuOpen(false);
-            }}
-            title={t('languageTooltip', locale)}
-            aria-label={t('language', locale)}
-          >
-            <Languages size={14} />
-            <span className="text-[10px] font-mono font-bold uppercase">{locale === 'zh-CN' ? 'ZH' : 'EN'}</span>
-          </button>
-          {langMenuOpen && (
-            <div
-              style={{
-                backgroundColor: 'var(--ov-surface)',
-                borderColor: 'var(--ov-border)',
-                color: 'var(--ov-text)',
+        {/* 分组 1：外观与排版样式 (主题、字号、排版紧凑度、版面宽度) */}
+        <div className="markdown-toolbar-group" role="group" aria-label={isZh ? '外观与排版' : 'Appearance & Typography'}>
+          {/* Theme dropdown */}
+          <div className="relative" ref={themeMenuRef}>
+            <button
+              type="button"
+              className="markdown-tool-button"
+              onClick={() => {
+                setThemeMenuOpen(prev => !prev);
+                setDensityMenuOpen(false);
+                setFontSizeMenuOpen(false);
+                setMoreMenuOpen(false);
+                setLangMenuOpen(false);
+                setHoverTooltip(null);
               }}
-              className="absolute right-0 mt-1 w-36 border rounded-lg shadow-xl py-1 z-50"
+              title={`${t('themeTooltip', locale)} (${activeTheme.name})`}
+              data-ov-tooltip={`${t('themeTooltip', locale)} (${activeTheme.name})`}
+              aria-label={t('theme', locale)}
             >
-              <button
-                onClick={() => {
-                  onLocaleChange('zh-CN');
-                  setLangMenuOpen(false);
-                }}
+              <Palette size={14} />
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: activeTheme.colorDot }} />
+            </button>
+            {themeMenuOpen && (
+              <div
                 style={{
-                  backgroundColor: locale === 'zh-CN' ? 'var(--ov-surface-header)' : 'transparent',
-                  color: locale === 'zh-CN' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90"
+                className="absolute right-0 mt-1 w-48 border rounded-lg shadow-xl py-1 z-50 max-h-80 overflow-y-auto"
               >
-                <span>简体中文</span>
-                {locale === 'zh-CN' && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
-              </button>
-              <button
-                onClick={() => {
-                  onLocaleChange('en-US');
-                  setLangMenuOpen(false);
-                }}
-                style={{
-                  backgroundColor: locale === 'en-US' ? 'var(--ov-surface-header)' : 'transparent',
-                  color: locale === 'en-US' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
-                }}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90"
-              >
-                <span>English</span>
-                {locale === 'en-US' && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Theme dropdown */}
-        <div className="relative" ref={themeMenuRef}>
-          <button
-            className="markdown-tool-button"
-            onClick={() => {
-              setThemeMenuOpen(prev => !prev);
-              setDensityMenuOpen(false);
-              setFontSizeMenuOpen(false);
-              setMoreMenuOpen(false);
-              setLangMenuOpen(false);
-            }}
-            title={`${t('themeTooltip', locale)} (${activeTheme.name})`}
-            aria-label={t('theme', locale)}
-          >
-            <Palette size={14} />
-            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: activeTheme.colorDot }} />
-          </button>
-          {themeMenuOpen && (
-            <div
-              style={{
-                backgroundColor: 'var(--ov-surface)',
-                borderColor: 'var(--ov-border)',
-                color: 'var(--ov-text)',
-              }}
-              className="absolute right-0 mt-1 w-48 border rounded-lg shadow-xl py-1 z-50 max-h-80 overflow-y-auto"
-            >
-              {RENDER_THEMES.map(tItem => (
-                <button
-                  key={tItem.id}
-                  onClick={() => {
-                    onThemeChange(tItem.id);
-                    setThemeMenuOpen(false);
-                  }}
-                  style={{
-                    backgroundColor: tItem.id === theme ? 'var(--ov-surface-header)' : 'transparent',
-                    color: tItem.id === theme ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition hover:opacity-90"
-                >
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tItem.colorDot }} />
-                  <span className="truncate">{tItem.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Font Size Dropdown */}
-        <div className="relative" ref={fontSizeMenuRef}>
-          <button
-            className="markdown-tool-button"
-            onClick={() => {
-              setFontSizeMenuOpen(prev => !prev);
-              setThemeMenuOpen(false);
-              setDensityMenuOpen(false);
-              setMoreMenuOpen(false);
-              setLangMenuOpen(false);
-            }}
-            title={`${t('fontSizeTooltip', locale)}: ${fontSize}px`}
-            aria-label={t('fontSize', locale)}
-          >
-            <span className="font-mono text-xs font-bold">A</span>
-            <span className="text-[10px] opacity-80">{fontSize}</span>
-          </button>
-          {fontSizeMenuOpen && (
-            <div
-              style={{
-                backgroundColor: 'var(--ov-surface)',
-                borderColor: 'var(--ov-border)',
-                color: 'var(--ov-text)',
-              }}
-              className="absolute right-0 mt-1 w-36 border rounded-lg shadow-xl py-1 z-50"
-            >
-              {[13, 14, 15, 16, 18].map(size => (
-                <button
-                  key={size}
-                  onClick={() => {
-                    onFontSizeChange(size);
-                    setFontSizeMenuOpen(false);
-                  }}
-                  style={{
-                    backgroundColor: fontSize === size ? 'var(--ov-surface-header)' : 'transparent',
-                    color: fontSize === size ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90 font-medium"
-                >
-                  <span>{size} px</span>
-                  {fontSize === size && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Density dropdown */}
-        <div className="relative" ref={densityMenuRef}>
-          <button
-            className="markdown-tool-button"
-            onClick={() => {
-              setDensityMenuOpen(prev => !prev);
-              setThemeMenuOpen(false);
-              setFontSizeMenuOpen(false);
-              setMoreMenuOpen(false);
-              setLangMenuOpen(false);
-            }}
-            title={`${t('densityTooltip', locale)} (${activeDensity.name})`}
-            aria-label={t('density', locale)}
-          >
-            <AlignJustify size={14} />
-          </button>
-          {densityMenuOpen && (
-            <div
-              style={{
-                backgroundColor: 'var(--ov-surface)',
-                borderColor: 'var(--ov-border)',
-                color: 'var(--ov-text)',
-              }}
-              className="absolute right-0 mt-1 w-52 border rounded-lg shadow-xl py-1 z-50"
-            >
-              {DENSITY_PRESETS.map(d => (
-                <button
-                  key={d.id}
-                  onClick={() => {
-                    onDensityChange(d.id);
-                    setDensityMenuOpen(false);
-                  }}
-                  style={{
-                    backgroundColor: d.id === density ? 'var(--ov-surface-header)' : 'transparent',
-                    color: d.id === density ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
-                  }}
-                  className="w-full flex flex-col px-3 py-1.5 text-xs text-left transition hover:opacity-90"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{d.name}</span>
-                    <span className="text-[10px] opacity-70 font-mono">({d.label})</span>
-                  </div>
-                  <span className="text-[10px] opacity-75 line-clamp-1 mt-0.5">{d.description}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Content Width Toggle */}
-        <button
-          className="markdown-tool-button"
-          onClick={onCycleWidth}
-          title={widthTitle}
-          aria-label={t('widthTooltip', locale)}
-        >
-          <span className="font-mono text-[11px] font-semibold tracking-tight">
-            {contentWidth === 'standard'
-              ? '880px'
-              : contentWidth === 'wide'
-              ? '1180px'
-              : contentWidth === 'full'
-              ? 'Fluid'
-              : contentWidth === 'a4'
-              ? 'A4'
-              : '720px'}
-          </span>
-        </button>
-
-        {/* Focus Mode */}
-        <button
-          className={`markdown-tool-button ${focusMode ? 'bg-amber-600/20 text-amber-300 border-amber-600/40' : ''}`}
-          onClick={onToggleFocusMode}
-          title={t('focusModeTooltip', locale)}
-          aria-label={t('focusMode', locale)}
-        >
-          <Maximize2 size={13} className={focusMode ? 'text-amber-400' : ''} />
-        </button>
-
-        {/* Presentation Mode */}
-        {onTogglePresentationMode && (
-          <button
-            className={`markdown-tool-button ${presentationMode ? 'bg-violet-600/25 text-violet-300 border-violet-600/40' : ''}`}
-            onClick={onTogglePresentationMode}
-            title={t('presentationModeTooltip', locale)}
-            aria-label={t('presentationMode', locale)}
-          >
-            <Presentation size={13} className={presentationMode ? 'text-violet-300' : ''} />
-          </button>
-        )}
-
-        {/* Auto Scroll */}
-        <button
-          className={`markdown-tool-button ${autoScrollSpeed > 0 ? 'bg-emerald-600/20 text-emerald-300 border-emerald-600/40' : ''}`}
-          onClick={onToggleAutoScroll}
-          title={
-            autoScrollSpeed > 0
-              ? `${t('autoScrollRunning', locale)} (${autoScrollSpeed}x)`
-              : t('autoScrollTooltip', locale)
-          }
-          aria-label={t('autoScroll', locale)}
-        >
-          {autoScrollSpeed > 0 ? (
-            <span className="flex items-center gap-0.5 font-mono text-[10px] text-emerald-400 font-bold">
-              <Pause size={12} />
-              {autoScrollSpeed}x
-            </span>
-          ) : (
-            <Play size={12} />
-          )}
-        </button>
-
-        {/* Zoom controls */}
-        <button
-          className="markdown-tool-button"
-          onClick={() => onZoomChange(Math.max(0.6, Number((zoom - 0.1).toFixed(1))))}
-          title={t('zoomOut', locale)}
-          aria-label={t('zoomOut', locale)}
-        >
-          <Minus size={14} />
-        </button>
-        <span className="markdown-zoom-label" title={t('zoomReset', locale)}>{Math.round(zoom * 100)}%</span>
-        <button
-          className="markdown-tool-button"
-          onClick={() => onZoomChange(Math.min(1.6, Number((zoom + 0.1).toFixed(1))))}
-          title={t('zoomIn', locale)}
-          aria-label={t('zoomIn', locale)}
-        >
-          <Plus size={14} />
-        </button>
-        <button
-          className="markdown-tool-button"
-          onClick={() => onZoomChange(1)}
-          title={t('zoomReset', locale)}
-          aria-label={t('zoomReset', locale)}
-        >
-          <RotateCcw size={13} />
-        </button>
-
-        {/* Copy markdown button */}
-        <button
-          className="markdown-tool-button"
-          onClick={onCopyRawMarkdown}
-          title={t('copyMarkdown', locale)}
-          aria-label={t('copyMarkdown', locale)}
-        >
-          {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-        </button>
-
-        {/* Export & Print */}
-        <button
-          className="markdown-tool-button"
-          onClick={() => (onPrint ? onPrint() : window.print())}
-          title={t('printPdfA4Tooltip', locale)}
-          aria-label={t('exportPdf', locale)}
-        >
-          <Printer size={14} />
-        </button>
-
-        {/* 在 VS Code 原生文本编辑器中并排打开 (方案 A) */}
-        {onOpenInEditor && (
-          <button
-            type="button"
-            id="btn-markdown-open-native-editor"
-            className="markdown-tool-button text-[var(--ov-accent)] hover:bg-[var(--ov-surface-hover)] border border-[var(--ov-border)]"
-            onClick={onOpenInEditor}
-            title={t('openInNativeEditorHint', locale)}
-            aria-label={t('openInNativeEditor', locale)}
-          >
-            <ExternalLink size={14} />
-          </button>
-        )}
-
-        {/* 从磁盘/编辑器重新加载预览 (Ctrl+R / Cmd+R) */}
-        {onReloadDocument && (
-          <button
-            type="button"
-            id="btn-markdown-reload-document"
-            className={`markdown-tool-button text-[var(--ov-accent)] hover:bg-[var(--ov-surface-hover)] border border-[var(--ov-border)] ${
-              isReloading ? 'animate-spin' : ''
-            }`}
-            onClick={onReloadDocument}
-            title={`${t('reloadPreview', locale)} (Ctrl+R)`}
-            aria-label={t('reloadPreview', locale)}
-          >
-            <RefreshCw size={13} className={isReloading ? 'animate-spin' : ''} />
-          </button>
-        )}
-
-        {/* Toggle OKF Concept Card */}
-        {onToggleOkf && (
-          <button
-            className={`markdown-tool-button ${enableOkf ? 'is-active text-amber-500' : ''}`}
-            onClick={onToggleOkf}
-            title={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
-            aria-label={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
-          >
-            <Sparkles size={14} />
-          </button>
-        )}
-
-        {/* 图表工具栏全局显隐总开关 (微型折叠胶囊 vs 全局常开) */}
-        {onToggleDiagramToolbars && (
-          <button
-            type="button"
-            id="btn-markdown-toggle-diagram-toolbars"
-            className={`markdown-tool-button ${
-              showDiagramToolbars ? 'is-active' : ''
-            }`}
-            onClick={onToggleDiagramToolbars}
-            title={
-              showDiagramToolbars
-                ? t('toggleDiagramToolbarsOn', locale)
-                : t('toggleDiagramToolbarsOff', locale)
-            }
-            aria-label={t('toggleDiagramToolbars', locale)}
-          >
-            <PanelTop size={14} className={showDiagramToolbars ? 'text-[var(--ov-accent)]' : ''} />
-          </button>
-        )}
-
-        {/* More Actions Dropdown */}
-        <div className="relative" ref={moreMenuRef}>
-          <button
-            className="markdown-tool-button"
-            onClick={() => {
-              setMoreMenuOpen(prev => !prev);
-              setThemeMenuOpen(false);
-              setDensityMenuOpen(false);
-              setFontSizeMenuOpen(false);
-              setLangMenuOpen(false);
-            }}
-            title={t('moreActions', locale)}
-            aria-label={t('moreActions', locale)}
-          >
-            <MoreHorizontal size={15} />
-          </button>
-          {moreMenuOpen && (
-            <div className="markdown-more-menu">
-              {onOpenSettings && (
-                <button
-                  onClick={() => {
-                    onOpenSettings();
-                    setMoreMenuOpen(false);
-                  }}
-                  title={t('settingsTooltip', locale)}
-                >
-                  <Settings size={14} className="text-cyan-400" />
-                  <span>{t('settings', locale)}</span>
-                </button>
-              )}
-              {onOpenShortcuts && (
-                <button
-                  onClick={() => {
-                    onOpenShortcuts();
-                    setMoreMenuOpen(false);
-                  }}
-                  title={locale === 'zh-CN' ? '快捷键与交互指南 (Ctrl+?)' : 'Shortcuts & Guide (Ctrl+?)'}
-                >
-                  <Keyboard size={14} className="text-blue-400" />
-                  <span>{locale === 'zh-CN' ? '快捷键指南' : 'Shortcuts Guide'}</span>
-                </button>
-              )}
-              {onTogglePresentationMode && (
-                <button
-                  onClick={() => {
-                    onTogglePresentationMode();
-                    setMoreMenuOpen(false);
-                  }}
-                >
-                  <Presentation size={14} className={presentationMode ? 'text-violet-300' : 'text-slate-400'} />
-                  <span>{presentationMode ? t('exitPresentation', locale) : t('presentationMode', locale)}</span>
-                </button>
-              )}
-              <button onClick={onCopyCurrentSection}>
-                {copiedSection ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                <span>{t('copyCurrentSection', locale)}</span>
-              </button>
-              <button onClick={onCopyRichText}>
-                {copiedRich ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                <span>{t('copyRichText', locale)}</span>
-              </button>
-              <button onClick={onExportHtml}>
-                <Download size={14} />
-                <span>{t('exportHtml', locale)}</span>
-              </button>
-              {onExportWord && (
-                <button onClick={onExportWord} disabled={isExportingWord}>
-                  {isExportingWord ? <RefreshCw size={14} className="animate-spin text-cyan-400" /> : <FileText size={14} className="text-blue-400" />}
-                  <span>{isExportingWord ? t('exportWordHint', locale) : t('exportWord', locale)}</span>
-                </button>
-              )}
-              {onToggleOkf && (
-                <button onClick={() => { onToggleOkf(); setMoreMenuOpen(false); }}>
-                  <Sparkles size={14} className={enableOkf ? 'text-amber-400' : 'text-slate-400'} />
-                  <span>{enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}</span>
-                </button>
-              )}
-              {onOpenInEditor && (
-                <button onClick={onOpenInEditor}>
-                  <ExternalLink size={14} />
-                  <span>{t('openInEditor', locale)}</span>
-                </button>
-              )}
-              <button onClick={() => window.location.reload()}>
-                <RefreshCw size={14} />
-                <span>{t('reloadPreview', locale)}</span>
-              </button>
-              <div className="markdown-more-stat">
-                {fileCharCount.toLocaleString()} {t('characters', locale)} · {fileWordCount.toLocaleString()} {t('words', locale)} · {headingsCount} {t('chapters', locale)}
+                {RENDER_THEMES.map(tItem => (
+                  <button
+                    key={tItem.id}
+                    type="button"
+                    onClick={() => {
+                      onThemeChange(tItem.id);
+                      setThemeMenuOpen(false);
+                    }}
+                    title={`${tItem.name} — ${tItem.description}`}
+                    style={{
+                      backgroundColor: tItem.id === theme ? 'var(--ov-surface-header)' : 'transparent',
+                      color: tItem.id === theme ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition hover:opacity-90"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tItem.colorDot }} />
+                    <span className="truncate flex-1">{tItem.name}</span>
+                    {tItem.id === theme && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
+                  </button>
+                ))}
               </div>
-            </div>
+            )}
+          </div>
+
+          {/* Font Size Dropdown */}
+          <div className="relative" ref={fontSizeMenuRef}>
+            <button
+              type="button"
+              className="markdown-tool-button"
+              onClick={() => {
+                setFontSizeMenuOpen(prev => !prev);
+                setThemeMenuOpen(false);
+                setDensityMenuOpen(false);
+                setMoreMenuOpen(false);
+                setLangMenuOpen(false);
+                setHoverTooltip(null);
+              }}
+              title={`${t('fontSizeTooltip', locale)}: ${fontSize}px`}
+              data-ov-tooltip={`${t('fontSizeTooltip', locale)}: ${fontSize}px`}
+              aria-label={t('fontSize', locale)}
+            >
+              <span className="font-mono text-xs font-bold">A</span>
+              <span className="text-[10px] opacity-80">{fontSize}</span>
+            </button>
+            {fontSizeMenuOpen && (
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="absolute right-0 mt-1 w-36 border rounded-lg shadow-xl py-1 z-50"
+              >
+                {[13, 14, 15, 16, 18].map(size => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => {
+                      onFontSizeChange(size);
+                      setFontSizeMenuOpen(false);
+                    }}
+                    title={`${t('fontSizeTooltip', locale)}: ${size}px`}
+                    style={{
+                      backgroundColor: fontSize === size ? 'var(--ov-surface-header)' : 'transparent',
+                      color: fontSize === size ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90 font-medium"
+                  >
+                    <span>{size} px</span>
+                    {fontSize === size && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Density dropdown */}
+          <div className="relative" ref={densityMenuRef}>
+            <button
+              type="button"
+              className="markdown-tool-button"
+              onClick={() => {
+                setDensityMenuOpen(prev => !prev);
+                setThemeMenuOpen(false);
+                setFontSizeMenuOpen(false);
+                setMoreMenuOpen(false);
+                setLangMenuOpen(false);
+                setHoverTooltip(null);
+              }}
+              title={`${t('densityTooltip', locale)} (${activeDensity.name})`}
+              data-ov-tooltip={`${t('densityTooltip', locale)} (${activeDensity.name})`}
+              aria-label={t('density', locale)}
+            >
+              <AlignJustify size={14} />
+            </button>
+            {densityMenuOpen && (
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="absolute right-0 mt-1 w-52 border rounded-lg shadow-xl py-1 z-50"
+              >
+                {DENSITY_PRESETS.map(d => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => {
+                      onDensityChange(d.id);
+                      setDensityMenuOpen(false);
+                    }}
+                    title={`${d.name} (${d.label}) — ${d.description}`}
+                    style={{
+                      backgroundColor: d.id === density ? 'var(--ov-surface-header)' : 'transparent',
+                      color: d.id === density ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                    }}
+                    className="w-full flex flex-col px-3 py-1.5 text-xs text-left transition hover:opacity-90"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{d.name}</span>
+                      <span className="text-[10px] opacity-70 font-mono">({d.label})</span>
+                    </div>
+                    <span className="text-[10px] opacity-75 line-clamp-1 mt-0.5">{d.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Content Width Toggle */}
+          <button
+            type="button"
+            className="markdown-tool-button"
+            onClick={onCycleWidth}
+            title={`${widthTitle} · ${t('widthTooltip', locale)}`}
+            data-ov-tooltip={`${widthTitle} · ${t('widthTooltip', locale)}`}
+            aria-label={t('widthTooltip', locale)}
+          >
+            <Columns size={13} className="opacity-80" />
+            <span className="font-mono text-[10px] font-semibold tracking-tight">
+              {contentWidth === 'standard'
+                ? '880'
+                : contentWidth === 'wide'
+                ? '1180'
+                : contentWidth === 'full'
+                ? 'Max'
+                : contentWidth === 'a4'
+                ? 'A4'
+                : '720'}
+            </span>
+          </button>
+        </div>
+
+        <span className="markdown-toolbar-divider" aria-hidden="true" />
+
+        {/* 分组 2：视口缩放控制 (缩小 / 百分比重置 / 放大 / 复位) */}
+        <div className="markdown-toolbar-group" role="group" aria-label={isZh ? '页面缩放' : 'Zoom Controls'}>
+          <button
+            type="button"
+            className="markdown-tool-button"
+            onClick={() => onZoomChange(Math.max(0.6, Number((zoom - 0.1).toFixed(1))))}
+            title={`${t('zoomOut', locale)} (Ctrl -)`}
+            data-ov-tooltip={`${t('zoomOut', locale)} (Ctrl -)`}
+            aria-label={t('zoomOut', locale)}
+          >
+            <Minus size={13} />
+          </button>
+          <button
+            type="button"
+            className="markdown-zoom-label cursor-pointer hover:text-[var(--ov-text)] transition"
+            onClick={() => onZoomChange(1)}
+            title={`${t('zoomReset', locale)} (${Math.round(zoom * 100)}%)`}
+            data-ov-tooltip={`${t('zoomReset', locale)} (${Math.round(zoom * 100)}%)`}
+            aria-label={t('zoomReset', locale)}
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            className="markdown-tool-button"
+            onClick={() => onZoomChange(Math.min(1.6, Number((zoom + 0.1).toFixed(1))))}
+            title={`${t('zoomIn', locale)} (Ctrl +)`}
+            data-ov-tooltip={`${t('zoomIn', locale)} (Ctrl +)`}
+            aria-label={t('zoomIn', locale)}
+          >
+            <Plus size={13} />
+          </button>
+          {Math.round(zoom * 100) !== 100 && (
+            <button
+              type="button"
+              className="markdown-tool-button"
+              onClick={() => onZoomChange(1)}
+              title={t('zoomReset', locale)}
+              data-ov-tooltip={t('zoomReset', locale)}
+              aria-label={t('zoomReset', locale)}
+            >
+              <RotateCcw size={12} />
+            </button>
           )}
         </div>
 
-        {/* Back to top */}
-        <button
-          className="markdown-tool-button"
-          onClick={onScrollToTop}
-          title={t('backToTop', locale)}
-          aria-label={t('backToTop', locale)}
-        >
-          <ArrowUp size={14} />
-        </button>
+        <span className="markdown-toolbar-divider" aria-hidden="true" />
+
+        {/* 分组 3：沉浸阅读与视图辅助 (专注模式、演示模式、自动滚屏、图表工具栏显隐) */}
+        <div className="markdown-toolbar-group" role="group" aria-label={isZh ? '沉浸阅读与辅助' : 'Reading & View Aids'}>
+          {/* Focus Mode */}
+          <button
+            type="button"
+            className={`markdown-tool-button ${focusMode ? 'is-active' : ''}`}
+            onClick={onToggleFocusMode}
+            title={t('focusModeTooltip', locale)}
+            data-ov-tooltip={t('focusModeTooltip', locale)}
+            aria-label={t('focusMode', locale)}
+          >
+            <Maximize2 size={13} />
+          </button>
+
+          {/* Presentation Mode */}
+          {onTogglePresentationMode && (
+            <button
+              type="button"
+              className={`markdown-tool-button ${presentationMode ? 'is-active' : ''}`}
+              onClick={onTogglePresentationMode}
+              title={t('presentationModeTooltip', locale)}
+              data-ov-tooltip={t('presentationModeTooltip', locale)}
+              aria-label={t('presentationMode', locale)}
+            >
+              <Presentation size={13} />
+            </button>
+          )}
+
+          {/* Auto Scroll */}
+          <button
+            type="button"
+            className={`markdown-tool-button ${autoScrollSpeed > 0 ? 'is-active' : ''}`}
+            onClick={onToggleAutoScroll}
+            title={
+              autoScrollSpeed > 0
+                ? `${t('autoScrollRunning', locale)} (${autoScrollSpeed}x)`
+                : t('autoScrollTooltip', locale)
+            }
+            data-ov-tooltip={
+              autoScrollSpeed > 0
+                ? `${t('autoScrollRunning', locale)} (${autoScrollSpeed}x)`
+                : t('autoScrollTooltip', locale)
+            }
+            aria-label={t('autoScroll', locale)}
+          >
+            {autoScrollSpeed > 0 ? (
+              <span className="flex items-center gap-0.5 font-mono text-[10px] font-bold">
+                <Pause size={12} />
+                {autoScrollSpeed}x
+              </span>
+            ) : (
+              <Play size={12} />
+            )}
+          </button>
+
+          {/* 图表工具栏全局显隐总开关 (微型折叠胶囊 vs 全局常开) */}
+          {onToggleDiagramToolbars && (
+            <button
+              type="button"
+              id="btn-markdown-toggle-diagram-toolbars"
+              className={`markdown-tool-button ${showDiagramToolbars ? 'is-active' : ''}`}
+              onClick={onToggleDiagramToolbars}
+              title={
+                showDiagramToolbars
+                  ? t('toggleDiagramToolbarsOn', locale)
+                  : t('toggleDiagramToolbarsOff', locale)
+              }
+              data-ov-tooltip={
+                showDiagramToolbars
+                  ? t('toggleDiagramToolbarsOn', locale)
+                  : t('toggleDiagramToolbarsOff', locale)
+              }
+              aria-label={t('toggleDiagramToolbars', locale)}
+            >
+              <PanelTop size={14} className={showDiagramToolbars ? 'text-[var(--ov-accent)]' : ''} />
+            </button>
+          )}
+
+          {/* Toggle OKF Concept Card */}
+          {onToggleOkf && (
+            <button
+              type="button"
+              className={`markdown-tool-button ${enableOkf ? 'is-active' : ''}`}
+              onClick={onToggleOkf}
+              title={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
+              data-ov-tooltip={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
+              aria-label={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
+            >
+              <Sparkles size={13} />
+            </button>
+          )}
+        </div>
+
+        <span className="markdown-toolbar-divider" aria-hidden="true" />
+
+        {/* 分组 4：文档动作与快捷操作 (复制、打印/PDF、原生编辑器、重载、语言、更多菜单、回到顶部) */}
+        <div className="markdown-toolbar-group" role="group" aria-label={isZh ? '文档动作与更多' : 'Document Actions'}>
+          {/* Copy markdown button */}
+          <button
+            type="button"
+            className="markdown-tool-button"
+            onClick={onCopyRawMarkdown}
+            title={copied ? t('copied', locale) : t('copyMarkdown', locale)}
+            data-ov-tooltip={copied ? t('copied', locale) : t('copyMarkdown', locale)}
+            aria-label={t('copyMarkdown', locale)}
+          >
+            {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+          </button>
+
+          {/* Export & Print */}
+          <button
+            type="button"
+            className="markdown-tool-button"
+            onClick={() => (onPrint ? onPrint() : window.print())}
+            title={t('printPdfA4Tooltip', locale)}
+            data-ov-tooltip={t('printPdfA4Tooltip', locale)}
+            aria-label={t('exportPdf', locale)}
+          >
+            <Printer size={14} />
+          </button>
+
+          {/* 在 VS Code 原生文本编辑器中并排打开 */}
+          {onOpenInEditor && (
+            <button
+              type="button"
+              id="btn-markdown-open-native-editor"
+              className="markdown-tool-button text-[var(--ov-accent)]"
+              onClick={onOpenInEditor}
+              title={t('openInNativeEditorHint', locale)}
+              data-ov-tooltip={t('openInNativeEditorHint', locale)}
+              aria-label={t('openInNativeEditor', locale)}
+            >
+              <ExternalLink size={14} />
+            </button>
+          )}
+
+          {/* 从磁盘/编辑器重新加载预览 (Ctrl+R / Cmd+R) */}
+          {onReloadDocument && (
+            <button
+              type="button"
+              id="btn-markdown-reload-document"
+              className={`markdown-tool-button ${isReloading ? 'animate-spin text-[var(--ov-accent)]' : ''}`}
+              onClick={onReloadDocument}
+              title={`${t('reloadPreview', locale)} (Ctrl+R)`}
+              data-ov-tooltip={`${t('reloadPreview', locale)} (Ctrl+R)`}
+              aria-label={t('reloadPreview', locale)}
+            >
+              <RefreshCw size={13} className={isReloading ? 'animate-spin' : ''} />
+            </button>
+          )}
+
+          {/* Language dropdown */}
+          <div className="relative" ref={langMenuRef}>
+            <button
+              type="button"
+              className="markdown-tool-button"
+              onClick={() => {
+                setLangMenuOpen(prev => !prev);
+                setThemeMenuOpen(false);
+                setDensityMenuOpen(false);
+                setFontSizeMenuOpen(false);
+                setMoreMenuOpen(false);
+                setHoverTooltip(null);
+              }}
+              title={t('languageTooltip', locale)}
+              data-ov-tooltip={t('languageTooltip', locale)}
+              aria-label={t('language', locale)}
+            >
+              <Languages size={14} />
+              <span className="text-[10px] font-mono font-bold uppercase">{locale === 'zh-CN' ? 'ZH' : 'EN'}</span>
+            </button>
+            {langMenuOpen && (
+              <div
+                style={{
+                  backgroundColor: 'var(--ov-surface)',
+                  borderColor: 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                className="absolute right-0 mt-1 w-36 border rounded-lg shadow-xl py-1 z-50"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLocaleChange('zh-CN');
+                    setLangMenuOpen(false);
+                  }}
+                  title="切换为简体中文"
+                  style={{
+                    backgroundColor: locale === 'zh-CN' ? 'var(--ov-surface-header)' : 'transparent',
+                    color: locale === 'zh-CN' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90"
+                >
+                  <span>简体中文</span>
+                  {locale === 'zh-CN' && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLocaleChange('en-US');
+                    setLangMenuOpen(false);
+                  }}
+                  title="Switch to English"
+                  style={{
+                    backgroundColor: locale === 'en-US' ? 'var(--ov-surface-header)' : 'transparent',
+                    color: locale === 'en-US' ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90"
+                >
+                  <span>English</span>
+                  {locale === 'en-US' && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* More Actions Dropdown */}
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              type="button"
+              className={`markdown-tool-button ${moreMenuOpen ? 'is-active' : ''}`}
+              onClick={() => {
+                setMoreMenuOpen(prev => !prev);
+                setThemeMenuOpen(false);
+                setDensityMenuOpen(false);
+                setFontSizeMenuOpen(false);
+                setLangMenuOpen(false);
+                setHoverTooltip(null);
+              }}
+              title={t('moreActions', locale)}
+              data-ov-tooltip={t('moreActions', locale)}
+              aria-label={t('moreActions', locale)}
+            >
+              <MoreHorizontal size={15} />
+            </button>
+            {moreMenuOpen && (
+              <div className="markdown-more-menu">
+                {onOpenSettings && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenSettings();
+                      setMoreMenuOpen(false);
+                    }}
+                    title={t('settingsTooltip', locale)}
+                  >
+                    <Settings size={14} className="text-[var(--ov-accent)]" />
+                    <span>{t('settings', locale)}</span>
+                  </button>
+                )}
+                {onOpenShortcuts && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenShortcuts();
+                      setMoreMenuOpen(false);
+                    }}
+                    title={isZh ? '快捷键与交互指南 (Ctrl+?)' : 'Shortcuts & Guide (Ctrl+?)'}
+                  >
+                    <Keyboard size={14} className="text-[var(--ov-accent)]" />
+                    <span>{isZh ? '快捷键指南' : 'Shortcuts Guide'}</span>
+                  </button>
+                )}
+                {onTogglePresentationMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onTogglePresentationMode();
+                      setMoreMenuOpen(false);
+                    }}
+                    title={t('presentationModeTooltip', locale)}
+                  >
+                    <Presentation size={14} />
+                    <span>{presentationMode ? t('exitPresentation', locale) : t('presentationMode', locale)}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onCopyCurrentSection}
+                  title={t('copyCurrentSection', locale)}
+                >
+                  {copiedSection ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  <span>{t('copyCurrentSection', locale)}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onCopyRichText}
+                  title={t('copyRichText', locale)}
+                >
+                  {copiedRich ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  <span>{t('copyRichText', locale)}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onExportHtml}
+                  title={t('exportHtml', locale)}
+                >
+                  <Download size={14} />
+                  <span>{t('exportHtml', locale)}</span>
+                </button>
+                {onExportWord && (
+                  <button
+                    type="button"
+                    onClick={onExportWord}
+                    disabled={isExportingWord}
+                    title={isExportingWord ? t('exportWordHint', locale) : t('exportWord', locale)}
+                  >
+                    {isExportingWord ? (
+                      <RefreshCw size={14} className="animate-spin text-[var(--ov-accent)]" />
+                    ) : (
+                      <FileText size={14} className="text-[var(--ov-accent)]" />
+                    )}
+                    <span>{isExportingWord ? t('exportWordHint', locale) : t('exportWord', locale)}</span>
+                  </button>
+                )}
+                {onToggleOkf && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onToggleOkf();
+                      setMoreMenuOpen(false);
+                    }}
+                    title={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
+                  >
+                    <Sparkles size={14} />
+                    <span>{enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}</span>
+                  </button>
+                )}
+                {onOpenInEditor && (
+                  <button
+                    type="button"
+                    onClick={onOpenInEditor}
+                    title={t('openInNativeEditorHint', locale)}
+                  >
+                    <ExternalLink size={14} />
+                    <span>{t('openInEditor', locale)}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => (onReloadDocument ? onReloadDocument() : window.location.reload())}
+                  title={`${t('reloadPreview', locale)} (Ctrl+R)`}
+                >
+                  <RefreshCw size={14} />
+                  <span>{t('reloadPreview', locale)}</span>
+                </button>
+                <div className="markdown-more-stat" title={isZh ? '当前文档统计信息' : 'Document statistics'}>
+                  {fileCharCount.toLocaleString()} {t('characters', locale)} · {fileWordCount.toLocaleString()} {t('words', locale)} · {headingsCount} {t('chapters', locale)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Back to top */}
+          <button
+            type="button"
+            className="markdown-tool-button"
+            onClick={onScrollToTop}
+            title={t('backToTop', locale)}
+            data-ov-tooltip={t('backToTop', locale)}
+            aria-label={t('backToTop', locale)}
+          >
+            <ArrowUp size={14} />
+          </button>
+        </div>
       </div>
+
+      {/* 即时响应悬浮文字提示气泡 (Instant Floating Tooltip) */}
+      {hoverTooltip && !isAnyMenuOpen && (
+        <div
+          className="markdown-instant-tooltip"
+          style={{
+            left: `${hoverTooltip.x}px`,
+            top: `${hoverTooltip.y}px`,
+            transform:
+              hoverTooltip.align === 'left'
+                ? 'translateX(0)'
+                : hoverTooltip.align === 'right'
+                ? 'translateX(-100%)'
+                : 'translateX(-50%)',
+          }}
+          role="tooltip"
+        >
+          {hoverTooltip.text}
+        </div>
+      )}
 
       {/* Global Reading Progress Line */}
       <div

@@ -364,6 +364,9 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
             <div className="flex items-center gap-0.5 pl-1 border-l border-[var(--ov-border)]/60">
               {[
                 { label: '直线', title: '一键还原为直线', style: 'straight' },
+                { label: '弧线', title: '一键转为C形拱形曲线', style: 'curve-arc' },
+                { label: 'S曲线', title: '一键转为S形平滑贝塞尔曲线', style: 'curve-s' },
+                { label: '平滑', title: '将折线平滑拟合为连续曲线', style: 'curve-smooth' },
                 { label: 'Z折', title: '水平直角折线', style: 'orthogonal-z' },
                 { label: 'L折', title: 'L形直角折线', style: 'orthogonal-l' },
               ].map((s) => (
@@ -371,7 +374,7 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
                   key={s.style}
                   type="button"
                   title={s.title}
-                  className="flex h-5 px-1 items-center justify-center rounded text-[10px] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)] transition-colors"
+                  className="flex h-5 px-1 items-center justify-center rounded text-[10px] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)] transition-colors whitespace-nowrap"
                   onClick={() =>
                     execute('path.convertLineStyle', {
                       id: primary.id,
