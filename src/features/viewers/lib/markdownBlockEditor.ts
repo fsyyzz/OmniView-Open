@@ -32,6 +32,46 @@ export interface BlockReplaceResult {
   lineDelta: number;
 }
 
+export interface BlockDeleteResult {
+  /** 删除并完成空行归一化后的完整文档源码 */
+  newFullContent: string;
+  /** 被删除块的原始 Markdown 内容（用于一键撤销恢复） */
+  deletedSlice: string;
+  /** 实际删除的起始行号（1-indexed） */
+  deletedStartLine: number;
+  /** 实际删除的结束行号（1-indexed） */
+  deletedEndLine: number;
+}
+
+export interface BlockDuplicateResult {
+  /** 克隆后的完整文档源码 */
+  newFullContent: string;
+  /** 新克隆块的起始行号（1-indexed） */
+  insertedStartLine: number;
+  /** 新克隆块的结束行号（1-indexed） */
+  insertedEndLine: number;
+  /** 克隆的块源码 */
+  clonedSlice: string;
+}
+
+export interface BlockInsertResult {
+  /** 插入新块后的完整文档源码 */
+  newFullContent: string;
+  /** 新插入块的起始行号（1-indexed） */
+  insertedStartLine: number;
+  /** 新插入块的结束行号（1-indexed） */
+  insertedEndLine: number;
+}
+
+export interface BlockMoveResult {
+  /** 移动后的完整文档源码 */
+  newFullContent: string;
+  /** 移动后目标块的新起始行号（1-indexed） */
+  newStartLine: number;
+  /** 移动后目标块的新结束行号（1-indexed） */
+  newEndLine: number;
+}
+
 export type BlockQuickSnippet =
   | 'bold'
   | 'italic'
@@ -132,6 +172,225 @@ export function replaceBlockRawMarkdown(
     newFullContent: updatedLines.join('\n'),
     newLineCount,
     lineDelta: newLineCount - oldLineCount,
+  };
+}
+
+/**
+ * 删除指定行区间的 AST 块源码，并执行智能空行归一化：
+ * - 自动消除因删除中间块而残留的连续双空行
+ * - 删除首块时不留顶部前导空行，删除末块时不留尾部多余空行
+ */
+export function deleteBlockRawMarkdown(
+  fullContent: string,
+  actualStartLine: number,
+  actualEndLine: number
+): BlockDeleteResult {
+  const normalizedFull = fullContent.replace(/\r\n/g, '\n');
+  const lines = normalizedFull.split('\n');
+  const totalLines = lines.length;
+
+  const safeStart = Math.max(1, Math.min(actualStartLine, totalLines));
+  const safeEnd = Math.max(safeStart, Math.min(actualEndLine, totalLines));
+
+  // 先剥离 safeEnd 内部末尾可能包含的空行以获取纯净 deletedSlice
+  let trimmedEnd = safeEnd;
+  while (trimmedEnd > safeStart && lines[trimmedEnd - 1].trim() === '') {
+    trimmedEnd -= 1;
+  }
+  const deletedSlice = lines.slice(safeStart - 1, trimmedEnd).join('\n');
+
+  const rawBefore = lines.slice(0, safeStart - 1);
+  const rawAfter = lines.slice(trimmedEnd);
+
+  // 统计并清理接合处的空行，避免留下连续多个空行或首尾孤立空行
+  let beforeEndIdx = rawBefore.length;
+  while (beforeEndIdx > 0 && rawBefore[beforeEndIdx - 1].trim() === '') {
+    beforeEndIdx -= 1;
+  }
+  const cleanBefore = rawBefore.slice(0, beforeEndIdx);
+  const hadBlankBefore = beforeEndIdx < rawBefore.length;
+
+  let afterStartIdx = 0;
+  while (afterStartIdx < rawAfter.length && rawAfter[afterStartIdx].trim() === '') {
+    afterStartIdx += 1;
+  }
+  const cleanAfter = rawAfter.slice(afterStartIdx);
+  const hadBlankAfter = afterStartIdx > 0;
+
+  let mergedLines: string[];
+  if (cleanBefore.length === 0) {
+    mergedLines = cleanAfter;
+  } else if (cleanAfter.length === 0) {
+    mergedLines = cleanBefore;
+  } else if (hadBlankBefore || hadBlankAfter) {
+    mergedLines = [...cleanBefore, '', ...cleanAfter];
+  } else {
+    mergedLines = [...cleanBefore, ...cleanAfter];
+  }
+
+  return {
+    newFullContent: mergedLines.join('\n'),
+    deletedSlice,
+    deletedStartLine: safeStart,
+    deletedEndLine: trimmedEnd,
+  };
+}
+
+/**
+ * 在当前块正下方原地克隆副本（保持标准单空行分隔）
+ */
+export function duplicateBlockRawMarkdown(
+  fullContent: string,
+  actualStartLine: number,
+  actualEndLine: number
+): BlockDuplicateResult {
+  const slice = extractBlockRawMarkdown(fullContent, actualStartLine, actualEndLine);
+  const normalizedFull = fullContent.replace(/\r\n/g, '\n');
+  const lines = normalizedFull.split('\n');
+
+  const safeStart = slice.actualStartLine;
+  const safeEnd = slice.actualEndLine;
+  const cloneLines = slice.rawSlice.split('\n');
+
+  const updatedLines = [
+    ...lines.slice(0, safeEnd),
+    '',
+    ...cloneLines,
+    ...lines.slice(safeEnd),
+  ];
+
+  const insertedStartLine = safeEnd + 2;
+  const insertedEndLine = insertedStartLine + cloneLines.length - 1;
+
+  return {
+    newFullContent: updatedLines.join('\n'),
+    insertedStartLine,
+    insertedEndLine,
+    clonedSlice: slice.rawSlice,
+  };
+}
+
+/**
+ * 在指定块的上方或下方插入新块源码，并返回新块的起止行号（便于立即进入专注编辑）
+ */
+export function insertAdjacentBlockRawMarkdown(
+  fullContent: string,
+  actualStartLine: number,
+  actualEndLine: number,
+  position: 'above' | 'below',
+  templateMarkdown = ''
+): BlockInsertResult {
+  const slice = extractBlockRawMarkdown(fullContent, actualStartLine, actualEndLine);
+  const normalizedFull = fullContent.replace(/\r\n/g, '\n');
+  const lines = normalizedFull.split('\n');
+
+  const safeStart = slice.actualStartLine;
+  const safeEnd = slice.actualEndLine;
+  const normalizedTemplate = templateMarkdown.replace(/\r\n/g, '\n').replace(/\n+$/, '');
+  const templateLines = normalizedTemplate.split('\n');
+
+  if (position === 'above') {
+    const rawBefore = lines.slice(0, safeStart - 1);
+    let beforeEndIdx = rawBefore.length;
+    while (beforeEndIdx > 0 && rawBefore[beforeEndIdx - 1].trim() === '') {
+      beforeEndIdx -= 1;
+    }
+    const cleanBefore = rawBefore.slice(0, beforeEndIdx);
+    const fromCurrent = lines.slice(safeStart - 1);
+
+    const prefixLines = cleanBefore.length > 0 ? [...cleanBefore, ''] : [];
+    const insertedStartLine = prefixLines.length + 1;
+    const insertedEndLine = insertedStartLine + templateLines.length - 1;
+
+    const updatedLines = [...prefixLines, ...templateLines, '', ...fromCurrent];
+    return {
+      newFullContent: updatedLines.join('\n'),
+      insertedStartLine,
+      insertedEndLine,
+    };
+  }
+
+  // position === 'below'
+  const upToCurrent = lines.slice(0, safeEnd);
+  const rawAfter = lines.slice(safeEnd);
+  let afterStartIdx = 0;
+  while (afterStartIdx < rawAfter.length && rawAfter[afterStartIdx].trim() === '') {
+    afterStartIdx += 1;
+  }
+  const cleanAfter = rawAfter.slice(afterStartIdx);
+
+  const insertedStartLine = safeEnd + 2;
+  const insertedEndLine = insertedStartLine + templateLines.length - 1;
+
+  const updatedLines =
+    cleanAfter.length > 0
+      ? [...upToCurrent, '', ...templateLines, '', ...cleanAfter]
+      : [...upToCurrent, '', ...templateLines];
+
+  return {
+    newFullContent: updatedLines.join('\n'),
+    insertedStartLine,
+    insertedEndLine,
+  };
+}
+
+/**
+ * 将当前块与相邻的上一个块或下一个块交换位置（保持块间空行结构稳定）
+ */
+export function moveBlockRawMarkdown(
+  fullContent: string,
+  currentBlock: { startLine: number; endLine?: number },
+  adjacentBlock: { startLine: number; endLine?: number }
+): BlockMoveResult {
+  const curSlice = extractBlockRawMarkdown(
+    fullContent,
+    currentBlock.startLine,
+    currentBlock.endLine ?? currentBlock.startLine
+  );
+  const adjSlice = extractBlockRawMarkdown(
+    fullContent,
+    adjacentBlock.startLine,
+    adjacentBlock.endLine ?? adjacentBlock.startLine
+  );
+
+  const normalizedFull = fullContent.replace(/\r\n/g, '\n');
+  const lines = normalizedFull.split('\n');
+
+  const isMovingUp = adjSlice.actualStartLine < curSlice.actualStartLine;
+  const firstSlice = isMovingUp ? adjSlice : curSlice;
+  const secondSlice = isMovingUp ? curSlice : adjSlice;
+
+  // 若两块行区间重叠或异常则原样返回
+  if (firstSlice.actualEndLine >= secondSlice.actualStartLine) {
+    return {
+      newFullContent: normalizedFull,
+      newStartLine: curSlice.actualStartLine,
+      newEndLine: curSlice.actualEndLine,
+    };
+  }
+
+  const firstLines = lines.slice(firstSlice.actualStartLine - 1, firstSlice.actualEndLine);
+  const middleLines = lines.slice(firstSlice.actualEndLine, secondSlice.actualStartLine - 1);
+  const secondLines = lines.slice(secondSlice.actualStartLine - 1, secondSlice.actualEndLine);
+  const separator = middleLines.length > 0 ? middleLines : [''];
+
+  const updatedLines = [
+    ...lines.slice(0, firstSlice.actualStartLine - 1),
+    ...secondLines,
+    ...separator,
+    ...firstLines,
+    ...lines.slice(secondSlice.actualEndLine),
+  ];
+
+  const newStartLine = isMovingUp
+    ? firstSlice.actualStartLine
+    : firstSlice.actualStartLine + secondLines.length + separator.length;
+  const newEndLine = newStartLine + curSlice.lineCount - 1;
+
+  return {
+    newFullContent: updatedLines.join('\n'),
+    newStartLine,
+    newEndLine,
   };
 }
 

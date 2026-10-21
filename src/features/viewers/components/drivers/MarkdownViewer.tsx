@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import mermaid from 'mermaid';
 import katex from 'katex';
-import { RefreshCw, Edit3 } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { CodeBlock } from './markdown/CodeBlock';
 import { MermaidBlock } from './markdown/MermaidBlock';
 import { PlantUmlBlock } from './markdown/PlantUmlBlock';
@@ -23,10 +23,21 @@ import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { WikiLinkPreviewPopover } from './markdown/WikiLinkPreviewPopover';
 import { MarkdownBubbleToolbar } from './markdown/MarkdownBubbleToolbar';
 import { MarkdownFocusedBlockEditor } from './markdown/MarkdownFocusedBlockEditor';
+import {
+  MarkdownBlockActionBar,
+  MarkdownBlockUndoToast,
+  computeBlockContentRightOffset,
+  type DeletedBlockSnapshot,
+} from './markdown/MarkdownBlockActionBar';
 import { applyMarkdownSelectionFormat, MarkdownFormatAction } from '../../lib/markdownSelectionReplacer';
 import {
   extractBlockRawMarkdown,
   replaceBlockRawMarkdown,
+  deleteBlockRawMarkdown,
+  duplicateBlockRawMarkdown,
+  insertAdjacentBlockRawMarkdown,
+  moveBlockRawMarkdown,
+  getBlockTypeLabel,
   findBlockBySourceLine,
 } from '../../lib/markdownBlockEditor';
 import { Locale, t } from '../../../../shared/lib/i18n';
@@ -131,9 +142,23 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     selectedText: '',
   });
 
-  // 方案 A：预览窗口块级原地专注编辑状态 (Single Active Block Lock + Spotlight Dimming)
+  // 方案 A：预览窗口块级原地专注编辑与块级 CRUD 状态 (Single Active Block Lock + Spotlight + Undo)
   const [focusedBlockId, setFocusedBlockId] = React.useState<string | null>(null);
   const [spotlightEnabled, setSpotlightEnabled] = React.useState<boolean>(true);
+  const [deletedBlockSnapshot, setDeletedBlockSnapshot] =
+    React.useState<DeletedBlockSnapshot | null>(null);
+  const [pendingFocusLine, setPendingFocusLine] = React.useState<number | null>(null);
+  const [blockRightOffsets, setBlockRightOffsets] = React.useState<Record<string, number>>({});
+
+  // 当插入新块并触发 AST 重新计算后，自动根据新块行号聚焦打开专注编辑器
+  useEffect(() => {
+    if (pendingFocusLine === null || !blocks.length) return;
+    const matched = findBlockBySourceLine(blocks, pendingFocusLine);
+    if (matched) {
+      setFocusedBlockId(matched.id);
+      setPendingFocusLine(null);
+    }
+  }, [blocks, pendingFocusLine]);
 
   // 监听预览区划选文本事件 (支持单行格式化回写与跨行/只读智能复制定位)
   useEffect(() => {
@@ -438,6 +463,113 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     setFocusedBlockId(null);
   };
 
+  // 删除指定块并记录一键撤销快照
+  const handleDeleteBlock = (block: RenderedBlock) => {
+    if (!onContentChange || typeof block.startLine !== 'number') return;
+    const sliceInfo = extractBlockRawMarkdown(
+      content,
+      block.startLine,
+      block.endLine,
+      block.raw
+    );
+    const { newFullContent, deletedStartLine, deletedEndLine } = deleteBlockRawMarkdown(
+      content,
+      sliceInfo.actualStartLine,
+      sliceInfo.actualEndLine
+    );
+    const blockLabel = getBlockTypeLabel(block.type, block.lang, sliceInfo.rawSlice, locale);
+    const lineRangeText =
+      deletedEndLine > deletedStartLine
+        ? `L${deletedStartLine}–L${deletedEndLine}`
+        : `L${deletedStartLine}`;
+
+    setDeletedBlockSnapshot({
+      previousFullContent: content,
+      blockLabel,
+      lineRangeText,
+      timestamp: Date.now(),
+    });
+    setFocusedBlockId(null);
+    onContentChange(newFullContent);
+  };
+
+  // 撤销最近一次块删除操作
+  const handleUndoDeleteBlock = React.useCallback(() => {
+    if (!deletedBlockSnapshot || !onContentChange) return;
+    onContentChange(deletedBlockSnapshot.previousFullContent);
+    setDeletedBlockSnapshot(null);
+  }, [deletedBlockSnapshot, onContentChange]);
+
+  const handleDismissUndoToast = React.useCallback(() => {
+    setDeletedBlockSnapshot(null);
+  }, []);
+
+  // 在当前块下方原地克隆副本
+  const handleDuplicateBlock = (block: RenderedBlock) => {
+    if (!onContentChange || typeof block.startLine !== 'number') return;
+    const sliceInfo = extractBlockRawMarkdown(
+      content,
+      block.startLine,
+      block.endLine,
+      block.raw
+    );
+    const { newFullContent } = duplicateBlockRawMarkdown(
+      content,
+      sliceInfo.actualStartLine,
+      sliceInfo.actualEndLine
+    );
+    setFocusedBlockId(null);
+    onContentChange(newFullContent);
+  };
+
+  // 在当前块上方或下方插入新块并自动打开专注编辑器
+  const handleInsertAdjacentBlock = (
+    block: RenderedBlock,
+    position: 'above' | 'below'
+  ) => {
+    if (!onContentChange || typeof block.startLine !== 'number') return;
+    const sliceInfo = extractBlockRawMarkdown(
+      content,
+      block.startLine,
+      block.endLine,
+      block.raw
+    );
+    const placeholder =
+      locale === 'zh-CN' ? '在此输入新段落内容...' : 'Type new paragraph here...';
+    const { newFullContent, insertedStartLine } = insertAdjacentBlockRawMarkdown(
+      content,
+      sliceInfo.actualStartLine,
+      sliceInfo.actualEndLine,
+      position,
+      placeholder
+    );
+    onContentChange(newFullContent);
+    setPendingFocusLine(insertedStartLine);
+  };
+
+  // 将当前块与相邻的上一个或下一个可编辑块交换位置
+  const handleMoveBlock = (
+    currentBlock: RenderedBlock,
+    adjacentBlock: RenderedBlock | null
+  ) => {
+    if (
+      !onContentChange ||
+      typeof currentBlock.startLine !== 'number' ||
+      !adjacentBlock ||
+      typeof adjacentBlock.startLine !== 'number'
+    ) {
+      return;
+    }
+    const { newFullContent } = moveBlockRawMarkdown(
+      content,
+      { startLine: currentBlock.startLine, endLine: currentBlock.endLine },
+      { startLine: adjacentBlock.startLine, endLine: adjacentBlock.endLine }
+    );
+    if (newFullContent !== content) {
+      onContentChange(newFullContent);
+    }
+  };
+
   // 根据源码行号唤起对应块的原地专注编辑（供 BubbleToolbar 与快捷键联动）
   const handleOpenFocusedEditByLine = (sourceLine?: number) => {
     if (!onContentChange) return;
@@ -448,6 +580,19 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       setFocusedBlockId(matched.id);
     }
   };
+
+  // 预先计算可编辑块列表（严格剔除空 HTML / 空白块，确保上下移动精准命中真实相邻可见块）
+  const editableBlocks = useMemo(
+    () =>
+      blocks.filter(
+        b =>
+          b.type !== 'pagebreak' &&
+          typeof b.startLine === 'number' &&
+          (b.type !== 'html' || Boolean(b.renderedHtml && b.renderedHtml.trim())) &&
+          Boolean(b.raw && b.raw.trim())
+      ),
+    [blocks]
+  );
 
   // 3. 双向滚动同步与点击交互 Hook
   useMarkdownScrollSync({
@@ -612,6 +757,10 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                 )
               }
               onCancel={() => setFocusedBlockId(null)}
+              onDelete={() => handleDeleteBlock(block)}
+              onDuplicate={() => handleDuplicateBlock(block)}
+              onInsertAbove={() => handleInsertAdjacentBlock(block, 'above')}
+              onInsertBelow={() => handleInsertAdjacentBlock(block, 'below')}
               onOpenSourceAtLine={onOpenSourceAtLine}
               locale={locale}
             />
@@ -1063,6 +1212,13 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return <React.Fragment key={block.id}>{innerNode}</React.Fragment>;
         }
 
+        const editableIdx = editableBlocks.findIndex(b => b.id === block.id);
+        const prevEditableBlock = editableIdx > 0 ? editableBlocks[editableIdx - 1] : null;
+        const nextEditableBlock =
+          editableIdx >= 0 && editableIdx < editableBlocks.length - 1
+            ? editableBlocks[editableIdx + 1]
+            : null;
+
         return (
           <div
             key={block.id}
@@ -1070,6 +1226,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             className={`ov-editable-block-wrapper group/ov-block relative transition-opacity duration-200 ${
               isDimmedBySpotlight ? 'opacity-35 hover:opacity-80' : ''
             }`}
+            onMouseEnter={e => {
+              const offset = computeBlockContentRightOffset(e.currentTarget);
+              setBlockRightOffsets(prev =>
+                prev[block.id] === offset ? prev : { ...prev, [block.id]: offset }
+              );
+            }}
             onDoubleClick={e => {
               if (e.altKey) {
                 e.preventDefault();
@@ -1080,39 +1242,39 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               }
             }}
           >
-            {/* 块右上角轻量悬浮触发胶囊 (遵循 --ov-* 主题令牌，剪贴板自动忽略) */}
-            <button
-              type="button"
-              data-clipboard-ignore="true"
-              onClick={e => {
-                e.preventDefault();
-                e.stopPropagation();
+            {/* 块右上角渐进式悬浮动作胶囊 (局部编辑 / 下方插入 / 克隆 / 上下移动 / 删除) */}
+            <MarkdownBlockActionBar
+              blockId={block.id}
+              startLine={block.startLine!}
+              endLine={block.endLine}
+              canMoveUp={Boolean(prevEditableBlock)}
+              canMoveDown={Boolean(nextEditableBlock)}
+              rightOffsetPx={blockRightOffsets[block.id] ?? 8}
+              locale={locale}
+              onEdit={() => {
                 window.getSelection()?.removeAllRanges();
                 setBubbleToolbarInfo(prev => ({ ...prev, isOpen: false }));
                 setFocusedBlockId(block.id);
               }}
-              style={{
-                backgroundColor: 'var(--ov-bg-elevated)',
-                borderColor: 'var(--ov-border)',
-                color: 'var(--ov-text-secondary)',
-                boxShadow: 'var(--ov-shadow)',
-              }}
-              className="ov-block-edit-trigger opacity-0 group-hover/ov-block:opacity-100 focus:opacity-100 pointer-events-none group-hover/ov-block:pointer-events-auto focus:pointer-events-auto absolute -top-2.5 right-2 z-20 flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-medium hover:text-[var(--ov-accent)] hover:border-[var(--ov-accent)] transition-all duration-150 cursor-pointer select-none"
-              title={
-                locale === 'zh-CN'
-                  ? `原地专注编辑此块 (L${block.startLine} · Alt+双击)`
-                  : `In-place Focused Block Edit (L${block.startLine} · Alt+DoubleClick)`
-              }
-              aria-label="Focused Block Edit"
-            >
-              <Edit3 className="w-3 h-3" />
-              <span>{locale === 'zh-CN' ? '局部编辑' : 'Edit'}</span>
-            </button>
+              onInsertBelow={() => handleInsertAdjacentBlock(block, 'below')}
+              onDuplicate={() => handleDuplicateBlock(block)}
+              onMoveUp={() => handleMoveBlock(block, prevEditableBlock)}
+              onMoveDown={() => handleMoveBlock(block, nextEditableBlock)}
+              onDelete={() => handleDeleteBlock(block)}
+            />
 
             {innerNode}
           </div>
         );
       })}
+
+      {/* 块删除后的一键撤销非阻塞通知条 */}
+      <MarkdownBlockUndoToast
+        snapshot={deletedBlockSnapshot}
+        locale={locale}
+        onUndo={handleUndoDeleteBlock}
+        onDismiss={handleDismissUndoToast}
+      />
 
       {/* 全屏灯箱模态框 */}
       {lightboxItem && (

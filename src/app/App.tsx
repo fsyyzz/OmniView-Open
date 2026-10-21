@@ -653,6 +653,7 @@ flowchart LR
                 viewMode={viewMode}
                 theme={theme}
                 density={density}
+                contentWidth={settings.contentWidth}
                 zoom={zoom}
                 onSelectTab={(id) => {
                   setActiveFileId(id);

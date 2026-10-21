@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, X } from 'lucide-react';
-import { FileItem, ViewMode, ThemeId } from '../../../shared/types';
+import { FileItem, ViewMode, ThemeId, ContentWidthMode } from '../../../shared/types';
 import { ViewerRenderer } from '../../viewers/ViewerRenderer';
 
 interface EditorWorkspaceProps {
@@ -11,6 +11,7 @@ interface EditorWorkspaceProps {
   viewMode: ViewMode;
   theme?: ThemeId;
   density?: 'compact' | 'standard' | 'comfortable';
+  contentWidth?: ContentWidthMode;
   zoom?: number;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string, event: React.MouseEvent) => void;
@@ -28,6 +29,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   viewMode,
   theme = 'dark',
   density = 'compact',
+  contentWidth = 'standard',
   zoom = 1.0,
   onSelectTab,
   onCloseTab,
@@ -36,7 +38,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   enableOkf,
   onToggleOkf,
 }) => (
-  <div className="flex-1 flex flex-col overflow-hidden" data-theme={theme} data-density={density}>
+  <div className="flex-1 flex flex-col overflow-hidden" data-theme={theme} data-density={density} data-width={contentWidth}>
     <div className="editor-tab-bar-container h-9 bg-slate-950 border-b border-slate-800 flex items-center px-1 overflow-x-auto select-none shrink-0 no-scrollbar">
       {openTabIds.map((tabId) => {
         const tabFile = files.find((file) => file.id === tabId);
@@ -82,6 +84,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           mode={viewMode}
           theme={theme}
           density={density}
+          contentWidth={contentWidth}
           zoom={zoom}
           onContentChange={onContentChange}
           onSelectFile={(f) => onSelectTab(f.id)}

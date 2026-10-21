@@ -8,7 +8,28 @@
 
 ---
 
-## [1.3.14] - 2026-10-21 (当前最新发布)
+## [1.3.15] - 2026-10-21 (当前最新发布)
+
+> [!TIP] v1.3.15 核心升级亮点
+> 全面落地 Markdown 预览窗口「块级完整生命周期 CRUD 引擎（方案 1）」：在原地段落编辑基础上，新增渐进式块级悬浮动作胶囊（下方插入新块、原地克隆副本、上下块位置交换、防误触二次确认删除）与底部非阻塞「一键撤销删除 (Undo Toast)」安全网。
+
+### ✨ Added & Improved (Markdown 块级原地 CRUD 与防误触恢复体系)
+
+- **渐进式块级悬浮动作胶囊 (`MarkdownBlockActionBar`) 与智能正文右侧贴合**:
+  - 在每个可编辑 AST 块右上角提供渐进式披露胶囊：`[ ✏️ 局部编辑 | ➕ | 📑 | ↑ | ↓ | 🗑️ ]`；
+  - 支持一键在下方插入新块并自动定位唤起原地专注编辑器（自动全选占位文本即打即写）、一键向下方克隆当前块副本、一键与上下相邻块无损交换位置；
+  - **非铺满正文右侧智能贴合 (`computeBlockContentRightOffset`)**：当段落、短标题、居中图件框 (`[!FIGURE]`)、单张图片或窄表未铺满整行时，悬浮胶囊自动测量并贴合实际内容右边缘；同时打通工作台 `contentWidth` 宽度配置与 `sticky` 底部撤销浮条的正文右对齐；
+  - **修复向下移动 (`↓`) 被 Lexer 空白 Token 阻断的问题**：在 `useMarkdownAstPipeline` 的 `renderHtmlToken` 中剔除 `marked.lexer` 产生的空 `space` 占位块，确保 `nextEditableBlock` 100% 指向真实相邻可见块；
+  - 100% 遵循 `--ov-*` 语义化设计令牌，且全量标记 `data-clipboard-ignore="true"` 杜绝划选复制污染。
+- **专注编辑器内联结构化动作与防误触双保险 (`MarkdownFocusedBlockEditor` & `MarkdownBlockUndoToast`)**:
+  - 在专注编辑器底部栏集成「删除此块」「上方插入」「下方插入」「克隆块」快捷操作；
+  - 删除块支持「行内二次确认 (`Confirm Delete`) + 底部 6 秒非阻塞一键撤销浮条 (`Undo Toast`)」双重防误触保护，零模态弹窗打断。
+- **智能空行归一化纯函数引擎 (`markdownBlockEditor.ts`)**:
+  - 新增 `deleteBlockRawMarkdown`、`duplicateBlockRawMarkdown`、`insertAdjacentBlockRawMarkdown`、`moveBlockRawMarkdown` 四大纯函数，删除首块/中间块/末块时自动消除残留双空行或首尾孤立空行，并配套 `tests/test-markdown-block-editor.mjs` 单元测试套件。
+
+---
+
+## [1.3.14] - 2026-10-21
 
 > [!TIP] v1.3.14 变更亮点
 > 深度修复 SVG 编辑引擎图元选中、编组拖拽移动、变换手柄、对齐分布与锚点操作的核心交互 Bug，彻底消除拖拽下钻冲突、60 FPS 导出卡顿与解组跳跃。

@@ -689,10 +689,12 @@ export function useMarkdownAstPipeline({
       };
 
       const renderHtmlToken = (token: any, startLine: number, endLine: number) => {
+        if (token.type === 'space') return;
         currentTokenStartLine = startLine;
         const startTime = typeof performance !== 'undefined' ? performance.now() : 0;
         const html = marked.parser([token], { renderer: customRenderer });
         const htmlWithMath = restoreMarkdownMath(html, mathSlots);
+        if (!htmlWithMath.trim()) return;
         const duration = typeof performance !== 'undefined' ? performance.now() - startTime : 0;
         const blockId = `block-html-${counter++}`;
         renderTimeBudgetRegistry.recordTime(blockId, 'html', duration, startLine, endLine);

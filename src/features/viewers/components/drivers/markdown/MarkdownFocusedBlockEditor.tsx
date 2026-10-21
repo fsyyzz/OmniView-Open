@@ -29,6 +29,9 @@ import {
   FileSpreadsheet,
   Link,
   Braces,
+  Trash2,
+  Plus,
+  CopyPlus,
 } from 'lucide-react';
 import { Locale } from '../../../../../shared/lib/i18n';
 import {
@@ -51,6 +54,10 @@ export interface MarkdownFocusedBlockEditorProps {
   onToggleSpotlight: () => void;
   onSave: (newBlockMarkdown: string) => void;
   onCancel: () => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
+  onInsertAbove?: () => void;
+  onInsertBelow?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
   locale?: Locale;
 }
@@ -66,23 +73,36 @@ export const MarkdownFocusedBlockEditor: React.FC<MarkdownFocusedBlockEditorProp
   onToggleSpotlight,
   onSave,
   onCancel,
+  onDelete,
+  onDuplicate,
+  onInsertAbove,
+  onInsertBelow,
   onOpenSourceAtLine,
   locale = 'zh-CN',
 }) => {
   const isZh = locale === 'zh-CN';
   const [draft, setDraft] = useState<string>(initialRawSlice);
   const [editorMode, setEditorMode] = useState<'edit' | 'split'>('edit');
+  const [confirmingDelete, setConfirmingDelete] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 当切换焦点块时同步初始源码并自动聚焦
   useEffect(() => {
     setDraft(initialRawSlice);
+    setConfirmingDelete(false);
     const timer = setTimeout(() => {
       const el = textareaRef.current;
       if (el) {
         el.focus();
-        // 将光标置于末尾但保持滚动平滑
-        el.setSelectionRange(el.value.length, el.value.length);
+        if (
+          initialRawSlice === '在此输入新段落内容...' ||
+          initialRawSlice === 'Type new paragraph here...'
+        ) {
+          el.setSelectionRange(0, el.value.length);
+        } else {
+          // 将光标置于末尾但保持滚动平滑
+          el.setSelectionRange(el.value.length, el.value.length);
+        }
       }
     }, 20);
     return () => clearTimeout(timer);
@@ -504,7 +524,7 @@ export const MarkdownFocusedBlockEditor: React.FC<MarkdownFocusedBlockEditorProp
         )}
       </div>
 
-      {/* 4. 底部操作栏与快捷键提示 */}
+      {/* 4. 底部结构化动作与保存操作栏 */}
       <div
         style={{
           backgroundColor: 'var(--ov-surface-header)',
@@ -512,15 +532,123 @@ export const MarkdownFocusedBlockEditor: React.FC<MarkdownFocusedBlockEditorProp
         }}
         className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 border-t text-xs"
       >
-        <div
-          style={{ color: 'var(--ov-text-muted)' }}
-          className="flex items-center gap-2 text-[11px] select-none"
-        >
-          <span>{isZh ? 'Ctrl/Cmd + Enter 保存回写' : 'Ctrl/Cmd + Enter to Save'}</span>
-          <span aria-hidden="true">·</span>
-          <span>{isZh ? 'Esc 取消退出' : 'Esc to Cancel'}</span>
-          <span aria-hidden="true">·</span>
-          <span>{isZh ? 'Tab / Shift+Tab 缩进' : 'Tab to Indent'}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {onDelete && (
+            <>
+              {!confirmingDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border-subtle)',
+                    color: 'var(--ov-danger, #ef4444)',
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-medium hover:opacity-90 transition-opacity cursor-pointer"
+                  title={isZh ? '从文档中删除当前块（支持一键撤销）' : 'Delete this block (Undo available)'}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isZh ? '删除此块' : 'Delete Block'}</span>
+                </button>
+              ) : (
+                <div
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-danger, #ef4444)',
+                  }}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px]"
+                >
+                  <span style={{ color: 'var(--ov-danger, #ef4444)' }} className="font-semibold">
+                    {isZh ? '确认删除该块？' : 'Confirm delete?'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmingDelete(false);
+                      onDelete();
+                    }}
+                    style={{
+                      backgroundColor: 'var(--ov-danger, #ef4444)',
+                      color: 'var(--ov-text-on-accent, #ffffff)',
+                    }}
+                    className="flex items-center gap-0.5 px-2 py-0.5 rounded font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                  >
+                    <Check className="w-3 h-3" />
+                    <span>{isZh ? '确认删除' : 'Delete'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    style={{ color: 'var(--ov-text-muted)' }}
+                    className="px-1.5 py-0.5 rounded hover:text-[var(--ov-text)] transition-colors cursor-pointer"
+                  >
+                    {isZh ? '取消' : 'Cancel'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {onInsertAbove && (
+            <button
+              type="button"
+              onClick={onInsertAbove}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border-subtle)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+              title={isZh ? '在当前块上方插入新块并切换编辑' : 'Insert new block above'}
+            >
+              <Plus className="w-3 h-3" />
+              <span>{isZh ? '上方插入' : 'Insert Above'}</span>
+            </button>
+          )}
+
+          {onInsertBelow && (
+            <button
+              type="button"
+              onClick={onInsertBelow}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border-subtle)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+              title={isZh ? '在当前块下方插入新块并切换编辑' : 'Insert new block below'}
+            >
+              <Plus className="w-3 h-3" />
+              <span>{isZh ? '下方插入' : 'Insert Below'}</span>
+            </button>
+          )}
+
+          {onDuplicate && (
+            <button
+              type="button"
+              onClick={onDuplicate}
+              style={{
+                backgroundColor: 'var(--ov-surface)',
+                borderColor: 'var(--ov-border-subtle)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+              title={isZh ? '在下方克隆当前块副本' : 'Duplicate this block below'}
+            >
+              <CopyPlus className="w-3 h-3" />
+              <span>{isZh ? '克隆块' : 'Duplicate'}</span>
+            </button>
+          )}
+
+          <div
+            style={{ color: 'var(--ov-text-muted)' }}
+            className="hidden lg:flex items-center gap-2 ml-1 text-[11px] select-none"
+          >
+            <span aria-hidden="true">·</span>
+            <span>{isZh ? 'Ctrl+Enter 保存' : 'Ctrl+Enter Save'}</span>
+            <span aria-hidden="true">·</span>
+            <span>{isZh ? 'Esc 退出' : 'Esc Cancel'}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -540,7 +668,13 @@ export const MarkdownFocusedBlockEditor: React.FC<MarkdownFocusedBlockEditorProp
 
           <button
             type="button"
-            onClick={() => onSave(draft)}
+            onClick={() => {
+              if (draft.trim() === '' && onDelete) {
+                onDelete();
+              } else {
+                onSave(draft);
+              }
+            }}
             style={{
               backgroundColor: 'var(--ov-accent)',
             }}
