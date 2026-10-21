@@ -37,15 +37,15 @@ radar-chart
 
 ## 二、功能全景矩阵总览 (Feature Matrix Overview)
 
-OmniView 现已包含 **18 类专属文件格式驱动 (Viewer Drivers)**、**1 个领域知识体系 (Google OKF)** 以及 **1 套工作台底座与通用平台子系统**：
+OmniView 现已包含 **23 类专属文件格式驱动 (Viewer Drivers)**、**1 个领域知识体系 (Google OKF)** 以及 **1 套工作台底座与通用平台子系统**：
 
 | 序号 | 功能模块 ID | 模块名称 | 涵盖文件格式 / 后缀 | 核心底层引擎 | 成熟度基线 |
 | :---: | :--- | :--- | :--- | :--- | :---: |
-| **01** | `markdown` | Markdown 深度排版引擎 | `.md`, `.markdown` | Marked Lexer AST + KaTeX + Prism.js | 生产就绪 (P0) |
+| **01** | `markdown` | Markdown 深度排版引擎 | `.md`, `.markdown` | Marked Lexer AST + 原地块级 CRUD + KaTeX + Prism.js | 生产就绪 (P0) |
 | **02** | `mermaid` | Mermaid 独立图表画布 | `.mmd`, `.mermaid` | Mermaid.js v11+ (安全隔离管线) | 生产就绪 (P0) |
 | **03** | `plantuml` | PlantUML 建模图工作台 | `.puml`, `.plantuml`, `.iuml` | 离线编码引擎 + 本地/远端多实例桥接 | 生产就绪 (P0) |
 | **04** | `graphviz` | Graphviz DOT 网络拓扑 | `.dot`, `.gv`, `.graphviz` | `@hpcc-js/wasm` (Web Worker + 主线程降级) | 生产就绪 (P0) |
-| **05** | `svg` | SVG 矢量微调工作室 | `.svg` | 原生 DOM 矢量控制网格 + SVGO 净化 | 生产就绪 (P0) |
+| **05** | `svg` | SVG v2 矢量编辑工作台 | `.svg` | 不可变文档模型 + 8 核心矢量工具 + 折线演化体系 | 生产就绪 (P0) |
 | **06** | `pdf` | PDF 现代多重视图阅读器 | `.pdf` | Mozilla PDF.js v4+ (Canvas 逐页加速) | 生产就绪 (P0) |
 | **07** | `csv` | CSV/TSV 动态网格与数据画像 | `.csv`, `.tsv` | RFC 4180 流式解析器 + 虚拟化行列排版 | 生产就绪 (P0) |
 | **08** | `notebook` | Jupyter Notebook 离线分析器 | `.ipynb` | 纯前端 Jupyter v4 AST 语法流式解析 | 生产就绪 (P0) |
@@ -59,8 +59,13 @@ OmniView 现已包含 **18 类专属文件格式驱动 (Viewer Drivers)**、**1 
 | **16** | `xlsx` | Excel (.xlsx/.xls) 多表工作簿 | `.xlsx`, `.xls`, `.xlsm`, `.xltx` | 纯前端 OOXML 解析 + 虚拟化表格引擎 | 生产就绪 (P0) |
 | **17** | `image` | 现代图像工作台与像素检视器 | `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`, `.ico`, `.avif` | HTML5 Canvas 2D 硬件加速流水线 | 生产就绪 (P0) |
 | **18** | `code` | 通用代码与 60+ 语言语法查看器 | 任意主流代码与纯文本后缀 | Prism.js 语法着色管道 + 剪贴板清洗 | 生产就绪 (P0) |
-| **19** | `okf` | Google OKF 知识卡片体系 | `.okf`, `.okf.md` | Open Knowledge Format 规范解析器 | 生产就绪 (P1) |
-| **20** | `platform` | 工作台底座与通用平台子系统 | 全局系统能力 | React 19 + VS Code Extension IPC + CSS Tokens | 生产就绪 (P0) |
+| **19** | `dockerfile` | Dockerfile 构建流水线与指令透视 | `Dockerfile`, `*.dockerfile` | OmniView 多阶段 DAG 构建解析引擎 | 生产就绪 (P0) |
+| **20** | `compose` | Docker Compose 微服务拓扑工作台 | `docker-compose.yml`, `*.compose.yml` | 容器微服务拓扑引力引擎 + 脱敏防护 | 生产就绪 (P0) |
+| **21** | `k8s` | Kubernetes 复合清单引力拓扑 | `k8s/*.yaml`, `*.k8s.yaml` | 4 层云原生引力拓扑引擎 + 断链体检 | 生产就绪 (P0) |
+| **22** | `html` | HTML5 网页与交互沙箱工作台 | `.html`, `.htm` | 严格受控双层 iframe 沙箱 + 设备视口仿真 | 生产就绪 (P0) |
+| **23** | `epub` | EPUB 现代电子书流式阅读器 | `.epub` | 纯前端 EPUB 解包 + 三重流式排版引擎 | 生产就绪 (P0) |
+| **24** | `okf` | Google OKF 知识卡片体系 | `.okf`, `.okf.md` | Open Knowledge Format 规范解析器 | 生产就绪 (P1) |
+| **25** | `platform` | 工作台底座与通用平台子系统 | 全局系统能力 | React 19 + VS Code Extension IPC + CSS Tokens | 生产就绪 (P0) |
 
 ---
 
@@ -154,19 +159,29 @@ OmniView 现已包含 **18 类专属文件格式驱动 (Viewer Drivers)**、**1 
 
 ---
 
-### 功能 05：SVG 矢量设计与微调工作台 (`SvgViewer`)
+### 功能 05：SVG 交互式矢量工作台与设计中心 (`SvgViewer` / `SvgStudio v2`)
 
-* **驱动定位**: 矢量图标、技术插图、架构拓扑的交互式检视、点选微调与代码导出工作台。
+* **驱动定位**: 矢量图标、技术插图、架构拓扑的交互式检视、点选微调、直觉起绘与代码导出工作台。
 * **文件支持**: `.svg`。
-* **底层引擎与技术栈**: 原生 DOM 矢量控制网格 + SVGO 净化优化管道 + React 交互式 Gizmo。
+* **底层引擎与技术栈**: SVG v2 不可变文档模型 (`Document`) + 8 核心矢量工具 + 命令管线 (`registry.ts`) + SVGO 净化优化管道 + React 交互式 Gizmo。
 * **核心能力清单**:
-  1. **图元点选与交互式微调**: 点击画布中任意图元（`<rect>`, `<circle>`, `<path>`, `<line>`, `<text>`），自动浮现 8 向尺寸调节选区控制手柄 (`SvgSelectionGizmo`)；
-  2. **贝塞尔路径节点检视**: 选中路径时自动激活控制点锚点 (`SvgPathNodeHandles`, `SvgLineHandles`)，直观查看路径控制点坐标；
-  3. **样式与几何检查器面板 (`SvgInspectorPanel`)**:
+  1. **SVG v2 现代矢量编辑引擎**:
+     * 不可变文档树结构共享，无限步 Undo/Redo 历史栈；
+     * 8 大核心矢量工具：选择 (`select`)、锚点编辑 (`node`)、贝塞尔钢笔 (`pen`)、矩形 (`rect`)、椭圆 (`ellipse`)、直线 (`line`)、箭头 (`arrow`) 与文本 (`text`)；
+     * **鼠标拖拽直觉起绘**: 告别点击生成固定尺寸的生硬体验，按下拖拽实时拉伸边框/骨架虚线预览 (`Preview`)，松开精准提交 (`Commit`)，支持 Shift 约束等比正方形/正圆/15° 步进射线角度，Alt 键中心对称起绘，原地单击防误触自动取消；
+  2. **双端点箭头与直线骨架交互**:
+     * 独立箭头工具（快捷键 `W`）拖拽即成；单选线条/箭头自动呈现虚线轴线与两端点控制圆柄（屏蔽生硬 8 向矩形框），可单独按住任意端点拖拽微调终点/起点，同时支持 Shift 锁定 15° 步进吸附与一键反向调向 (`ArrowLeftRight`)；
+  3. **直线向折线智能演化体系 (方案 3)**:
+     * **幽灵中点折叠手柄 (Ghost Midpoints)**: 直线中点半透明虚线手柄直接拖拽即可拉出新折点转化为折线，双击折点或删除折点无损恢复为直线；
+     * **常用直角走线风格一键转换 (`path.convertLineStyle`)**: 属性栏与悬浮 HUD 支持在「直线 ↔ Z形直角（水平优先） ↔ V形直角（垂直优先） ↔ L形单折角」之间一键切换；
+  4. **图层与编组管理 (`SvgV2LayersPanel`)**:
+     * 递归呈现 Layer / Group 编组树，支持 HTML5 拖拽推导重排与双击行内重命名；
+     * 独立图层与图元的显隐切换 (`visible`) 与加锁保护 (`locked`)；
+  5. **属性检视器面板 (`SvgV2Inspector` / `SvgInspectorPanel`)**:
      * 基础属性: X/Y 坐标、宽度、高度、旋转角度；
      * 样式属性: 填充色 (Fill)、描边色 (Stroke)、描边宽度 (Stroke Width)、透明度 (Opacity)、虚线样式 (Dasharray)；
-     * 对齐辅助: 智能对齐、居中分布与图层顺序置顶/置底；
-  4. **全链路导出与工程化转化**:
+     * 对齐辅助: 智能对齐、居中分布与图层顺序置顶/置底（支持选区与画布双基准）；
+  6. **全链路导出与工程化转化**:
      * 导出为极简优化的 SVGO 矢量源码（剔除冗余编辑器元数据）；
      * 一键生成 React JSX 组件代码 (`<svg {...props}>...`)；
      * 一键生成 Vue 3 模板代码；
@@ -175,10 +190,11 @@ OmniView 现已包含 **18 类专属文件格式驱动 (Viewer Drivers)**、**1 
 * **交互特性**:
   * 源码编辑器 (`SvgCodeEditor`) 与画布双向双栏实时同步；
   * 画布背景切换（网格、纯黑、纯白、透明棋盘格）；
-  * 底部状态栏实时显示光标坐标、图元总数与文件体积 (`SvgStatusBar`)。
+  * 底部状态栏实时显示光标坐标、图元总数与文件体积 (`SvgStatusBar`)；
+  * 支持 v1 原生微调与 v2 现代 Studio 双轨无缝切换。
 * **后续评估重点**:
-  * 评估复杂嵌套 `<g>` 分组与 CSS 内联样式图元的逆向解析与精准选区命中率；
-  * 评估带有复杂滤镜 (`filter`) 与剪裁蒙版 (`clip-path`) 的图元在缩放操作时的渲染帧率。
+  * 评估海量复杂嵌套 `<g>` 分组与 CSS 内联样式图元的逆向解析与精准选区命中率；
+  * 评估高频连续拖拽过程中 60 FPS 稳帧与零闪烁导出性能。
 
 ---
 
@@ -570,7 +586,7 @@ OmniView 现已包含 **18 类专属文件格式驱动 (Viewer Drivers)**、**1 
 | **02. Mermaid** | `.mmd` | ✅ 实时分屏 | ✅ 300+ DPI | ✅ 300+ DPI | ✅ 系统打印 | ✅ 错误边界 | ✅ 渲染耗时 | 重点评估高复杂度嵌套 Subgraph 与暗黑对比度 |
 | **03. PlantUML** | `.puml` | ✅ 实时分屏 | ✅ SVG | ✅ PNG | ✅ 系统打印 | ✅ 错误边界 | ✅ 异步解耦 | 重点评估私有 Server 离线模式与多图分页切换 |
 | **04. Graphviz** | `.dot` | ✅ 源码联动 | ✅ SVG | ✅ PNG | ✅ 系统打印 | ✅ Worker 隔离 | ✅ WASM 降级 | 重点评估 8 大布局引擎在大规模节点下的算力开销 |
-| **05. SVG Studio**| `.svg` | ✅ 8向手柄 | ✅ SVGO | ✅ PNG | ✅ 系统打印 | ✅ 错误边界 | — | 重点评估图元点选微调与 React JSX 组件导出 |
+| **05. SVG Studio**| `.svg` | ✅ 8工具/拖拽/折线 | ✅ SVGO/无损 | ✅ PNG | ✅ 系统打印 | ✅ 错误边界 | — | 重点评估鼠标拖拽直觉起绘、双端点箭头、幽灵中点折线化与直角走线转换 |
 | **06. PDF Viewer**| `.pdf` | ✅ 选区批注 | ✅ 笔记导出 | ✅ 视口快照 | ✅ 高保真打印 | ✅ 错误边界 | ✅ 分页流控 | 重点评估百页以上书籍的大纲解析与内存平稳度 |
 | **07. CSV Grid** | `.csv` | ✅ 列计算 | — | — | ✅ 系统打印 | ✅ 错误边界 | ✅ 虚拟化 | 重点评估百万行网格虚拟滚动与列统计画像精度 |
 | **08. Notebook** | `.ipynb`| ✅ 单元格复制| — | — | ✅ 系统打印 | ✅ 错误边界 | — | 重点评估 ANSI 错误栈高亮与 Markdown/Python 导出 |

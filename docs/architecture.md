@@ -116,8 +116,9 @@ flowchart LR
 
     Router -->|".md / .markdown"| D_MD["MarkdownViewer"]
     Router -->|".puml / .plantuml"| D_PUML["PlantUmlViewer"]
-    Router -->|".svg"| D_SVG["SvgViewer (Studio)"]
+    Router -->|".svg"| D_SVG["SvgViewer (Studio v2)"]
     Router -->|".pdf"| D_PDF["PdfViewer"]
+    Router -->|".epub"| D_EPUB["EpubViewer"]
     Router -->|".csv / .tsv"| D_CSV["CsvViewer"]
     Router -->|".mmd / .mermaid"| D_MMD["MermaidViewer"]
     Router -->|".dot / .gv"| D_GV["GraphvizViewer"]
@@ -220,17 +221,18 @@ flowchart LR
     G2 --> G3["check:doc-code-consistency<br/>(文档事实一致性)"]
     G3 --> G4["check:react-governance<br/>(Hook 依赖治理)"]
     G4 --> G5["lint<br/>(tsc --noEmit)"]
-    G5 --> G6["test<br/>(46 组全链路单测)"]
+    G5 --> G6["test<br/>(85 组全链路单测)"]
     G6 --> G7["build:plugin<br/>(Webview + Extension 构建)"]
     G7 --> Pass["✅ 合格准入"]
 ```
 
-### 8.1 46 组自动化测试套件覆盖矩阵
-- **图表与渲染 (12 组)**: Mermaid 配置/状态、PlantUML URL/代理、Graphviz WASM/布局、SVG 工具链、思维导图、Domain Storytelling、Excalidraw 白板、图表诊断、图表步进播放、图表缓存、图表安全清洗、KaTeX 公式；
-- **文档与版式 (11 组)**: Markdown 选区替换、Markdown 大纲提取、Markdown 脚注、Markdown WikiLinks、Markdown Callout、Markdown Pandoc 扩展、Markdown 打印导出、Word 富文本剪贴板、A4 打印分页、A4 排版引擎、Typst 排版编译器；
-- **现代格式与电子书 (7 组)**: EPUB 流式解析引擎、PDF 阅读与标注引擎、Word DOCX 引擎、PowerPoint PPTX 引擎、Excel XLSX 引擎、现代图像引擎、Jupyter Notebook 离线解析；
-- **数据与工作台 (8 组)**: RFC 4180 CSV 解析、CSV 数据画像分析、结构化数据多态视图、Google OKF 知识卡片、DOM 搜索高亮器、双向滚动同步、视口懒加载、历史撤销重做；
-- **工程与基础设施 (8 组)**: 驱动路由分发、原生主题自适应、配置持久化与迁移、i18n 国际化字典、打印桥接、版本自动自增、VSIX 产物内容核对、Webview 回写保存。
+### 8.1 85 组自动化测试套件全覆盖矩阵
+- **图表与矢量渲染 (18 组)**: Mermaid 配置/状态/步骤播放、PlantUML URL/代理/高分辨率、Graphviz WASM/多布局引擎、SVG v2 核心模型/命令管线/形状绘制工具/高级交互/视口滚轮平滑缩放、思维导图、Domain Storytelling 业务建模/Polyglot 导出、Excalidraw 白板、图表诊断降级、图表缓存、图表安全清洗、KaTeX 数学公式；
+- **文档与版式引擎 (16 组)**: Markdown 选区替换、Markdown 大纲提取、Markdown 脚注、Markdown WikiLinks、Markdown Callout、Markdown Pandoc 扩展、Markdown 原地块级 CRUD 与撤销浮条、Markdown 打印导出、Word 富文本剪贴板清洗、A4 打印分页、A4 工业排版引擎、Typst 排版编译器；
+- **现代格式与电子书 (14 组)**: EPUB 流式解析引擎、PDF 阅读与标注引擎、Word DOCX 引擎、PowerPoint PPTX 引擎、Excel XLSX 引擎、现代图像引擎、Jupyter Notebook 离线分析器；
+- **云原生与结构化配置 (12 组)**: Dockerfile DAG 流水线解析、Docker Compose 微服务拓扑、Kubernetes 引力拓扑分析、HTML5 网页沙箱隔离、统一结构化 AST 序列化、JSON/YAML/TOML/XML 跨格式无损互转；
+- **数据分析与工作台 (13 组)**: RFC 4180 CSV 解析、CSV 数据画像分析、结构化数据多态视图、Google OKF 知识卡片、DOM 搜索高亮器、双向滚动同步、视口懒加载、历史撤销重做；
+- **工程与基础设施 (12 组)**: 驱动路由分发、原生主题自适应、配置持久化与迁移、i18n 国际化字典、打印桥接、版本自动自增、VSIX 产物内容核对、Webview 回写保存。
 
 ---
 
@@ -239,8 +241,10 @@ flowchart LR
 | 文档路径 | 文档名称 | 核心内容定位 |
 | :--- | :--- | :--- |
 | [`docs/architecture.md`](./architecture.md) | **系统架构设计规范** (本文档) | 全局架构、分层拓扑、IPC 通信、安全矩阵与门禁全景 |
-| [`docs/design/viewer-drivers.md`](./design/viewer-drivers.md) | **Viewer 格式驱动设计规范** | 18+ 文件格式驱动能力矩阵、Props 契约与降级自愈 |
-| [`docs/design/markdown-pipeline.md`](./design/markdown-pipeline.md) | **Markdown 渲染流水线规范** | 块级虚拟化、增量 Diff、慢块预算与 Word 剪贴板清洗 |
+| [`docs/features-capabilities.md`](./features-capabilities.md) | **功能全景与能力评估手册** | 23 格式驱动能力全景、成熟度多维评估与演进手册 |
+| [`docs/design/viewer-drivers.md`](./design/viewer-drivers.md) | **Viewer 格式驱动设计规范** | 23 格式驱动能力矩阵、生命周期、Props 契约与降级自愈 |
+| [`docs/design/markdown-pipeline.md`](./design/markdown-pipeline.md) | **Markdown 渲染流水线规范** | 块级虚拟化、增量 Diff、原地 CRUD 引擎、慢块预算与 Word 剪贴板清洗 |
+| [`docs/design/svg-v2-editor.md`](./design/svg-v2-editor.md) | **SVG v2 编辑引擎设计规范** | 不可变文档模型、8 核心矢量工具、命令管线与折线演化体系 |
 | [`docs/design/persistence-storage.md`](./design/persistence-storage.md) | **持久化与存储子系统规范** | 配置 Schema v2、版本平滑迁移、安全钳位与容量分析 |
 | [`docs/README.md`](./README.md) | **技术文档导航总索引** | 文档目录索引与维护准则 |
 | [`PROJECT.md`](../PROJECT.md) | **工程现状与产品全景基准** | 项目技术栈、功能全景图与目录架构基准 |

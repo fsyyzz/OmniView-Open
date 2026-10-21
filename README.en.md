@@ -5,7 +5,7 @@
 <p align="left">
   <a href="https://marketplace.visualstudio.com"><img src="https://img.shields.io/visual-studio-marketplace/v/omniview.omniview?style=flat-square&color=blue&logo=visual-studio-code" alt="Marketplace Version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License: MIT" /></a>
-  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-80%2B%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
+  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-85%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Offline-100%25-orange?style=flat-square" alt="100% Offline" /></a>
   <a href="#"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" /></a>
   <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.7+-blue?style=flat-square&logo=typescript" alt="TypeScript" /></a>
@@ -27,11 +27,11 @@
 
 ## 💡 Why OmniView?
 
-Stop installing a dozen fragmented, heavy extensions that demand subscriptions! OmniView leverages a unified microkernel architecture to deliver **22+ formats out of the box, 100% offline security, pixel-perfect VS Code theme matching, and rock-solid 60 FPS scrolling**.
+Stop installing a dozen fragmented, heavy extensions that demand subscriptions! OmniView leverages a unified microkernel architecture to deliver **23+ formats out of the box, 100% offline security, pixel-perfect VS Code theme matching, and rock-solid 60 FPS scrolling**.
 
 | Dimension / Pain Point | Vanilla VS Code | Fragmented Standalone Extensions | **OmniView** |
 | :--- | :--- | :--- | :--- |
-| **Supported File Formats** | Plaintext & syntax coloring only | Requires 8–12 separate extensions | **22+ formats out of the box** (HTML5, Cloud-Native, TOML, Office, PDF, EPUB, Typst, Diagrams, Mindmaps, Whiteboards, Data) |
+| **Supported File Formats** | Plaintext & syntax coloring only | Requires 8–12 separate extensions | **23+ formats out of the box** (HTML5, Cloud-Native, TOML, Office, PDF, EPUB, Typst, Diagrams, Mindmaps, Whiteboards, Data) |
 | **Network & Privacy Security** | Offline | Often relies on remote servers or paywalled APIs | **100% pure client-side offline**, zero cloud telemetry, automatic secret masking |
 | **Office Trio (DOCX / PPTX / XLSX)** | Not supported | Heavy external runtimes required | **Pure in-memory OOXML decoding**, multi-sheet tabs, column profiling, and vector slide playback |
 | **Markdown Copy to Word / WPS** | Black boxes, broken images, collapsed styles | Manual image saving and re-inserting | **Proprietary dual-channel clipboard pipeline**, vector diagrams rasterized to 300+ DPI PNGs |
@@ -96,9 +96,9 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **Incremental Re-rendering & Dynamic Viewport Unmount (Zero CLS)**:
   - **FNV-1a Block-Level Memoization**: Reuse stable block object references by line range and hash during partial edits or selection formatting, preventing whole-tree recalculations;
   - **Unloadable Viewport Memory Management**: Heavy diagrams (Mermaid, Graphviz, KaTeX, wide tables) automatically unload outside viewport buffer distance to free DOM and WASM memory, backed by global height cache for **Zero CLS**;
-- **In-place Block Focused Editor (Preview & Split Window)**:
-  - Edit any paragraph, list, table, blockquote, or math block directly inside the preview window via the hover action button, `Alt + Double-Click`, or the selection bubble toolbar;
-  - Includes Source / Live Split Micro-Preview toggle, Spotlight background dimming, and blank-line preserving writeback;
+- **In-place Block Focused Editor & CRUD Engine (Preview & Split Window)**:
+  - **Progressive Block Action Capsule (`MarkdownBlockActionBar`)**: Hover over any paragraph, list, table, or diagram block to reveal actions for inserting new blocks below (with auto-focus and placeholder selection), in-place duplication, and swapping adjacent blocks up/down with smart right-edge alignment;
+  - **Inline Delete Confirmation & 6-Second Undo Toast (`MarkdownBlockUndoToast`)**: Safe non-blocking deletion protection with single-click undo and whitespace normalization;
 - **Selection Bubble Toolbar & Safe Writeback Contract**:
   - Single-line formatting for bold (`**B**`), italic, strikethrough (`~~S~~`), highlight (`==H==`), superscript/subscript, `<kbd>`, inline code (`` `C` ``), hyperlinks (`Link`), and bidirectional wiki links (`WikiLink`);
   - Multi-line block conversion into blockquotes (`>`), code fences (` ``` `), and Callout admonitions (`[!NOTE]` / `[!TIP]` / `[!WARNING]`), plus interactive image drag-resize writeback (`<img width="..." />`);
@@ -118,11 +118,14 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - Markdown shortcut templates and keyboard support (Tab / Shift+Tab indent, Enter continues hierarchy);
 - Zoom, fit-to-view, and high-res SVG export.
 
-### 4. SVG Studio
-- Split graphics/code, graphics-only, and code-only modes;
-- **Element pick & tweak**: position, size, fill, stroke, radius, opacity, and rotation;
-- **Free transform**: 8-handle resize, proportional scale, grid snap, canvas align;
-- **Layering**: bring forward / send backward (to front / to back);
+### 4. SVG Studio v2
+- **Immutable Document Model & Command Pipeline**: Full Undo/Redo history stack with structural sharing snapshots;
+- **8 Core Vector Tools**: Select (`select`), Node/Anchor edit (`node`), Pen (`pen`), Rectangle (`rect`), Ellipse (`ellipse`), Line (`line`), Arrow (`arrow`), and Text (`text`);
+- **Mouse Drag-to-Draw**: Real-time translucent preview while dragging; Shift locks 1:1 square/circle or 15° ray angles, Alt draws outward symmetrically from center, in-place accidental clicks cancel cleanly;
+- **Two-Point Arrowhead Controls**: Dedicated Arrow tool (`W`); selecting lines/arrows displays clean dashed axis and dual endpoint control handles (bypassing heavy 8-handle bounding boxes), with single-click reverse direction (`ArrowLeftRight`);
+- **Evolution from Straight Line to Polyline (Scheme 3)**:
+  - **Ghost Midpoint Drag**: Midpoint handles can be dragged directly to pull out new vertices and transform lines into polylines;
+  - **One-Click Orthogonal Routing (`path.convertLineStyle`)**: Inspector and floating HUD support toggling across Straight, Z-Orthogonal (horizontal-first), V-Orthogonal (vertical-first), and L-Orthogonal styles;
 - **Developer exports**: reverse jump to source line, SVGO cleanup, React JSX / Vue 3 / Base64 Data URI export.
 
 ### 5. EPUB Modern E-book Reader Studio
@@ -235,7 +238,7 @@ npm run verify
 npm run package:vsix
 
 # 3. Install into local VS Code (keep version in sync with package.json)
-code --install-extension omniview-1.3.2.vsix --force
+code --install-extension omniview-1.3.16.vsix --force
 ```
 
 After install, right-click a supported file in the Explorer and choose **“Open with OmniView File Renderer”**, or use **“OmniView: Open Side Preview”** from the editor toolbar.
@@ -248,6 +251,8 @@ After install, right-click a supported file in the Explorer and choose **“Open
 |---|---|
 | [`docs/README.md`](./docs/README.md) | Documentation index |
 | [`docs/architecture.md`](./docs/architecture.md) | Layering & render pipeline |
+| [`docs/features-capabilities.md`](./docs/features-capabilities.md) | 23 formats feature evaluation manual |
+| [`docs/design/svg-v2-editor.md`](./docs/design/svg-v2-editor.md) | SVG v2 vector editing engine spec |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Dev setup, gates, and PR flow |
 | [`SECURITY.md`](./SECURITY.md) | Vulnerability disclosure |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Release notes |

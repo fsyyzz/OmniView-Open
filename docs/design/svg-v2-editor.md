@@ -80,15 +80,15 @@ Selection
 
 ### 3.1 命令注册表
 
-`core/commands/registry.ts` 维护所有命令的 `(id, title, undoLabel, params[], handler)` 描述。共 **34 条** 标准命令：
+`core/commands/registry.ts` 维护所有命令的 `(id, title, undoLabel, params[], handler)` 描述。共 **38 条** 标准命令：
 
 | 命名空间 | 命令 | 用途 |
 |---|---|---|
-| `path.*` | `set`, `insertAnchor`, `deleteAnchor`, `close` | 路径几何编辑 |
-| `object.*` | `move`, `scale`, `rotate`, `transform`, `group`, `ungroup`, `reorder`, `delete`, `setName`, `setVisible`, `setLocked`, `align`, `distribute` | 图元变换 + 结构 + 显隐锁定 + 对齐分布（`align` 支持 selection/canvas 双基准；`distribute` 首尾不动等距；`reorder`/`layer.reorder` 支持 `toIndex` 供拖拽排序） |
-| `paint.*` | `setFill`, `setStroke`, `setOpacity`, `setBlend`, `setAppearance`, `setColor` | 外观 |
-| `layer.*` | `add`, `remove`, `rename`, `setVisibility`, `setLock`, `reorder`, `setColorTag` | 图层操作 |
-| `select.*` | `box`, `set`, `all`, `clear`, `same` | 选择 |
+| `path.*` | `set`, `insertAnchor`, `deleteAnchor`, `updateAnchor`, `convertLineStyle`, `reverseAnchors`, `close` | 路径几何编辑（含直角走线风格切换、顶点反向与幽灵中点折点插入） |
+| `object.*` | `createPath`, `createText`, `move`, `scale`, `rotate`, `transform`, `duplicate`, `group`, `ungroup`, `reorder`, `delete`, `setName`, `setVisible`, `setLocked`, `align`, `distribute` | 图元创建与变换 + 结构 + 显隐锁定 + 对齐分布（`align` 支持 selection/canvas 双基准；`distribute` 首尾不动等距；`reorder`/`layer.reorder` 支持 `toIndex` 供拖拽排序） |
+| `paint.*` | `setFill`, `setStroke`, `setOpacity`, `setColor` | 外观与透明度 |
+| `layer.*` | `add`, `remove`, `rename`, `setVisibility`, `setLock`, `reorder` | 图层操作 |
+| `select.*` | `box`, `set`, `all`, `clear` | 选择 |
 | `history.*` | `undo`, `redo` | 撤销栈 |
 | `tool.*` | `setActive` | 工具切换 |
 
@@ -202,16 +202,20 @@ omniview.svg.engine = 'v1' | 'v2'    # 默认 'v1'
 - `SvgViewer.tsx` 入口检查 flag，命中 v2 走 `SvgV2Studio`；否则走原 v1 路径；
 - v2 引擎 UI 右下角引擎切换器可实时切换（reload 页面生效）。
 
-## 8. 测试覆盖（113 用例 / 全过）
+## 8. 测试覆盖（10 大专项目录 / 全过）
 
-| 测试套件 | 用例数 | 覆盖 |
-|---|---|---|
-| `test-svg-v2-core-model.mjs` | 19 | Document 工厂 / 增删 / 结构共享 / Selection / 几何变换 / path d 编解码 / fuzzing |
-| `test-svg-v2-runtime-commands.mjs` | 21 | Runtime 基础 / execute / Action 序列 / undo+redo / 编组解组 / 删除 / 错误路径 / Tool dispatch / export / fuzzing |
-| `test-svg-v2-e2e.mjs` | 12 | SVG round-trip / 编辑往返 / 撤销栈 / 异步边界 / 8 样例 fuzzing / 综合工作流 / Feature Flag / Backup |
-| `test-svg-v2-wheel-zoom-fix.mjs` | 18 | 滚轮缩放防误触契约：属性面板/批量面板/状态栏/UI 控件内的 wheel 不触发画布 zoom，画布上 wheel 正常缩放 |
-| `test-svg-v2-layers-batch.mjs` | 27 | 几何纯函数（transformRect/nodeBBox/alignDelta/distributeOffsets）/ object.align 双基准 / object.distribute / setVisible/setLocked / 图层树 flatten+折叠 / 拖拽推导 planReorderDrop（层间+同层+跨层拒绝）/ toIndex 端到端 / 编组子节点去重 |
-| `test-svg-v2-p0-fixes.mjs` | 16 | P0 回归：usvgTreeToDocument 结构（text/image/use/渐变/visibility/transform）/ 导出三类型 + defs 回插 / exportSync 决策真值矩阵 / clientToCanvasPoint letterbox / select 手势历史（拖拽 1 条、点击 0 条、框选 0 条、删除 1 条）/ Escape 取消 / overlay / Image bbox 命中 |
+| 测试套件 | 覆盖核心能力 |
+|---|---|
+| `test-svg-v2-core-model.mjs` | Document 工厂 / 增删 / 结构共享 / Selection / 几何变换 / path d 编解码 / fuzzing |
+| `test-svg-v2-runtime-commands.mjs` | Runtime 基础 / execute / Action 序列 / undo+redo / 编组解组 / 删除 / 错误路径 / Tool dispatch / export / fuzzing |
+| `test-svg-v2-e2e.mjs` | SVG round-trip / 编辑往返 / 撤销栈 / 异步边界 / 8 样例 fuzzing / 综合工作流 / Feature Flag / Backup |
+| `test-svg-v2-wheel-zoom-fix.mjs` | 滚轮缩放防误触契约：属性面板/批量面板/状态栏/UI 控件内的 wheel 不触发画布 zoom，画布上 wheel 正常缩放 |
+| `test-svg-v2-layers-batch.mjs` | 几何纯函数（transformRect/nodeBBox/alignDelta/distributeOffsets）/ object.align 双基准 / object.distribute / setVisible/setLocked / 图层树 flatten+折叠 / 拖拽推导 planReorderDrop / toIndex 端到端 / 编组子节点去重 |
+| `test-svg-v2-p0-fixes.mjs` | P0 回归：usvgTreeToDocument 结构（text/image/use/渐变/visibility/transform）/ 导出三类型 + defs 回插 / exportSync 决策真值矩阵 / clientToCanvasPoint letterbox / select 手势历史 / Escape 取消 / overlay / Image bbox 命中 |
+| `test-svg-v2-tools-shapes.mjs` | 矩形/椭圆/直线/箭头拖拽直觉起绘 / 约束比例 Shift 与中心 Alt / 双端点线条与箭头控制圆柄 / 幽灵中点拖拽即折 / 一键直角走线风格切换 (`path.convertLineStyle`) / 顶点反向 |
+| `test-svg-v2-advanced-interactions.mjs` | 无头交互测试：多工具状态机切换 / 选区生命周期 / 批量移动协同 / 极端拖拽边界防御 |
+| `test-svg-v2-transform-align.mjs` | 绝对世界变换矩阵 / 多层嵌套编组对齐分布 / 选区与画布双基准校准 |
+| `test-svg-v2-viewport.mjs` | 视口平移缩放变换 / 光标锚点对齐 (Focal Zoom) / 边界限制 |
 
 另：`test-svg-utils.mjs` 第 22 组覆盖 v1 A/S/T 路径保真（解析-序列化 round-trip、弧段插入禁用、混合路径段数守恒）。
 
@@ -219,22 +223,22 @@ omniview.svg.engine = 'v1' | 'v2'    # 默认 'v1'
 
 ### 9.1 P1 当前未覆盖
 
-- 文本 `<text>` 内容编辑（P0 起可渲染/选中/移动/删除，不可改字）
+- 文本 `<text>` 内容编辑（P0 起可渲染/选中/移动/删除，富文本编辑为后续规划）
 - 图片 `<image>` 内容替换（P0 起可渲染/选中/移动/删除）
 - Symbol / Use 编辑（P0 起可渲染/选中/移动/删除）
 - Pattern / Mask / ClipPath 烘焙（`<defs>` 原始片段经 DOMPurify 原样透传，浏览器渲染层处理）
 - 滤镜（filter）编辑（只读）
 - 图元跨层拖拽（`planReorderDrop` 跨层返回 null，仅支持层间拖拽与同层内图元拖拽）
-- 分布仅支持选区基准（首尾不动等距；画布基准分布为 P2）
-- v2 画布视口缩放/平移（P0 固定 fit 视图；P2 引入）
+- 分布仅支持选区基准（首尾不动等距；画布基准分布为后续规划）
 
-### 9.2 后续 P2/P3 路线
+### 9.2 路线规划与落地现状
 
-| 阶段 | 内容 |
-|---|---|
-| P2 | 钢笔 / 直接选区（节点+手柄拖拽）；形状工具（矩形/椭圆/多边形/星形/线段/弧/螺旋/网格）；渐变面板；外观面板 |
-| P3 | 路径查找器（布尔运算）；画笔；宽度工具；实时效果 |
-| 远期 | MCP 命令表面；多格式导入导出（PDF/AI/EPS） |
+| 阶段 | 内容 | 落地状态 |
+|---|---|---|
+| **v1.3.16** | 鼠标拖拽直觉起绘（矩形/椭圆/直线/箭头）；双端点箭头控制；直线向折线演化（幽灵中点折叠手柄 + 一键直角走线切换） | ✅ **已交付** |
+| **P2** | 多边形/星形/弧/螺旋/网格；渐变面板；外观面板 | 规划中 |
+| **P3** | 路径查找器（布尔运算）；画笔；宽度工具；实时效果 | 规划中 |
+| **远期** | MCP 命令表面；多格式导入导出（PDF/AI/EPS） | 规划中 |
 
 ## 10. 验收清单（ADR §7 对齐）
 
@@ -243,9 +247,9 @@ omniview.svg.engine = 'v1' | 'v2'    # 默认 'v1'
 - [x] `npm run check:doc-code-consistency` 通过
 - [x] `npm run check:react-governance` 通过
 - [x] `npm run lint` (`tsc --noEmit`) 0 错误
-- [x] `npm run test` 全过（113 个 SVG v2 测试 + 全量既有套件）
+- [x] `npm run test` 全过（10 大 SVG v2 专项测试套件 + 全量 85 套件通过）
 - [x] `npm run build:plugin` 0 错误
-- [x] `npm run verify` 综合门禁：**482 ✅ / 0 ❌**
+- [x] `npm run verify` 综合门禁全绿
 - [x] Round-trip：编辑 → export → import 关键图元保持一致
 - [x] 撤销 100 步 + 重做 100 步结构共享保持稳定
 - [x] Feature Flag 默认 v1，可切到 v2 实验引擎

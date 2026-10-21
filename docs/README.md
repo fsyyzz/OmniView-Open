@@ -14,12 +14,14 @@
 | 文档 | 说明 |
 | --- | --- |
 | [architecture.md](./architecture.md) | **系统架构设计规范**：系统分层、物理拓扑、IPC 协议、驱动路由、安全矩阵与门禁全景 |
-| [design/viewer-drivers.md](./design/viewer-drivers.md) | **Viewer 格式驱动设计规范**：21+ 格式驱动能力矩阵、生命周期、Props 契约与容错自愈 |
-| [design/markdown-pipeline.md](./design/markdown-pipeline.md) | **Markdown 渲染流水线规范**：块级虚拟化、增量 Diff、慢块预算与 Word 剪贴板清洗 |
-| [design/svg-v2-editor.md](./design/svg-v2-editor.md) | **SVG v2 编辑引擎规范**：不可变 Document + 命令管线 + Tool 状态机 + React Hook + Feature Flag（ADR-0001 已交付） |
+| [features-capabilities.md](./features-capabilities.md) | **功能全景与能力评估手册**：23 格式驱动能力成熟度、多维打分模型与演进规划 |
+| [design/viewer-drivers.md](./design/viewer-drivers.md) | **Viewer 格式驱动设计规范**：23 格式驱动能力矩阵、生命周期、Props 契约与容错自愈 |
+| [design/markdown-pipeline.md](./design/markdown-pipeline.md) | **Markdown 渲染流水线规范**：块级虚拟化、增量 Diff、原地 CRUD 引擎、慢块预算与 Word 剪贴板清洗 |
+| [design/svg-v2-editor.md](./design/svg-v2-editor.md) | **SVG v2 编辑引擎规范**：不可变 Document + 8 核心矢量工具 + 命令管线 + Tool 状态机 + 鼠标拖拽绘制与折线演化体系 |
+| [design/cloud-native-viewers-plan.md](./design/cloud-native-viewers-plan.md) | **云原生与结构化格式驱动演化方案**：Dockerfile、Compose、K8s 引力拓扑与 HTML 沙箱设计 |
 | [design/persistence-storage.md](./design/persistence-storage.md) | **持久化与存储子系统规范**：配置 Schema v2、跨版本迁移、安全钳位与容量度量 |
 | [marketing/github-launch-guide.md](./marketing/github-launch-guide.md) | **GitHub 曝光与开源推广实战指南**：多渠道宣发文案（阮一峰周刊/HelloGitHub/V2EX）、SEO 标签与运营清单 |
-| [adr/0001-svg-edit-engine-v2-document-model.md](./adr/0001-svg-edit-engine-v2-document-model.md) | **ADR-0001**：SVG 编辑引擎 v2 — 引入文档模型与命令管线（L3 严苛通道 Proposed） |
+| [adr/0001-svg-edit-engine-v2-document-model.md](./adr/0001-svg-edit-engine-v2-document-model.md) | **ADR-0001**：SVG 编辑引擎 v2 — 引入文档模型与命令管线（已交付落地） |
 
 ## 后续规划扩展
 

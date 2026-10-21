@@ -5,7 +5,7 @@
 <p align="left">
   <a href="https://marketplace.visualstudio.com"><img src="https://img.shields.io/visual-studio-marketplace/v/omniview.omniview?style=flat-square&color=blue&logo=visual-studio-code" alt="Marketplace Version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License: MIT" /></a>
-  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-80%2B%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
+  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-85%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Offline-100%25-orange?style=flat-square" alt="100% Offline" /></a>
   <a href="#"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" /></a>
   <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.7+-blue?style=flat-square&logo=typescript" alt="TypeScript" /></a>
@@ -27,11 +27,11 @@
 
 ## 💡 为什么选择 OmniView？(Why OmniView?)
 
-告别在 VS Code 里安装十几个碎片、臃肿且常弹收费提示的单一插件！OmniView 采用统一微内核设计，实现 **22+ 核心格式统一步调、100% 纯前端离线、像素级宿主主题吸附与 60 FPS 丝滑稳帧**。
+告别在 VS Code 里安装十几个碎片、臃肿且常弹收费提示的单一插件！OmniView 采用统一微内核设计，实现 **23+ 核心格式统一步调、100% 纯前端离线、像素级宿主主题吸附与 60 FPS 丝滑稳帧**。
 
 | 评估维度 / 场景痛点 | 原生 VS Code | 传统独立插件组合 | **OmniView** |
 | :--- | :--- | :--- | :--- |
-| **支持文件格式** | 仅纯文本/代码着色 | 需碎片化安装 8~12 个扩展 | **21+ 格式开箱即用** (Cloud-Native/TOML/Office/PDF/EPUB/Typst/图表/导图/白板/数据) |
+| **支持文件格式** | 仅纯文本/代码着色 | 需碎片化安装 8~12 个扩展 | **23+ 格式开箱即用** (Cloud-Native/HTML5/TOML/Office/PDF/EPUB/Typst/图表/导图/白板/数据) |
 | **网络与隐私安全** | 离线 | 多数依赖外部云端或收费 API | **100% 纯前端离线**，零云端调用，企业密钥自动脱敏 |
 | **Office 三件套 (DOCX/PPTX/XLSX)** | 不支持 | 需安装复杂庞大的外部运行时 | **纯端侧 OOXML 解包**，支持 XLSX 标签页与画像、PPTX 矢量放映 |
 | **Markdown 复制到 Word / WPS** | 边框全黑、图片变红叉、排版崩塌 | 需逐张手动导出图片或截图插入 | **独家同步剪贴板双通道清洗**，矢量图自动光栅化为 300+ DPI 极清图 |
@@ -96,9 +96,9 @@
 - **增量重渲染与视口动态卸载 (Zero CLS & Lazy Viewport)**:
   - **基于 FNV-1a 内容指纹与行号范围复用**: 在局部文本编辑或划词修饰时精准识别脏块并复用未变块对象引用，阻断整篇子树无谓重算；
   - **可卸载型视口内存管理**: 重型图表（Mermaid、Graphviz、KaTeX、宽表）移出视口缓冲时自动卸载释放 DOM 与 WASM 资源，配合全局高度记忆池确保滚动回访 **零布局抖动 (Zero CLS)**；
-- **预览窗口块级原地专注编辑 (In-place Block Focused Editor)**:
-  - 无需跳转全屏源码，支持在预览/分屏视图下通过块右上角悬浮按钮、`Alt + 双击` 或划词工具栏一键将单个段落、列表、表格或公式块原地展开为专注编辑卡片；
-  - 内置「纯源码 / 左右实时微预览」双态切换、聚光灯背景降噪 (Spotlight Mode) 与块间空行守恒无损回写；
+- **预览窗口块级原地专注编辑与 CRUD 引擎 (In-place Block CRUD Engine)**:
+  - **渐进式块级悬浮动作胶囊 (`MarkdownBlockActionBar`)**: 在每个可编辑段落/表格/图表块右上角提供快速操作胶囊，支持一键在下方插入新块、原地克隆副本、上下相邻块位置互换，智能贴合正文右侧边界；
+  - **专注编辑与防误触撤销双保险**: 内置「纯源码 / 左右实时微预览」双态专注编辑卡片 (`MarkdownFocusedBlockEditor`)，删除块支持行内二次确认与底部 6 秒非阻塞一键撤销浮条 (`MarkdownBlockUndoToast`)，空行智能守恒归一化；
 - **划选悬浮格式化与安全回写契约 (Selection-to-Source Replacer)**:
   - 单行选区精准支持加粗 (`**B**`)、斜体、删除线 (`~~S~~`)、高亮 (`==H==`)、上下标、键盘徽标 (`<kbd>`)、行内代码 (`` `C` ``)、超链接 (`Link`) 与双向链接 (`WikiLink`)；
   - 跨行选区智能切换为块级模式，支持一键转为多行引用块 (`>`)、代码围栏 (` ``` `) 与 Callout 警示框 (`[!NOTE]` / `[!TIP]` / `[!WARNING]`)；
@@ -119,11 +119,14 @@
 - 内置 Markdown 语法快捷模板、快捷键支持（Tab / Shift+Tab 缩进控制、Enter 自动续行续级）；
 - 缩放、居中自适应定位与高清 SVG 矢量导出。
 
-### 4. SVG 交互式矢量工作台 (SVG Studio)
-- 支持图形/代码双栏分屏、纯图形视口与纯代码三种模式；
-- **可视化图元点选与微调**: 支持图元点选，实时调节坐标、尺寸、填充色彩、描边、圆角、透明度与旋转变换；
-- **自由几何变换**: 8 向控制手柄自由拖拽调整尺寸与等比缩放、网格智能吸附与画布快速对齐；
-- **图层管理**: 图元层级快速提升/下移（置顶/置底）；
+### 4. SVG 交互式矢量工作台 (SVG Studio v2)
+- **全新 v2 不可变文档模型与命令管线**: 支持无限 Undo/Redo 历史撤销重做栈与结构共享快照；
+- **8 种核心矢量工具**: 选择 (`select`)、锚点编辑 (`node`)、贝塞尔钢笔 (`pen`)、矩形 (`rect`)、椭圆 (`ellipse`)、直线 (`line`)、箭头 (`arrow`) 与文本 (`text`)；
+- **鼠标拖拽直觉起绘**: 告别点击即生成固定尺寸的生硬交互，鼠标拖拽动态拉伸出实时半透明虚线预览；支持 Shift 约束等比正方形/正圆/15° 步进射线角度，Alt 键中心起绘，原地误触单击自动取消；
+- **双端点箭头与独立微调**: 独立箭头工具（快捷键 `W`）拖拽即成；单选线条/箭头自动呈现虚线轴线与两端点控制圆柄（屏蔽生硬 8 向矩形框），可单独拖拽端点微调并支持一键反向调向 (`ArrowLeftRight`)；
+- **直线向折线智能演化 (方案 3)**:
+  - **幽灵中点折叠手柄 (Ghost Midpoints)**: 直线中点半透明虚线手柄直接拖拽即可拉出新折点转化为折线，双击折点或删除折点无损恢复为直线；
+  - **常用直角走线风格一键转换 (`path.convertLineStyle`)**: 属性栏与悬浮 HUD 支持在「直线 ↔ Z形直角 ↔ V形直角 ↔ L形单折角」之间一键切换；
 - **开发者导出套件**: 支持图元行号反向代码定位、SVGO 深度净化去冗余、一键生成 React JSX 组件、Vue 3 组件或 Base64 Data URI。
 
 ### 5. EPUB 现代电子书流式阅读器 (EPUB Reader Studio)
@@ -273,7 +276,7 @@ npm run verify
 npm run package:vsix
 
 # 3. 安装插件至本地 VS Code 编辑器（版本号与 package.json 保持一致）
-code --install-extension omniview-1.3.2.vsix --force
+code --install-extension omniview-1.3.16.vsix --force
 ```
 
 安装完成后，在 VS Code 资源管理器中右键任意支持的文件，选择 **“使用 OmniView 文件渲染器打开”**，或在编辑器右上角点击 **“OmniView: 在侧边打开预览”**。
@@ -286,6 +289,8 @@ code --install-extension omniview-1.3.2.vsix --force
 |---|---|
 | [`docs/README.md`](./docs/README.md) | 文档总索引 |
 | [`docs/architecture.md`](./docs/architecture.md) | 系统分层与渲染管道 |
+| [`docs/features-capabilities.md`](./docs/features-capabilities.md) | 23 格式驱动能力全景与评估手册 |
+| [`docs/design/svg-v2-editor.md`](./docs/design/svg-v2-editor.md) | SVG v2 矢量编辑引擎设计规范 |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | 开发环境、门禁与 PR 约定 |
 | [`SECURITY.md`](./SECURITY.md) | 安全漏洞披露流程 |
 | [`CHANGELOG.md`](./CHANGELOG.md) | 版本变更记录 |

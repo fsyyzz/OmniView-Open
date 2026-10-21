@@ -16,7 +16,7 @@ OmniView 采用轻量化、按需加载的微内核驱动架构。整个系统�
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **01** | `MarkdownViewer` | `.md`, `.markdown` | Marked Lexer AST + KaTeX + Prism.js | 块级虚拟化、慢块预算、双向行号锚定、大纲 Heading Spy | Word/WPS 原生双列表格复制、A4 出版打印 |
 | **02** | `PlantUmlViewer` | `.puml`, `.plantuml`, `.iuml` | PlantUML Server API / 本地离线引擎 | 双栏实时编辑/预览、暗黑/明亮高对比度模式 | 300+ DPI SVG / PNG 导出、复制图像 |
-| **03** | `SvgViewer` | `.svg` | 原生 DOM 矢量引擎 + SVGO 管道 | SVG Studio 交互式工作台、图元点选微调、智能对齐 | SVGO 压缩、React JSX / Vue 3 组件导出 |
+| **03** | `SvgViewer` | `.svg` | SVG v2 不可变文档模型 + 8 核心矢量工具 + SVGO | SVG Studio v2 矢量工作台、鼠标拖拽直觉起绘、双端点箭头、幽灵中点折线演化、直角走线转换 | SVGO 压缩、React JSX / Vue 3 组件导出、无损 SVG |
 | **04** | `PdfViewer` | `.pdf` | Mozilla PDF.js v4+ (Canvas 渲染) | 多页连续流式/单页/双页并排、全文检索高亮、选区批注抽屉 | Markdown 读书笔记导出、系统原生高保真打印 |
 | **05** | `CsvViewer` | `.csv`, `.tsv` | RFC 4180 流式解析器 + 虚拟化表格 | 列宽自由拖拽、多列联合排序、字段统计画像 (Profiling) | CSV/TSV/JSON/Markdown 多格式互转导出 |
 | **06** | `MermaidViewer` | `.mmd`, `.mermaid` | Mermaid.js v11+ (安全隔离渲染) | 流程图、时序图、甘特图、类图、状态机、Git 拓扑交互视口 | 300+ DPI PNG/SVG 导出、全屏沉浸检视 |
@@ -36,6 +36,7 @@ OmniView 采用轻量化、按需加载的微内核驱动架构。整个系统�
 | **20** | `ComposeViewer` | `docker-compose.yml`, `*.compose.yml` | OmniView Compose Topology Engine + Mermaid | 微服务依赖拓扑图、网络隔离与卷挂载图谱、敏感变量打码脱敏 | 拓扑图导出、端口冲突体检 |
 | **21** | `K8sViewer` | `k8s/*.yaml`, `*.k8s.yaml` | OmniView K8s Gravity Engine | 多文档 YAML 自动切分、4 层云原生引力拓扑、Selector 自动连线 | 探针/断链体检诊断、资源概览 |
 | **22** | `HtmlViewer` | `.html`, `.htm` | OmniView Native Web Sandbox Engine | 严格受控双层 iframe 沙箱、响应式设备仿真 (Desktop/Tablet/Mobile) | 纯本地实时分屏热重载、原生打印 |
+| **23** | `EpubViewer` | `.epub` | 纯前端 EPUB 解包 + 流式排版引擎 | 双叶并排/单页流式/连续滚动三视图、3D 拟真翻书动效、阅读进度持久化 | 护眼主题切换、排版偏好记忆 |
 
 ---
 
@@ -126,10 +127,21 @@ flowchart TD
 
 ---
 
-## 5. SVG 矢量检视工作台与代码行双向反向映射 (SVG Interactive Studio)
+## 5. SVG 交互式矢量工作台与双核渲染架构 (SVG Interactive Studio)
 
-SVG Viewer 具备可视化画布与源码双向联动的矢量检视能力：
-1. **代码行 Hover 图元反向映射**：当用户在代码编辑器行号或标签悬浮时，解析模块通过 `getLineToElementIndex` 快速推导对应的 DOM 图元索引，并在画布上渲染脉冲高亮框；
-2. **画布选区与属性反写**：点击画布图元激活属性检视抽屉，支持位置、颜色、描边、变换矩阵等属性的原生微调与源码同步；
-3. **路径节点交互编辑**：支持贝塞尔曲线控制点操作、节点吸附与增删，保持 60 FPS 稳定交互。
+SVG Viewer 具备可视化画布、源码双向联动与现代矢量 Studio 双轨架构：
+
+1. **v1 轻量检视与代码行反向映射**:
+   - 当用户在代码编辑器行号或标签悬浮时，解析模块通过 `getLineToElementIndex` 快速推导对应的 DOM 图元索引，并在画布上渲染脉冲高亮框；
+   - 点击画布图元激活属性检视抽屉，支持位置、颜色、描边、变换矩阵等属性的原生微调与源码同步。
+2. **v2 现代矢量编辑引擎 (`SvgV2Studio`)**:
+   - **不可变文档模型 (`Document`) 与结构共享**: 38 条标准命令管线，无限步 Undo/Redo 历史栈；
+   - **8 大核心矢量工具**: 选择 (`select`)、锚点编辑 (`node`)、贝塞尔钢笔 (`pen`)、矩形 (`rect`)、椭圆 (`ellipse`)、直线 (`line`)、箭头 (`arrow`) 与文本 (`text`)；
+   - **鼠标拖拽直觉起绘**: 拖拽实时渲染边框/骨架虚线预览 (`Preview`)，松开提交 (`Commit`)，支持 Shift 约束等比正方形/正圆/15° 步进射线角度，Alt 键中心对称起绘，原地误触单击自动取消；
+   - **双端点箭头与骨架控制**: 独立箭头工具（快捷键 `W`）；选中线条/箭头自动呈现虚线轴线与两端点控制圆柄（屏蔽生硬 8 向矩形框），可单独拖拽端点微调并支持一键反向调向 (`ArrowLeftRight`)；
+   - **直线向折线智能演化 (方案 3)**:
+     - **幽灵中点折叠手柄 (Ghost Midpoints)**: 直线中点半透明虚线手柄直接拖拽即可拉出新折点转化为折线，双击折点或删除折点无损恢复为直线；
+     - **常用直角走线风格一键转换 (`path.convertLineStyle`)**: 属性栏与悬浮 HUD 支持在「直线 ↔ Z形直角 ↔ V形直角 ↔ L形单折角」之间一键切换；
+   - **全链路无损导出**: 支持 SVGO 极简优化、React JSX、Vue 3 模板与 Base64 Data URI 一键导出。
+
 
