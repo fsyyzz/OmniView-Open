@@ -66,21 +66,26 @@ export const DOMPURIFY_DIAGRAM_SVG_CONFIG: Record<string, any> = {
 function fallbackSanitize(html: string): string {
   if (!html) return '';
   return html
-    // 移除危险脚本与可执行容器标签
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
-    .replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, '')
-    .replace(/<meta\b[^>]*>/gi, '')
-    .replace(/<link\b[^>]*>/gi, '')
-    .replace(/<base\b[^>]*>/gi, '')
-    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '')
-    // 移除各类 on* 内联事件属性 (如 onload, onerror, onclick, onmouseover 等)
-    .replace(/\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
-    // 阻断 javascript: 伪协议与 data:text/html 注入
-    .replace(/href\s*=\s*["'](?:javascript:|data:text\/html)[^"']*["']/gi, 'href="#"')
-    .replace(/xlink:href\s*=\s*["'](?:javascript:|data:text\/html)[^"']*["']/gi, 'xlink:href="#"');
+    // 移除危险脚本与可执行容器标签（全面覆盖成对闭合、自闭合及未闭合边界）
+    .replace(/<script\b[^>]*>[\s\S]*?(?:<\/script>|$)/gi, '')
+    .replace(/<script\b[^>]*\/?>/gi, '')
+    .replace(/<iframe\b[^>]*>[\s\S]*?(?:<\/iframe>|$)/gi, '')
+    .replace(/<iframe\b[^>]*\/?>/gi, '')
+    .replace(/<object\b[^>]*>[\s\S]*?(?:<\/object>|$)/gi, '')
+    .replace(/<object\b[^>]*\/?>/gi, '')
+    .replace(/<embed\b[^>]*>[\s\S]*?(?:<\/embed>|$)/gi, '')
+    .replace(/<embed\b[^>]*\/?>/gi, '')
+    .replace(/<applet\b[^>]*>[\s\S]*?(?:<\/applet>|$)/gi, '')
+    .replace(/<applet\b[^>]*\/?>/gi, '')
+    .replace(/<meta\b[^>]*\/?>/gi, '')
+    .replace(/<link\b[^>]*\/?>/gi, '')
+    .replace(/<base\b[^>]*\/?>/gi, '')
+    .replace(/<form\b[^>]*>[\s\S]*?(?:<\/form>|$)/gi, '')
+    .replace(/<form\b[^>]*\/?>/gi, '')
+    // 移除各类 on* 内联事件属性 (覆盖空白、斜杠或控制字符分隔，如 <img/onerror=...>)
+    .replace(/[\s/]+on[a-z0-9_-]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, ' ')
+    // 阻断 javascript: / vbscript: 伪协议与 data:text/html 注入 (支持大小写与内部空白规避)
+    .replace(/(href|xlink:href)\s*=\s*(?:'[^']*(?:javascript|vbscript|data\s*:\s*text\/html)[^']*'|"[^"]*(?:javascript|vbscript|data\s*:\s*text\/html)[^"]*"|[^\s>]*(?:javascript|vbscript)[^\s>]*)/gi, '$1="#"');
 }
 
 /**

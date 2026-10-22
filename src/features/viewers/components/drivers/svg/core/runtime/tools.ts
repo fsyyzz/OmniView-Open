@@ -400,7 +400,8 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
     pendingDrilldownTarget = null;
     lastHoverPoint = event.point;
 
-    if (ctx.selection.nodeIds.length > 0) {
+    const additiveSelection = Boolean(event.mods.shift || event.mods.ctrl || event.mods.meta);
+    if (ctx.selection.nodeIds.length > 0 && !additiveSelection) {
       // 若单选的是直线、折线或箭头：优先检测折点/端点直接拖拽，以及线段中点「拖拽即折」
       if (ctx.selection.nodeIds.length === 1) {
         const selId = ctx.selection.nodeIds[0]!;
@@ -1529,7 +1530,7 @@ const rectTool: Tool = {
     if (event.kind === 'drag' && ctx.gesture && ctx.gesture.kind === 'marquee') {
       const r = computeConstrainedShapeBox(ctx.gesture.startPoint, event.point, event.mods);
       if (r.width < 2 && r.height < 2) return [];
-      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1));
+      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1), Math.min(8, r.width / 4, r.height / 4));
       return [
         {
           kind: 'Preview',
@@ -1544,7 +1545,7 @@ const rectTool: Tool = {
       if (r.width < 2 && r.height < 2) {
         return [{ kind: 'Cancel' }];
       }
-      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1));
+      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1), Math.min(8, r.width / 4, r.height / 4));
       return [
         {
           kind: 'Exec',
@@ -1569,6 +1570,84 @@ const rectTool: Tool = {
       lineWidth: 1.5 / Math.max(ctx.zoom, 1e-4),
       dashed: true,
     }];
+  },
+  cursor() { return 'crosshair'; },
+};
+
+let polygonPoints: Vec2[] = [];
+let polygonHoverPoint: Vec2 | null = null;
+
+function clearPolygon(): void {
+  polygonPoints = [];
+  polygonHoverPoint = null;
+}
+
+function finishPolygon(): ReadonlyArray<Action> {
+  const uniquePoints = polygonPoints.filter((point, index) => {
+    const previous = polygonPoints[index - 1];
+    return !previous || Math.hypot(point.x - previous.x, point.y - previous.y) > 1e-4;
+  });
+  if (uniquePoints.length < 3) return [];
+  const area = uniquePoints.reduce((sum, point, index) => {
+    const next = uniquePoints[(index + 1) % uniquePoints.length]!;
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0);
+  if (Math.abs(area) < 1e-3) return [];
+
+  const geometry = pathGeometry([subPath(uniquePoints.map(anchorCorner), true)]);
+  clearPolygon();
+  return [
+    { kind: 'Exec', commandId: 'object.createPath', params: { geometry, appearance: RECT_DEFAULT_APPEARANCE, hint: 'polygon', name: '多边形' } },
+    { kind: 'Commit' },
+    { kind: 'Exec', commandId: 'tool.setActive', params: { tool: 'select' } },
+  ];
+}
+
+const polygonTool: Tool = {
+  id: 'polygon',
+  pointer(ctx, event) {
+    if (event.kind === 'down') {
+      const first = polygonPoints[0];
+      const closeTolerance = 12 / Math.max(ctx.zoom, 1e-4);
+      if (first && polygonPoints.length >= 3 && Math.hypot(event.point.x - first.x, event.point.y - first.y) <= closeTolerance) {
+        return finishPolygon();
+      }
+      if (polygonPoints.length === 0) polygonPoints = [event.point];
+      else polygonPoints.push(event.point);
+      polygonHoverPoint = event.point;
+      return [{ kind: 'Begin', label: '绘制自由多边形', gestureMode: 'marquee' }];
+    }
+    if (event.kind === 'move' || event.kind === 'drag') polygonHoverPoint = event.point;
+    return [];
+  },
+  key(_ctx, key) {
+    if (key === 'Enter') return finishPolygon();
+    if (key === 'Escape') {
+      clearPolygon();
+      return [{ kind: 'Cancel' }];
+    }
+    return [];
+  },
+  notify(event) {
+    if (event === 'deactivated' || event === 'cancelled') clearPolygon();
+  },
+  overlay(ctx) {
+    if (polygonPoints.length === 0) return [];
+    const points = [...polygonPoints];
+    if (polygonHoverPoint && !pointNear(polygonHoverPoint, points[points.length - 1]!, 1e-6)) points.push(polygonHoverPoint);
+    const overlays: OverlayElement[] = [];
+    if (points.length >= 2) {
+      overlays.push({ kind: 'polyline', points, stroke: 'var(--ov-accent, #4c9aff)', lineWidth: 1.5 / Math.max(ctx.zoom, 1e-4), dashed: true });
+    }
+    overlays.push({
+      kind: 'circle',
+      center: polygonPoints[0]!,
+      radius: 5 / Math.max(ctx.zoom, 1e-4),
+      stroke: 'var(--ov-accent, #4c9aff)',
+      fill: 'var(--ov-bg, white)',
+      lineWidth: 1.5 / Math.max(ctx.zoom, 1e-4),
+    });
+    return overlays;
   },
   cursor() { return 'crosshair'; },
 };
@@ -2184,6 +2263,7 @@ export const tools: Record<ToolId, Tool> = {
   node: nodeTool,
   pen: penTool,
   rect: rectTool,
+  polygon: polygonTool,
   ellipse: ellipseTool,
   line: lineTool,
   curve: curveTool,

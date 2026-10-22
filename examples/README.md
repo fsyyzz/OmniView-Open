@@ -11,7 +11,7 @@
 | **[excalidraw/](./excalidraw/)** | `.excalidraw`, `.excalidraw.json` | Excalidraw Utils + Canvas | 手绘风格白板、多图元自愈清洗、分屏双向联动、SVG/PNG 导出 |
 | **[notebook/](./notebook/)** | `.ipynb` | Jupyter nbformat v4 + KaTeX | 数据科学 Notebook、Markdown 说明、ANSI 彩色流、表格与输出 |
 | **[typst/](./typst/)** | `.typ`, `.typst` | Typst AST + KaTeX + SVG | 现代学术出版排版、A4 出版级多页流、数学公式、大纲跳转 |
-| **[markdown/](./markdown/)** | `.md`, `.markdown` | marked + GFM + Callout | GitHub 语义提醒块、交互式 Task List、内嵌图表与数学公式 |
+| **[markdown/](./markdown/)** | `.md`, `.markdown` | marked + GFM + Callout + ECharts | GitHub 语义提醒块、多列卡片矩阵、Apache ECharts 商业图表、交互式 Task List、内嵌图表与数学公式 |
 | **[okf/](./okf/)** | `.okf`, `*.okf.md` | Google OKF Engine | 知识图谱模型、指标实体卡片、跨表关联与元数据解析 |
 | **[mermaid/](./mermaid/)** | `.mmd`, `.mermaid` | Mermaid.js v11+ | 独立流程图、时序图、用户旅程图、状态机双向实时编辑 |
 | **[plantuml/](./plantuml/)** | `.puml`, `.plantuml`, `.iuml` | PlantUML AST + SVG | 独立架构建模、组件拓扑、时序图与状态图实时编译 |
@@ -36,7 +36,8 @@
 
 ## 🎯 推荐验证路径
 
-1. **图像工作台、白板、Office 文档与学术排版**：
+1. **图像工作台、白板、Office 文档、学术排版与 ECharts 图表**：
+   - 打开 `markdown/echarts-charts.md` 体验 Apache ECharts 商业图表、语法糖与 `> [!CARDS:2]` 响应式多列监控看板；
    - 打开 `image/omniview-brand-logo.png` 与 `image/cyberpunk-city-skyline.jpg` 体验沉浸式微型折叠工具栏、16x 像素十字放大镜取色、四态底色模式与极清缩放；
    - 打开 `docx/omniview-architecture-guide.docx` 体验 Word 高效流式阅读、A4 拟真分页与左侧大纲树导航；
    - 打开 `pptx/omniview-tech-presentation.pptx` 体验 PowerPoint 幻灯片多页演播与矢量形状渲染；

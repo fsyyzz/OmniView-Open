@@ -53,6 +53,13 @@ it('createRectGeometry 生成四点封闭矩形子路径', () => {
   assert.deepStrictEqual(sp.anchors[3].point, { x: 10, y: 70 });
 });
 
+it('createRectGeometry 使用圆角半径生成曲线角点', () => {
+  const rounded = createRectGeometry(0, 0, 40, 30, 8);
+  assert.strictEqual(rounded.subPaths[0].closed, true);
+  assert.ok(rounded.subPaths[0].anchors.length > 4);
+  assert.ok(rounded.subPaths[0].anchors.some((anchor) => anchor.handleIn || anchor.handleOut));
+});
+
 it('createEllipseGeometry 生成四点平滑三次贝塞尔封闭椭圆', () => {
   const g = createEllipseGeometry(100, 100, 50, 30);
   assert.strictEqual(g.subPaths.length, 1);
@@ -207,12 +214,77 @@ it('path.updateAnchor 精确更新锚点坐标并支持撤销', () => {
 // ============================================================================
 console.log('--- 测试 5: 工具箱注册与手势交互 ---');
 
-it('所有 8 种核心工具全量注册（含 arrow 箭头工具）', () => {
-  const expectedTools = ['select', 'node', 'pen', 'rect', 'ellipse', 'line', 'arrow', 'text'];
+it('所有核心工具全量注册（含 polygon 多边形工具）', () => {
+  const expectedTools = ['select', 'node', 'pen', 'rect', 'polygon', 'ellipse', 'line', 'curve', 'arrow', 'text'];
   for (const tid of expectedTools) {
     assert.ok(tools[tid] !== undefined, `工具 ${tid} 必须注册`);
     assert.ok(typeof tools[tid].cursor === 'function', `工具 ${tid} 需提供光标`);
   }
+});
+
+it('多边形工具逐点创建任意顶点数的闭合自由形状', () => {
+  const runtime = createRuntime();
+  runtime.setActiveTool('polygon');
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+  for (const point of [vec2(100, 100), vec2(150, 100), vec2(130, 145), vec2(80, 130)]) {
+    runtime.dispatchPointer({ kind: 'down', point, mods: noMods, pressure: 0.5 });
+    runtime.dispatchPointer({ kind: 'up', point, mods: noMods, pressure: 0.5 });
+  }
+  runtime.dispatchKey('Enter', noMods);
+  const selectedId = runtime.currentSelection.nodeIds[0];
+  const shape = runtime.currentDocument.nodes.get(selectedId);
+  assert.strictEqual(shape.kind, 'Path');
+  assert.strictEqual(shape.geometry.subPaths[0].anchors.length, 4);
+  assert.strictEqual(shape.geometry.subPaths[0].closed, true);
+  assert.strictEqual(runtime.activeToolId, 'select');
+});
+
+it('Escape 取消自由多边形并清除未完成顶点', () => {
+  const runtime = createRuntime();
+  runtime.setActiveTool('polygon');
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+  for (const point of [vec2(10, 10), vec2(60, 10)]) {
+    runtime.dispatchPointer({ kind: 'down', point, mods: noMods, pressure: 0.5 });
+    runtime.dispatchPointer({ kind: 'up', point, mods: noMods, pressure: 0.5 });
+  }
+  runtime.dispatchKey('Escape', noMods);
+  runtime.dispatchPointer({ kind: 'down', point: vec2(30, 30), mods: noMods, pressure: 0.5 });
+  runtime.dispatchPointer({ kind: 'up', point: vec2(30, 30), mods: noMods, pressure: 0.5 });
+  assert.deepStrictEqual(runtime.overlay().map((item) => item.kind), ['circle']);
+  assert.deepStrictEqual(runtime.currentSelection.nodeIds, []);
+  runtime.dispatchKey('Escape', noMods);
+});
+
+it('多边形工具点击起点可直接闭合并创建形状', () => {
+  const runtime = createRuntime();
+  runtime.setActiveTool('polygon');
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+  for (const point of [vec2(20, 20), vec2(80, 20), vec2(50, 70)]) {
+    runtime.dispatchPointer({ kind: 'down', point, mods: noMods, pressure: 0.5 });
+    runtime.dispatchPointer({ kind: 'up', point, mods: noMods, pressure: 0.5 });
+  }
+  runtime.dispatchPointer({ kind: 'down', point: vec2(20, 20), mods: noMods, pressure: 0.5 });
+  const created = runtime.currentDocument.nodes.get(runtime.currentSelection.nodeIds[0]);
+  assert.strictEqual(created.geometry.subPaths[0].anchors.length, 3);
+  assert.strictEqual(created.geometry.subPaths[0].closed, true);
+  assert.strictEqual(runtime.activeToolId, 'select');
+});
+
+it('修饰键点击已选图元缩放手柄时执行反选，不误触发缩放', () => {
+  const runtime = createRuntime();
+  const result = runtime.execute('object.createPath', { geometry: createRectGeometry(50, 50, 40, 40) });
+  assert.strictEqual(result.ok, true);
+  const id = runtime.currentSelection.nodeIds[0];
+  const before = runtime.currentDocument;
+  runtime.dispatchPointer({
+    kind: 'down',
+    point: vec2(50, 50),
+    mods: { shift: false, alt: false, meta: false, ctrl: true },
+    pressure: 0.5,
+  });
+  assert.deepStrictEqual(runtime.currentSelection.nodeIds, []);
+  assert.strictEqual(runtime.currentDocument, before);
+  assert.ok(id);
 });
 
 it('rectTool 拖拽手势触发 Begin -> Preview (实时绘制) -> Exec + Commit + 自动切回 select', () => {
@@ -326,8 +398,8 @@ it('rectTool / ellipseTool 支持 Shift 等比（正方形/正圆）与 Alt 中�
   const sqId = rt.currentSelection.nodeIds[0];
   const sqNode = rt.currentDocument.nodes.get(sqId);
   const sqAnchors = sqNode.geometry.subPaths[0].anchors;
-  const sqW = sqAnchors[1].point.x - sqAnchors[0].point.x;
-  const sqH = sqAnchors[2].point.y - sqAnchors[1].point.y;
+  const sqW = Math.max(...sqAnchors.map((anchor) => anchor.point.x)) - Math.min(...sqAnchors.map((anchor) => anchor.point.x));
+  const sqH = Math.max(...sqAnchors.map((anchor) => anchor.point.y)) - Math.min(...sqAnchors.map((anchor) => anchor.point.y));
   assert.strictEqual(sqW, 60);
   assert.strictEqual(sqH, 60, 'Shift 拖拽矩形应锁定为正方形');
 });

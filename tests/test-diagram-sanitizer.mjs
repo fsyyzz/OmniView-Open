@@ -91,7 +91,24 @@ assert.ok(!sanitizedMalicious.includes('onclick'), '必须彻底剔除 onclick �
 assert.ok(!sanitizedMalicious.includes('<iframe'), '必须彻底剔除 iframe 标签');
 assert.ok(!sanitizedMalicious.includes('onerror'), '必须彻底剔除 onerror 属性');
 assert.ok(sanitizedMalicious.includes('正常文字'), '在防御恶意攻击的同时安全文字必须保留');
-console.log('✅ XSS 注入样本 100% 成功阻断与清洗');
+
+// 2.1 针对斜杠分隔、自闭合危险标签与各类伪协议的深度测试
+const advancedMaliciousSvg = `
+<svg viewBox="0 0 100 100">
+  <script src="http://evil.com/xss.js" />
+  <iframe src="http://evil.com" />
+  <img/onerror=alert(2) src="x" />
+  <a href="vbscript:msgbox(1)">恶意链接 1</a>
+  <a xlink:href="javascript:steal()">恶意链接 2</a>
+</svg>
+`;
+const sanitizedAdvanced = sanitizeDiagramSvg(advancedMaliciousSvg);
+assert.ok(!sanitizedAdvanced.includes('<script'), '自闭合 script 标签必须被清除');
+assert.ok(!sanitizedAdvanced.includes('<iframe'), '自闭合 iframe 标签必须被清除');
+assert.ok(!sanitizedAdvanced.includes('onerror'), '斜杠分隔的 onerror 属性必须被清除');
+assert.ok(!sanitizedAdvanced.includes('vbscript'), 'vbscript 伪协议必须被阻断');
+assert.ok(!sanitizedAdvanced.includes('javascript'), 'javascript 伪协议必须被阻断');
+console.log('✅ XSS 注入样本（自闭合标签/斜杠事件/伪协议变形）100% 成功阻断与清洗');
 
 // 3. 图表 HTML 片段清洗测试
 console.log('--- 测试 3: 图表 HTML / KaTeX 片段清洗 ---');

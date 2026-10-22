@@ -274,5 +274,5 @@ export interface PathSetMarkerParams {
 }
 
 // --- tool.* ---
-export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text'; }
+export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen' | 'rect' | 'polygon' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text'; }
 export interface ToolSetOptionParams { readonly key: string; readonly value: unknown; }

@@ -64,6 +64,22 @@ export async function bundleAndLoadTsx(contents, options = {}) {
         '.css': 'empty',
       },
       external: options.external ?? ['happy-dom', '@hpcc-js/wasm-graphviz'],
+      plugins: [
+        {
+          name: 'vite-query-stub',
+          setup(b) {
+            b.onResolve({ filter: /\?(url|raw)$/ }, args => ({
+              path: args.path,
+              namespace: 'vite-query-stub-ns',
+            }));
+            b.onLoad({ filter: /.*/, namespace: 'vite-query-stub-ns' }, () => ({
+              contents: 'export default "stub-asset-url";',
+              loader: 'js',
+            }));
+          },
+        },
+        ...(options.esbuildOptions?.plugins ?? []),
+      ],
       ...options.esbuildOptions,
     });
 

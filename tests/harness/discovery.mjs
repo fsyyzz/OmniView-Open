@@ -37,6 +37,8 @@ const SUITE_CONFIG_OVERRIDES = {
   'test-codeblock-hover-toolbar.mjs': { mode: 'node', category: 'markdown' },
   'test-headless-ui-interactions.mjs': { mode: 'node', category: 'headless' },
   'test-svg-v2-advanced-interactions.mjs': { mode: 'node', category: 'headless' },
+  'test-pdf-search-controller.mjs': { mode: 'node', category: 'unit' },
+  'test-echarts-block.mjs': { mode: 'node', category: 'diagram' },
 
   // 带外部包或特殊打包策略的配置
   'test-excalidraw.mjs': { mode: 'esbuild', external: ['@excalidraw/*'], category: 'driver' },

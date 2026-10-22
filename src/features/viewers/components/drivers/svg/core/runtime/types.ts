@@ -49,7 +49,7 @@ export type Action =
 // ============================================================================
 
 /** Tool 标识（select / node / pen / rect / ellipse / line / curve / arrow / text）。 */
-export type ToolId = 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text';
+export type ToolId = 'select' | 'node' | 'pen' | 'rect' | 'polygon' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text';
 
 /** Tool 接口。Tool 永远**纯函数式**：所有状态由 Runtime 持有。 */
 export interface Tool {
@@ -58,7 +58,7 @@ export interface Tool {
   pointer(ctx: ToolContext, event: PointerEvent): ReadonlyArray<Action>;
   key(ctx: ToolContext, key: ToolKey, mods: { readonly shift: boolean; readonly alt: boolean; readonly meta: boolean; readonly ctrl: boolean }): ReadonlyArray<Action>;
   /** 工具被激活/失活时通知（用于重置内部 ephemeral state）。 */
-  notify?(event: 'activated' | 'deactivated', ctx: ToolContext): void;
+  notify?(event: 'activated' | 'deactivated' | 'cancelled', ctx: ToolContext): void;
   /** 工具需要在画布上绘制的 overlay（Gizmo / 手柄 / 锚点等）。由 UI 渲染。 */
   overlay?(ctx: ToolContext): ReadonlyArray<OverlayElement>;
   /** 工具自定义的 cursor。 */

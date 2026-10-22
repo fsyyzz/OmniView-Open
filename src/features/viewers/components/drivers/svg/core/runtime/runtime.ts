@@ -198,9 +198,11 @@ export class RuntimeImpl implements Runtime {
 
   setActiveTool(id: ToolId): void {
     if (this._activeToolId === id) return;
+    getTool(this._activeToolId).notify?.('deactivated', this.makeToolContext());
     this._activeToolId = id;
     this._gesture = null;
     if (this._interaction) this.cancelInteraction();
+    getTool(id).notify?.('activated', this.makeToolContext());
     this.notify();
   }
 
@@ -208,6 +210,7 @@ export class RuntimeImpl implements Runtime {
     if (event.kind === 'cancel') {
       // 指针被捕获中断 → 取消手势并恢复快照
       if (this._gesture || this._interaction) {
+        getTool(this._activeToolId).notify?.('cancelled', this.makeToolContext());
         this.handleActions([{ kind: 'Cancel' }]);
         this._gesture = null;
         this.notify();
@@ -238,7 +241,7 @@ export class RuntimeImpl implements Runtime {
         : null;
       if (this._gesture) this.notify();
     } else if (event.kind === 'drag' || event.kind === 'move') {
-      if (this._gesture || this._activeToolId === 'pen') {
+      if (this._gesture || this._activeToolId === 'pen' || this._activeToolId === 'polygon') {
         this.notify();
       }
     } else if (event.kind === 'up') {
@@ -251,6 +254,7 @@ export class RuntimeImpl implements Runtime {
   dispatchKey(key: Parameters<Runtime['dispatchKey']>[0], mods: Parameters<Runtime['dispatchKey']>[1]): void {
     // 手势进行中 Escape → 取消手势（优先于工具自身的 Escape 处理）
     if (key === 'Escape' && (this._gesture || this._interaction)) {
+      getTool(this._activeToolId).notify?.('cancelled', this.makeToolContext());
       this.handleActions([{ kind: 'Cancel' }]);
       this._gesture = null;
       return;

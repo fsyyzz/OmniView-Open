@@ -20,6 +20,7 @@ import {
   CircleDot,
   PenLine,
   Square,
+  Pentagon,
   Circle,
   Minus,
   Spline,
@@ -181,7 +182,8 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
         <ToolButton icon={<CircleDot size={17} />} active={activeToolId === 'node'} label="直接选区 / 锚点编辑 (A)" onClick={() => setActiveTool('node')} />
         <ToolButton icon={<PenLine size={17} />} active={activeToolId === 'pen'} label="钢笔工具 (P)" onClick={() => setActiveTool('pen')} />
         <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
-        <ToolButton icon={<Square size={17} />} active={activeToolId === 'rect'} label="矩形工具 (R — 拖拽绘制，Shift 正方形 / Alt 中心起绘)" onClick={() => setActiveTool('rect')} />
+        <ToolButton icon={<Square size={17} />} active={activeToolId === 'rect'} label="矩形工具 (R — 拖拽绘制圆角矩形，Shift 正方形 / Alt 中心起绘)" onClick={() => setActiveTool('rect')} />
+        <ToolButton icon={<Pentagon size={17} />} active={activeToolId === 'polygon'} label="自由多边形工具 (G — 单击添加顶点，双击、点击起点或 Enter 完成，Escape 取消)" onClick={() => setActiveTool('polygon')} />
         <ToolButton icon={<Circle size={17} />} active={activeToolId === 'ellipse'} label="椭圆/圆形工具 (O — 拖拽绘制，Shift 正圆 / Alt 中心起绘)" onClick={() => setActiveTool('ellipse')} />
         <ToolButton icon={<Minus size={17} />} active={activeToolId === 'line'} label="直线工具 (L — 拖拽连接两端点，Shift 15° 锁定)" onClick={() => setActiveTool('line')} />
         <ToolButton icon={<Spline size={17} />} active={activeToolId === 'curve'} label="曲线工具 (C — 拖拽绘制贝塞尔曲线，Shift 切换拱形弧线)" onClick={() => setActiveTool('curve')} />
@@ -334,11 +336,18 @@ interface ToolButtonProps {
 const ToolButton: React.FC<ToolButtonProps> = ({ icon, active, label, disabled, onClick }) => (
   <button
     type="button"
-    className={`m-1 flex h-8 w-8 items-center justify-center rounded transition-colors ${active ? 'bg-[var(--ov-accent)] text-white' : 'hover:bg-[var(--ov-hover)]'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+    className={`group relative m-1 flex h-8 w-8 items-center justify-center rounded transition-colors ${active ? 'bg-[var(--ov-accent)] text-white' : 'hover:bg-[var(--ov-hover)]'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
     title={label}
+    aria-label={label}
     onClick={disabled ? undefined : onClick}
   >
     {icon}
+    <span
+      role="tooltip"
+      className="pointer-events-none invisible absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded border border-[var(--ov-border)] bg-[var(--ov-panel)] px-2 py-1 text-left text-[11px] font-normal text-[var(--ov-fg)] opacity-0 shadow-md transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100"
+    >
+      {label}
+    </span>
   </button>
 );
 

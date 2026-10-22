@@ -50,6 +50,7 @@ import { idbGetViewerState, idbSetViewerState } from '../../../../shared/lib/ind
 import type { Locale } from '../../../../shared/lib/i18n';
 import { PdfThumbnail } from './pdf/PdfThumbnail';
 import { PdfSearchBar } from './pdf/PdfSearchBar';
+import { usePdfSearchController } from './pdf/usePdfSearchController';
 import { PdfOutlineView } from './pdf/PdfOutlineView';
 import { PdfAnnotationsView, type PdfAnnotation } from './pdf/PdfAnnotationsView';
 import { PdfPageCanvas, type PdfPaperFilter } from './pdf/PdfPageCanvas';
@@ -150,13 +151,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTab>('thumbnails');
   const [viewMode, setViewMode] = useState<ViewMode>('continuous');
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
-
-  // 方案 B：全文检索状态
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchMatches, setSearchMatches] = useState<PdfSearchMatch[]>([]);
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-  const [isSearching, setIsSearching] = useState(false);
 
   // 方案 C：标注与高亮系统
   const [annotations, setAnnotations] = useState<PdfAnnotation[]>(() => {
@@ -363,16 +357,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   // 编程触发滚动锁，防止 smooth 滚动过程中反复触发 onScroll 导致状态抖动
   const isProgrammaticScrollRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
-  const searchDebounceTimerRef = useRef<number | null>(null);
 
   // 组件卸载时清理定时器与动画帧
   useEffect(() => {
     return () => {
       if (scrollRafRef.current !== null) {
         cancelAnimationFrame(scrollRafRef.current);
-      }
-      if (searchDebounceTimerRef.current !== null) {
-        clearTimeout(searchDebounceTimerRef.current);
       }
       if (zoomIndicatorTimerRef.current !== null) {
         clearTimeout(zoomIndicatorTimerRef.current);
@@ -478,56 +468,21 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   };
 
-  // 3. 全文检索逻辑 (方案 B)
-  const performSearch = useCallback(async (query: string) => {
-    if (!pdfDoc || !query.trim()) {
-      setSearchMatches([]);
-      setCurrentMatchIndex(0);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const matches = await searchPdfDocument(pdfDoc, query);
-      setSearchMatches(matches);
-      setCurrentMatchIndex(0);
-      if (matches.length > 0) {
-        handlePageJump(matches[0].pageNumber);
-      }
-    } catch (err) {
-      console.warn('[OmniView PDF] 搜索异常:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [pdfDoc, handlePageJump]);
-
-  const handleSearchQueryChange = (q: string) => {
-    setSearchQuery(q);
-    if (searchDebounceTimerRef.current !== null) {
-      clearTimeout(searchDebounceTimerRef.current);
-    }
-    if (!q.trim()) {
-      performSearch('');
-      return;
-    }
-    searchDebounceTimerRef.current = window.setTimeout(() => {
-      performSearch(q);
-    }, 280);
-  };
-
-  const handleNextMatch = () => {
-    if (searchMatches.length === 0) return;
-    const nextIdx = (currentMatchIndex + 1) % searchMatches.length;
-    setCurrentMatchIndex(nextIdx);
-    handlePageJump(searchMatches[nextIdx].pageNumber);
-  };
-
-  const handlePrevMatch = () => {
-    if (searchMatches.length === 0) return;
-    const prevIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
-    setCurrentMatchIndex(prevIdx);
-    handlePageJump(searchMatches[prevIdx].pageNumber);
-  };
+  // 3. 全文检索逻辑 (方案 B) - 委托 usePdfSearchController 解耦 Hook 管理
+  const {
+    isSearchOpen,
+    setIsSearchOpen,
+    searchQuery,
+    searchMatches,
+    currentMatchIndex,
+    isSearching,
+    handleSearchQueryChange,
+    handleNextMatch,
+    handlePrevMatch,
+  } = usePdfSearchController({
+    pdfDoc,
+    onJumpToPage: handlePageJump,
+  });
 
   // 6. 视口排版、缩放与旋转
   const handleZoomIn = useCallback(() => {

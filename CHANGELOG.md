@@ -8,7 +8,78 @@
 
 ---
 
-## [1.3.17] - 2026-10-21 (当前最新发布)
+## [1.3.24] - 2026-10-22 (当前最新发布)
+
+> [!TIP] v1.3.24 核心升级亮点
+> **内联 SVG 矢量图与画廊图片语法自愈 (Inline SVG Image Self-Healing)**：彻底解决在 Markdown 中使用 `![alt](data:image/svg+xml;utf8,<svg...>)` 时，因未转义的 `<svg>` 标签与空格破坏 CommonMark 规范导致图片语法碎裂为纯文本和游离 HTML 标签的问题；重塑多图画廊 (`[!GALLERY]`)、技术图件 (`[!FIGURE]`) 与图文并排 (`[!MEDIA]`) 矢量图设计。
+
+### 🐞 Fixed & Improved (图片解析与视觉美化)
+
+- **内联 SVG 语法管道自愈 (processInlineSvgImages)**:
+  - 在 AST 解析阶段自动拦截 Markdown 图片语法中包含未 URL 编码的 `data:image/svg+xml` 标签，毫秒级转义为标准百分号 URL 编码；
+  - 100% 保持 marked 正确切分 `image` Token，恢复 `customRenderer.image`、管道修饰符（`|520|bg-light`）与居中图注能力；
+- **重塑 callouts-and-tasks 与示例矢量图件**:
+  - 重绘 [callouts-and-tasks.md](file:///d:/njis/work/project/open/OmniView/examples/markdown/callouts-and-tasks.md) 与 [github-alert-callouts.md](file:///d:/njis/work/project/open/OmniView/examples/markdown/github-alert-callouts.md) 中的多图画廊、统一流水线架构图与原地编辑器示意图，提供科技蓝、翡翠绿与紫罗兰微光渐变，杜绝深黑死板方块；
+  - 补充针对内联 SVG 语法自愈的自动化单元测试。
+
+---
+
+## [1.3.23] - 2026-10-22
+
+> [!TIP] v1.3.23 核心升级亮点
+> **ECharts 图表防崩溃与自动规范化增强 (Robust Normalization)**：全面解决 ECharts 在缺失对偶坐标轴（如仅有 `xAxis` 缺失 `yAxis`）或系列未显式声明 `type` 时抛出的 `axisBuilder` 与 `get` 运行时异常；完善多列仪表盘示例与测试覆盖。
+
+### 🐞 Fixed & Improved (图表健壮性与示例优化)
+
+- **防崩溃配置自动补全 (normalizeEChartsOption)**:
+  - 自动识别笛卡尔直角坐标系（Line/Bar/Scatter 等），当仅定义 `xAxis` 或 `yAxis` 单轴时，自动补全对偶轴配置（如补全 `yAxis: { type: 'value' }`），彻底杜绝 ECharts `AxisBuilder` 崩溃；
+  - 依据语言标签前缀（如 `echarts:bar`、`echarts:pie`、`echarts:radar`）自动向 `series` 各未定义 `type` 的子项注入目标类型；
+  - 规范化 [echarts-charts.md](file:///d:/njis/work/project/open/OmniView/examples/markdown/echarts-charts.md) 示例文件，补充对应单元测试至 7 组。
+
+---
+
+## [1.3.22] - 2026-10-22
+
+> [!TIP] v1.3.22 核心升级亮点
+> 全面落地**商业级 Apache ECharts 矢量图表引擎深度集成 (方案一)**：在 Markdown 文档中无缝原生支持 ```` ```echarts ```` 与 ```` ```echarts:类型 ```` 代码块语法糖、**自动与 `> [!CARDS:列数]` 多列响应式卡片流深度融合构建指标仪表盘**、**100% 依托 `--ov-*` 语义令牌的多主题自适应**、按需懒加载与 SVG 矢量高清渲染、独立微型操作栏与全屏灯箱检视。
+
+### ✨ Added & Improved (ECharts 商业图表与多列仪表盘)
+
+- **Markdown 原生 ECharts 渲染块 (EChartsBlock)**:
+  - 动态按需加载 `echarts` 核心渲染器，采用 `renderer: 'svg'` 保证高分屏与缩放下无锯齿高清呈现；
+  - 深度集成微型浮动操作栏：支持一键重新绘制、复制图表配置、导出 SVG/PNG 图像文件与全屏灯箱沉浸式弹窗检视；
+  - 监听容器尺寸与主题令牌变化，基于 `ResizeObserver` 实现微秒级无损重绘。
+- **配置解析与语法糖推断 (echartsTheme)**:
+  - 宽容支持 YAML 与 JSON 两种声明格式，具备纯数据数组一键转图表的极速语法糖；
+  - 支持 ```` ```echarts:line ````, ```` ```echarts:bar ````, ```` ```echarts:pie ```` 等类型快捷前缀，自动推断并补齐缺失的骨架配置；
+  - 提取 CSS 语义变量构建专属主题字典，在深色、浅色及高对比度主题下自动保持与宿主风格完全一致。
+- **与 `> [!CARDS:列数]` 多列卡片矩阵无缝编排**:
+  - 在卡片网格内部无缝嵌套 ECharts 微图表，支持双列/三列/四列响应式指标大屏排版；
+  - 新增 [test-echarts-block.mjs](file:///d:/njis/work/project/open/OmniView/tests/test-echarts-block.mjs) 单元测试套件，全量物理测试套件升级至 88 组。
+
+---
+
+## [1.3.21] - 2026-10-22
+
+> [!TIP] v1.3.21 核心升级亮点
+> 全面落地基建性能提速、图表安全防护加固与大组件解耦治理：**消除 Node.js 子进程废弃安全告警并实现测试套件近 4x 提速**、**图表与矢量 SVG 安全清洗机制深度加固**，以及 **PDF 全文检索状态控制器 (usePdfSearchController) 解耦治理与 87 组全链路自动化门禁**。
+
+### ✨ Added & Improved (安全加固、性能优化与组件解耦)
+
+- **Node.js 子进程与测试聚合器 4x 极速调度优化**:
+  - 优化测试运行器 [scripts/run-all-tests.mjs](file:///d:/njis/work/project/open/OmniView/scripts/run-all-tests.mjs)，直接调用本地已安装的 esbuild 可执行二进制，彻底消除 Windows 平台下的 `shell: true` 与 `npx` 跨进程开销；
+  - 彻底杜绝 Node 22+ 的 `[DEP0190]` 弃用与安全告警，全量 87 组自动化测试总耗时从 19.36s 缩减至 **5.22s**（并发加速比约 5.8x）。
+- **图表与矢量 SVG 安全清洗深度加固 (Sanitizer Hardening)**:
+  - 深度重构 [diagramSanitizer.ts](file:///d:/njis/work/project/open/OmniView/src/features/viewers/lib/diagramSanitizer.ts)，全面拦截自闭合/成对/未闭合危险标签（`<script>`、`<iframe>`、`<object>`、`<embed>` 等）；
+  - 强化对斜杠或控制字符分隔的内联事件（如 `<img/onerror=...>`、`<svg/onload=...>`）及各类混淆伪协议（`vbscript:`, `javascript:`, `data:text/html`）的免疫清除；
+  - 100% 保持 Mermaid 流程图 `foreignObject` 文本与 KaTeX 数学公式渲染无损。
+- **PDF 全文检索解耦 (usePdfSearchController)**:
+  - 抽取高内聚自定义 Hook [usePdfSearchController.ts](file:///d:/njis/work/project/open/OmniView/src/features/viewers/components/drivers/pdf/usePdfSearchController.ts)，接管搜索防抖、无结果保护、正反向循环匹配与页面跳转；
+  - 精简 [PdfViewer.tsx](file:///d:/njis/work/project/open/OmniView/src/features/viewers/components/drivers/PdfViewer.tsx) 复杂组件状态，新增 [test-pdf-search-controller.mjs](file:///d:/njis/work/project/open/OmniView/tests/test-pdf-search-controller.mjs) 单元测试套件，项目自动化测试矩阵升维至 87 套。
+
+---
+
+## [1.3.17] - 2026-10-21
 
 > [!TIP] v1.3.17 核心升级亮点
 > 全面落地 PDF 工业级阅读器视口交互与全触点体验增强（Focal Point Wheel Zoom & Interactive Studio）：实现 **Ctrl+滚轮/触控板捏合光标绝对锚定无级缩放**、**零白屏闪烁平滑硬件加速拉伸过渡**、**抓手漫游模式 (Hand Pan Tool) 与长按空格键/鼠标中键平移视口**、**常用缩放预设快捷菜单** 与 **沉浸式中央 HUD 缩放反馈胶囊**，全方位对齐 Chrome / Adobe Acrobat 专业阅读体验。

@@ -57,7 +57,7 @@ export interface SvgV2PointerHandlers {
   readonly handleKeyDown: (e: React.KeyboardEvent<SVGSVGElement>) => void;
 }
 
-function modsOf(e: React.PointerEvent | React.KeyboardEvent): SvgPointerEvent['mods'] {
+function modsOf(e: React.PointerEvent | React.MouseEvent | React.KeyboardEvent): SvgPointerEvent['mods'] {
   return { shift: e.shiftKey, alt: e.altKey, meta: e.metaKey, ctrl: e.ctrlKey, space: false };
 }
 
@@ -151,6 +151,10 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
     (e: React.MouseEvent<SVGSVGElement>) => {
       e.preventDefault();
       e.stopPropagation();
+      if (runtime.activeToolId === 'polygon') {
+        runtime.dispatchKey('Enter', modsOf(e));
+        return;
+      }
       const point = toCanvas(e.clientX, e.clientY);
       if (!point) return;
       const doc = runtime.currentDocument;
@@ -186,6 +190,12 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
       if (isEditableTarget(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+      if (runtime.activeToolId === 'polygon' && (e.key === 'Enter' || e.key === 'Escape')) {
+        e.preventDefault();
+        runtime.dispatchKey(e.key, modsOf(e));
+        return;
+      }
 
       // Escape: 若当前处于子节点，向上跳至其所属父编组；若已是最外层则清空选区
       if (e.key === 'Escape') {
@@ -279,13 +289,14 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
         return;
       }
 
-      // 单键切换工具 (V: 选择, A: 锚点, P: 钢笔, R: 矩形, O: 椭圆, L: 直线, C: 曲线, W: 箭头, T: 文本)
+      // 单键切换工具 (V: 选择, A: 锚点, P: 钢笔, R: 矩形, G: 多边形, O: 椭圆, L: 直线, C: 曲线, W: 箭头, T: 文本)
       if (!mod && !e.altKey) {
-        const toolShortcutMap: Record<string, 'select' | 'node' | 'pen' | 'rect' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text'> = {
+        const toolShortcutMap: Record<string, 'select' | 'node' | 'pen' | 'rect' | 'polygon' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text'> = {
           v: 'select',
           a: 'node',
           p: 'pen',
           r: 'rect',
+          g: 'polygon',
           o: 'ellipse',
           l: 'line',
           c: 'curve',

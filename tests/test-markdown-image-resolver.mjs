@@ -3,7 +3,11 @@
  * OmniView Markdown 本地图片与相对路径解析引擎自动化测试套件
  */
 import assert from 'node:assert';
-import { resolveMarkdownImageHref, parseMarkdownImageModifiers } from '../src/features/viewers/hooks/useMarkdownAstPipeline.ts';
+import {
+  resolveMarkdownImageHref,
+  parseMarkdownImageModifiers,
+  processInlineSvgImages,
+} from '../src/features/viewers/hooks/useMarkdownAstPipeline.ts';
 
 console.log('🧪 开始 Markdown 本地图片与相对路径解析引擎单元测试...');
 
@@ -119,6 +123,12 @@ assert.strictEqual(mod2.themeVisibility, 'light-only');
 assert.ok(mod2.styleAttr.includes('max-width: 80px; max-height: 80px;'));
 assert.ok(mod2.extraClasses.includes('ov-img-circle'));
 assert.ok(mod2.extraClasses.includes('ov-img-light-only'));
-console.log('✅ 图片管道修饰符与主题感知后缀测试通过');
+// 6. 测试内联未编码 SVG 图片预处理转义自愈
+console.log('--- 测试 6: 内联未编码 SVG 图片预处理转义自愈 ---');
+const rawMd = '![测试图件](data:image/svg+xml;utf8,<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>)';
+const processedMd = processInlineSvgImages(rawMd);
+assert.ok(!processedMd.includes('<svg'), '预处理后不应包含裸尖括号 <svg');
+assert.ok(processedMd.includes('%3Csvg'), '预处理后应对 <svg 进行 URL 编码');
+console.log('✅ 内联 SVG 预处理测试通过');
 
-console.log('🎉 全部 5 组 Markdown 本地图片、管道修饰符与主题感知解析测试用例 100% 通过！\n');
+console.log('🎉 全部 6 组 Markdown 本地图片、管道修饰符、主题感知与内联 SVG 自愈测试用例 100% 通过！\n');

@@ -20,9 +20,10 @@ import { renderTimeBudgetRegistry } from '../lib/renderTimeBudget';
 
 export interface RenderedBlock {
   id: string;
-  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak' | 'domainstory' | 'markmap' | 'excalidraw';
+  type: 'html' | 'code' | 'mermaid' | 'plantuml' | 'svg' | 'math' | 'graphviz' | 'table' | 'pagebreak' | 'domainstory' | 'markmap' | 'excalidraw' | 'echarts';
   mode?: 'code-block' | 'file';
   lang?: string;
+  langSuffix?: string;
   raw: string;
   startLine?: number;
   endLine?: number;
@@ -307,6 +308,20 @@ function injectAutoImageCaptions(html: string): string {
   );
 }
 
+/**
+ * 预处理 Markdown 中内联未编码的 data:image/svg+xml SVG 源码图片
+ * 解决未 URL 编码的 <svg> 尖括号与空格导致 marked 误判为内联 HTML 与破坏 image token 的问题
+ */
+export function processInlineSvgImages(markdown: string): string {
+  if (!markdown || !markdown.includes('data:image/svg+xml')) {
+    return markdown;
+  }
+  return markdown.replace(
+    /!\[(.*?)\]\((data:image\/svg\+xml(?:;[a-zA-Z0-9_\-]+)*?,)(<svg[\s\S]*?<\/svg>)\)/gi,
+    (_match, alt, prefix, svg) => `![${alt}](${prefix}${encodeURIComponent(svg)})`
+  );
+}
+
 export function useMarkdownAstPipeline({
   content,
   files,
@@ -334,7 +349,7 @@ export function useMarkdownAstPipeline({
         ? (content.slice(0, content.length - cleanBody.length).match(/\n/g) || []).length
         : 0;
 
-      // 流水线处理：emoji -> wiki -> def-lists -> footnotes
+      // 流水线处理：emoji -> wiki -> def-lists -> footnotes -> inline-svg -> math
       const { markdown: bodyWithEmoji } = processEmojiShortcodes(cleanBody);
       const { markdown: bodyWithWiki } = processMarkdownWikiLinks(bodyWithEmoji, {
         files: filesRef.current || [],
@@ -346,7 +361,8 @@ export function useMarkdownAstPipeline({
       const { markdown: bodyWithFootnotes } = processMarkdownFootnotes(bodyWithDefLists, {
         sectionTitle: t('footnotes', locale),
       });
-      const { markdown: bodyWithMath, mathSlots } = processMarkdownMath(bodyWithFootnotes);
+      const bodyWithSvg = processInlineSvgImages(bodyWithFootnotes);
+      const { markdown: bodyWithMath, mathSlots } = processMarkdownMath(bodyWithSvg);
 
       const tokens = marked.lexer(bodyWithMath);
       const parsedBlocks: RenderedBlock[] = [];
@@ -355,6 +371,29 @@ export function useMarkdownAstPipeline({
       let currentTokenStartLine = runningLine;
 
       const customRenderer = new marked.Renderer();
+      const origCode = customRenderer.code.bind(customRenderer);
+      customRenderer.code = function (codeOrToken: any, infostring?: any, escaped?: any) {
+        const code = typeof codeOrToken === 'object' && codeOrToken !== null ? codeOrToken.text : codeOrToken;
+        const lang = typeof codeOrToken === 'object' && codeOrToken !== null ? codeOrToken.lang : infostring;
+        const primaryLang = (lang || '').trim().split(/\s+/)[0].toLowerCase();
+
+        if (
+          primaryLang === 'echarts' ||
+          primaryLang.startsWith('echarts:') ||
+          primaryLang.startsWith('echarts-') ||
+          primaryLang === 'chart'
+        ) {
+          const suffix = primaryLang.includes(':')
+            ? primaryLang.split(':')[1]
+            : primaryLang.includes('-')
+            ? primaryLang.split('-')[1]
+            : '';
+          const encoded = encodeURIComponent(code);
+          return `<div class="ov-echarts-inline-host" data-echarts-raw="${encoded}" data-suffix="${suffix}" data-source-line="${currentTokenStartLine}"></div>`;
+        }
+        return origCode(codeOrToken, infostring, escaped);
+      };
+
       const origTable = customRenderer.table.bind(customRenderer);
       customRenderer.table = function (headerOrToken: any, body?: any) {
         const rendered = origTable(headerOrToken, body);
@@ -826,11 +865,19 @@ export function useMarkdownAstPipeline({
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
-          } else if (['excalidraw', 'excalidraw-embed'].includes(primaryLang)) {
+          } else if (
+            primaryLang === 'echarts' ||
+            primaryLang.startsWith('echarts:') ||
+            primaryLang.startsWith('echarts-') ||
+            primaryLang === 'chart'
+          ) {
+            const suffixMatch = primaryLang.match(/^(?:echarts[:\-]([a-z0-9_-]+)|chart)$/i);
+            const langSuffix = suffixMatch && suffixMatch[1] ? suffixMatch[1] : undefined;
             parsedBlocks.push({
-              id: `block-excalidraw-${counter++}`,
-              type: 'excalidraw',
+              id: `block-echarts-${counter++}`,
+              type: 'echarts',
               raw: token.text,
+              langSuffix,
               externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,

@@ -1,104 +1,77 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+<defs><linearGradient xmlns="http://www.w3.org/2000/svg" id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0f172a"/>
       <stop offset="100%" stop-color="#1e293b"/>
     </linearGradient>
-    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient xmlns="http://www.w3.org/2000/svg" id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#3b82f6"/>
       <stop offset="100%" stop-color="#1d4ed8"/>
     </linearGradient>
-    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient xmlns="http://www.w3.org/2000/svg" id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#8b5cf6"/>
       <stop offset="100%" stop-color="#6d28d9"/>
     </linearGradient>
-    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient xmlns="http://www.w3.org/2000/svg" id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#10b981"/>
       <stop offset="100%" stop-color="#047857"/>
     </linearGradient>
-    <filter id="cardGlow" x="-10%" y="-10%" width="120%" height="120%">
+    <filter xmlns="http://www.w3.org/2000/svg" id="cardGlow" x="-10%" y="-10%" width="120%" height="120%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
-    </filter>
-  </defs>
-
-  <!-- 背景画布 -->
-  <rect width="800" height="500" fill="url(#bgGrad)" rx="16" x="18.85" y="-17.5"/>
-  
-  <!-- 标题与网格 -->
-  <text x="40" y="50" fill="#f8fafc" font-size="22" font-weight="bold" font-family="system-ui, sans-serif">OmniViewer 现代云原生微服务架构全景图</text>
-  <text x="40" y="78" fill="#94a3b8" font-size="13" font-family="system-ui, sans-serif">High-Reliability Multi-Format Rendering Cluster Topology</text>
-
-  <!-- 节点 1: 客户端 -->
-  <g filter="url(#cardGlow)">
-    <rect x="40" y="140" width="180" height="240" rx="12" fill="#1e293b" stroke="#334155" stroke-width="2"/>
-    <rect x="40" y="140" width="180" height="40" rx="12" fill="#334155"/>
-    <text x="56" y="165" fill="#f1f5f9" font-size="14" font-weight="bold" font-family="system-ui">终端宿主 (Host)</text>
-    
-    <rect x="56" y="195" width="148" height="44" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5"/>
-    <text x="70" y="222" fill="#93c5fd" font-size="13" font-family="system-ui">VS Code Desktop</text>
-    
-    <rect x="56" y="250" width="148" height="44" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5"/>
-    <text x="70" y="277" fill="#93c5fd" font-size="13" font-family="system-ui">VS Code for Web</text>
-    
-    <rect x="56" y="305" width="148" height="44" rx="6" fill="#0f172a" stroke="#64748b" stroke-width="1"/>
-    <text x="70" y="332" fill="#cbd5e1" font-size="13" font-family="system-ui">Standalone CLI / CI</text>
+    </filter></defs>
+  <g id="1" data-omniview-layer="Layer 1">
+    <path  id="2" d="M 34.85 -17.5 L 802.85 -17.5 C 813.517 -17.5 818.85 -12.167 818.85 -1.5 L 818.85 466.5 C 818.85 477.167 813.517 482.5 802.85 482.5 L 34.85 482.5 C 24.183 482.5 18.85 477.167 18.85 466.5 L 18.85 -1.5 C 18.85 -12.167 24.183 -17.5 34.85 -17.5 Z" transform="matrix(1 0 0 1 -24.174096385542242 17.399999999999977)" opacity="1" fill="url(#bgGrad)" stroke="none" data-omniview-kind="Path" />
+    <text  id="3" x="40" y="50" font-size="22" font-family="system-ui, sans-serif" font-weight="bold" opacity="1" fill="#f8fafc" fill-opacity="1" data-omniview-kind="Text">OmniViewer 现代云原生微服务架构全景图</text>
+    <text  id="4" x="40" y="78" font-size="13" font-family="system-ui, sans-serif" opacity="1" fill="#94a3b8" fill-opacity="1" data-omniview-kind="Text">High-Reliability Multi-Format Rendering Cluster Topology</text>
+    <g  id="5" filter="url(#cardGlow)" opacity="1" data-omniview-kind="Group">
+      <path  id="6" d="M 52 140 L 208 140 C 216 140 220 144 220 152 L 220 368 C 220 376 216 380 208 380 L 52 380 C 44 380 40 376 40 368 L 40 152 C 40 144 44 140 52 140 Z" opacity="1" fill="#1e293b" fill-opacity="1" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke="#334155" stroke-opacity="1" data-omniview-kind="Path" />
+      <path  id="7" d="M 52 140 L 208 140 C 216 140 220 144 220 152 L 220 168 C 220 176 216 180 208 180 L 52 180 C 44 180 40 176 40 168 L 40 152 C 40 144 44 140 52 140 Z" opacity="1" fill="#334155" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+      <text  id="8" x="56" y="165" font-size="14" font-family="system-ui" font-weight="bold" opacity="1" fill="#f1f5f9" fill-opacity="1" data-omniview-kind="Text">终端宿主 (Host)</text>
+      <path  id="9" d="M 62 195 L 198 195 C 202 195 204 197 204 201 L 204 233 C 204 237 202 239 198 239 L 62 239 C 58 239 56 237 56 233 L 56 201 C 56 197 58 195 62 195 Z" opacity="1" fill="#0f172a" fill-opacity="1" stroke-width="1.5" stroke-linecap="butt" stroke-linejoin="miter" stroke="#3b82f6" stroke-opacity="1" data-omniview-kind="Path" />
+      <text  id="10" x="70" y="222" font-size="13" font-family="system-ui" opacity="1" fill="#93c5fd" fill-opacity="1" data-omniview-kind="Text">VS Code Desktop</text>
+      <path  id="11" d="M 62 250 L 198 250 C 202 250 204 252 204 256 L 204 288 C 204 292 202 294 198 294 L 62 294 C 58 294 56 292 56 288 L 56 256 C 56 252 58 250 62 250 Z" opacity="1" fill="#0f172a" fill-opacity="1" stroke-width="1.5" stroke-linecap="butt" stroke-linejoin="miter" stroke="#3b82f6" stroke-opacity="1" data-omniview-kind="Path" />
+      <text  id="12" x="70" y="277" font-size="13" font-family="system-ui" opacity="1" fill="#93c5fd" fill-opacity="1" data-omniview-kind="Text">VS Code for Web</text>
+      <path  id="13" d="M 62 305 L 198 305 C 202 305 204 307 204 311 L 204 343 C 204 347 202 349 198 349 L 62 349 C 58 349 56 347 56 343 L 56 311 C 56 307 58 305 62 305 Z" opacity="1" fill="#0f172a" fill-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke="#64748b" stroke-opacity="1" data-omniview-kind="Path" />
+      <text  id="14" x="70" y="332" font-size="13" font-family="system-ui" opacity="1" fill="#cbd5e1" fill-opacity="1" data-omniview-kind="Text">Standalone CLI / CI</text>
+    </g>
+    <g  id="15" filter="url(#cardGlow)" opacity="1" data-omniview-kind="Group">
+      <path  id="16" d="M 322 140 L 478 140 C 486 140 490 144 490 152 L 490 368 C 490 376 486 380 478 380 L 322 380 C 314 380 310 376 310 368 L 310 152 C 310 144 314 140 322 140 Z" opacity="1" fill="#1e293b" fill-opacity="1" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke="#8b5cf6" stroke-opacity="1" data-omniview-kind="Path" />
+      <path  id="17" d="M 322 140 L 478 140 C 486 140 490 144 490 152 L 490 168 C 490 176 486 180 478 180 L 322 180 C 314 180 310 176 310 168 L 310 152 C 310 144 314 140 322 140 Z" opacity="1" fill="url(#purpleGrad)" stroke="none" data-omniview-kind="Path" />
+      <text  id="18" x="326" y="165" font-size="14" font-family="system-ui" font-weight="bold" opacity="1" fill="#ffffff" fill-opacity="1" data-omniview-kind="Text">调度内核 (Core)</text>
+      <path  id="19" d="M 332 195 L 468 195 C 472 195 474 197 474 201 L 474 227 C 474 231 472 233 468 233 L 332 233 C 328 233 326 231 326 227 L 326 201 C 326 197 328 195 332 195 Z" opacity="1" fill="#0f172a" fill-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke="#a78bfa" stroke-opacity="1" data-omniview-kind="Path" />
+      <text  id="20" x="340" y="219" font-size="12" font-family="system-ui" opacity="1" fill="#c4b5fd" fill-opacity="1" data-omniview-kind="Text">Driver Dispatcher</text>
+      <path  id="21" d="M 332 243 L 468 243 C 472 243 474 245 474 249 L 474 275 C 474 279 472 281 468 281 L 332 281 C 328 281 326 279 326 275 L 326 249 C 326 245 328 243 332 243 Z" opacity="1" fill="#0f172a" fill-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke="#a78bfa" stroke-opacity="1" data-omniview-kind="Path" />
+      <text  id="22" x="340" y="267" font-size="12" font-family="system-ui" opacity="1" fill="#c4b5fd" fill-opacity="1" data-omniview-kind="Text">AST Pipeline Cache</text>
+      <path  id="23" d="M 332 291 L 468 291 C 472 291 474 293 474 297 L 474 323 C 474 327 472 329 468 329 L 332 329 C 328 329 326 327 326 323 L 326 297 C 326 293 328 291 332 291 Z" opacity="1" fill="#0f172a" fill-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke="#a78bfa" stroke-opacity="1" data-omniview-kind="Path" />
+      <text  id="24" x="340" y="315" font-size="12" font-family="system-ui" opacity="1" fill="#c4b5fd" fill-opacity="1" data-omniview-kind="Text">IPC RPC Protocol</text>
+      <path  id="25" d="M 332 335 L 468 335 C 472 335 474 337 474 341 L 474 361 C 474 365 472 367 468 367 L 332 367 C 328 367 326 365 326 361 L 326 341 C 326 337 328 335 332 335 Z" opacity="1" fill="#0f172a" fill-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke="#a78bfa" stroke-opacity="1" data-omniview-kind="Path" />
+      <text  id="26" x="340" y="356" font-size="11" font-family="system-ui" opacity="1" fill="#c4b5fd" fill-opacity="1" data-omniview-kind="Text">CSP Security Wall</text>
+    </g>
+    <g  id="27" filter="url(#cardGlow)" opacity="1" data-omniview-kind="Group">
+      <path  id="28" d="M 592 110 L 748 110 C 756 110 760 114 760 122 L 760 398 C 760 406 756 410 748 410 L 592 410 C 584 410 580 406 580 398 L 580 122 C 580 114 584 110 592 110 Z" opacity="1" fill="#1e293b" fill-opacity="1" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke="#10b981" stroke-opacity="1" data-omniview-kind="Path" />
+      <path  id="29" d="M 592 110 L 748 110 C 756 110 760 114 760 122 L 760 138 C 760 146 756 150 748 150 L 592 150 C 584 150 580 146 580 138 L 580 122 C 580 114 584 110 592 110 Z" opacity="1" fill="url(#emeraldGrad)" stroke="none" data-omniview-kind="Path" />
+      <text  id="30" x="596" y="135" font-size="14" font-family="system-ui" font-weight="bold" opacity="1" fill="#ffffff" fill-opacity="1" data-omniview-kind="Text">驱动矩阵 (Drivers)</text>
+      <path  id="31" d="M 602 165 L 738 165 C 742 165 744 167 744 171 L 744 193 C 744 197 742 199 738 199 L 602 199 C 598 199 596 197 596 193 L 596 171 C 596 167 598 165 602 165 Z" opacity="1" fill="#064e3b" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+      <text  id="32" x="610" y="187" font-size="12" font-family="system-ui" opacity="1" fill="#6ee7b7" fill-opacity="1" data-omniview-kind="Text">Markdown Engine</text>
+      <path  id="33" d="M 602 207 L 738 207 C 742 207 744 209 744 213 L 744 235 C 744 239 742 241 738 241 L 602 241 C 598 241 596 239 596 235 L 596 213 C 596 209 598 207 602 207 Z" opacity="1" fill="#064e3b" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+      <text  id="34" x="610" y="229" font-size="12" font-family="system-ui" opacity="1" fill="#6ee7b7" fill-opacity="1" data-omniview-kind="Text">Mermaid.js Core</text>
+      <path  id="35" d="M 602 249 L 738 249 C 742 249 744 251 744 255 L 744 277 C 744 281 742 283 738 283 L 602 283 C 598 283 596 281 596 277 L 596 255 C 596 251 598 249 602 249 Z" opacity="1" fill="#064e3b" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+      <text  id="36" x="610" y="271" font-size="12" font-family="system-ui" text-anchor="middle" opacity="1" fill="#6ee7b7" fill-opacity="1" data-omniview-kind="Text">PlantUML Vector</text>
+      <path  id="37" d="M 602 291 L 738 291 C 742 291 744 293 744 297 L 744 319 C 744 323 742 325 738 325 L 602 325 C 598 325 596 323 596 319 L 596 297 C 596 293 598 291 602 291 Z" opacity="1" fill="#064e3b" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+      <text  id="38" x="610" y="313" font-size="12" font-family="system-ui" opacity="1" fill="#6ee7b7" fill-opacity="1" data-omniview-kind="Text">SVG Viewport Pan</text>
+      <path  id="39" d="M 602 333 L 738 333 C 742 333 744 335 744 339 L 744 361 C 744 365 742 367 738 367 L 602 367 C 598 367 596 365 596 361 L 596 339 C 596 335 598 333 602 333 Z" opacity="1" fill="#064e3b" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+      <text  id="40" x="610" y="355" font-size="12" font-family="system-ui" opacity="1" fill="#6ee7b7" fill-opacity="1" data-omniview-kind="Text">Mozilla PDF.js</text>
+      <path  id="41" d="M 602 375 L 738 375 C 742 375 744 377 744 381 L 744 397 C 744 401 742 403 738 403 L 602 403 C 598 403 596 401 596 397 L 596 381 C 596 377 598 375 602 375 Z" opacity="1" fill="#064e3b" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+      <text  id="42" x="610" y="394" font-size="11" font-family="system-ui" opacity="1" fill="#6ee7b7" fill-opacity="1" data-omniview-kind="Text">Data Grid / CSV</text>
+    </g>
+    <path  id="43" d="M 220 230 L 310 230" opacity="1" fill="none" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" stroke-dasharray="6 4" stroke="#3b82f6" stroke-opacity="1" data-omniview-kind="Path" />
+    <path  id="44" d="M 308 225 L 318 230 L 308 235 Z" opacity="1" fill="#3b82f6" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+    <path  id="45" d="M 490 230 L 580 230" opacity="1" fill="none" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" stroke-dasharray="6 4" stroke="#10b981" stroke-opacity="1" data-omniview-kind="Path" />
+    <path  id="46" d="M 578 225 L 588 230 L 578 235 Z" opacity="1" fill="#10b981" fill-opacity="1" stroke="none" data-omniview-kind="Path" />
+    <path  id="47" d="M 48 440 L 752 440 C 757.333 440 760 442.667 760 448 L 760 468 C 760 473.333 757.333 476 752 476 L 48 476 C 42.667 476 40 473.333 40 468 L 40 448 C 40 442.667 42.667 440 48 440 Z" opacity="1" fill="#1e293b" fill-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke="#334155" stroke-opacity="1" data-omniview-kind="Path" />
+    <text  id="48" x="56" y="463" font-size="12" font-family="system-ui" font-weight="600" opacity="1" fill="#38bdf8" fill-opacity="1" data-omniview-kind="Text">● SYSTEM HEALTHY</text>
+    <text  id="49" x="180" y="463" font-size="12" font-family="system-ui" opacity="1" fill="#94a3b8" fill-opacity="1" data-omniview-kind="Text">Average AST Parse: 18ms</text>
+    <text  id="50" x="360" y="463" font-size="12" font-family="system-ui" opacity="1" fill="#94a3b8" fill-opacity="1" data-omniview-kind="Text">Memory Footprint: ~45MB</text>
+    <text  id="51" x="540" y="463" font-size="12" font-family="system-ui" opacity="1" fill="#94a3b8" fill-opacity="1" data-omniview-kind="Text">Zero License Gateways (100% Free)</text>
   </g>
-
-  <!-- 节点 2: 网关中枢 -->
-  <g filter="url(#cardGlow)">
-    <rect x="310" y="140" width="180" height="240" rx="12" fill="#1e293b" stroke="#8b5cf6" stroke-width="2"/>
-    <rect x="310" y="140" width="180" height="40" rx="12" fill="url(#purpleGrad)"/>
-    <text x="326" y="165" fill="#ffffff" font-size="14" font-weight="bold" font-family="system-ui">调度内核 (Core)</text>
-    
-    <rect x="326" y="195" width="148" height="38" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1"/>
-    <text x="340" y="219" fill="#c4b5fd" font-size="12" font-family="system-ui">Driver Dispatcher</text>
-    
-    <rect x="326" y="243" width="148" height="38" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1"/>
-    <text x="340" y="267" fill="#c4b5fd" font-size="12" font-family="system-ui">AST Pipeline Cache</text>
-    
-    <rect x="326" y="291" width="148" height="38" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1"/>
-    <text x="340" y="315" fill="#c4b5fd" font-size="12" font-family="system-ui">IPC RPC Protocol</text>
-    
-    <rect x="326" y="335" width="148" height="32" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1"/>
-    <text x="340" y="356" fill="#c4b5fd" font-size="11" font-family="system-ui">CSP Security Wall</text>
-  </g>
-
-  <!-- 节点 3: 渲染引擎集群 -->
-  <g filter="url(#cardGlow)">
-    <rect x="580" y="110" width="180" height="300" rx="12" fill="#1e293b" stroke="#10b981" stroke-width="2"/>
-    <rect x="580" y="110" width="180" height="40" rx="12" fill="url(#emeraldGrad)"/>
-    <text x="596" y="135" fill="#ffffff" font-size="14" font-weight="bold" font-family="system-ui">驱动矩阵 (Drivers)</text>
-    
-    <rect x="596" y="165" width="148" height="34" rx="6" fill="#064e3b"/>
-    <text x="610" y="187" fill="#6ee7b7" font-size="12" font-family="system-ui">Markdown Engine</text>
-    
-    <rect x="596" y="207" width="148" height="34" rx="6" fill="#064e3b"/>
-    <text x="610" y="229" fill="#6ee7b7" font-size="12" font-family="system-ui">Mermaid.js Core</text>
-    
-    <rect x="596" y="249" width="148" height="34" rx="6" fill="#064e3b"/>
-    <text x="610" y="271" fill="#6ee7b7" font-size="12" font-family="system-ui" text-anchor="middle">PlantUML Vector</text>
-    
-    <rect x="596" y="291" width="148" height="34" rx="6" fill="#064e3b"/>
-    <text x="610" y="313" fill="#6ee7b7" font-size="12" font-family="system-ui">SVG Viewport Pan</text>
-    
-    <rect x="596" y="333" width="148" height="34" rx="6" fill="#064e3b"/>
-    <text x="610" y="355" fill="#6ee7b7" font-size="12" font-family="system-ui">Mozilla PDF.js</text>
-    
-    <rect x="596" y="375" width="148" height="28" rx="6" fill="#064e3b"/>
-    <text x="610" y="394" fill="#6ee7b7" font-size="11" font-family="system-ui">Data Grid / CSV</text>
-  </g>
-
-  <!-- 连接箭头 -->
-  <path d="M 220 230 L 310 230" stroke="#3b82f6" stroke-width="3" stroke-dasharray="6,4" fill="none"/>
-  <polygon points="308,225 318,230 308,235" fill="#3b82f6"/>
-
-  <path d="M 490 230 L 580 230" stroke="#10b981" stroke-width="3" stroke-dasharray="6,4" fill="none"/>
-  <polygon points="578,225 588,230 578,235" fill="#10b981"/>
-
-  <!-- 底部指标状态 -->
-  <rect x="40" y="440" width="720" height="36" rx="8" fill="#1e293b" stroke="#334155"/>
-  <text x="56" y="463" fill="#38bdf8" font-size="12" font-weight="600" font-family="system-ui">● SYSTEM HEALTHY</text>
-  <text x="180" y="463" fill="#94a3b8" font-size="12" font-family="system-ui">Average AST Parse: 18ms</text>
-  <text x="360" y="463" fill="#94a3b8" font-size="12" font-family="system-ui">Memory Footprint: ~45MB</text>
-  <text x="540" y="463" fill="#94a3b8" font-size="12" font-family="system-ui">Zero License Gateways (100% Free)</text>
 </svg>

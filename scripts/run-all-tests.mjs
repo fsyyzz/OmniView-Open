@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 const TESTS_DIR = path.resolve(ROOT_DIR, 'tests');
+const ESBUILD_BIN = path.resolve(ROOT_DIR, 'node_modules', 'esbuild', 'bin', 'esbuild');
 
 /**
  * 解析命令行参数
@@ -86,10 +87,9 @@ function runSuite(item) {
         }
       }
 
-      const esbuildProc = spawn('npx', ['esbuild', ...esbuildArgs], {
+      const esbuildProc = spawn(process.execPath, [ESBUILD_BIN, ...esbuildArgs], {
         cwd: ROOT_DIR,
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
       });
 
       const nodeProc = spawn(process.execPath, [], {

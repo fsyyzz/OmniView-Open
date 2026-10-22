@@ -18,6 +18,7 @@
 | [diagrams.md](./diagrams.md) | Mermaid 与 PlantUML 图表 |
 | [graphviz-diagrams.md](./graphviz-diagrams.md) | Graphviz / DOT 拓扑图、有向图、网络状态机与多布局引擎 |
 | [math-formulas.md](./math-formulas.md) | KaTeX 数学公式、微积分、线性代数、物理学方程与深度学习模型 |
+| [echarts-charts.md](./echarts-charts.md) | Apache ECharts 商业级矢量图表、快捷语法糖、纯数据简写与多列响应式卡片仪表盘 |
 | [consensus-algorithms.md](./consensus-algorithms.md) | 分布式共识机制 (Raft, PBFT, PoW/PoS)、状态机、时序图与证明公式 |
 | [technical-guide.md](./technical-guide.md) | 一份更接近真实项目的混合技术文档 |
 | [math-and-diagrams-test.md](./math-and-diagrams-test.md) | 数学公式与图片/图表全屏灯箱综合测试 |

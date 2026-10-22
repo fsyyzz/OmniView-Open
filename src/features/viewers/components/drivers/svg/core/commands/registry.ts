@@ -1177,7 +1177,7 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   // history.* / tool.*
   reg({ id: 'history.undo', title: '撤销', undoLabel: '撤销', params: [], handler: historyUndo });
   reg({ id: 'history.redo', title: '重做', undoLabel: '重做', params: [], handler: historyRedo });
-  reg({ id: 'tool.setActive', title: '切换工具', undoLabel: '切换工具', params: [{ key: 'tool', type: 'enum', required: true, values: ['select', 'node', 'pen', 'rect', 'ellipse', 'line', 'text'], description: '工具' }], handler: toolSetActive });
+  reg({ id: 'tool.setActive', title: '切换工具', undoLabel: '切换工具', params: [{ key: 'tool', type: 'enum', required: true, values: ['select', 'node', 'pen', 'rect', 'polygon', 'ellipse', 'line', 'curve', 'arrow', 'text'], description: '工具' }], handler: toolSetActive });
 
   return map;
 }

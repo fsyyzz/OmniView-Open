@@ -18,6 +18,7 @@ import { LazyViewportBlock } from './markdown/LazyViewportBlock';
 import { DomainStoryBlock } from './markdown/DomainStoryBlock';
 import { MarkmapBlock } from './markdown/MarkmapBlock';
 import { ExcalidrawBlock } from './markdown/ExcalidrawBlock';
+import { EChartsBlock } from './markdown/EChartsBlock';
 import { LightboxModal } from '../common/LightboxModal';
 import { RenderErrorBoundary } from '../common/RenderErrorBoundary';
 import { WikiLinkPreviewPopover } from './markdown/WikiLinkPreviewPopover';
@@ -159,6 +160,51 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       setPendingFocusLine(null);
     }
   }, [blocks, pendingFocusLine]);
+
+  // 挂载卡片网格 (> [!CARDS:列数]) 或引用块内部的内联 ECharts 微图表 (一行多图仪表盘支持)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const hosts = container.querySelectorAll<HTMLDivElement>('.ov-echarts-inline-host:not([data-mounted="true"])');
+    if (hosts.length === 0) return;
+
+    const unmountFns: Array<() => void> = [];
+
+    import('react-dom/client').then(({ createRoot }) => {
+      hosts.forEach((host, idx) => {
+        host.setAttribute('data-mounted', 'true');
+        const rawEncoded = host.getAttribute('data-echarts-raw') || '';
+        const rawCode = decodeURIComponent(rawEncoded);
+        const suffix = host.getAttribute('data-suffix') || undefined;
+
+        const subContainer = document.createElement('div');
+        host.appendChild(subContainer);
+        const subRoot = createRoot(subContainer);
+
+        subRoot.render(
+          <EChartsBlock
+            id={`inline-echarts-${idx}-${Date.now()}`}
+            raw={rawCode}
+            langSuffix={suffix}
+            isDarkTheme={isDarkTheme}
+            isCompactCard={true}
+            onOpenLightbox={item => setLightboxItem(item)}
+          />
+        );
+
+        unmountFns.push(() => {
+          try {
+            subRoot.unmount();
+          } catch {}
+        });
+      });
+    });
+
+    return () => {
+      unmountFns.forEach(fn => fn());
+    };
+  }, [blocks, isDarkTheme]);
 
   // 监听预览区划选文本事件 (支持单行格式化回写与跨行/只读智能复制定位)
   useEffect(() => {
@@ -1196,6 +1242,30 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   externalFile={block.externalFile}
                   locale={locale}
+                />
+              </RenderErrorBoundary>
+            </LazyViewportBlock>
+          );
+        }
+
+        if (block.type === 'echarts') {
+          return (
+            <LazyViewportBlock
+              key={block.id}
+              id={block.id}
+              eager={effectiveEagerMount}
+              minHeight={320}
+              data-source-line={block.startLine}
+              data-source-end-line={block.endLine}
+              title={getBlockTitle(block.startLine)}
+            >
+              <RenderErrorBoundary blockName="Apache ECharts" locale={locale}>
+                <EChartsBlock
+                  id={block.id}
+                  raw={block.raw}
+                  langSuffix={block.langSuffix}
+                  isDarkTheme={isDarkTheme}
+                  onOpenLightbox={item => setLightboxItem(item)}
                 />
               </RenderErrorBoundary>
             </LazyViewportBlock>
