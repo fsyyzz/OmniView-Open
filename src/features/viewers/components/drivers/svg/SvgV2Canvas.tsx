@@ -9,9 +9,9 @@
  *
  * UI 只经 `core` barrel 导入。
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
-import { ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Move, Scaling, Frame } from 'lucide-react';
 import {
   RAW_DEFS_METADATA_KEY,
   clientToCanvasPoint,
@@ -147,6 +147,121 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   } = useSvgV2Viewport();
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [canvasResizeMode, setCanvasResizeMode] = useState<'scale-content' | 'canvas-only'>('scale-content');
+  const [resizingCanvas, setResizingCanvas] = useState(false);
+  const canvasDragRef = useRef<{
+    pointerId: number;
+    handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+    startClientX: number;
+    startClientY: number;
+    startW: number;
+    startH: number;
+    scale: number;
+  } | null>(null);
+
+  const handleCanvasResizeDown = useCallback(
+    (handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w', e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      e.preventDefault();
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* capture unavailable */
+      }
+      canvasDragRef.current = {
+        pointerId: e.pointerId,
+        handle,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startW: Math.max(16, view.width),
+        startH: Math.max(16, view.height),
+        scale: Math.max(viewport.scale, 0.05),
+      };
+      setResizingCanvas(true);
+      runtime.handleActions([{ kind: 'Begin', label: '调整 SVG 图形尺寸' }]);
+    },
+    [view.width, view.height, viewport.scale, runtime],
+  );
+
+  const handleCanvasResizeMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = canvasDragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      e.stopPropagation();
+      e.preventDefault();
+
+      // 由于外层 flex items-center justify-center 会实时居中 SVG，屏幕位移与宽/高增量的关系为 1:1（除以 viewport.scale）
+      const dx = (e.clientX - drag.startClientX) / drag.scale;
+      const dy = (e.clientY - drag.startClientY) / drag.scale;
+
+      let nextW = drag.startW;
+      let nextH = drag.startH;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      const h = drag.handle;
+      if (h.includes('e')) nextW = drag.startW + dx;
+      if (h.includes('w')) {
+        nextW = drag.startW - dx;
+        offsetX = -dx;
+      }
+      if (h.includes('s')) nextH = drag.startH + dy;
+      if (h.includes('n')) {
+        nextH = drag.startH - dy;
+        offsetY = -dy;
+      }
+
+      nextW = Math.max(32, nextW);
+      nextH = Math.max(32, nextH);
+
+      // 按住 Shift 或在「整体缩放」模式下拖拽四角时保持原始宽高比
+      const isCorner = h === 'nw' || h === 'ne' || h === 'se' || h === 'sw';
+      if (e.shiftKey || (canvasResizeMode === 'scale-content' && isCorner && !e.altKey)) {
+        const aspect = drag.startW / Math.max(drag.startH, 1);
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          nextH = Math.max(32, nextW / aspect);
+        } else {
+          nextW = Math.max(32, nextH * aspect);
+        }
+      }
+
+      runtime.handleActions([
+        {
+          kind: 'Preview',
+          commandId: 'canvas.setSize',
+          params: {
+            width: Math.round(nextW),
+            height: Math.round(nextH),
+            mode: canvasResizeMode,
+            offsetContent:
+              canvasResizeMode === 'canvas-only' && (Math.abs(offsetX) > 0.5 || Math.abs(offsetY) > 0.5)
+                ? { x: Math.round(offsetX), y: Math.round(offsetY) }
+                : undefined,
+          },
+        },
+      ]);
+    },
+    [canvasResizeMode, runtime],
+  );
+
+  const handleCanvasResizeUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = canvasDragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      e.stopPropagation();
+      e.preventDefault();
+      canvasDragRef.current = null;
+      setResizingCanvas(false);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* already released */
+      }
+      runtime.handleActions([{ kind: 'Commit' }]);
+    },
+    [runtime],
+  );
 
   const selBBox = useMemo(() => {
     return getSelectionBBox(doc, selection.nodeIds);
@@ -226,8 +341,21 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   const defsHtml = useMemo(() => sanitizeDefsFragment(rawDefs), [rawDefs]);
 
   const overlays = runtime.overlay();
+  const activeMarquee = useMemo(() => {
+    const found = overlays.find(
+      (o) => o.kind === 'rect' && (o.stroke === '#10b981' || o.stroke === '#2563eb'),
+    );
+    return found && found.kind === 'rect' ? found : null;
+  }, [overlays]);
+
   const selectionBoxes = useMemo(() => {
     const out: React.ReactNode[] = [];
+    const highlightStroke = activeMarquee ? activeMarquee.stroke : 'var(--ov-accent, #4c9aff)';
+    const highlightFill = activeMarquee
+      ? activeMarquee.dashed
+        ? 'rgba(16, 185, 129, 0.08)'
+        : 'rgba(37, 99, 235, 0.08)'
+      : 'none';
     for (const id of selection.nodeIds) {
       const bb = nodeWorldBBox(doc, id);
       if (!bb) continue;
@@ -238,15 +366,16 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
           y={bb.y}
           width={bb.width}
           height={bb.height}
-          fill="none"
-          stroke="var(--ov-accent, #4c9aff)"
-          strokeWidth={1}
+          fill={highlightFill}
+          stroke={highlightStroke}
+          strokeWidth={activeMarquee ? 1.5 / Math.max(viewport.scale, 1e-4) : 1}
           pointerEvents="none"
         />,
       );
     }
+    if (activeMarquee) return out;
     return activeToolId === 'select' || activeToolId === 'node' ? [] : out;
-  }, [doc, selection.nodeIds, activeToolId]);
+  }, [doc, selection.nodeIds, activeToolId, activeMarquee, viewport.scale]);
 
   const cursor = useMemo(() => {
     try {
@@ -259,54 +388,163 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[var(--ov-canvas-bg)] p-4"
+      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[var(--ov-canvas-bg)] p-4 select-none"
+      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
       onWheel={handleWheel}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
-      onPointerDown={beginPan}
-      onPointerMove={movePan}
-      onPointerUp={endPan}
-      onPointerCancel={endPan}
+      onDragStart={(e) => e.preventDefault()}
+      onPointerDown={(e) => {
+        if (beginPan(e)) return;
+        const targetEl = e.target instanceof Element ? e.target : null;
+        if (
+          e.button === 0 &&
+          !e.altKey &&
+          !targetEl?.closest('[data-canvas-ui]') &&
+          !targetEl?.closest('[data-svg-canvas-handle]')
+        ) {
+          handlePointerDown(e as unknown as React.PointerEvent<SVGSVGElement>);
+        }
+      }}
+      onPointerMove={(e) => {
+        movePan(e);
+        if (!panning) {
+          handlePointerMove(e as unknown as React.PointerEvent<SVGSVGElement>);
+        }
+      }}
+      onPointerUp={(e) => {
+        endPan(e);
+        handlePointerUp(e as unknown as React.PointerEvent<SVGSVGElement>);
+      }}
+      onPointerCancel={(e) => {
+        endPan(e);
+        handlePointerCancel(e as unknown as React.PointerEvent<SVGSVGElement>);
+      }}
     >
       <div
         className="absolute inset-4 flex items-center justify-center"
         style={{
           transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
           transformOrigin: 'center center',
-          transition: panning ? 'none' : 'transform 0.08s ease-out',
+          transition: panning || resizingCanvas ? 'none' : 'transform 0.08s ease-out',
         }}
       >
-        <svg
-          ref={svgRef}
-          width={view.width}
-          height={view.height}
-          viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
-          className="block h-auto max-h-full max-w-full border border-[var(--ov-border)] bg-white"
-          style={{ aspectRatio: `${view.width} / ${view.height}`, touchAction: 'none', cursor }}
-          preserveAspectRatio="xMidYMid meet"
-          tabIndex={0}
-          role="presentation"
-          data-omni-svg-v2-canvas="true"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerCancel}
-          onDoubleClick={handleNodeDoubleClick}
-          onKeyDown={handleKeyDown}
+        <div
+          className="relative group/svgframe"
+          style={{ width: `${view.width}px`, height: `${view.height}px` }}
         >
-          {defsHtml ? <defs dangerouslySetInnerHTML={{ __html: defsHtml }} /> : null}
-          <defs>
-            <marker id="ov-marker-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" stroke="context-stroke" />
-            </marker>
-            <marker id="ov-marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-              <circle cx="5" cy="5" r="4" fill="context-stroke" />
-            </marker>
-          </defs>
-          {elements}
-          {selectionBoxes}
-          <g pointerEvents="none">{overlays.map(renderOverlay)}</g>
-        </svg>
+          {/* SVG 图形顶部尺寸指示与缩放模式快捷栏 */}
+          <div
+            data-canvas-ui="true"
+            className="absolute -top-7 left-0 flex items-center gap-1.5 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)]/95 px-2 py-0.5 text-[11px] text-[var(--ov-fg)] shadow-sm backdrop-blur-sm select-none z-20 whitespace-nowrap"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <span className="font-mono font-semibold text-[var(--ov-accent)]" title="当前 SVG 图形本身的像素宽度 × 高度（拖拽 SVG 四周与四角控制柄可直接调整尺寸）">
+              SVG {Math.round(view.width)} × {Math.round(view.height)}
+            </span>
+            <span className="text-[var(--ov-border)]">|</span>
+            <button
+              type="button"
+              title="切换拖拽 SVG 外框手柄时的行为：整体等比/自由缩放图形（含内部所有图元） vs 仅扩缩画布边界"
+              className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                canvasResizeMode === 'scale-content'
+                  ? 'bg-[var(--ov-accent-soft)] text-[var(--ov-accent)] font-medium'
+                  : 'text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)]'
+              }`}
+              onClick={() =>
+                setCanvasResizeMode((m) => (m === 'scale-content' ? 'canvas-only' : 'scale-content'))
+              }
+            >
+              {canvasResizeMode === 'scale-content' ? (
+                <>
+                  <Scaling size={10} />
+                  <span>整体缩放图形</span>
+                </>
+              ) : (
+                <>
+                  <Frame size={10} />
+                  <span>仅调画布边界</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              title="根据内部所有可见图元自动收缩或扩展 SVG 图形尺寸（留白 24px）"
+              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors"
+              onClick={() => runtime.execute('canvas.setSize', { mode: 'fit-content', padding: 24 })}
+            >
+              自适应内容
+            </button>
+          </div>
+
+          <svg
+            ref={svgRef}
+            width={view.width}
+            height={view.height}
+            viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
+            className="block border border-[var(--ov-border)] bg-white shadow-sm select-none"
+            style={{
+              width: `${view.width}px`,
+              height: `${view.height}px`,
+              touchAction: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              overflow: activeMarquee ? 'visible' : undefined,
+              cursor,
+            }}
+            preserveAspectRatio="xMidYMid meet"
+            tabIndex={0}
+            role="presentation"
+            data-omni-svg-v2-canvas="true"
+            onDragStart={(e) => e.preventDefault()}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onDoubleClick={handleNodeDoubleClick}
+            onKeyDown={handleKeyDown}
+          >
+            {defsHtml ? <defs dangerouslySetInnerHTML={{ __html: defsHtml }} /> : null}
+            <defs>
+              <marker id="ov-marker-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" stroke="context-stroke" />
+              </marker>
+              <marker id="ov-marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <circle cx="5" cy="5" r="4" fill="context-stroke" />
+              </marker>
+            </defs>
+            {elements}
+            {selectionBoxes}
+            <g pointerEvents="none">{overlays.map(renderOverlay)}</g>
+          </svg>
+
+          {/* SVG 图形本身的 8 向尺寸拖拽控制柄（四角 + 四边中点） */}
+          {(
+            [
+              { key: 'nw', pos: '-top-1.5 -left-1.5', cursor: 'nwse-resize', title: '拖拽左上角调整 SVG 图形尺寸 (Shift 锁定比例)' },
+              { key: 'n', pos: '-top-1.5 left-1/2 -translate-x-1/2', cursor: 'ns-resize', title: '拖拽上边缘调整 SVG 图形高度' },
+              { key: 'ne', pos: '-top-1.5 -right-1.5', cursor: 'nesw-resize', title: '拖拽右上角调整 SVG 图形尺寸 (Shift 锁定比例)' },
+              { key: 'e', pos: 'top-1/2 -right-1.5 -translate-y-1/2', cursor: 'ew-resize', title: '拖拽右边缘调整 SVG 图形宽度' },
+              { key: 'se', pos: '-bottom-1.5 -right-1.5', cursor: 'nwse-resize', title: '拖拽右下角调整 SVG 图形尺寸 (Shift 锁定比例)' },
+              { key: 's', pos: '-bottom-1.5 left-1/2 -translate-x-1/2', cursor: 'ns-resize', title: '拖拽下边缘调整 SVG 图形高度' },
+              { key: 'sw', pos: '-bottom-1.5 -left-1.5', cursor: 'nesw-resize', title: '拖拽左下角调整 SVG 图形尺寸 (Shift 锁定比例)' },
+              { key: 'w', pos: 'top-1/2 -left-1.5 -translate-y-1/2', cursor: 'ew-resize', title: '拖拽左边缘调整 SVG 图形宽度' },
+            ] as const
+          ).map((h) => (
+            <div
+              key={`svg-resize-${h.key}`}
+              data-canvas-ui="true"
+              data-svg-canvas-handle={h.key}
+              title={h.title}
+              style={{ cursor: h.cursor }}
+              className={`absolute ${h.pos} z-20 h-3 w-3 rounded-sm border border-[var(--ov-accent)] bg-[var(--ov-surface)] shadow transition-transform hover:scale-125 hover:bg-[var(--ov-accent)]`}
+              onPointerDown={(e) => handleCanvasResizeDown(h.key, e)}
+              onPointerMove={handleCanvasResizeMove}
+              onPointerUp={handleCanvasResizeUp}
+              onPointerCancel={handleCanvasResizeUp}
+            />
+          ))}
+        </div>
       </div>
 
       {/* 悬浮 HUD 快捷工具条 (Floating HUD) */}
@@ -340,17 +578,22 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
         return (
           <div
             data-canvas-ui="true"
-            className={`absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-2xl backdrop-blur-md border animate-fadeIn ${
-              marquee.dashed
-                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60 shadow-emerald-950/40'
-                : 'bg-blue-950/90 text-blue-300 border-blue-500/60 shadow-blue-950/40'
-            }`}
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-2xl backdrop-blur-md border border-[var(--ov-border)] bg-[var(--ov-surface)]/95 text-[var(--ov-fg)] animate-fadeIn"
           >
-            <span className="inline-block h-2 w-2 rounded-full animate-ping" style={{ backgroundColor: marquee.stroke }} />
-            <span>
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full animate-pulse"
+              style={{ backgroundColor: marquee.stroke }}
+            />
+            <span className="font-semibold">
               {marquee.dashed
-                ? '🟩 CAD 交叉选择 (从右向左 · 虚线触碰即选)'
-                : '🟦 CAD 窗口选择 (从左向右 · 实线严格全包含)'}
+                ? 'CAD 交叉选择 (右→左 · 虚线真实几何相交即选)'
+                : 'CAD 窗口选择 (左→右 · 实线 100% 包围即选)'}
+            </span>
+            <span className="rounded-full bg-[var(--ov-accent-soft)] px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--ov-accent)]">
+              命中 {selection.nodeIds.length} 项
+            </span>
+            <span className="hidden md:inline text-[10px] text-[var(--ov-fg-muted)]">
+              Shift 加选 · Ctrl 减选
             </span>
           </div>
         );
@@ -640,6 +883,8 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
     const fillAlpha = fillItem && fillItem.kind === 'fill' ? paintOpacity(fillItem.fill) : undefined;
     const inlineStyle: React.CSSProperties = {
       cursor: 'default',
+      userSelect: 'none',
+      WebkitUserSelect: 'none',
       ...(node.className
         ? {
             fill: fillValue,

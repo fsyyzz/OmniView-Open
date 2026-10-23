@@ -56,6 +56,8 @@ import type {
   PathToggleAnchorKindParams,
   PathSetMarkerParams,
   PathConvertLineStyleParams,
+  PathSetRectRadiusParams,
+  CanvasSetSizeParams,
 } from './types';
 import type {
   AffineTransform,
@@ -97,8 +99,8 @@ import {
   selectionWith,
   updateNode,
 } from '../model/document';
-import { createCurveGeometry, parsePathD, serializePathD } from '../model/path';
-import { alignDelta, distributeOffsets, nodeBBox, nodeWorldBBox, nodeWorldTransform, unionRects } from '../model/bbox';
+import { createCurveGeometry, createRectGeometry, getBoundingBox, getRectCornerRadius, isRectNode, parsePathD, serializePathD } from '../model/path';
+import { alignDelta, distributeOffsets, matchNodesInMarquee, nodeBBox, nodeWorldBBox, nodeWorldTransform, unionRects } from '../model/bbox';
 import { findParent, keepDisjointRoots } from '../model/tree';
 
 // ============================================================================
@@ -410,6 +412,62 @@ const pathSetMarker: CommandHandler = (doc, sel, params) => {
   }) as CommandResult;
 };
 
+const pathSetRectRadius: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PathSetRectRadiusParams;
+  const rawIds = p.ids && p.ids.length > 0 ? p.ids : (p.id ? [p.id] : sel.nodeIds);
+  let next = doc;
+  const rx = Math.max(0, p.rx);
+  const ry = p.ry !== undefined ? Math.max(0, p.ry) : rx;
+
+  // 递归展开编组（Group），收集所有矩形 Path 节点
+  const targetIds: NodeId[] = [];
+  const visit = (id: NodeId) => {
+    const n = next.nodes.get(id);
+    if (!n) return;
+    if (n.kind === 'Path' && isRectNode(n)) {
+      targetIds.push(id);
+    } else if (n.kind === 'Group' || n.kind === 'Layer') {
+      for (const cid of n.children) visit(cid);
+    }
+  };
+  for (const id of rawIds) visit(id);
+
+  for (const id of targetIds) {
+    const n = next.nodes.get(id);
+    if (!n || n.kind !== 'Path') continue;
+    const bb = getBoundingBox(n.geometry);
+    if (bb.width <= 0 && bb.height <= 0) continue;
+
+    const wt = nodeWorldTransform(next, id);
+    const scaleX = Math.max(Math.hypot(wt.a, wt.b), 1e-4);
+    const scaleY = Math.max(Math.hypot(wt.c, wt.d), 1e-4);
+    const worldW = bb.width * scaleX;
+    const worldH = bb.height * scaleY;
+
+    const maxShortHalf = Math.min(worldW / 2, worldH / 2);
+    const clampedRx = p.ry === undefined
+      ? Math.round(Math.min(rx, maxShortHalf) * 10) / 10
+      : Math.round(Math.min(rx, worldW / 2) * 10) / 10;
+    const clampedRy = p.ry === undefined
+      ? clampedRx
+      : Math.round(Math.min(ry, worldH / 2) * 10) / 10;
+
+    const localRx = Math.min(clampedRx / scaleX, bb.width / 2);
+    const localRy = Math.min(clampedRy / scaleY, bb.height / 2);
+
+    const geometry = createRectGeometry(bb.x, bb.y, bb.width, bb.height, localRx, localRy);
+    next = updateNode(next, id, (node) => ({
+      ...(node as PathNode),
+      geometry,
+      primitiveHint: 'rect',
+      rx: clampedRx,
+      ry: clampedRy,
+      cornerRadius: clampedRx,
+    }));
+  }
+  return ok(next, sel);
+};
+
 // ============================================================================
 // 4. object.* 命令（变换 / 编组 / 删除 / 重排）
 // ============================================================================
@@ -443,6 +501,23 @@ const objectScale: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as ObjectScaleParams;
   let next = doc;
   const cleanIds = keepDisjointRoots(next, p.ids);
+
+  // 记录缩放前各圆角矩形的视觉圆角半径（防止非等比拉伸把圆角拉扁成椭圆）
+  const preRectRadii = new Map<NodeId, number>();
+  const collectPreRects = (id: NodeId) => {
+    const n = next.nodes.get(id);
+    if (!n) return;
+    if (n.kind === 'Path' && isRectNode(n)) {
+      const wt = nodeWorldTransform(next, id);
+      const sx = Math.max(Math.hypot(wt.a, wt.b), 1e-4);
+      const r = n.cornerRadius ?? n.rx ?? getRectCornerRadius(n) * sx;
+      if (r > 0) preRectRadii.set(id, r);
+    } else if (n.kind === 'Group' || n.kind === 'Layer') {
+      for (const cid of n.children) collectPreRects(cid);
+    }
+  };
+  for (const id of cleanIds) collectPreRects(id);
+
   for (const id of cleanIds) {
     if (!next.nodes.has(id)) return noNode('object.scale', id);
     const parentId = findParent(next, id);
@@ -459,6 +534,32 @@ const objectScale: CommandHandler = (doc, sel, params) => {
       return { ...n, transform: composeTransforms(localM, t) };
     });
   }
+
+  // 对圆角矩形同步重算局部 rx/ry，确保缩放（尤其是单向改变宽或高）后圆角不发生椭圆畸变
+  for (const [rectId, desiredWorldRx] of preRectRadii) {
+    const n = next.nodes.get(rectId);
+    if (!n || n.kind !== 'Path') continue;
+    const bb = getBoundingBox(n.geometry);
+    if (bb.width <= 0 || bb.height <= 0) continue;
+    const wt = nodeWorldTransform(next, rectId);
+    const scaleX = Math.max(Math.hypot(wt.a, wt.b), 1e-4);
+    const scaleY = Math.max(Math.hypot(wt.c, wt.d), 1e-4);
+    const worldW = bb.width * scaleX;
+    const worldH = bb.height * scaleY;
+    const clampedWorldRx = Math.min(desiredWorldRx, worldW / 2, worldH / 2);
+    const localRx = Math.min(clampedWorldRx / scaleX, bb.width / 2);
+    const localRy = Math.min(clampedWorldRx / scaleY, bb.height / 2);
+    const geometry = createRectGeometry(bb.x, bb.y, bb.width, bb.height, localRx, localRy);
+    next = updateNode(next, rectId, (node) => ({
+      ...(node as PathNode),
+      geometry,
+      primitiveHint: 'rect',
+      rx: Math.round(clampedWorldRx * 10) / 10,
+      ry: Math.round(clampedWorldRx * 10) / 10,
+      cornerRadius: Math.round(clampedWorldRx * 10) / 10,
+    }));
+  }
+
   return ok(next, sel);
 };
 
@@ -808,6 +909,9 @@ const objectCreatePath: CommandHandler = (doc, _sel, params) => {
   if (p.name) (pathNode as any).name = p.name;
   if (p.markerStart && p.markerStart !== 'none') (pathNode as any).markerStart = p.markerStart;
   if (p.markerEnd && p.markerEnd !== 'none') (pathNode as any).markerEnd = p.markerEnd;
+  if ((p as any).rx !== undefined) (pathNode as any).rx = (p as any).rx;
+  if ((p as any).ry !== undefined) (pathNode as any).ry = (p as any).ry;
+  if ((p as any).cornerRadius !== undefined) (pathNode as any).cornerRadius = (p as any).cornerRadius;
   const { doc: nextDoc, nodeId } = appendToLayer(workingDoc, targetLayer, pathNode);
   return ok(nextDoc, selectionWith(nodeId));
 };
@@ -908,11 +1012,14 @@ const paintSetStroke: CommandHandler = (doc, sel, params) => {
     if (!next.nodes.has(id)) return noNode('paint.setStroke', id);
     next = updateNode(next, id, (n) => {
       if (n.kind !== 'Path' && n.kind !== 'Group') return n;
+      const existingStroke = (n as any).appearance.items.find((it: any) => it.kind === 'stroke');
+      const baseStroke = existingStroke ? existingStroke.stroke : defaultStroke();
+      const updatedStroke = { ...baseStroke, ...p.stroke };
       const items = (n as any).appearance.items.map((it: any) =>
-        it.kind === 'stroke' ? { ...it, stroke: { ...p.stroke } } : it
+        it.kind === 'stroke' ? { ...it, stroke: updatedStroke } : it
       );
       if (!items.some((it: any) => it.kind === 'stroke')) {
-        items.push({ kind: 'stroke', stroke: { ...p.stroke }, blend: 'normal', opacity: 1 });
+        items.push({ kind: 'stroke', stroke: updatedStroke, blend: 'normal', opacity: 1 });
       }
       return { ...(n as any), appearance: { items } };
     });
@@ -1019,60 +1126,37 @@ const layerReorder: CommandHandler = (doc, sel, params) => {
 
 const selectBox: CommandHandler = (doc, sel, params) => {
   const p = params as unknown as SelectBoxParams;
-  const matched: NodeId[] = [];
   const mode = p.mode ?? 'enclosed';
+  const operation: 'replace' | 'add' | 'subtract' =
+    p.operation ?? (p.additive ? 'add' : 'replace');
 
-  const isContained = (r: { x: number; y: number; width: number; height: number }): boolean =>
-    r.x >= p.rect.x &&
-    r.y >= p.rect.y &&
-    r.x + r.width <= p.rect.x + p.rect.width &&
-    r.y + r.height <= p.rect.y + p.rect.height;
+  // 检查是否正在某个 Group 内部编辑（仅在单选一个 Group 且为替换选区时以该 Group 为局部上下文）
+  const activeGroupId =
+    operation === 'replace' &&
+    sel.nodeIds.length === 1 &&
+    doc.nodes.get(sel.nodeIds[0]!)?.kind === 'Group'
+      ? sel.nodeIds[0]!
+      : null;
 
-  const intersects = (r: { x: number; y: number; width: number; height: number }): boolean =>
-    !(r.x + r.width < p.rect.x || r.x > p.rect.x + p.rect.width || r.y + r.height < p.rect.y || r.y > p.rect.y + p.rect.height);
+  const matched = matchNodesInMarquee(doc, p.rect, mode, activeGroupId);
 
-  const checkMatch = mode === 'intersect' ? intersects : isContained;
+  if (operation === 'add') {
+    if (matched.length === 0) return ok(doc, sel);
+    return ok(doc, selectionAdd(sel, matched));
+  }
 
-  // 画布面积：用于防止小范围框选时误选大背景
-  const canvasW = doc.canvas?.width || 800;
-  const canvasH = doc.canvas?.height || 600;
-  const canvasArea = canvasW * canvasH;
-  const selArea = p.rect.width * p.rect.height;
-
-  // 检查是否正在某个 Group 内部编辑（当前选区恰为单一 Group）
-  const activeGroup = (sel.nodeIds.length === 1 && doc.nodes.get(sel.nodeIds[0]!)?.kind === 'Group')
-    ? (doc.nodes.get(sel.nodeIds[0]!) as Extract<Node, { kind: 'Group' }>)
-    : null;
-
-  const candidateIds: NodeId[] = [];
-  if (activeGroup) {
-    for (const cid of activeGroup.children) candidateIds.push(cid);
-  } else {
-    for (const layerId of doc.layers) {
-      const layer = doc.nodes.get(layerId);
-      if (!layer || layer.kind !== 'Layer' || !layer.visible || layer.locked) continue;
-      for (const childId of layer.children) candidateIds.push(childId);
+  if (operation === 'subtract') {
+    if (matched.length === 0) return ok(doc, sel);
+    let nextSel = sel;
+    for (const id of matched) {
+      nextSel = selectionRemove(nextSel, id);
     }
+    return ok(doc, nextSel);
   }
 
-  for (const childId of candidateIds) {
-    const n = doc.nodes.get(childId);
-    if (!n || !n.visible || n.locked) continue;
-    const bb = nodeWorldBBox(doc, childId);
-    if (!bb) continue;
-
-    // 面积占满 80% 画布以上的大底图，在非大面积框选时予以忽略保护
-    const isHugeBackground = (bb.width * bb.height) >= canvasArea * 0.8 && selArea < canvasArea * 0.6;
-    if (isHugeBackground && mode !== 'enclosed') continue;
-
-    if (checkMatch(bb)) matched.push(childId);
-  }
-
-  if (matched.length === 0) return ok(doc, p.additive ? sel : emptySelection());
-  const ids = matched as NodeId[];
-  const primary = ids[0]!;
-  const next = p.additive ? selectionAdd(sel, ids) : selectionWith(primary, ids.slice(1));
-  return ok(doc, next);
+  if (matched.length === 0) return ok(doc, emptySelection());
+  const primary = matched[0]!;
+  return ok(doc, selectionWith(primary, matched.slice(1)));
 };
 
 const selectSet: CommandHandler = (doc, sel, params) => {
@@ -1116,6 +1200,100 @@ const historyRedo: CommandHandler = (doc, sel) => ok(doc, sel);
 const toolSetActive: CommandHandler = (doc, sel) => ok(doc, sel);
 
 // ============================================================================
+// 8.5 canvas.* 命令（调整 SVG 图形本身/画布尺寸）
+// ============================================================================
+
+const canvasSetSize: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as CanvasSetSizeParams;
+  const mode = p.mode ?? 'canvas-only';
+  const curW = Math.max(1, doc.canvas.width || doc.canvas.viewBox?.width || 800);
+  const curH = Math.max(1, doc.canvas.height || doc.canvas.viewBox?.height || 600);
+  const vbX = doc.canvas.viewBox?.x ?? 0;
+  const vbY = doc.canvas.viewBox?.y ?? 0;
+
+  // 收集所有图层下的顶层子节点 ID
+  const allTopChildIds: NodeId[] = [];
+  for (const layerId of doc.layers) {
+    const layer = doc.nodes.get(layerId);
+    if (!layer || layer.kind !== 'Layer') continue;
+    for (const cid of layer.children) {
+      if (doc.nodes.has(cid)) allTopChildIds.push(cid);
+    }
+  }
+
+  if (mode === 'fit-content') {
+    const boxes: Rect[] = [];
+    for (const cid of allTopChildIds) {
+      const n = doc.nodes.get(cid);
+      if (!n || !n.visible) continue;
+      const bb = nodeWorldBBox(doc, cid);
+      if (bb && (bb.width > 0 || bb.height > 0)) {
+        boxes.push(bb);
+      }
+    }
+    if (boxes.length === 0) {
+      return ok(doc, sel);
+    }
+    const contentBox = unionRects(boxes);
+    const pad = Math.max(0, Number.isFinite(p.padding) ? Number(p.padding) : 24);
+    const newW = Math.max(16, Math.round(contentBox.width + pad * 2));
+    const newH = Math.max(16, Math.round(contentBox.height + pad * 2));
+    const dx = vbX + pad - contentBox.x;
+    const dy = vbY + pad - contentBox.y;
+
+    let next = doc;
+    if (Math.abs(dx) > 1e-4 || Math.abs(dy) > 1e-4) {
+      const moveRes = objectMove(next, sel, { ids: allTopChildIds, delta: { x: dx, y: dy } });
+      if (moveRes.ok) next = moveRes.doc;
+    }
+    next = cloneDoc(next, {
+      canvas: {
+        ...next.canvas,
+        width: newW,
+        height: newH,
+        viewBox: { x: vbX, y: vbY, width: newW, height: newH },
+      },
+    });
+    return ok(next, sel);
+  }
+
+  const targetW = Math.max(16, Math.round((Number.isFinite(p.width) ? Number(p.width) : curW) * 10) / 10);
+  const targetH = Math.max(16, Math.round((Number.isFinite(p.height) ? Number(p.height) : curH) * 10) / 10);
+
+  let next = doc;
+  if (mode === 'scale-content') {
+    const fx = targetW / curW;
+    const fy = targetH / curH;
+    if (allTopChildIds.length > 0 && (Math.abs(fx - 1) > 1e-6 || Math.abs(fy - 1) > 1e-6)) {
+      const scaleRes = objectScale(next, sel, {
+        ids: allTopChildIds,
+        origin: { x: vbX, y: vbY },
+        factor: { x: fx, y: fy },
+      });
+      if (scaleRes.ok) next = scaleRes.doc;
+    }
+  } else if (p.offsetContent && (Math.abs(p.offsetContent.x) > 1e-4 || Math.abs(p.offsetContent.y) > 1e-4)) {
+    if (allTopChildIds.length > 0) {
+      const moveRes = objectMove(next, sel, {
+        ids: allTopChildIds,
+        delta: { x: p.offsetContent.x, y: p.offsetContent.y },
+      });
+      if (moveRes.ok) next = moveRes.doc;
+    }
+  }
+
+  next = cloneDoc(next, {
+    canvas: {
+      ...next.canvas,
+      width: targetW,
+      height: targetH,
+      viewBox: { x: vbX, y: vbY, width: targetW, height: targetH },
+    },
+  });
+  return ok(next, sel);
+};
+
+// ============================================================================
 // 9. 注册表
 // ============================================================================
 
@@ -1125,6 +1303,20 @@ function createRegistry(): Map<CommandId, CommandSpec> {
     map.set(spec.id, spec);
   };
 
+  // canvas.*
+  reg({
+    id: 'canvas.setSize',
+    title: '设置 SVG 图形尺寸',
+    undoLabel: '调整 SVG 尺寸',
+    params: [
+      { key: 'width', type: 'number', required: false, min: 16, description: 'SVG 宽度 (px)' },
+      { key: 'height', type: 'number', required: false, min: 16, description: 'SVG 高度 (px)' },
+      { key: 'mode', type: 'enum', required: false, values: ['canvas-only', 'scale-content', 'fit-content'], default: 'canvas-only', description: '尺寸调整模式' },
+      { key: 'padding', type: 'number', required: false, min: 0, description: '自适应内容留白 (px)' },
+    ],
+    handler: canvasSetSize,
+  });
+
   // path.*
   reg({ id: 'path.set', title: '设置路径几何', undoLabel: '修改路径', params: pathParamsSpec('set'), handler: pathSet });
   reg({ id: 'path.insertAnchor', title: '插入锚点', undoLabel: '插入锚点', params: pathParamsSpec('insertAnchor'), handler: pathInsertAnchor });
@@ -1133,6 +1325,7 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'path.toggleAnchorKind', title: '切换锚点类型', undoLabel: '切换锚点类型', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathToggleAnchorKind });
   reg({ id: 'path.setMarker', title: '设置端点箭头', undoLabel: '设置箭头', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathSetMarker });
   reg({ id: 'path.convertLineStyle', title: '切换线型', undoLabel: '切换线型', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }, { key: 'style', type: 'string', required: true, description: '线型' }], handler: pathConvertLineStyle });
+  reg({ id: 'path.setRectRadius', title: '设置矩形圆角', undoLabel: '圆角半径', params: [{ key: 'rx', type: 'number', required: true, min: 0, description: '圆角半径 X' }], handler: pathSetRectRadius });
   reg({ id: 'path.close', title: '开闭路径', undoLabel: '开闭路径', params: pathParamsSpec('close'), handler: pathClose });
 
   // object.*

@@ -11,6 +11,10 @@ import {
   createLineGeometry,
   createCurveGeometry,
   isCurvedLineNode,
+  isRectNode,
+  inferRectGeometryRadius,
+  getRectCornerRadius,
+  nodeWorldBBox,
   getPolylineWorldMidpoints,
   getPolylineWorldAnchors,
   tools,
@@ -20,6 +24,8 @@ import {
   makePath,
   appendToLayer,
 } from '../src/features/viewers/components/drivers/svg/core/index.ts';
+import { fallbackDomParse } from '../src/features/viewers/components/drivers/svg/core/io/fallbackDomParse.ts';
+import { documentToSvgString } from '../src/features/viewers/components/drivers/svg/core/io/import-export.ts';
 
 console.log('🧪 开始 SVG v2 工具箱、基础形状与文本编辑单元测试...');
 
@@ -561,6 +567,227 @@ it('支持 curveTool 绘制平滑贝塞尔曲线及 path.convertLineStyle 切换
   curveNode = rt.currentDocument.nodes.get(curveId);
   assert.strictEqual(curveNode.geometry.subPaths[0].anchors.length, 3, '2点线条转 curve-smooth 应生成3锚点连续平滑曲线');
   assert.strictEqual(isCurvedLineNode(curveNode), true);
+});
+
+it('支持 path.setRectRadius 命令与 isRectNode 判定：支持圆角调节、恢复直角与多选批量设置', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+
+  // 1. 绘制第一个矩形 (0, 0) -> (100, 60)
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(0, 0), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(100, 60), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(100, 60), mods: noMods, pressure: 0.5 });
+
+  const rectId1 = rt.currentSelection.nodeIds[0];
+  let rect1 = rt.currentDocument.nodes.get(rectId1);
+  assert.strictEqual(isRectNode(rect1), true, 'rect 工具创建的图形应被 isRectNode 识别为矩形');
+  assert.strictEqual(rect1.geometry.subPaths[0].anchors.length, 4, '默认矩形为 4 个直角锚点');
+
+  // 2. 调整圆角为 12px
+  rt.execute('path.setRectRadius', { ids: [rectId1], rx: 12 });
+  rect1 = rt.currentDocument.nodes.get(rectId1);
+  assert.strictEqual(rect1.rx, 12);
+  assert.strictEqual(rect1.ry, 12);
+  assert.ok(rect1.geometry.subPaths[0].anchors.length > 4, '圆角矩形应包含更多控制锚点');
+
+  // 3. 恢复直角 (rx: 0)
+  rt.execute('path.setRectRadius', { ids: [rectId1], rx: 0 });
+  rect1 = rt.currentDocument.nodes.get(rectId1);
+  assert.strictEqual(rect1.rx, 0);
+  assert.strictEqual(rect1.geometry.subPaths[0].anchors.length, 4, 'rx=0 应恢复为 4 个直角锚点');
+
+  // 4. 绘制第二个矩形 (150, 0) -> (250, 80) 并多选批量设置圆角
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(150, 0), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(250, 80), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(250, 80), mods: noMods, pressure: 0.5 });
+  const rectId2 = rt.currentSelection.nodeIds[0];
+
+  // 批量同时选中两个矩形并设置圆角 16px
+  rt.execute('path.setRectRadius', { ids: [rectId1, rectId2], rx: 16 });
+  const r1After = rt.currentDocument.nodes.get(rectId1);
+  const r2After = rt.currentDocument.nodes.get(rectId2);
+  assert.strictEqual(r1After.rx, 16);
+  assert.strictEqual(r2After.rx, 16);
+});
+
+it('支持多选单点隔离修复：多选中单击其中某个图元在未拖拽时立即隔离为该图元单选', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+  const shiftMods = { shift: true, alt: false, meta: false, ctrl: false };
+
+  // 1. 绘制两个矩形 A (0,0)->(50,50) 和 B (100,0)->(150,50)
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(0, 0), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(50, 50), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(50, 50), mods: noMods, pressure: 0.5 });
+  const idA = rt.currentSelection.nodeIds[0];
+
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(100, 0), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(150, 50), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(150, 50), mods: noMods, pressure: 0.5 });
+  const idB = rt.currentSelection.nodeIds[0];
+
+  // 2. 将 A 与 B 同时加入选区 (多选)
+  rt.execute('select.set', { ids: [idA, idB], additive: false });
+  assert.strictEqual(rt.currentSelection.nodeIds.length, 2);
+
+  // 3. 在多选状态下，单击 A (25, 25) 且未发生拖拽 -> 原地释放后应切为仅单选 A
+  rt.dispatchPointer({ kind: 'down', point: vec2(25, 25), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(25, 25), mods: noMods, pressure: 0.5 });
+  assert.deepStrictEqual([...rt.currentSelection.nodeIds], [idA], '原地点击多选中的图元应立即单选该图元');
+
+  // 4. 再次加选 B，并测试拖拽移动：多选时拖拽应同时移动所有图元
+  rt.execute('select.set', { ids: [idB], additive: true });
+  assert.strictEqual(rt.currentSelection.nodeIds.length, 2);
+
+  rt.dispatchPointer({ kind: 'down', point: vec2(25, 25), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(35, 35), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(35, 35), mods: noMods, pressure: 0.5 });
+  // 选区仍保持多选 (未被破坏)
+  assert.strictEqual(rt.currentSelection.nodeIds.length, 2);
+});
+
+it('支持样式刷 (Style Painter) 与尺寸刷 (Size Matcher) 逻辑校验', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+
+  // 1. 绘制矩形 A (0,0)->(100,60)，配置红色填充与 4px 绿色描边，圆角 8px
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(0, 0), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(100, 60), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(100, 60), mods: noMods, pressure: 0.5 });
+  const idA = rt.currentSelection.nodeIds[0];
+
+  rt.execute('paint.setColor', { ids: [idA], target: 'fill', color: '#ef4444', opacity: 1 });
+  rt.execute('paint.setStroke', {
+    ids: [idA],
+    stroke: { width: 4, widthUnit: 'px', cap: 'round', join: 'round', miterLimit: 4, dashArray: [4, 4], dashOffset: 0, paint: { type: 'solid', color: '#10b981', opacity: 1 } },
+  });
+  rt.execute('path.setRectRadius', { ids: [idA], rx: 8 });
+
+  // 2. 绘制矩形 B (150,0)->(190,20) 初始尺寸 40x20
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(150, 0), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(190, 20), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(190, 20), mods: noMods, pressure: 0.5 });
+  const idB = rt.currentSelection.nodeIds[0];
+
+  // 3. 将 A 的样式应用到 B
+  const nodeA = rt.currentDocument.nodes.get(idA);
+  const fillA = nodeA.appearance.items.find((it) => it.kind === 'fill');
+  const strokeA = nodeA.appearance.items.find((it) => it.kind === 'stroke');
+  assert.strictEqual(fillA.fill.color, '#ef4444');
+  assert.strictEqual(strokeA.stroke.paint.color, '#10b981');
+  assert.strictEqual(strokeA.stroke.width, 4);
+
+  rt.execute('paint.setColor', { ids: [idB], target: 'fill', color: fillA.fill.color, opacity: 1 });
+  rt.execute('paint.setStroke', { ids: [idB], stroke: strokeA.stroke });
+  rt.execute('path.setRectRadius', { ids: [idB], rx: nodeA.rx });
+
+  const nodeB = rt.currentDocument.nodes.get(idB);
+  const fillB = nodeB.appearance.items.find((it) => it.kind === 'fill');
+  const strokeB = nodeB.appearance.items.find((it) => it.kind === 'stroke');
+  assert.strictEqual(fillB.fill.color, '#ef4444', 'B 成功同步 A 的填充色');
+  assert.strictEqual(strokeB.stroke.paint.color, '#10b981', 'B 成功同步 A 的描边色');
+  assert.strictEqual(strokeB.stroke.width, 4, 'B 成功同步 A 的描边宽度');
+  assert.strictEqual(nodeB.rx, 8, 'B 成功同步 A 的矩形圆角');
+
+  // 4. 尺寸刷新：将 B 的尺寸缩放至匹配 A 的尺寸 (100x60)
+  // B 当前宽 40, 高 20 -> factorX = 100 / 40 = 2.5, factorY = 60 / 20 = 3
+  rt.execute('object.scale', {
+    ids: [idB],
+    factor: { x: 100 / 40, y: 60 / 20 },
+    origin: { x: 170, y: 10 },
+  });
+
+  const worldBB = nodeWorldBBox(rt.currentDocument, idB);
+  assert.ok(worldBB !== null, '应返回图元的世界包围盒');
+  assert.ok(Math.abs(worldBB.width - 100) < 0.1, `缩放后世界宽度应为 100px (当前 ${worldBB.width})`);
+  assert.ok(Math.abs(worldBB.height - 60) < 0.1, `缩放后世界高度应为 60px (当前 ${worldBB.height})`);
+});
+
+it('支持矩形圆角在缩放、编组及 SVG 导出/重导入后持续可调（inferRectGeometryRadius & 编组穿透）', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+
+  // 1. 绘制 40x20 小矩形并放大 3 倍至 120x60，验证圆角上限以缩放后视觉尺寸为准（可设为 24px > 原本地短边一半 10px）
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(10, 10), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(50, 30), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(50, 30), mods: noMods, pressure: 0.5 });
+  const rectId = rt.currentSelection.nodeIds[0];
+
+  rt.execute('object.scale', { ids: [rectId], origin: { x: 30, y: 20 }, factor: { x: 3, y: 3 } });
+  rt.execute('path.setRectRadius', { ids: [rectId], rx: 24 });
+  let rectNode = rt.currentDocument.nodes.get(rectId);
+  assert.strictEqual(rectNode.rx, 24, '放大后的矩形圆角上限应按世界视觉尺寸计算，支持设置 24px');
+
+  // 2. 将矩形打组后直接对 Group ID 执行 path.setRectRadius，验证编组内矩形圆角可正常调整
+  rt.execute('object.group', { ids: [rectId] });
+  const groupId = rt.currentSelection.nodeIds[0];
+  rt.execute('path.setRectRadius', { ids: [groupId], rx: 15 });
+  rectNode = rt.currentDocument.nodes.get(rectId);
+  assert.strictEqual(rectNode.rx, 15, '选中编组时调整圆角应递归作用于组内矩形');
+
+  // 3. 导出为 SVG 并重新解析，验证圆角矩形身份与 rx 半径完整保留，且支持再次调整圆角
+  const svgOut = documentToSvgString(rt.currentDocument);
+  const parsed = fallbackDomParse(svgOut);
+  const reimportedRects = Array.from(parsed.document.nodes.values()).filter(
+    (n) => n.kind === 'Path' && isRectNode(n),
+  );
+  assert.strictEqual(reimportedRects.length, 1, '导出后再解析的圆角矩形仍应被识别为 isRectNode');
+  assert.strictEqual(getRectCornerRadius(reimportedRects[0]), 15, '重导入后应保留 15px 圆角半径');
+
+  // 4. 验证无显式 hint 的纯圆角矩形 Path 几何反推能力
+  const rawRoundedGeom = createRectGeometry(0, 0, 160, 90, 18, 18);
+  assert.strictEqual(inferRectGeometryRadius(rawRoundedGeom), 18, '应从圆角矩形几何精确反推 18px 半径');
+});
+
+it('支持 canvas.setSize 调整 SVG 图形本身尺寸（整体缩放图形 scale-content / 仅画布边界 canvas-only / 自适应内容 fit-content）', () => {
+  const rt = createRuntime();
+  const noMods = { shift: false, alt: false, meta: false, ctrl: false };
+
+  // 先将画布初始化为 800x600，并在 (100, 100) 绘制 200x100 矩形
+  rt.execute('canvas.setSize', { width: 800, height: 600, mode: 'canvas-only' });
+  rt.setActiveTool('rect');
+  rt.dispatchPointer({ kind: 'down', point: vec2(100, 100), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'drag', point: vec2(300, 200), mods: noMods, pressure: 0.5 });
+  rt.dispatchPointer({ kind: 'up', point: vec2(300, 200), mods: noMods, pressure: 0.5 });
+  const rectId = rt.currentSelection.nodeIds[0];
+
+  // 1. 整体缩放图形 (scale-content)：将 SVG 从 800x600 缩小一半至 400x300
+  const rScale = rt.execute('canvas.setSize', { width: 400, height: 300, mode: 'scale-content' });
+  assert.strictEqual(rScale.ok, true);
+  assert.strictEqual(rt.currentDocument.canvas.width, 400);
+  assert.strictEqual(rt.currentDocument.canvas.height, 300);
+  assert.strictEqual(rt.currentDocument.canvas.viewBox.width, 400);
+  assert.strictEqual(rt.currentDocument.canvas.viewBox.height, 300);
+  let bb = nodeWorldBBox(rt.currentDocument, rectId);
+  assert.ok(Math.abs(bb.x - 50) < 0.1, `整体缩放 0.5x 后图元 X 应为 50 (当前 ${bb.x})`);
+  assert.ok(Math.abs(bb.y - 50) < 0.1, `整体缩放 0.5x 后图元 Y 应为 50 (当前 ${bb.y})`);
+  assert.ok(Math.abs(bb.width - 100) < 0.1, `整体缩放 0.5x 后图元宽应为 100 (当前 ${bb.width})`);
+  assert.ok(Math.abs(bb.height - 50) < 0.1, `整体缩放 0.5x 后图元高应为 50 (当前 ${bb.height})`);
+
+  // 2. 仅调画布边界 (canvas-only)：将画布扩展至 600x450，内部图元尺寸保持 100x50 不变
+  const rCanvasOnly = rt.execute('canvas.setSize', { width: 600, height: 450, mode: 'canvas-only' });
+  assert.strictEqual(rCanvasOnly.ok, true);
+  assert.strictEqual(rt.currentDocument.canvas.width, 600);
+  assert.strictEqual(rt.currentDocument.canvas.height, 450);
+  bb = nodeWorldBBox(rt.currentDocument, rectId);
+  assert.ok(Math.abs(bb.width - 100) < 0.1, '仅调画布边界时内部图元宽度应保持不变');
+  assert.ok(Math.abs(bb.height - 50) < 0.1, '仅调画布边界时内部图元高度应保持不变');
+
+  // 3. 自适应内容边界 (fit-content, padding: 20)：画布应收敛为 (100+40) x (50+40) = 140x90，且图元左上移至 (20, 20)
+  const rFit = rt.execute('canvas.setSize', { mode: 'fit-content', padding: 20 });
+  assert.strictEqual(rFit.ok, true);
+  assert.strictEqual(rt.currentDocument.canvas.width, 140);
+  assert.strictEqual(rt.currentDocument.canvas.height, 90);
+  bb = nodeWorldBBox(rt.currentDocument, rectId);
+  assert.ok(Math.abs(bb.x - 20) < 0.1, `自适应内容后图元 X 应位于留白处 20 (当前 ${bb.x})`);
+  assert.ok(Math.abs(bb.y - 20) < 0.1, `自适应内容后图元 Y 应位于留白处 20 (当前 ${bb.y})`);
 });
 
 // ============================================================================

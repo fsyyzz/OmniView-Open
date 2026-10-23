@@ -172,6 +172,7 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
                     type="button"
                     className="text-[var(--ov-fg-muted)] hover:text-[var(--ov-fg)]"
                     aria-label={row.expanded ? '折叠' : '展开'}
+                    title={row.expanded ? '折叠图层 / 编组子级' : '展开图层 / 编组子级'}
                     onClick={() => toggleCollapse(row.id)}
                   >
                     {row.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -180,7 +181,7 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
               </span>
 
               {/* 类型图标 */}
-              <span className="shrink-0 text-[var(--ov-fg-muted)]">{KIND_ICON[row.kind]}</span>
+              <span className="shrink-0 text-[var(--ov-fg-muted)]" title={`图元类型: ${row.kind}`}>{KIND_ICON[row.kind]}</span>
 
               {/* 名称（双击重命名） */}
               {editingId === row.id ? (
@@ -201,7 +202,7 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
                 <button
                   type="button"
                   className="min-w-0 flex-1 truncate text-left text-xs"
-                  title={`${row.name ?? row.kind}${row.childCount > 0 ? `（${row.childCount} 项）` : ''}`}
+                  title={`${row.name ?? row.kind}${row.childCount > 0 ? `（包含 ${row.childCount} 个子图元）` : ''} · 单击选中 / Shift多选 / 双击重命名`}
                   onClick={(e) => {
                     if (e.shiftKey) {
                       execute('select.set', { ids: [row.id], additive: true });
@@ -221,7 +222,7 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
               <button
                 type="button"
                 className="shrink-0 text-[var(--ov-fg-muted)] hover:text-[var(--ov-fg)]"
-                title={row.visible ? '隐藏' : '显示'}
+                title={row.visible ? '点击隐藏此图元（画布不显示）' : '点击显示此图元'}
                 onClick={() =>
                   execute(
                     row.kind === 'Layer' ? 'layer.setVisibility' : 'object.setVisible',
@@ -238,7 +239,7 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
               <button
                 type="button"
                 className="shrink-0 text-[var(--ov-fg-muted)] hover:text-[var(--ov-fg)]"
-                title={row.locked ? '解锁' : '锁定'}
+                title={row.locked ? '点击解锁此图元（恢复交互）' : '点击锁定此图元（禁止误拖与编辑）'}
                 onClick={() =>
                   execute(
                     row.kind === 'Layer' ? 'layer.setLock' : 'object.setLocked',

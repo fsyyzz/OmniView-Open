@@ -142,6 +142,9 @@ export interface UsvgPathNode extends UsvgNodeBase {
   readonly markerStart?: string;
   readonly markerMid?: string;
   readonly markerEnd?: string;
+  readonly rx?: number;
+  readonly ry?: number;
+  readonly cornerRadius?: number;
 }
 
 export interface UsvgImageNode extends UsvgNodeBase {

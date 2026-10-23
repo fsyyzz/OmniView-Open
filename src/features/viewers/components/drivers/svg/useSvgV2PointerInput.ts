@@ -98,6 +98,18 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
       if (e.button !== 0 || e.altKey) return; // Alt+左键为画布平移手势，不进入工具管线
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        window.getSelection?.()?.removeAllRanges();
+      } catch {
+        /* ignore selection clear errors */
+      }
+      try {
+        svgRef.current?.focus({ preventScroll: true });
+      } catch {
+        /* ignore focus errors */
+      }
       const point = toCanvas(e.clientX, e.clientY);
       if (!point) return;
       try {
@@ -112,9 +124,12 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
+      const dragging = (e.buttons & 1) === 1;
+      if (dragging) {
+        e.preventDefault();
+      }
       const point = toCanvas(e.clientX, e.clientY);
       if (!point) return;
-      const dragging = (e.buttons & 1) === 1;
       runtime.dispatchPointer({
         kind: dragging ? 'drag' : 'move',
         point,

@@ -13,7 +13,7 @@
  *   - S/T 按镜像规则解出控制柄，按 C/Q 等价段落锚点
  */
 
-import type { Anchor, PathGeometry, SubPath, Vec2 } from './types';
+import type { Anchor, Node, PathGeometry, PathNode, SubPath, Vec2 } from './types';
 import { anchorCorner, anchorSmooth, pathGeometry, subPath, vec2 } from './document';
 
 // ============================================================================
@@ -708,3 +708,71 @@ export function createCurveGeometry(
     ),
   ]);
 }
+
+/**
+ * 判断几何路径是否为轴对齐矩形或圆角矩形，并推断其圆角半径（本地坐标系）。
+ * 若不是矩形则返回 null；若是直角矩形返回 0；若是圆角矩形返回 >0 的圆角半径。
+ */
+export function inferRectGeometryRadius(g: PathGeometry): number | null {
+  if (g.subPaths.length !== 1) return null;
+  const sp = g.subPaths[0];
+  if (!sp || !sp.closed) return null;
+  const anchors = sp.anchors;
+  if (anchors.length < 4 || anchors.length > 10) return null;
+
+  const bb = getBoundingBox(g);
+  if (bb.width <= 1e-3 || bb.height <= 1e-3) return null;
+  const tol = Math.max(1.5, Math.min(bb.width, bb.height) * 0.02);
+
+  // 所有锚点必须落在外包矩形的四条边上
+  const allOnBoundary = anchors.every((a) => {
+    const onLeft = Math.abs(a.point.x - bb.x) <= tol;
+    const onRight = Math.abs(a.point.x - (bb.x + bb.width)) <= tol;
+    const onTop = Math.abs(a.point.y - bb.y) <= tol;
+    const onBottom = Math.abs(a.point.y - (bb.y + bb.height)) <= tol;
+    return onLeft || onRight || onTop || onBottom;
+  });
+  if (!allOnBoundary) return null;
+
+  // 4 锚点（或首尾重合 5 锚点）且全部无控制柄 -> 直角矩形
+  if (anchors.length === 4 || anchors.length === 5) {
+    const allSharp = anchors.every((a) => a.handleIn == null && a.handleOut == null);
+    if (!allSharp) return null;
+    const hasTL = anchors.some((a) => Math.abs(a.point.x - bb.x) <= tol && Math.abs(a.point.y - bb.y) <= tol);
+    const hasTR = anchors.some((a) => Math.abs(a.point.x - (bb.x + bb.width)) <= tol && Math.abs(a.point.y - bb.y) <= tol);
+    const hasBR = anchors.some((a) => Math.abs(a.point.x - (bb.x + bb.width)) <= tol && Math.abs(a.point.y - (bb.y + bb.height)) <= tol);
+    const hasBL = anchors.some((a) => Math.abs(a.point.x - bb.x) <= tol && Math.abs(a.point.y - (bb.y + bb.height)) <= tol);
+    return hasTL && hasTR && hasBR && hasBL ? 0 : null;
+  }
+
+  // 8 ~ 10 锚点且包含至少 4 个带曲线控制柄的圆角锚点 -> 圆角矩形
+  const curvedCount = anchors.filter((a) => a.handleIn != null || a.handleOut != null).length;
+  if (curvedCount < 4) return null;
+
+  const topAnchors = anchors.filter((a) => Math.abs(a.point.y - bb.y) <= tol);
+  if (topAnchors.length === 0) return null;
+  const minTopX = Math.min(...topAnchors.map((a) => a.point.x));
+  const rx = Math.max(0, minTopX - bb.x);
+  return Math.round(rx * 10) / 10;
+}
+
+/**
+ * 判断节点是否为矩形节点（通过 primitiveHint、显式 rx/ry/cornerRadius、名称或封闭直角/圆角矩形几何特征判定）。
+ */
+export function isRectNode(node: Node | undefined | null): node is PathNode {
+  if (!node || node.kind !== 'Path') return false;
+  if (node.primitiveHint === 'rect') return true;
+  if (node.cornerRadius !== undefined || node.rx !== undefined) return true;
+  if (node.name?.toLowerCase().includes('rect') || node.name?.includes('矩形')) return true;
+  return inferRectGeometryRadius(node.geometry) !== null;
+}
+
+/**
+ * 获取矩形节点的当前圆角半径（优先读取显式 rx/cornerRadius，否则从圆角矩形几何中反推）。
+ */
+export function getRectCornerRadius(node: PathNode): number {
+  if (node.rx !== undefined) return Math.round(node.rx * 10) / 10;
+  if (node.cornerRadius !== undefined) return Math.round(node.cornerRadius * 10) / 10;
+  return inferRectGeometryRadius(node.geometry) ?? 0;
+}
+

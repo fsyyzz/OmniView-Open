@@ -31,7 +31,7 @@ import type {
   TextSpan,
 } from '../model/types';
 import { emptyAppearance, makeLayer } from '../model/document';
-import { parsePathD } from '../model/path';
+import { inferRectGeometryRadius, parsePathD } from '../model/path';
 
 /** metadata key：`<defs>` 原始 XML 片段（导出时原样回插，保证渐变/clipPath 引用不断裂）。 */
 export const RAW_DEFS_METADATA_KEY = 'omniview.rawDefs';
@@ -111,15 +111,23 @@ function convertNode(node: UsvgNode, ctx: ConvertCtx): NodeId | null {
     }
 
     case 'path': {
+      const geometry = parsePathD(node.d);
+      const inferredRx = inferRectGeometryRadius(geometry);
+      const isInferredRect = node.primitiveHint === 'rect' || inferredRx !== null;
+      const resolvedRx = node.rx ?? (isInferredRect ? (inferredRx ?? 0) : undefined);
+      const resolvedRy = node.ry ?? resolvedRx;
       const n: Node = {
         ...base,
         kind: 'Path',
-        geometry: parsePathD(node.d),
+        geometry,
         appearance: appearanceFrom(node.fill, node.stroke),
-        primitiveHint: 'path',
+        primitiveHint: isInferredRect ? 'rect' : (node.primitiveHint ?? 'path'),
         markerStart: node.markerStart,
         markerMid: node.markerMid,
         markerEnd: node.markerEnd,
+        rx: resolvedRx,
+        ry: resolvedRy,
+        cornerRadius: node.cornerRadius ?? resolvedRx,
       };
       ctx.nodes.set(id, n);
       return id;

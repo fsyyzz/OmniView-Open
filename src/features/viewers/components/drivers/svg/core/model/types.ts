@@ -205,6 +205,9 @@ export interface PathNode extends NodeBase {
   readonly markerStart?: string;
   readonly markerMid?: string;
   readonly markerEnd?: string;
+  readonly rx?: number;
+  readonly ry?: number;
+  readonly cornerRadius?: number;
 }
 
 export interface TextSpan {

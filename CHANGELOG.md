@@ -8,7 +8,107 @@
 
 ---
 
-## [1.3.24] - 2026-10-22 (当前最新发布)
+## [1.3.29] - 2026-10-23 (当前最新发布)
+
+> [!TIP] v1.3.29 核心升级亮点
+> **彻底根治 SVG 鼠标点选/框选误选 `<text>` 文本与浏览器原生蓝底选字问题**：
+> 1. **阻断浏览器 DOM 原生蓝底选字**：在 `useSvgV2PointerInput.ts` 的 `pointerdown` / `pointermove` 中显式执行 `e.preventDefault()` 与 `window.getSelection()?.removeAllRanges()`，为画布外围工作区容器、`<svg>` 根节点及所有 `<text>` 图元注入 `user-select: none`，并将工作区留白处的左键拖拽转发至 SVG 指针管线，支持从画布外侧留白直接拉入 CAD 选框；
+> 2. **内聚卡片 `<g>` 整体识别与防孤立文本误选 (`core/model/bbox.ts`)**：新增 `isCohesiveCardGroup` 与 `findBackingSiblingPath`，右→左交叉框选触碰带底框的卡片 `<g>` 时自动整体选中卡片编组而非仅拎出内部 `<text>`，左→右窗口框选未包住卡片底框时自动剔除孤立 `<text>` 标题；
+> 3. **全画布大背景底板穿透框选与底框图形优先点选 (`core/runtime/tools.ts`)**：普通点击或拖拽铺满全图的背景底板（$\ge 75\%$ 画布面积）内部时直接视为空白画布开启 CAD 框选；点击带底框 `Path` 的节点文字区域时优先选中底框图形，再次点击或按 `Ctrl/Cmd` 再下钻至 `<text>`。
+
+### 🐛 Fixed & Improved (SVG 鼠标选择防误选文本专项修复)
+
+- **指针输入与画布 DOM 防选字加固 (`useSvgV2PointerInput.ts`, `SvgV2Canvas.tsx`)**:
+  - `handlePointerDown` / `handlePointerMove` 增加 `e.preventDefault()` 与 `window.getSelection()?.removeAllRanges()`；
+  - 画布外层容器、`<svg>` 及 `<text>` 节点统一施加 `select-none`（`user-select: none`），并支持从画布灰色留白区直接起框拉入 SVG；
+- **CAD 框选与点选模型优化 (`core/model/bbox.ts`, `core/runtime/tools.ts`)**:
+  - `matchNodesInMarquee` 识别内聚卡片 `<g>` 整体并过滤未包含底框的孤立 `Text` 子节点；
+  - `handleSelectPointer` 过滤全画布大背景底板内部命中以保障随时拉出 CAD 选框，并在点选重叠 `Text + Path` 徽章/卡片时优先命中底框 `Path`；
+- **回归测试扩充 (`tests/test-svg-selection-enhancements.mjs`)**:
+  - 新增内聚卡片 `<g>` 交叉选、未包住底框的孤立文本过滤及全画布大背景底板直起 CAD 框选回归测试。
+
+---
+
+## [1.3.28] - 2026-10-23
+
+> [!TIP] v1.3.28 核心升级亮点
+> **CAD 级双向框选引擎升级：窗口选择 (左→右) vs 交叉选择 (右→左) 精确几何与编组智能下钻**：
+> 1. **左→右 CAD 窗口选择 (`enclosed`)**：经典蓝色实线选框，仅当图元几何 100% 落入框内才选中；支持 `<g>` 编组智能下钻——完整包住编组时选中编组整体，仅局部包住大编组内部子图元时自动递归下钻选中框内 100% 包含的子图元；
+> 2. **右→左 CAD 交叉选择 (`intersect`)**：经典绿色虚线选框，升级为 **Liang-Barsky 真实几何线段/贝塞尔曲线相交算法**，彻底剔除斜向连线空白角、大跨度折线及空心边框（`fill="none"`）内部空白处的 AABB 包围盒误选；大编组内局部触碰子元素时自动下钻仅选中被碰到的子图元；
+> 3. **实时候选发光轮廓、容器内直起框选与修饰键体系**：拉框过程中实时为命中的候选图元渲染蓝/绿预演高亮框并在顶部徽章显示「命中 N 项」；支持在未选中的大尺寸背景容器/泳道内部直接拖拽拉框而不误拖底框；支持 `Shift` 加选 (`add`) 与 `Ctrl / Cmd` 减选 (`subtract`)。
+
+### ✨ Added & Improved (SVG CAD 双向框选引擎升级)
+
+- **真实几何交叉判定与 `<g>` 编组智能下钻 (`core/model/bbox.ts`)**:
+  - 新增 `segmentIntersectsRect`（Liang-Barsky 线段-矩形精确裁剪）、`nodeIntersectsMarquee`（覆盖开放折线、贝塞尔曲线采样、空心边框与实心多边形）与 `matchNodesInMarquee`（支持左→右窗口选与右→左交叉选的 `<g>` 递归智能下钻）；
+- **命令与手势状态机增强 (`core/commands/registry.ts`, `core/runtime/tools.ts`, `SvgV2Canvas.tsx`)**:
+  - `select.box` 支持 `operation: 'replace' | 'add' | 'subtract'`；
+  - `handleSelectPointer` 延迟空点清选至 `pointerup`，完整保留 `snapshotSelection` 供拖拽期实时 `Preview` 加减选与高亮轮廓预演，并支持大容器内部直接拉框；
+- **单元测试扩充 (`tests/test-svg-selection-enhancements.mjs`)**:
+  - 新增斜线/空心框 AABB 假阳性剔除、`<g>` 编组窗口/交叉智能下钻及 `Shift`/`Ctrl` 加减选专项测试。
+
+---
+
+## [1.3.27] - 2026-10-23
+
+> [!TIP] v1.3.27 核心升级亮点
+> **SVG 图形本身尺寸自由调整与画布 8 向拖拽缩放 (SVG Graphic & Artboard Resizing)**：
+> 1. **画布 8 向控制柄直接拖拽缩放**：在 SVG 图形白色画布外框四周与四角新增 8 个交互式控制柄与顶部尺寸状态栏，支持直接拖拽边缘或角点实时拉伸调整 SVG 图形本身尺寸（`Begin -> Preview -> Commit` 单步撤销栈），移除原 CSS `max-w-full / max-h-full` 对画布真实像素尺寸的锁死限制；
+> 2. **双模式尺寸调整（整体缩放图形 vs 仅调画布边界）**：核心命令管线新增 `canvas.setSize`，支持「整体缩放图形 (`scale-content`，内部所有图层与图形按比例同步缩放)」、「仅调画布边界 (`canvas-only`，扩缩工作区且支持左/上拖拽自动补偿坐标)」与「自适应内容边界 (`fit-content`，自动包裹所有可见图元并可配置 24px/0px 留白)」；
+> 3. **属性面板、顶部工具栏与圆角防畸变增强**：未选中子图元时右侧 Inspector 展示完整「SVG 图形尺寸」面板（支持宽高输入、等比锁定、横竖版一键互换、`0.5x~2x` 快捷倍率与常用尺寸预设），顶部工具栏支持实时输入 SVG 宽高；同时在非等比拉伸圆角矩形时自动重算局部 `rx/ry`，彻底杜绝圆角被拉扁为椭圆。
+
+### ✨ Added & Improved (SVG 图形尺寸与几何引擎升级)
+
+- **核心命令 `canvas.setSize` (`core/commands/registry.ts`)**:
+  - 支持 `scale-content`（整体缩放 SVG 图形及内部所有元素）、`canvas-only`（仅调整画布视口宽高并支持 `offsetContent` 平移补偿）与 `fit-content`（自动计算全部可见图元联合包围盒并包裹留白）；
+- **画布外框交互式 8 向拖拽手柄 (`SvgV2Canvas.tsx`)**:
+  - 围绕 SVG 图形外框提供 `nw` / `n` / `ne` / `e` / `se` / `s` / `sw` / `w` 8 个缩放控制点及顶部「整体缩放图形 / 仅调画布边界 / 自适应内容」快捷切换条；
+- **全场景尺寸面板与非等比圆角保护 (`SvgV2Inspector.tsx` / `SvgV2Studio.tsx`)**:
+  - 右侧属性面板在空选态提供完整 SVG 图形尺寸控制台，选中图元时新增宽高比锁定（`等比`）与 `0.5x~2x` 快捷缩放按钮；
+  - `object.scale` 针对圆角矩形自动补偿世界变换缩放比，确保单向拉宽或拉高矩形时圆角始终保持正圆弧；
+- **单元测试扩充 (`tests/test-svg-v2-tools-shapes.mjs`)**:
+  - 新增 `canvas.setSize` 三种模式（`scale-content`、`canvas-only`、`fit-content`）完整断言验证，全量 88 个测试套件 100% 通过。
+
+---
+
+## [1.3.26] - 2026-10-23
+
+> [!TIP] v1.3.26 核心升级亮点
+> **SVG 矢量编辑器样式刷与尺寸刷深度集成 (Style Painter & Size Matcher)**：
+> 1. **样式刷（获取与刷新样式）**：支持快捷键 `Alt+C`（吸取样式）与 `Alt+V`（刷新应用样式），右侧属性面板集成「格式刷」控制卡片与属性暂存指示灯；支持将填充（颜色/不透明度）、描边（颜色/线宽/端点/折角/虚线）、箭头标记（markerStart/markerEnd）、矩形圆角与文本排版样式一键批量跨图元同步并支持撤销重做；
+> 2. **尺寸刷（获取与刷新尺寸）**：在「位置与尺寸」模块新增专属尺寸刷，支持一键获取图元包围盒尺寸，提供「等尺寸 (W+H)」、「刷新同宽 (W)」、「刷新同高 (H)」与「等比匹配 (Fit)」四种自适应匹配模式；
+> 3. **多选主选尺寸快速同化**：多选 ≥2 个图元时，支持一键「以主选同宽」、「以主选同高」与「以主选全等大」，工业级 CAD 快速统一多图元规范。
+
+### ✨ Added & Improved (SVG 矢量编辑效率升级)
+
+- **全局样式刷核心机制 (Style Painter)**:
+  - 模块级 `StyleBuffer` 样式持久化缓冲区，吸取图元全部视觉表现特征；
+  - Inspector 面板快捷「吸取样式 (Alt+C)」与「刷新样式 (Alt+V)」双按钮与实时暂存状态预览；
+  - 完备支持单选及多选图元批量灌注，自动融入 Undo/Redo 历史重做栈；
+- **尺寸刷与几何中心缩放 (Size Matcher)**:
+  - 模块级 `SizeBuffer` 记录图元实际包围盒宽、高与纵横比，依托 `object.scale` 围绕图元几何中心平滑缩放；
+  - 快捷模式支持单维拉伸（仅同宽、仅同高）或等比自适应收敛（Fit）；
+  - 多选模式下激活主选图元尺寸同化控制条，提升图标设计与排版效率；
+- **矩形圆角全生命周期持久化与编组穿透 (Rect Corner Radius Persistence)**:
+  - 新增 `inferRectGeometryRadius` 与 `getRectCornerRadius`，支持从圆角矩形路径（8~10 锚点贝塞尔圆角段）反推矩形身份与圆角半径；
+  - `fallbackDomParse` 与 `usvgTreeToDocument` 完整解析并回填 `data-omniview-hint="rect"`、`data-omniview-rx` 及 `<rect rx="...">` 属性，解决导出/重加载后无法再次调整圆角的问题；
+  - Inspector 与 `path.setRectRadius` 支持编组（`<g>` Group）递归穿透识别组内矩形，并按世界变换缩放系数动态补偿圆角上限；
+- **自动化测试套件扩充**:
+  - `tests/test-svg-v2-tools-shapes.mjs` 新增针对多图元样式灌注同步、尺寸缩放匹配及矩形圆角跨缩放/编组/序列化持久化的核心测试用例，全套 88 组门禁用例 100% 通过。
+
+---
+
+## [1.3.25] - 2026-10-23
+
+> [!TIP] v1.3.25 核心升级亮点
+> **SVG 矢量编辑器工具提示备注、多选隔离与矩形圆角全面完善 (SVG Editor Polish)**：
+> 1. **右侧面板全局悬浮备注提示**：图层树与属性面板所有对齐、分布、拾色器、预设色块、不透明度、描边端点、虚线、线型切换、箭头标记、字号字重、坐标尺寸、编组层级等控件均配备详细中文说明与快捷键提示；
+> 2. **多选交互隔离与框选修复**：修复在多选状态下单击特定图元被困在多选手势的问题（未发生位移时原地释放立即隔离单选目标图元，拖拽时平滑群组移动），保障工业级 CAD 窗选/交叉框选与智能吸附体验；
+> 3. **矩形圆角特性深度支持**：核心数据模型与命令管线完整支持 `rx`、`ry`、`cornerRadius` 与 `path.setRectRadius` 命令，Inspector 专属圆角滑动条、数值精确输入与快捷预设（0px 直角、4px 微圆角、8px 中圆角、16px 大圆角、胶囊全圆角），支持多选矩形批量统一应用。
+
+---
+
+## [1.3.24] - 2026-10-22
 
 > [!TIP] v1.3.24 核心升级亮点
 > **内联 SVG 矢量图与画廊图片语法自愈 (Inline SVG Image Self-Healing)**：彻底解决在 Markdown 中使用 `![alt](data:image/svg+xml;utf8,<svg...>)` 时，因未转义的 `<svg>` 标签与空格破坏 CommonMark 规范导致图片语法碎裂为纯文本和游离 HTML 标签的问题；重塑多图画廊 (`[!GALLERY]`)、技术图件 (`[!FIGURE]`) 与图文并排 (`[!MEDIA]`) 矢量图设计。

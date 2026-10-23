@@ -67,6 +67,7 @@ export type {
   CommandSpec,
   CommandRegistry,
   PathSetParams,
+  PathSetRectRadiusParams,
   PathInsertAnchorParams,
   PathDeleteAnchorParams,
   PathCloseParams,
@@ -200,6 +201,8 @@ export {
   createEllipseGeometry,
   createLineGeometry,
   createCurveGeometry,
+  inferRectGeometryRadius,
+  getRectCornerRadius,
 } from './model/path';
 
 // ---- Model 几何与树（图层/批量增强） ----
@@ -214,6 +217,11 @@ export {
   getSelectionBBox,
   alignDelta,
   distributeOffsets,
+  rectContainsRect,
+  rectIntersectsRect,
+  segmentIntersectsRect,
+  nodeIntersectsMarquee,
+  matchNodesInMarquee,
 } from './model/bbox';
 export type { AlignMode, DistributeAxis } from './model/bbox';
 
@@ -238,6 +246,7 @@ export {
   isTwoPointLineNode,
   isOpenPolylineNode,
   isCurvedLineNode,
+  isRectNode,
   getLineWorldEndpoints,
   getPolylineWorldAnchors,
   getPolylineWorldMidpoints,

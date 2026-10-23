@@ -122,6 +122,8 @@ function serializeNodeWithDoc(doc: Document, node: Node, indent: number, minimiz
         mStart ? `marker-start="${escapeAttr(mStart)}"` : '',
         mMid ? `marker-mid="${escapeAttr(mMid)}"` : '',
         mEnd ? `marker-end="${escapeAttr(mEnd)}"` : '',
+        node.primitiveHint === 'rect' ? 'data-omniview-hint="rect"' : '',
+        node.cornerRadius !== undefined ? `data-omniview-rx="${node.cornerRadius}"` : (node.rx !== undefined ? `data-omniview-rx="${node.rx}"` : ''),
         'data-omniview-kind="Path"',
       ].filter(Boolean);
       return `${pad}<path ${attrs.join(' ')} />`;

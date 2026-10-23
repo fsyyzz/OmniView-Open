@@ -35,7 +35,7 @@ import {
   identityTransform,
   pathGeometry,
 } from '../model/document';
-import { parsePathD } from '../model/path';
+import { inferRectGeometryRadius, parsePathD } from '../model/path';
 import { RAW_DEFS_METADATA_KEY, usvgTreeToDocument } from './usvgTreeToDocument';
 
 // ============================================================================
@@ -615,10 +615,19 @@ function readNode(
     case 'a':
       return readGroupLike(el, cssRules, canvasSize, false);
 
-    case 'path':
+    case 'path': {
+      const omniHint = el.getAttribute('data-omniview-hint');
+      const omniRxRaw = el.getAttribute('data-omniview-rx') ?? el.getAttribute('rx');
+      const omniRyRaw = el.getAttribute('data-omniview-ry') ?? el.getAttribute('ry');
+      const rx = omniRxRaw !== null ? parseSvgLength(omniRxRaw, canvasSize.width, 0) : undefined;
+      const ry = omniRyRaw !== null ? parseSvgLength(omniRyRaw, canvasSize.height, rx ?? 0) : rx;
       return {
         ...base,
         kind: 'path',
+        primitiveHint: omniHint === 'rect' ? 'rect' : undefined,
+        rx,
+        ry,
+        cornerRadius: rx,
         d: el.getAttribute('d') || '',
         fill: readFill(el, cssRules),
         stroke: readStroke(el, cssRules, canvasSize),
@@ -626,8 +635,27 @@ function readNode(
         markerMid: readMarkerProp(el, 'marker-mid', cssRules),
         markerEnd: readMarkerProp(el, 'marker-end', cssRules),
       };
+    }
 
-    case 'rect':
+    case 'rect': {
+      const rx = parseOptionalSvgLength(el.getAttribute('rx'), canvasSize.width) ?? 0;
+      const ry = parseOptionalSvgLength(el.getAttribute('ry'), canvasSize.height) ?? rx;
+      return {
+        ...base,
+        kind: 'path',
+        primitiveHint: 'rect',
+        rx,
+        ry,
+        cornerRadius: rx,
+        d: primitiveToPathD('rect', el, canvasSize),
+        fill: readFill(el, cssRules),
+        stroke: readStroke(el, cssRules, canvasSize),
+        markerStart: readMarkerProp(el, 'marker-start', cssRules),
+        markerMid: readMarkerProp(el, 'marker-mid', cssRules),
+        markerEnd: readMarkerProp(el, 'marker-end', cssRules),
+      };
+    }
+
     case 'circle':
     case 'ellipse':
     case 'line':
@@ -636,6 +664,7 @@ function readNode(
       return {
         ...base,
         kind: 'path',
+        primitiveHint: tag as any,
         d: primitiveToPathD(tag, el, canvasSize),
         fill: readFill(el, cssRules),
         stroke: readStroke(el, cssRules, canvasSize),
@@ -974,9 +1003,13 @@ function regexFallbackParse(svg: string): LoadResult {
     const y = Number((a.match(/\by\s*=\s*["']?\s*([\d.-]+)/i) || [])[1] ?? 0);
     const ww = Number((a.match(/\bwidth\s*=\s*["']?\s*([\d.-]+)/i) || [])[1] ?? 0);
     const hh = Number((a.match(/\bheight\s*=\s*["']?\s*([\d.-]+)/i) || [])[1] ?? 0);
+    const rxRaw = (a.match(/\brx\s*=\s*["']?\s*([\d.-]+)/i) || [])[1];
+    const ryRaw = (a.match(/\bry\s*=\s*["']?\s*([\d.-]+)/i) || [])[1];
+    const rx = rxRaw !== undefined ? Number(rxRaw) : 0;
+    const ry = ryRaw !== undefined ? Number(ryRaw) : rx;
     const fill = (a.match(/\bfill\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1] ?? '#000000';
     const id = nextId++ as NodeId;
-    doc.nodes.set(id, makeRectPath(id, x, y, ww, hh, fill));
+    doc.nodes.set(id, makeRectPath(id, x, y, ww, hh, fill, rx, ry));
     childIds.push(id);
   }
 
@@ -1010,8 +1043,11 @@ function regexFallbackParse(svg: string): LoadResult {
     const a = m[1];
     const d = (a.match(/\bd\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1] ?? '';
     const fill = (a.match(/\bfill\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1] ?? '#000000';
+    const hint = (a.match(/\bdata-omniview-hint\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1];
+    const rxRaw = (a.match(/\bdata-omniview-rx\s*=\s*["']?\s*([\d.-]+)/i) || [])[1];
+    const rx = rxRaw !== undefined ? Number(rxRaw) : undefined;
     const id = nextId++ as NodeId;
-    doc.nodes.set(id, makeDPath(id, d, fill));
+    doc.nodes.set(id, makeDPath(id, d, fill, hint, rx));
     childIds.push(id);
   }
 
@@ -1032,22 +1068,31 @@ function regexFallbackParse(svg: string): LoadResult {
   return { document: doc, warnings };
 }
 
-function makeRectPath(id: NodeId, x: number, y: number, w: number, h: number, fill: string): PathNode {
+function makeRectPath(id: NodeId, x: number, y: number, w: number, h: number, fill: string, rx = 0, ry = rx): PathNode {
+  const clampedRx = Math.min(Math.max(0, rx), w / 2);
+  const clampedRy = Math.min(Math.max(0, ry), h / 2);
+  const geometry =
+    clampedRx > 0 && clampedRy > 0
+      ? parsePathD(rectPathD(x, y, w, h, clampedRx, clampedRy))
+      : pathGeometry([{ anchors: [
+          anchorCorner({ x, y }),
+          anchorCorner({ x: x + w, y }),
+          anchorCorner({ x: x + w, y: y + h }),
+          anchorCorner({ x, y: y + h }),
+        ], closed: true }]);
   return {
     id, kind: 'Path', name: null,
     transform: identityTransform(), opacity: 1, blend: 'normal',
     visible: true, locked: false, children: [],
-    geometry: pathGeometry([{ anchors: [
-      anchorCorner({ x, y }),
-      anchorCorner({ x: x + w, y }),
-      anchorCorner({ x: x + w, y: y + h }),
-      anchorCorner({ x, y: y + h }),
-    ], closed: true }]),
+    geometry,
     appearance: { items: [
       { kind: 'fill', fill: { type: 'solid', color: fill as Color, opacity: 1 }, blend: 'normal', opacity: 1 },
       { kind: 'stroke', stroke: defaultStroke(), blend: 'normal', opacity: 1 },
     ] },
     primitiveHint: 'rect',
+    rx: clampedRx,
+    ry: clampedRy,
+    cornerRadius: clampedRx,
   };
 }
 
@@ -1085,19 +1130,26 @@ function makeLinePath(id: NodeId, x1: number, y1: number, x2: number, y2: number
   };
 }
 
-function makeDPath(id: NodeId, d: string, fill: string = '#000000'): PathNode {
+function makeDPath(id: NodeId, d: string, fill: string = '#000000', hint?: string, rx?: number): PathNode {
+  const geometry = parsePathD(d);
+  const inferredRx = inferRectGeometryRadius(geometry);
+  const isRect = hint === 'rect' || inferredRx !== null;
+  const resolvedRx = rx ?? (isRect ? (inferredRx ?? 0) : undefined);
   return {
     id, kind: 'Path', name: null,
     transform: identityTransform(), opacity: 1, blend: 'normal',
     visible: true, locked: false, children: [],
-    geometry: parsePathD(d),
+    geometry,
     appearance: {
       items: [
         { kind: 'fill', fill: { type: 'solid', color: fill as Color, opacity: 1 }, blend: 'normal', opacity: 1 },
         { kind: 'stroke', stroke: defaultStroke(), blend: 'normal', opacity: 1 },
       ],
     },
-    primitiveHint: 'path',
+    primitiveHint: isRect ? 'rect' : 'path',
+    rx: resolvedRx,
+    ry: resolvedRx,
+    cornerRadius: resolvedRx,
   };
 }
 

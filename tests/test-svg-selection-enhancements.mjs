@@ -30,6 +30,9 @@ import {
   getSelectionBBox,
   selectionAdd,
   selectionClear,
+  makeNodeId,
+  identityTransform,
+  emptyAppearance,
 } from '../src/features/viewers/components/drivers/svg/core/index.ts';
 
 console.log('🧪 开始 SVG v2 元素选择专项增强单元测试...\n');
@@ -515,7 +518,291 @@ it('多选共性操作：联合包围盒、批量对齐、批量分布、批量�
     assert.strictEqual(doc.nodes.get(id).visible, false, '所有图元应全部被批量隐藏');
   }
 });
+
+// ============================================================================
+// 10. CAD 方案 A 专项验证：真实几何相交、编组智能下钻、修饰键加减选与容器内起框
+// ============================================================================
+console.log('\n--- 测试 10: CAD 方案 A (Window vs Crossing 精确几何与编组智能下钻) ---');
+
+it('CAD 右→左交叉选 (intersect) 采用 Liang-Barsky 真实几何相交：剔除斜线与空心框 AABB 假阳性', () => {
+  let doc = createDocument({ width: 800, height: 600 });
+  const layerId = doc.layers[0];
+
+  // 1. 斜向对角线：(0, 0) -> (200, 200)，其 AABB 为 [0, 0, 200, 200]
+  const diagGeo = pathGeometry([
+    subPath([anchorCorner(vec2(0, 0)), anchorCorner(vec2(200, 200))], false),
+  ]);
+  const diagLine = makePath(0, diagGeo, {
+    items: [
+      {
+        kind: 'stroke',
+        stroke: {
+          paint: { type: 'solid', color: '#2563eb' },
+          width: 2,
+          cap: 'butt',
+          join: 'miter',
+          miterLimit: 4,
+          opacity: 1,
+        },
+      },
+    ],
+  });
+  const resDiag = appendToLayer(doc, layerId, diagLine);
+  doc = resDiag.doc;
+  const diagId = resDiag.nodeId;
+
+  // 2. 空心大矩形框 (fill: none)：[300, 50, 200, 200]
+  const hollowFrame = makePath(0, createRectGeometry(300, 50, 200, 200), {
+    items: [
+      {
+        kind: 'stroke',
+        stroke: {
+          paint: { type: 'solid', color: '#10b981' },
+          width: 2,
+          cap: 'butt',
+          join: 'miter',
+          miterLimit: 4,
+          opacity: 1,
+        },
+      },
+    ],
+  });
+  const resFrame = appendToLayer(doc, layerId, hollowFrame);
+  doc = resFrame.doc;
+  const frameId = resFrame.nodeId;
+
+  const boxCmd = commandRegistry.find('select.box');
+  assert.ok(boxCmd);
+
+  // A. 选框落在斜线 AABB 右上角空白处 [150, 10, 40, 40] -> 真实几何未触碰斜线，绝不能误选！
+  const missDiag = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 150, y: 10, width: 40, height: 40 }, mode: 'intersect' },
+  );
+  assert.strictEqual(missDiag.ok, true);
+  assert.deepStrictEqual(missDiag.selection.nodeIds, [], '斜线 AABB 空白角落在交叉选下不应误命中');
+
+  // B. 选框真实穿过斜线中段 [90, 90, 30, 30] -> 精确命中斜线！
+  const hitDiag = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 90, y: 90, width: 30, height: 30 }, mode: 'intersect' },
+  );
+  assert.strictEqual(hitDiag.ok, true);
+  assert.deepStrictEqual(hitDiag.selection.nodeIds, [diagId], '交叉选触碰斜线本体时应精确命中');
+
+  // C. 选框完全处于空心矩形框内部空白处 [350, 100, 60, 60] -> 未碰四边描边，不应误选空心框！
+  const missHollow = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 350, y: 100, width: 60, height: 60 }, mode: 'intersect' },
+  );
+  assert.strictEqual(missHollow.ok, true);
+  assert.deepStrictEqual(missHollow.selection.nodeIds, [], '空心框内部空白拉交叉框不应误命中外框');
+
+  // D. 选框触碰空心矩形左边框 (x=300) [290, 100, 30, 30] -> 精确命中空心框！
+  const hitHollow = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 290, y: 100, width: 30, height: 30 }, mode: 'intersect' },
+  );
+  assert.strictEqual(hitHollow.ok, true);
+  assert.deepStrictEqual(hitHollow.selection.nodeIds, [frameId], '交叉选触碰空心框边缘时应精确命中');
+});
+
+it('CAD 左→右窗口选 (enclosed) 与右→左交叉选 (intersect) 支持 <g> 编组智能下钻', () => {
+  let doc = createDocument({ width: 800, height: 600 });
+  const layerId = doc.layers[0];
+
+  // 构造一个大编组 Group（跨度 300x100），内含左、右两个子图元
+  const leftChild = makePath(0, createRectGeometry(50, 50, 60, 60));
+  const rightChild = makePath(0, createRectGeometry(250, 50, 60, 60));
+  const rLeft = appendToLayer(doc, layerId, leftChild);
+  doc = rLeft.doc;
+  const leftId = rLeft.nodeId;
+
+  const rRight = appendToLayer(doc, layerId, rightChild);
+  doc = rRight.doc;
+  const rightId = rRight.nodeId;
+
+  const groupCmd = commandRegistry.find('object.group');
+  const grouped = groupCmd.handler(doc, { nodeIds: [leftId, rightId], primaryId: leftId }, { ids: [leftId, rightId] });
+  assert.ok(grouped.ok);
+  doc = grouped.doc;
+  const groupId = grouped.selection.primaryId;
+
+  const boxCmd = commandRegistry.find('select.box');
+
+  // 1. 左→右窗口选 (enclosed) 完整包住整个 Group [40, 40, 290, 80] -> 选中顶层 Group 整体
+  const fullWindow = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 40, y: 40, width: 290, height: 80 }, mode: 'enclosed' },
+  );
+  assert.deepStrictEqual(fullWindow.selection.nodeIds, [groupId], '完整包住 Group 时应选中 Group 整体');
+
+  // 2. 左→右窗口选 (enclosed) 仅完整包住左侧子图元 [40, 40, 90, 80] -> 自动下钻选中 leftId！
+  const drillWindow = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 40, y: 40, width: 90, height: 80 }, mode: 'enclosed' },
+  );
+  assert.deepStrictEqual(drillWindow.selection.nodeIds, [leftId], '窗口选局部包住大编组内子元素时应自动下钻选中该子元素');
+
+  // 3. 右→左交叉选 (intersect) 仅擦过右侧子图元一角 [295, 95, 40, 40] -> 自动下钻仅选中 rightId！
+  const drillCrossing = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 295, y: 95, width: 40, height: 40 }, mode: 'intersect' },
+  );
+  assert.deepStrictEqual(drillCrossing.selection.nodeIds, [rightId], '交叉选局部触碰大编组内单个子元素时应下钻仅选中该子元素');
+});
+
+it('CAD 框选修饰键语义：Shift 加选 (add) 与 Ctrl/Cmd 减选 (subtract)', () => {
+  let doc = createDocument({ width: 800, height: 600 });
+  const layerId = doc.layers[0];
+
+  const r1 = appendToLayer(doc, layerId, makePath(0, createRectGeometry(50, 50, 40, 40)));
+  doc = r1.doc;
+  const id1 = r1.nodeId;
+
+  const r2 = appendToLayer(doc, layerId, makePath(0, createRectGeometry(150, 50, 40, 40)));
+  doc = r2.doc;
+  const id2 = r2.nodeId;
+
+  const r3 = appendToLayer(doc, layerId, makePath(0, createRectGeometry(250, 50, 40, 40)));
+  doc = r3.doc;
+  const id3 = r3.nodeId;
+
+  const boxCmd = commandRegistry.find('select.box');
+  let sel = { nodeIds: [id1, id2], primaryId: id1 };
+
+  // 1. Shift 加选 (operation: 'add') 框住 id3 -> 选区变为 [id1, id2, id3]
+  const resAdd = boxCmd.handler(doc, sel, {
+    rect: { x: 240, y: 40, width: 60, height: 60 },
+    mode: 'enclosed',
+    operation: 'add',
+  });
+  assert.strictEqual(resAdd.ok, true);
+  sel = resAdd.selection;
+  assert.deepStrictEqual(sel.nodeIds, [id1, id2, id3], 'Shift 框选应当追加命中图元至现有选区');
+
+  // 2. Ctrl 减选 (operation: 'subtract') 交叉碰触 id2 -> 从选区中剔除 id2，保留 [id1, id3]
+  const resSub = boxCmd.handler(doc, sel, {
+    rect: { x: 175, y: 75, width: 30, height: 30 },
+    mode: 'intersect',
+    operation: 'subtract',
+  });
+  assert.strictEqual(resSub.ok, true);
+  sel = resSub.selection;
+  assert.deepStrictEqual(sel.nodeIds, [id1, id3], 'Ctrl 框选应当从现有选区中精确减选剔除命中图元');
+});
+
+it('CAD 框选与点选防误选文本：内聚卡片编组 <g> 整体选中、剔除未包住底框的孤立文本、全画布大背景直起框选', () => {
+  let doc = createDocument({ width: 800, height: 600 });
+  const layerId = doc.layers[0];
+
+  // 1. 铺满全画布的大背景底板 (0, 0, 800, 600)
+  const bgPath = makePath(0, createRectGeometry(0, 0, 800, 600), {
+    items: [{ kind: 'fill', fill: { paint: { type: 'solid', color: '#0f172a' }, rule: 'nonzero', opacity: 1 } }],
+  });
+  const resBg = appendToLayer(doc, layerId, bgPath);
+  doc = resBg.doc;
+  const bgId = resBg.nodeId;
+
+  // 2. 构造一个内聚卡片编组 <g>（含底框 Path [100, 100, 200, 100] + 内部标题 Text [120, 140]）
+  const cardRect = makePath(0, createRectGeometry(100, 100, 200, 100), {
+    items: [{ kind: 'fill', fill: { paint: { type: 'solid', color: '#1e293b' }, rule: 'nonzero', opacity: 1 } }],
+  });
+  const resCardRect = appendToLayer(doc, layerId, cardRect);
+  doc = resCardRect.doc;
+  const cardRectId = resCardRect.nodeId;
+
+  const textId = makeNodeId(doc.nextNodeId);
+  const textNode = {
+    id: textId,
+    name: null,
+    kind: 'Text',
+    text: 'Card Title',
+    x: 120,
+    y: 140,
+    fontSize: 16,
+    fontFamily: 'sans-serif',
+    textAnchor: 'start',
+    transform: identityTransform(),
+    opacity: 1,
+    blend: 'normal',
+    visible: true,
+    locked: false,
+    children: [],
+    appearance: emptyAppearance(),
+  };
+  const nextNodes = new Map(doc.nodes);
+  nextNodes.set(textId, textNode);
+  const layerNode = nextNodes.get(layerId);
+  nextNodes.set(layerId, { ...layerNode, children: [...layerNode.children, textId] });
+  doc = { ...doc, nodes: nextNodes, nextNodeId: doc.nextNodeId + 1 };
+
+  const groupCmd = commandRegistry.find('object.group');
+  const grouped = groupCmd.handler(
+    doc,
+    { nodeIds: [cardRectId, textId], primaryId: cardRectId },
+    { ids: [cardRectId, textId] },
+  );
+  assert.ok(grouped.ok);
+  doc = grouped.doc;
+  const cardGroupId = grouped.selection.primaryId;
+
+  const boxCmd = commandRegistry.find('select.box');
+
+  // A. 右→左交叉选 (intersect) 擦过卡片内部文本区域 [115, 120, 90, 30]：
+  // 应识别该 <g> 为带底框的内聚卡片组件，整体选中 cardGroupId，而非只把内部 textId 单独拎出！
+  const crossCard = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 115, y: 120, width: 90, height: 30 }, mode: 'intersect' },
+  );
+  assert.deepStrictEqual(
+    crossCard.selection.nodeIds,
+    [cardGroupId],
+    '右→左交叉选触碰内聚卡片编组时应选中整个卡片 <g> 而非仅选中内部文本',
+  );
+
+  // B. 左→右窗口选 (enclosed) 仅框住卡片内部局部区域 [110, 110, 120, 50]（未完整包住卡片底框 [100,100,200,100]）：
+  // 绝不能把卡片内的标题文本 textId 孤立选出来！
+  const partialWindowCard = boxCmd.handler(
+    doc,
+    { nodeIds: [], primaryId: null },
+    { rect: { x: 110, y: 110, width: 120, height: 50 }, mode: 'enclosed' },
+  );
+  assert.deepStrictEqual(
+    partialWindowCard.selection.nodeIds,
+    [],
+    '左→右窗口选未完整包住卡片底框时，不应把卡片内部的标题文本孤立选出',
+  );
+
+  // C. 在铺满全图的大背景底板内部空白处 (500, 400) 按下鼠标：
+  // 应忽略全画布大底板 bgId，直接开启 CAD 框选手势 (marquee)，而不是选中或拖动大背景！
+  const selectTool = tools.select;
+  const downOnBackdrop = selectTool.pointer?.(
+    { doc, selection: { nodeIds: [cardGroupId], primaryId: cardGroupId }, zoom: 1, activeToolId: 'select', gesture: null },
+    {
+      kind: 'down',
+      point: { x: 500, y: 400 },
+      mods: { shift: false, ctrl: false, meta: false, alt: false, space: false },
+      pressure: 1,
+    },
+  );
+  assert.ok(downOnBackdrop && downOnBackdrop.length === 1);
+  assert.strictEqual(downOnBackdrop[0].kind, 'Begin');
+  assert.strictEqual(downOnBackdrop[0].gestureMode, 'marquee', '点击全画布大背景内部应直接进入 CAD 框选模式');
+  assert.ok(!downOnBackdrop.some((a) => a.kind === 'Exec' && a.params?.ids?.includes(bgId)), '不应选中全画布大背景底板');
+});
+
 console.log(`\n📊 元素选择专项增强测试结果: ${passed} 通过, ${failed} 失败`);
 if (failed > 0) {
   process.exit(1);
 }
+
+

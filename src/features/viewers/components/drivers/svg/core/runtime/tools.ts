@@ -39,6 +39,7 @@ import {
   createEllipseGeometry,
   createLineGeometry,
   createCurveGeometry,
+  isRectNode,
 } from '../model/path';
 import { findAncestors, findOutermostGroup, findParent } from '../model/tree';
 
@@ -75,6 +76,8 @@ interface PolylineVertexState {
 let activeTransformState: TransformHandleState | null = null;
 let activePolylineVertexState: PolylineVertexState | null = null;
 let activeSnapGuides: SnapGuideLine[] = [];
+
+export { isRectNode };
 
 /** 判断节点是否为开放折线、曲线或两点直线（具有 1 条未闭合单子路径且锚点数 >= 2）。 */
 export function isOpenPolylineNode(node: Node | undefined | null): node is PathNode {
@@ -304,6 +307,8 @@ function hitTestHandles(
 
 let lastHoverPoint: Vec2 | null = null;
 let pendingDrilldownTarget: NodeId | null = null;
+let pendingSingleSelectTarget: NodeId | null = null;
+let pendingMarqueeClearOnUp = false;
 let dragOccurred = false;
 
 const selectTool: Tool = {
@@ -398,6 +403,8 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
   if (event.kind === 'down') {
     dragOccurred = false;
     pendingDrilldownTarget = null;
+    pendingSingleSelectTarget = null;
+    pendingMarqueeClearOnUp = false;
     lastHoverPoint = event.point;
 
     const additiveSelection = Boolean(event.mods.shift || event.mods.ctrl || event.mods.meta);
@@ -537,8 +544,85 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
 
     const deepSelect = Boolean(event.mods.meta || event.mods.ctrl);
     const tol = 5 / Math.max(ctx.zoom, 1e-4);
+    const canvasW = Math.max(1, ctx.doc.canvas?.width || ctx.doc.canvas?.viewBox?.width || 800);
+    const canvasH = Math.max(1, ctx.doc.canvas?.height || ctx.doc.canvas?.viewBox?.height || 600);
+    const canvasArea = canvasW * canvasH;
+    const borderMargin = 8 / Math.max(ctx.zoom, 1e-4);
+
+    // 判定节点是否为铺满画布的整幅大背景底板（面积 >= 75% 画布且内部包含其他前景图元）
+    const isFullCanvasBackdropAtPoint = (id: NodeId): boolean => {
+      const node = ctx.doc.nodes.get(id);
+      if (!node || node.kind !== 'Path') return false;
+      const bb = nodeWorldBBox(ctx.doc, id);
+      if (!bb || bb.width * bb.height < canvasArea * 0.75) return false;
+      // 若点击在背景底板四边边缘 8px 内，允许用户通过点选边缘选中底板
+      if (
+        event.point.x <= bb.x + borderMargin ||
+        event.point.x >= bb.x + bb.width - borderMargin ||
+        event.point.y <= bb.y + borderMargin ||
+        event.point.y >= bb.y + bb.height - borderMargin
+      ) {
+        return false;
+      }
+      for (const otherId of ctx.doc.nodes.keys()) {
+        if (otherId === id) continue;
+        const other = ctx.doc.nodes.get(otherId);
+        if (!other || other.kind === 'Layer' || !other.visible || other.locked) continue;
+        const ob = nodeWorldBBox(ctx.doc, otherId);
+        if (
+          ob &&
+          ob.width * ob.height < bb.width * bb.height * 0.9 &&
+          ob.x >= bb.x - 2 &&
+          ob.y >= bb.y - 2 &&
+          ob.x + ob.width <= bb.x + bb.width + 2 &&
+          ob.y + ob.height <= bb.y + bb.height + 2
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     // 始终检索光标下真实的原子叶子图元（deepSelect = true），以精确定位命中目标
-    const leafHits = hitTestAllAtPoint(ctx.doc, event.point, tol, true);
+    const rawLeafHits = hitTestAllAtPoint(ctx.doc, event.point, tol, true);
+    // 普通点击（非 Ctrl/Cmd 穿透）时，忽略铺满全图的背景底板内部区域，使其等同于空白画布（支持随时拉出 CAD 选框、单击空白取消选中）
+    const filteredHits = deepSelect ? rawLeafHits : rawLeafHits.filter((id) => !isFullCanvasBackdropAtPoint(id));
+
+    // 当光标命中 Text 标签且其正下方存在同级紧凑底框 Path（如按钮/徽章/节点矩形）时，
+    // 默认将底框 Path 排在 Text 之前作为首选图形目标，重复点击同一位置或按 Ctrl/Cmd 时再切换到 Text
+    const leafHits: NodeId[] = [...filteredHits];
+    if (!deepSelect && leafHits.length >= 2) {
+      const firstId = leafHits[0]!;
+      const firstNode = ctx.doc.nodes.get(firstId);
+      if (firstNode?.kind === 'Text') {
+        const textBB = nodeWorldBBox(ctx.doc, firstId);
+        const parentId = findParent(ctx.doc, firstId);
+        if (textBB) {
+          const backingIdx = leafHits.findIndex((candId, idx) => {
+            if (idx === 0) return false;
+            const candNode = ctx.doc.nodes.get(candId);
+            if (!candNode || candNode.kind !== 'Path') return false;
+            if (findParent(ctx.doc, candId) !== parentId) return false;
+            const candBB = nodeWorldBBox(ctx.doc, candId);
+            if (!candBB) return false;
+            const candArea = candBB.width * candBB.height;
+            if (candArea >= canvasArea * 0.22) return false;
+            return (
+              textBB.x >= candBB.x - 6 &&
+              textBB.y >= candBB.y - 6 &&
+              textBB.x + textBB.width <= candBB.x + candBB.width + 6 &&
+              textBB.y + textBB.height <= candBB.y + candBB.height + 6
+            );
+          });
+          if (backingIdx > 0) {
+            const [backingId] = leafHits.splice(backingIdx, 1);
+            if (backingId !== undefined) {
+              leafHits.unshift(backingId);
+            }
+          }
+        }
+      }
+    }
 
     const now = Date.now();
     let targetHit: NodeId | null = null;
@@ -570,9 +654,9 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         targetHit = lastClickCycleState.hits[nextIdx] ?? leafHits[0]!;
         lastClickCycleState = { point: event.point, time: now, hits: lastClickCycleState.hits, index: nextIdx };
       } else if (deepSelect) {
-        // 按住 Alt 穿透直选底层叶子/原子图元
-        targetHit = rawLeaf;
-        lastClickCycleState = { point: event.point, time: now, hits: leafHits, index: 0 };
+        // 按住 Ctrl/Cmd 穿透直选底层叶子/原子图元（使用未重排的 rawLeafHits 以直达最顶层 Text/Path）
+        targetHit = rawLeafHits[0] ?? rawLeaf;
+        lastClickCycleState = { point: event.point, time: now, hits: rawLeafHits, index: 0 };
       } else if (event.mods.alt && leafHits.length > 1) {
         // 按住 Alt 点击：穿透选第二层重叠图元
         targetHit = leafHits[1] ?? leafHits[0]!;
@@ -588,12 +672,20 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
           if (selectedAncestorIdx > 0) {
             // 若用户后续原地松开（未发生拖拽），则在 up 阶段下钻一层到直接子级
             pendingDrilldownTarget = chain[selectedAncestorIdx - 1]!;
+          } else if (leafHits.length > 1) {
+            // 已下钻到叶子节点（如卡片底框 Path）且同位置存在重叠叶子（如卡片上的 Text）：再次原地单击可切换到 Text
+            pendingDrilldownTarget = leafHits[1]!;
           }
         } else {
           // 尚未选中链条上的任何节点 -> 默认选择最外层编组整体
           targetHit = outermost;
         }
-        lastClickCycleState = { point: event.point, time: now, hits: [targetHit], index: 0 };
+        lastClickCycleState = {
+          point: event.point,
+          time: now,
+          hits: [targetHit],
+          index: 0,
+        };
       }
     } else {
       lastClickCycleState = null;
@@ -603,10 +695,10 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
     const additive = Boolean(event.mods.shift || event.mods.ctrl || event.mods.meta);
 
     if (targetHit == null) {
-      const actions: Action[] = [];
-      if (!additive) actions.push({ kind: 'Exec', commandId: 'select.clear', params: {} });
-      actions.push({ kind: 'Begin', label: '框选', gestureMode: 'marquee' });
-      return actions;
+      // 不在 down 阶段立即清空选区，从而保留 snapshotSelection 供 CAD 框选实时 Preview（含 Group 局部上下文与 Shift 加选 / Ctrl 减选）使用；
+      // 若用户仅原地点击空白处未拖拽，则在 up 阶段清空选区。
+      pendingMarqueeClearOnUp = !additive;
+      return [{ kind: 'Begin', label: '框选', gestureMode: 'marquee' }];
     }
 
     // 命中图元：处理加选/反选与多选拖拽
@@ -626,8 +718,52 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       // 普通点击（无修饰键）
       if (inSelection) {
         // 已有该选中项（单选或多选之一）：保持当前选区，直接开始移动手势
+        // 若当前处于多选状态，记录待定单选目标；若用户后续原地松开（未发生拖拽），则在 up 阶段转为单选此图元
+        if (ctx.selection.nodeIds.length > 1) {
+          pendingSingleSelectTarget = targetHit;
+        }
         return [{ kind: 'Begin', label: '移动', gestureMode: 'move' }];
       }
+
+      // CAD 容器内部直起框选保护：
+      // 当点击落在一个未选中的大尺寸背景容器/泳道底框内部（面积 >= 22% 画布且内部包含其他图元，且点击点距容器四边 > 8px）时，
+      // 允许拖拽直接拉出 CAD 选框框选内部图元；若仅原地点击松开，则在 up 阶段选中该背景容器本身。
+      const hitNode = ctx.doc.nodes.get(targetHit);
+      const hitBB = nodeWorldBBox(ctx.doc, targetHit);
+      if (
+        hitNode &&
+        hitNode.kind === 'Path' &&
+        hitBB &&
+        hitBB.width * hitBB.height >= canvasArea * 0.22 &&
+        event.point.x > hitBB.x + borderMargin &&
+        event.point.x < hitBB.x + hitBB.width - borderMargin &&
+        event.point.y > hitBB.y + borderMargin &&
+        event.point.y < hitBB.y + hitBB.height - borderMargin
+      ) {
+        let enclosesOtherNode = false;
+        for (const otherId of ctx.doc.nodes.keys()) {
+          if (otherId === targetHit) continue;
+          const other = ctx.doc.nodes.get(otherId);
+          if (!other || other.kind === 'Layer' || !other.visible || other.locked) continue;
+          const ob = nodeWorldBBox(ctx.doc, otherId);
+          if (
+            ob &&
+            ob.x >= hitBB.x - 1 &&
+            ob.y >= hitBB.y - 1 &&
+            ob.x + ob.width <= hitBB.x + hitBB.width + 1 &&
+            ob.y + ob.height <= hitBB.y + hitBB.height + 1 &&
+            ob.width * ob.height < hitBB.width * hitBB.height * 0.9
+          ) {
+            enclosesOtherNode = true;
+            break;
+          }
+        }
+        if (enclosesOtherNode) {
+          pendingSingleSelectTarget = targetHit;
+          return [{ kind: 'Begin', label: '框选', gestureMode: 'marquee' }];
+        }
+      }
+
       return [
         { kind: 'Exec', commandId: 'select.set', params: { ids: [targetHit], additive: false } },
         { kind: 'Begin', label: '移动', gestureMode: 'move' },
@@ -834,6 +970,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         if (Math.hypot(dx, dy) > 2 / Math.max(ctx.zoom, 1e-4)) {
           dragOccurred = true;
           pendingDrilldownTarget = null;
+          pendingSingleSelectTarget = null;
         }
         activeSnapGuides = [];
 
@@ -911,15 +1048,30 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         if (delta.x === 0 && delta.y === 0) return [];
         return [{ kind: 'Preview', commandId: 'object.move', params: { ids: [...g.ids], delta } }];
       }
+      if (Math.hypot(event.point.x - g.startPoint.x, event.point.y - g.startPoint.y) > 1 / Math.max(ctx.zoom, 1e-4)) {
+        dragOccurred = true;
+        pendingDrilldownTarget = null;
+        pendingSingleSelectTarget = null;
+        pendingMarqueeClearOnUp = false;
+      }
       const rect = normalizeRect(g.startPoint, event.point);
-      // 支持按住 Ctrl / Cmd / Shift 框选时追加至当前选区 (CAD / 设计软件通用习惯)
-      const additive = Boolean(event.mods.shift || event.mods.ctrl || event.mods.meta);
-      // CAD 标准准则：
-      // 1. 从左向右拉框：窗选 (enclosed，完全包含模式)
-      // 2. 从右向左拉框或按住 Alt：交叉选择 (intersect，触碰相交模式)
+      // CAD 标准修饰键语义：
+      // - 无修饰键：替换选区 (replace)
+      // - Shift + 框选：加选追加至现有选区 (add)
+      // - Ctrl / Cmd + 框选：从现有选区减选剔除命中项 (subtract)
+      const operation: 'replace' | 'add' | 'subtract' =
+        event.mods.ctrl || event.mods.meta
+          ? 'subtract'
+          : event.mods.shift
+            ? 'add'
+            : 'replace';
+      const additive = operation === 'add';
+      // CAD 标准方向语义：
+      // 1. 从左向右拉框 (currentPoint.x >= startPoint.x)：窗口选择 Window Selection (enclosed，严格 100% 包含 + 编组智能下钻)
+      // 2. 从右向左拉框 (currentPoint.x < startPoint.x) 或按住 Alt：交叉选择 Crossing Selection (intersect，真实几何相交 + 编组智能下钻)
       const isCrossing = event.point.x < g.startPoint.x;
       const mode = (event.mods.alt || isCrossing) ? 'intersect' : 'enclosed';
-      return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive, mode } }];
+      return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive, operation, mode } }];
     }
   }
 
@@ -940,12 +1092,32 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
     if (event.kind === 'up' && !dragOccurred && pendingDrilldownTarget != null) {
       const drillTarget = pendingDrilldownTarget;
       pendingDrilldownTarget = null;
+      pendingSingleSelectTarget = null;
+      pendingMarqueeClearOnUp = false;
       return [
         { kind: 'Commit' },
         { kind: 'Exec', commandId: 'select.set', params: { ids: [drillTarget], additive: false } },
       ];
     }
     pendingDrilldownTarget = null;
+    if (event.kind === 'up' && !dragOccurred && pendingSingleSelectTarget != null) {
+      const singleTarget = pendingSingleSelectTarget;
+      pendingSingleSelectTarget = null;
+      pendingMarqueeClearOnUp = false;
+      return [
+        { kind: 'Commit' },
+        { kind: 'Exec', commandId: 'select.set', params: { ids: [singleTarget], additive: false } },
+      ];
+    }
+    pendingSingleSelectTarget = null;
+    if (event.kind === 'up' && !dragOccurred && pendingMarqueeClearOnUp) {
+      pendingMarqueeClearOnUp = false;
+      return [
+        { kind: 'Commit' },
+        { kind: 'Exec', commandId: 'select.clear', params: {} },
+      ];
+    }
+    pendingMarqueeClearOnUp = false;
     if (ctx.gesture) {
       return [{ kind: 'Commit' }];
     }
@@ -1530,12 +1702,13 @@ const rectTool: Tool = {
     if (event.kind === 'drag' && ctx.gesture && ctx.gesture.kind === 'marquee') {
       const r = computeConstrainedShapeBox(ctx.gesture.startPoint, event.point, event.mods);
       if (r.width < 2 && r.height < 2) return [];
-      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1), Math.min(8, r.width / 4, r.height / 4));
+      const rx = 0;
+      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1), rx, rx);
       return [
         {
           kind: 'Preview',
           commandId: 'object.createPath',
-          params: { geometry, appearance: RECT_DEFAULT_APPEARANCE, hint: 'rect', name: '矩形' },
+          params: { geometry, appearance: RECT_DEFAULT_APPEARANCE, hint: 'rect', name: '矩形', rx, ry: rx, cornerRadius: rx },
         },
       ];
     }
@@ -1545,12 +1718,13 @@ const rectTool: Tool = {
       if (r.width < 2 && r.height < 2) {
         return [{ kind: 'Cancel' }];
       }
-      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1), Math.min(8, r.width / 4, r.height / 4));
+      const rx = 0;
+      const geometry = createRectGeometry(r.x, r.y, Math.max(r.width, 1), Math.max(r.height, 1), rx, rx);
       return [
         {
           kind: 'Exec',
           commandId: 'object.createPath',
-          params: { geometry, appearance: RECT_DEFAULT_APPEARANCE, hint: 'rect', name: '矩形' },
+          params: { geometry, appearance: RECT_DEFAULT_APPEARANCE, hint: 'rect', name: '矩形', rx, ry: rx, cornerRadius: rx },
         },
         { kind: 'Commit' },
         { kind: 'Exec', commandId: 'tool.setActive', params: { tool: 'select' } },

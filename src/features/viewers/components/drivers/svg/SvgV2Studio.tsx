@@ -267,8 +267,47 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
             )}
           </div>
 
-          {/* 右侧：导出与开发者互操作群组 */}
+          {/* 右侧：SVG 图形尺寸快捷调节 + 导出与开发者互操作群组 */}
           <div className="flex items-center space-x-1.5">
+            <div
+              className="flex items-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/60 px-1.5 py-0.5 text-[11px]"
+              title="直接输入数值整体调整 SVG 图形尺寸（宽 × 高 px）"
+            >
+              <span className="text-[10px] text-[var(--ov-fg-muted)]">尺寸</span>
+              <input
+                type="number"
+                min={16}
+                max={8192}
+                aria-label="SVG 宽度"
+                value={Math.round(document.canvas?.width || document.canvas?.viewBox?.width || 800)}
+                className="w-12 rounded border border-transparent bg-transparent px-1 text-right font-mono text-[11px] text-[var(--ov-fg)] hover:border-[var(--ov-border)] focus:border-[var(--ov-accent)] focus:bg-[var(--ov-surface)] focus:outline-none"
+                onChange={(e) => {
+                  const nextW = Math.max(16, Number(e.target.value));
+                  if (!Number.isFinite(nextW)) return;
+                  const curW = Math.max(16, document.canvas?.width || document.canvas?.viewBox?.width || 800);
+                  const curH = Math.max(16, document.canvas?.height || document.canvas?.viewBox?.height || 600);
+                  const nextH = Math.max(16, Math.round(nextW * (curH / curW)));
+                  execute('canvas.setSize', { width: nextW, height: nextH, mode: 'scale-content' });
+                }}
+              />
+              <span className="text-[10px] text-[var(--ov-fg-muted)]">×</span>
+              <input
+                type="number"
+                min={16}
+                max={8192}
+                aria-label="SVG 高度"
+                value={Math.round(document.canvas?.height || document.canvas?.viewBox?.height || 600)}
+                className="w-12 rounded border border-transparent bg-transparent px-1 text-right font-mono text-[11px] text-[var(--ov-fg)] hover:border-[var(--ov-border)] focus:border-[var(--ov-accent)] focus:bg-[var(--ov-surface)] focus:outline-none"
+                onChange={(e) => {
+                  const nextH = Math.max(16, Number(e.target.value));
+                  if (!Number.isFinite(nextH)) return;
+                  const curW = Math.max(16, document.canvas?.width || document.canvas?.viewBox?.width || 800);
+                  const curH = Math.max(16, document.canvas?.height || document.canvas?.viewBox?.height || 600);
+                  const nextW = Math.max(16, Math.round(nextH * (curW / curH)));
+                  execute('canvas.setSize', { width: nextW, height: nextH, mode: 'scale-content' });
+                }}
+              />
+            </div>
             <button
               type="button"
               onClick={handleCopyJsx}

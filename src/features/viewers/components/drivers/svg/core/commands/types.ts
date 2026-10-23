@@ -38,6 +38,7 @@ export type { AlignMode, DistributeAxis };
  * - `tool.*`     — 工具切换（setActive/setOption）
  */
 export type CommandId =
+  | `canvas.${string}`
   | `path.${string}`
   | `object.${string}`
   | `paint.${string}`
@@ -157,6 +158,12 @@ export interface PathConvertLineStyleParams {
   readonly id: NodeId;
   readonly style: 'straight' | 'orthogonal-z' | 'orthogonal-v' | 'orthogonal-l' | 'curve-s' | 'curve-arc' | 'curve-smooth';
 }
+export interface PathSetRectRadiusParams {
+  readonly ids?: ReadonlyArray<NodeId>;
+  readonly id?: NodeId;
+  readonly rx: number;
+  readonly ry?: number;
+}
 
 // --- object.* ---
 export interface ObjectMoveParams { readonly ids: ReadonlyArray<NodeId>; readonly delta: { readonly x: number; readonly y: number }; }
@@ -202,7 +209,8 @@ export interface LayerSetColorTagParams { readonly id: NodeId; readonly color: '
 // --- select.* ---
 export interface SelectBoxParams {
   readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
-  readonly additive: boolean;
+  readonly additive?: boolean;
+  readonly operation?: 'replace' | 'add' | 'subtract';
   readonly mods?: { readonly shift: boolean; readonly alt: boolean; readonly meta: boolean; readonly ctrl: boolean };
   readonly mode?: 'enclosed' | 'intersect';
 }
@@ -276,3 +284,12 @@ export interface PathSetMarkerParams {
 // --- tool.* ---
 export interface ToolSetActiveParams { readonly tool: 'select' | 'node' | 'pen' | 'rect' | 'polygon' | 'ellipse' | 'line' | 'curve' | 'arrow' | 'text'; }
 export interface ToolSetOptionParams { readonly key: string; readonly value: unknown; }
+
+// --- canvas.* ---
+export interface CanvasSetSizeParams {
+  readonly width?: number;
+  readonly height?: number;
+  readonly mode?: 'canvas-only' | 'scale-content' | 'fit-content';
+  readonly padding?: number;
+  readonly offsetContent?: { readonly x: number; readonly y: number };
+}
