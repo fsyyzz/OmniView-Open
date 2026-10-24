@@ -108,24 +108,20 @@ Runtime 调度：
 
 ## 4. Runtime 状态机
 
-```text
-┌─────────────────┐
-│     Idle        │ ← default state
-└─────────────────┘
-   │ execute(Exec)
-   ↓
-┌─────────────────┐
-│   Commit        │ ─→ write HistoryEntry ─→ back to Idle
-└─────────────────┘
-
-   │ execute(Begin)
-   ↓
-┌─────────────────┐
-│  Previewing     │ ─→ execute(Preview) ─→ Previewing (replace prev)
-   │
-   ├── execute(Commit) ─→ write 1 HistoryEntry ─→ Idle
-   └── execute(Cancel) ─→ restore snapshot ─→ Idle
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Commit : execute(Exec)
+    Commit --> Idle : write HistoryEntry
+    Idle --> Previewing : execute(Begin)
+    Previewing --> Previewing : execute(Preview) / replace prev
+    Previewing --> Idle : execute(Commit) / write 1 HistoryEntry
+    Previewing --> Idle : execute(Cancel) / restore snapshot
 ```
+
+> [!NOTE] 三种执行模式的状态映射
+> - **Exec（单步命令）**：`Idle → Commit → Idle`，直接落地为 1 条 HistoryEntry；
+> - **Begin / Preview / Commit（手势交互）**：`Begin` 时 snapshot 文档进入 `Previewing`，`Preview` 在 snapshot 上反复重算（替换前一帧），`Commit` 落地为 1 条 HistoryEntry 并回到 `Idle`；`Cancel` 则 restore snapshot 回到 `Idle`。
 
 ## 5. React 集成
 

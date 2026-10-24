@@ -8,19 +8,52 @@
 
 ## 一、功能评估框架与多维打分模型 (Evaluation Framework)
 
-为了支撑后续针对每个功能模块的客观、量化评估，本规范建立 6 大核心评估维度：
+为了支撑后续针对每个功能模块的客观、量化评估，本规范建立 6 大核心评估维度。下图为六维成熟度评估雷达（基于当前能力基线评分，满分为 100）：
 
-```mermaid
-radar-chart
-    title OmniView 功能成熟度多维评估模型
-    axes
-        "功能完整度 (Completeness)": 95
-        "交互灵敏度 (Interactivity)": 90
-        "导出互操作 (Interoperability)": 92
-        "性能与稳帧 (Performance)": 94
-        "离线安全性 (Security)": 98
-        "容错自愈力 (Resilience)": 96
-```
+> [!FIGURE] 图 1-1：OmniView 功能成熟度六维评估雷达（基线评分）
+
+<svg viewBox="0 0 480 320" style="max-width: 100%; height: auto; margin: 16px auto; display: block;" xmlns="http://www.w3.org/2000/svg">
+  <!-- 同心参考网格 (20/40/60/80/100) -->
+  <g stroke="currentColor" stroke-width="1" fill="none" opacity="0.18">
+    <polygon points="240,52 372.49,103.37 372.49,216.63 240,268 107.51,216.63 107.51,103.37"/>
+    <polygon points="240,76 348.99,117.35 348.99,202.65 240,244 131.01,202.65 131.01,117.35"/>
+    <polygon points="240,100 325.49,131.33 325.49,188.67 240,220 154.51,188.67 154.51,131.33"/>
+    <polygon points="240,124 301.99,145.31 301.99,174.69 240,196 178.01,174.69 178.01,145.31"/>
+    <polygon points="240,148 278.49,159.29 278.49,160.71 240,172 201.51,160.71 201.51,159.29"/>
+  </g>
+  <!-- 六个轴向辅助线 -->
+  <g stroke="currentColor" stroke-width="1" opacity="0.14">
+    <line x1="240" y1="160" x2="372.49" y2="103.37"/>
+    <line x1="240" y1="160" x2="372.49" y2="216.63"/>
+    <line x1="240" y1="160" x2="240" y2="268"/>
+    <line x1="240" y1="160" x2="107.51" y2="216.63"/>
+    <line x1="240" y1="160" x2="107.51" y2="103.37"/>
+    <line x1="240" y1="160" x2="240" y2="52"/>
+  </g>
+  <!-- 数据多边形 (6 维评分: 功能 95 / 交互 90 / 导出 92 / 性能 94 / 安全 98 / 容错 96) -->
+  <polygon points="350.53,114.08 355.67,214.51 240,257.2 112.96,214.51 112.96,114.08 240,54.08"
+    fill="rgba(56,189,248,0.18)" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- 数据顶点强调圆点 -->
+  <g fill="#38bdf8" stroke="currentColor" stroke-width="1">
+    <circle cx="350.53" cy="114.08" r="3.5"/>
+    <circle cx="355.67" cy="214.51" r="3.5"/>
+    <circle cx="240" cy="257.2" r="3.5"/>
+    <circle cx="112.96" cy="214.51" r="3.5"/>
+    <circle cx="112.96" cy="114.08" r="3.5"/>
+    <circle cx="240" cy="54.08" r="3.5"/>
+  </g>
+  <!-- 维度标签与分值 -->
+  <g font-family="sans-serif" fill="currentColor">
+    <text x="384" y="100" font-size="12" font-weight="600">功能 95</text>
+    <text x="384" y="222" font-size="12" font-weight="600">交互 90</text>
+    <text x="248" y="282" font-size="12" font-weight="600">导出 92</text>
+    <text x="92" y="222" font-size="12" font-weight="600" text-anchor="end">性能 94</text>
+    <text x="92" y="100" font-size="12" font-weight="600" text-anchor="end">安全 98</text>
+    <text x="248" y="46" font-size="12" font-weight="600">容错 96</text>
+  </g>
+</svg>
+
+> **阅读提示**：六边形任一顶点越靠近外圈表示该维度评分越高。当前离线安全性（98）与容错自愈力（96）表现最为突出，交互灵敏度（90）为后续体验走查的核心待提升项。
 
 ### 1.1 评估维度说明
 

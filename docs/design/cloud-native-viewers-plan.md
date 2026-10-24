@@ -21,34 +21,47 @@
 
 ## 2. 核心架构与分层设计 (Architecture & Layers)
 
+OmniView 统一工作台外壳向下挂载三大云原生格式驱动，各驱动再下沉到统一的「云原生语义与 AST 解析核心层」，最终经由嗅探契约、拓扑渲染引擎与安全诊断三大子系统落地。整体分层拓扑如下：
+
+```mermaid
+flowchart TB
+    subgraph Shell ["OmniView 统一工作台外壳"]
+        TB["Toolbar 视图切换<br/>架构拓扑 / 指令流水线 / 结构化树表 / 源码分屏"]
+    end
+
+    TB --> DV["Dockerfile<br/>Viewer"]
+    TB --> CV["Docker Compose<br/>Viewer"]
+    TB --> KV["Kubernetes<br/>Viewer"]
+
+    subgraph CoreLayer ["云原生语义与 AST 解析核心层"]
+        DP["DockerfileStageParser<br/>多阶段提取 · COPY 依赖拓扑 · EXPOSE/ENV 归纳"]
+        CP["ComposeTopologyParser<br/>服务依赖 DAG · 网络边界隔离 · 数据卷映射"]
+        KP["K8sManifestParser<br/>js-yaml loadAll · 资源分类 · Selector 跨资源引力图"]
+    end
+
+    DV --> DP
+    CV --> CP
+    KV --> KP
+
+    subgraph Subsystems ["三大落地子系统"]
+        SN["嗅探识别契约<br/>（精准格式裁决）"]
+        RD["拓扑渲染引擎<br/>（SVG / Mermaid）"]
+        DC["安全 / 健康诊断<br/>（静态规则引擎）"]
+    end
+
+    DP --> SN
+    DP --> RD
+    DP --> DC
+    CP --> SN
+    CP --> RD
+    CP --> DC
+    KP --> SN
+    KP --> RD
+    KP --> DC
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        OmniView 统一工作台外壳                           │
-│     (Toolbar 视图切换: 架构拓扑 / 指令流水线 / 结构化树表 / 源码分屏)       │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-       ┌────────────────────────────┼────────────────────────────┐
-       ▼                            ▼                            ▼
-┌──────────────┐             ┌──────────────┐             ┌──────────────┐
-│  Dockerfile  │             │Docker Compose│             │  Kubernetes  │
-│    Viewer    │             │    Viewer    │             │    Viewer    │
-└──────┬───────┘             └──────┬───────┘             └──────┬───────┘
-       │                            │                            │
-       ▼                            ▼                            ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                      云原生语义与 AST 解析核心层                        │
-│  - DockerfileStageParser: 多阶段提取、COPY 依赖拓扑、EXPOSE/ENV 归纳     │
-│  - ComposeTopologyParser: 服务依赖 DAG、网络边界隔离、数据卷映射        │
-│  - K8sManifestParser: js-yaml loadAll、资源分类、Selector 跨资源引力图   │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-       ┌────────────────────────────┼────────────────────────────┐
-       ▼                            ▼                            ▼
-┌──────────────┐             ┌──────────────┐             ┌──────────────┐
-│ 嗅探识别契约 │             │ 拓扑渲染引擎 │             │ 安全/健康诊断│
-│(精准格式裁决)│             │ (SVG/Mermaid)│             │(静态规则引擎)│
-└──────────────┘             └──────────────┘             └──────────────┘
-```
+
+> [!IMPORTANT] 分层单向依赖约束
+> 严格遵循「外壳 → 驱动 → 核心解析 → 子系统」的单向数据流向，禁止任何子系统反向依赖驱动层。驱动层仅消费核心解析层产出的标准化中间表示（IR），保持 23 类 Viewer 驱动间的完全解耦。
 
 ### 2.1 嗅探与识别策略 (File Sniffing Strategy)
 
@@ -59,6 +72,18 @@
 | **Dockerfile** | `Dockerfile`, `Dockerfile.*`, `*.dockerfile` (大小写不敏感) | 正则匹配：以 `^\s*FROM\s+` 或 `^\s*#\s*syntax=` 开头 | 优先级 1（特异性高） |
 | **Docker Compose** | 文件名包含 `compose` 且后缀为 `.yml`/`.yaml`（如 `docker-compose.yml`, `compose.yaml`） | YAML 解析顶层包含 `services` 对象，且服务子项含有 `image`, `build`, `ports` 等特征字段 | 优先级 2 |
 | **Kubernetes** | 后缀为 `.yml`/`.yaml`，或路径包含 `k8s/`, `kubernetes/`, `deploy/` | YAML 解析包含 `apiVersion` 与 `kind`，且 `kind` 为标准云原生对象（Deployment, Service, Pod 等） | 优先级 3 |
+
+> [!TIP] 三级嗅探命中判定流水线
+> 任一文件进入识别流程时，按「文件名 → 内容特征 → 匹配优先级」三级短路判定，命中即停止，避免普通 YAML 被误判为 K8s 清单：
+
+```mermaid
+flowchart LR
+    F["待识别文件"] --> R1{"规则 1<br/>文件名 / 扩展名断言?"}
+    R1 -- 命中 --> P["按优先级归档<br/>(Dockerfile=1 / Compose=2 / K8s=3)"]
+    R1 -- 未命中 --> R2{"规则 2<br/>首 2KB 内容特征?"}
+    R2 -- 命中 --> P
+    R2 -- 未命中 --> X["回退至 Structured<br/>(JSON/YAML 通用检视)"]
+```
 
 ---
 

@@ -8,7 +8,28 @@
 
 ---
 
-## [1.3.29] - 2026-10-23 (当前最新发布)
+## [1.3.30] - 2026-10-24 (当前最新发布)
+
+> [!TIP] v1.3.30 核心升级亮点
+> **文档图形化专项治理：docs 核心文档充分图形化改造 + 全仓 12 处 ASCII 文本图升级为标准 Mermaid/Markmap 图形**：
+> 1. **docs 图形化改造**：`features-capabilities.md` 非标雷达图升级为内联 SVG 六维雷达图并补齐驱动全景 Markmap 与 KaTeX 性能预算；`cloud-native-viewers-plan.md` 分层架构图升级为 Mermaid flowchart 并补齐三级嗅探流水线、Docker 阶段 DAG、Compose 拓扑、K8s 引力图与 gantt 路线图；`svg-v2-editor.md` 状态机升级为 `stateDiagram-v2` 并补四件套 classDiagram；`docs/README.md` 新增文档导航图谱；
+> 2. **全仓 ASCII 文本图治理**：将 `docs/adr` 状态机与快照链、`PROJECT.md` 分层框线图、`.codex` 7 大工作流与 rule/skill 12 处文本手绘图全部升级为 Mermaid flowchart/stateDiagram，50+ 节点图形决策树升级为 Markmap 全景思维导图。
+
+### 📚 Docs & Governance (文档图形化与 AI 规范库治理)
+
+- **docs 核心文档图形化 (`docs/features-capabilities.md`, `docs/design/cloud-native-viewers-plan.md`, `docs/design/svg-v2-editor.md`, `docs/README.md`)**:
+  - `features-capabilities.md`：非标准 `radar-chart` DSL 替换为内联 SVG 六维雷达图（`[!FIGURE]` 图件框 + `currentColor` 文本 + `viewBox` 自适应），第 2 节新增 25 模块六大域 Markmap 驱动全景思维导图，DIM-04 新增 KaTeX `cases` 块级性能预算不等式硬约束；
+  - `cloud-native-viewers-plan.md`：§2 ASCII 分层框线图升级为 Mermaid `flowchart TB`（含外壳/驱动/核心解析三层 subgraph 与双向 RPC 边），并补齐三级嗅探判定流水线、Dockerfile 阶段 DAG、Compose 微服务网络隔离拓扑、K8s 四层引力拓扑与五阶段 gantt 路线图；
+  - `svg-v2-editor.md`：§4 状态机升级为 Mermaid `stateDiagram-v2`（Idle/Commit/Previewing 三态 + 三种执行模式映射），§2 补 Document/Node/PathGeometry/Selection 四件套 `classDiagram`；
+  - `docs/README.md`：新增「文档导航图谱」Mermaid `flowchart LR`（入口 → 核心架构面/设计子系统面/ADR/营销面）；
+- **全仓 12 处 ASCII 文本图治理 (`docs/adr/README.md`, `docs/adr/0001`, `PROJECT.md`, `.codex/workflows/*`, `.codex/rules/code-change.md`, `.codex/metrics/README.md`, `.codex/skills/verification/SKILL.md`, `.codex/skills/omniview-markdown-authoring/SKILL.md`)**:
+  - ADR 状态流转、快照链 undo/redo、VS Code Extension Host 分层框线、7 大工作流门禁链、代码分层依赖图、验证门禁链与 50+ 节点图形决策树全部升级为 Mermaid `flowchart` / `stateDiagram` / Markmap，CommonMark 环境下可优雅降级；
+  - 目录树（`├──`）等 55 处清单惯例保留，不纳入图形化范围；
+- **AI 规范库重建 (`.codex/codex.index.json`)**: 同步重建 96 条规范索引，零死链。
+
+---
+
+## [1.3.29] - 2026-10-23
 
 > [!TIP] v1.3.29 核心升级亮点
 > **彻底根治 SVG 鼠标点选/框选误选 `<text>` 文本与浏览器原生蓝底选字问题**：

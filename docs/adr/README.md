@@ -10,12 +10,13 @@
 
 ## 状态机
 
-```
-Proposed ──评审通过──► Accepted ──被新ADR取代──► Superseded
-   │                    │
-   │                    └──不再适用──► Deprecated
-   │
-   └──评审否决──► Rejected
+```mermaid
+stateDiagram-v2
+    [*] --> Proposed
+    Proposed --> Accepted : 评审通过
+    Proposed --> Rejected : 评审否决
+    Accepted --> Superseded : 被新ADR取代
+    Accepted --> Deprecated : 不再适用
 ```
 
 ## 编写规范

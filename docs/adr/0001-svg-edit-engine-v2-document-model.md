@@ -88,17 +88,22 @@ src/features/viewers/components/drivers/svg/
 
 ### 2.5 状态机与撤销 (Snapshot/History)
 
-参考 VectorCraft `crates/engine/src/lib.rs:60-90`：
+参考 VectorCraft `crates/engine/src/lib.rs:60-90`，快照链与撤销关系如下：
 
+```mermaid
+flowchart LR
+    S0["Snapshot@N"] -- "recordChange" --> S1["Snapshot@N+1"]
+    S1 -- "recordChange" --> S2["Snapshot@N+2"]
+    S1 -. "undo (LIFO)" .-> S0
+    S2 -. "undo (LIFO)" .-> S1
+    S0 -. "redo (FIFO)" .-> S1
+    S1 -. "redo (FIFO)" .-> S2
 ```
-[Initial Doc] --recordChange--> [Snapshot@N] --recordChange--> [Snapshot@N+1] ...
-                              ↑                                  
-                         undo (LIFO)  ───────────┐
-                                                  ↓
-                                              [Snapshot@N]
 
-每个 Commit 写入一条 HistoryEntry：
-  { label: string, doc: Arc<Document>, selection: Selection }
+每个 Commit 写入一条 `HistoryEntry`：
+
+```text
+{ label: string, doc: Arc<Document>, selection: Selection }
 ```
 
 P1 阶段 `Document` 实现为**浅克隆不可变树**（参考 immer.js 风格），快照成本 O(变更路径长度)，undo 栈深度无硬限制。

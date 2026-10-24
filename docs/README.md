@@ -9,6 +9,42 @@
 - [CHANGELOG.md](../CHANGELOG.md) — 版本变更
 - [LICENSE](../LICENSE) — MIT
 
+## 文档导航图谱
+
+下图为 docs 目录的阅读路径总览：从「系统架构」入口出发，按需下钻至「设计子系统」「决策记录 (ADR)」与「营销推广」各分支，新人可沿箭头顺序建立全局认知：
+
+```mermaid
+flowchart LR
+    Entry["📖 文档入口<br/>docs/README.md"]
+
+    subgraph Core ["核心架构面 (必读)"]
+        Arch["architecture.md<br/>系统架构 · 分层 · 门禁"]
+        Feat["features-capabilities.md<br/>功能全景 · 评估模型"]
+    end
+
+    subgraph Design ["设计子系统面"]
+        Drivers["design/viewer-drivers.md<br/>23 驱动能力矩阵 · 生命周期"]
+        MdPipe["design/markdown-pipeline.md<br/>Markdown 渲染流水线"]
+        SvgV2["design/svg-v2-editor.md<br/>SVG v2 编辑引擎"]
+        Cloud["design/cloud-native-viewers-plan.md<br/>云原生驱动演化方案"]
+        Persist["design/persistence-storage.md<br/>持久化与存储子系统"]
+    end
+
+    subgraph ADR ["决策记录面"]
+        ADR0001["adr/0001<br/>SVG v2 文档模型与命令管线"]
+    end
+
+    subgraph Marketing ["营销推广面"]
+        Launch["marketing/github-launch-guide.md<br/>开源推广实战指南"]
+    end
+
+    Entry --> Core
+    Core --> Design
+    Core --> ADR
+    Entry -. 运营同学 .-> Marketing
+    Design --> ADR
+```
+
 ## 本目录
 
 | 文档 | 说明 |
