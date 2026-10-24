@@ -14,11 +14,13 @@ import { setupDomEnvironment, bundleAndLoadTsx, it, describe, reportSummary, ass
 setupDomEnvironment();
 
 // 2. 使用统一 module loader 编译并动态加载 TSX 组件
-const { LightboxModal, SvgV2Canvas, SvgV2LayersPanel, SvgCore } = await bundleAndLoadTsx(`
+const { LightboxModal, SvgV2Canvas, SvgV2LayersPanel, SvgCore, Sidebar, EditorWorkspace } = await bundleAndLoadTsx(`
   export { LightboxModal } from './src/features/viewers/components/common/LightboxModal.tsx';
   export { SvgV2Canvas } from './src/features/viewers/components/drivers/svg/SvgV2Canvas.tsx';
   export { SvgV2LayersPanel } from './src/features/viewers/components/drivers/svg/SvgV2LayersPanel.tsx';
   export * as SvgCore from './src/features/viewers/components/drivers/svg/core/index.ts';
+  export { Sidebar } from './src/features/workbench/components/Sidebar.tsx';
+  export { EditorWorkspace } from './src/features/workbench/components/EditorWorkspace.tsx';
 `, { external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'lucide-react', 'dompurify'] });
 
 const { createDocument, createRuntime, makePath, appendToLayer, createRectGeometry } = SvgCore;
@@ -217,6 +219,180 @@ await it('Escape 键正确分发并清空选区，无输入穿透风险', async 
   // Escape 清空选择或取消手势
   runtime.execute('select.clear', {});
   assert.strictEqual(runtime.currentSelection.nodeIds.length, 0, 'Escape 后选区应当被安全清空');
+});
+
+// ============================================================================
+// 测试 5: Sidebar 工作区文件面板收缩与展开交互
+// ============================================================================
+console.log('\n--- 测试 5: Sidebar 工作区文件 (EXPLORER) 面板收缩与展开交互 ---');
+
+await it('工作区文件面板支持头部收起按钮、活动栏图标点击收缩与折叠态快速展开', async () => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  let sidebarOpen = true;
+  let toggleCount = 0;
+
+  const mockFiles = [
+    { id: 'f1', name: 'readme.md', extension: 'md', content: '# Hello', size: 100, lastModified: 1 },
+    { id: 'f2', name: 'arch.svg', extension: 'svg', content: '<svg/>', size: 200, lastModified: 2 },
+  ];
+
+  let root;
+  const renderSidebar = async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(Sidebar, {
+          files: mockFiles,
+          activeFileId: 'f1',
+          onSelectFile: () => {},
+          onDeleteFile: () => {},
+          currentView: 'editor',
+          onViewChange: () => {},
+          onDropFiles: () => {},
+          sidebarOpen,
+          onToggleSidebar: () => {
+            sidebarOpen = !sidebarOpen;
+            toggleCount += 1;
+          },
+          explorerOpen: true,
+          onToggleExplorer: () => {},
+        })
+      );
+    });
+  };
+
+  await act(async () => {
+    root = createRoot(container);
+  });
+  await renderSidebar();
+
+  assert.ok(container.querySelector('#workbench-explorer-pane'), '展开态下应渲染 #workbench-explorer-pane');
+
+  // 1. 点击 EXPLORER 面板标题栏右侧收起按钮
+  const headerCollapseBtn = container.querySelector('[data-testid="explorer-collapse-btn"]');
+  assert.ok(headerCollapseBtn, 'EXPLORER 标题栏应提供收起面板按钮');
+  await act(async () => {
+    headerCollapseBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  assert.strictEqual(sidebarOpen, false, '点击标题栏收起按钮后 sidebarOpen 应变为 false');
+  assert.strictEqual(toggleCount, 1);
+
+  // 重新渲染为收起态
+  await renderSidebar();
+  assert.strictEqual(container.querySelector('#workbench-explorer-pane'), null, '收缩后 #workbench-explorer-pane 应卸载');
+
+  // 2. 收缩态下应渲染边缘展开把手按钮
+  const expandHandleBtn = container.querySelector('button[aria-label="展开工作区文件面板"]');
+  assert.ok(expandHandleBtn, '收缩态下应渲染边缘快速展开按钮');
+  await act(async () => {
+    expandHandleBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  assert.strictEqual(sidebarOpen, true, '点击边缘展开把手后 sidebarOpen 应恢复为 true');
+
+  // 3. 在 editor 视图且已展开时，再次点击活动栏「资源管理器」按钮也应触发收缩
+  await renderSidebar();
+  const activityExplorerBtn = container.querySelector('button[aria-label="资源管理器"]');
+  assert.ok(activityExplorerBtn, '应存在活动栏资源管理器按钮');
+  await act(async () => {
+    activityExplorerBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  assert.strictEqual(sidebarOpen, false, '激活态再次点击资源管理器图标应切换收缩面板');
+
+  await act(async () => {
+    root.unmount();
+  });
+  container.remove();
+});
+
+// ============================================================================
+// 测试 6: EditorWorkspace 多文件标签页右键菜单（关闭其他/右侧/左侧/全部关闭）
+// ============================================================================
+console.log('\n--- 测试 6: EditorWorkspace 多标签页右键上下文菜单批量关闭交互 ---');
+
+await it('多文件标签页支持右键打开菜单并执行关闭其他、关闭右侧、关闭左侧与全部关闭', async () => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+
+  const mockFiles = [
+    { id: 't1', name: 'doc-1.md', extension: 'md', content: '# 1', size: 10, lastModified: 1, isModified: false },
+    { id: 't2', name: 'doc-2.md', extension: 'md', content: '# 2', size: 10, lastModified: 2, isModified: true },
+    { id: 't3', name: 'doc-3.md', extension: 'md', content: '# 3', size: 10, lastModified: 3, isModified: false },
+  ];
+
+  let closedOthersTarget = null;
+  let closedRightTarget = null;
+  let closedLeftTarget = null;
+  let closedSavedCalled = false;
+  let closedAllCalled = false;
+
+  let root;
+  await act(async () => {
+    root = createRoot(container);
+    root.render(
+      React.createElement(EditorWorkspace, {
+        files: mockFiles,
+        activeFile: undefined,
+        activeFileId: 't2',
+        openTabIds: ['t1', 't2', 't3'],
+        viewMode: 'preview',
+        onSelectTab: () => {},
+        onCloseTab: () => {},
+        onCloseOtherTabs: (id) => { closedOthersTarget = id; },
+        onCloseTabsToRight: (id) => { closedRightTarget = id; },
+        onCloseTabsToLeft: (id) => { closedLeftTarget = id; },
+        onCloseSavedTabs: () => { closedSavedCalled = true; },
+        onCloseAllTabs: () => { closedAllCalled = true; },
+        onNewFile: () => {},
+        onContentChange: () => {},
+      })
+    );
+  });
+
+  const tab2 = container.querySelector('[data-tab-id="t2"]');
+  assert.ok(tab2, '应渲染第二个打开的文件标签页 t2');
+
+  // 1. 右键点击 t2 打开标签页上下文菜单
+  const openMenuOnTab2 = async () => {
+    await act(async () => {
+      tab2.dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 40 }));
+    });
+  };
+
+  await openMenuOnTab2();
+  const menu = container.querySelector('[role="menu"][aria-label="标签页操作菜单"]');
+  assert.ok(menu, '右键标签页应弹出标签页操作菜单');
+
+  const clickMenuItem = async (label) => {
+    const btn = Array.from( container.querySelectorAll('[role="menuitem"]') ).find(el => el.textContent?.includes(label));
+    assert.ok(btn, `应存在菜单项: ${label}`);
+    await act(async () => {
+      btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+  };
+
+  await clickMenuItem('关闭其他标签页');
+  assert.strictEqual(closedOthersTarget, 't2', '点击关闭其他标签页应传入当前右键的 tabId (t2)');
+
+  await openMenuOnTab2();
+  await clickMenuItem('关闭右侧标签页');
+  assert.strictEqual(closedRightTarget, 't2', '点击关闭右侧标签页应传入 t2');
+
+  await openMenuOnTab2();
+  await clickMenuItem('关闭左侧标签页');
+  assert.strictEqual(closedLeftTarget, 't2', '点击关闭左侧标签页应传入 t2');
+
+  await openMenuOnTab2();
+  await clickMenuItem('关闭未修改标签页');
+  assert.strictEqual(closedSavedCalled, true, '点击关闭未修改标签页应触发 onCloseSavedTabs');
+
+  await openMenuOnTab2();
+  await clickMenuItem('全部关闭');
+  assert.strictEqual(closedAllCalled, true, '点击全部关闭应触发 onCloseAllTabs');
+
+  await act(async () => {
+    root.unmount();
+  });
+  container.remove();
 });
 
 reportSummary('Headless DOM 组件级交互');

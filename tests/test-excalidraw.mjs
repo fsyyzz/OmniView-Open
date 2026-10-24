@@ -170,4 +170,121 @@ for (const stencil of EXCALIDRAW_STENCILS) {
 }
 console.log('✅ 架构物料图元资产库校验全部通过');
 
-console.log('🎉 Excalidraw 全部 10 组全能套件单元测试 100% 全部通过！\n');
+// 11. 测试 PC Studio 确定性手绘矢量路径与 Hachure 斜线填充引擎
+console.log('--- 测试 11: PC Studio 确定性手绘路径与 Hachure 填充引擎 ---');
+import {
+  generateRoughRectPath,
+  generateRoughDiamondPath,
+  generateRoughEllipsePath,
+  generateHachureFillPath,
+  getElementBounds,
+  hitTestElements,
+  getElementsInMarquee,
+  computeSmartSnap,
+  findNearestSnapPort,
+  syncBoundElementsAfterTransform,
+  alignAndDistributeElements,
+  reorderElementsLayer,
+  cloneSelectedElements,
+  groupSelectedElements,
+  ungroupSelectedElements,
+} from '../src/features/viewers/components/drivers/excalidraw/excalidrawStudioEngine.ts';
+
+const pathA = generateRoughRectPath(10, 20, 120, 60, 1, true, 42);
+const pathB = generateRoughRectPath(10, 20, 120, 60, 1, true, 42);
+assert.strictEqual(pathA, pathB, '相同 seed 的手绘矩形路径必须 100% 确定性一致，避免拖拽闪烁');
+const diamondPath = generateRoughDiamondPath(0, 0, 100, 80, 1, 99);
+const ellipsePath = generateRoughEllipsePath(0, 0, 100, 80, 1, 99);
+const hachurePath = generateHachureFillPath(10, 20, 120, 60, 'hachure', 1, 42, 'rectangle');
+assert.ok(diamondPath.startsWith('M '), '菱形手绘路径应生成有效 SVG Path');
+assert.ok(ellipsePath.startsWith('M '), '椭圆手绘路径应生成有效 SVG Path');
+assert.ok(hachurePath.length > 20, 'Hachure 手绘排线应生成多条斜线 Path');
+console.log('✅ 确定性手绘路径与 Hachure 填充引擎测试通过');
+
+// 12. 测试命中检测 (Hit-Testing) 与框选群组连带选中
+console.log('--- 测试 12: 命中检测与框选群组连带选中 ---');
+const studioElements = [
+  { id: 'n1', type: 'rectangle', x: 50, y: 50, width: 100, height: 60, groupIds: ['g1'] },
+  { id: 'n2', type: 'ellipse', x: 250, y: 50, width: 100, height: 60, groupIds: ['g1'] },
+  { id: 'n3', type: 'diamond', x: 50, y: 200, width: 100, height: 60, groupIds: [] },
+];
+const hitN1 = hitTestElements(studioElements, 80, 80);
+assert.strictEqual(hitN1?.id, 'n1', '点击 (80,80) 应准确命中 n1');
+const marqueeIds = getElementsInMarquee(studioElements, 40, 40, 160, 120);
+assert.ok(marqueeIds.includes('n1') && marqueeIds.includes('n2'), '框选命中群组内任一节点时应自动连带选中同组节点 n2');
+assert.strictEqual(marqueeIds.includes('n3'), false, '未在框选范围内的独立节点不应被选中');
+console.log('✅ 命中检测与框选群组连带选中通过');
+
+// 13. 测试智能参考线吸附 (Smart Snap Guides)
+console.log('--- 测试 13: 智能参考线磁吸对齐 ---');
+const targetBox = { id: 'target', type: 'rectangle', x: 100, y: 100, width: 120, height: 60 };
+const movingBounds = getElementBounds({ id: 'moving', type: 'rectangle', x: 103, y: 220, width: 120, height: 60 });
+const snapRes = computeSmartSnap(movingBounds, [targetBox], 6);
+assert.strictEqual(snapRes.dx, -3, '相差 3px 时应自动生成 -3px 水平吸附修正量以对齐 X=100');
+assert.ok(snapRes.guides.some(g => g.type === 'vertical' && g.pos === 100), '应生成 X=100 的垂直智能参考线');
+console.log('✅ 智能参考线磁吸对齐通过');
+
+// 14. 测试 8 向多选对齐与水平/垂直等距分布
+console.log('--- 测试 14: 多选对齐与等距分布算法 ---');
+const alignInput = [
+  { id: 'a1', type: 'rectangle', x: 20, y: 40, width: 80, height: 40 },
+  { id: 'a2', type: 'rectangle', x: 140, y: 95, width: 80, height: 40 },
+  { id: 'a3', type: 'rectangle', x: 320, y: 10, width: 80, height: 40 },
+];
+const alignedTop = alignAndDistributeElements(alignInput, new Set(['a1', 'a2', 'a3']), 'align-top');
+assert.strictEqual(alignedTop[0].y, 10, '顶对齐后 a1.y 应等于最高元素 y=10');
+assert.strictEqual(alignedTop[1].y, 10, '顶对齐后 a2.y 应等于最高元素 y=10');
+const distributedH = alignAndDistributeElements(alignInput, new Set(['a1', 'a2', 'a3']), 'distribute-horizontal');
+const c1 = getElementBounds(distributedH[0]).cx;
+const c2 = getElementBounds(distributedH[1]).cx;
+const c3 = getElementBounds(distributedH[2]).cx;
+assert.strictEqual(Math.round(c2 - c1), Math.round(c3 - c2), '水平等距分布后相邻元素中心间距必须相等');
+console.log('✅ 多选对齐与等距分布算法通过');
+
+// 15. 测试箭头锚点磁吸与节点移动后连线/容器内联文字自动跟随重算
+console.log('--- 测试 15: 箭头磁吸锚点与拓扑跟随重算 ---');
+const topoElements = [
+  { id: 'box-src', type: 'rectangle', x: 100, y: 100, width: 120, height: 60, boundElements: [{ id: 'txt-src', type: 'text' }, { id: 'arr-1', type: 'arrow' }] },
+  { id: 'txt-src', type: 'text', containerId: 'box-src', text: 'API Gateway', fontSize: 16, x: 110, y: 120, width: 100, height: 22 },
+  { id: 'box-dst', type: 'rectangle', x: 400, y: 100, width: 120, height: 60, boundElements: [{ id: 'arr-1', type: 'arrow' }] },
+  {
+    id: 'arr-1',
+    type: 'arrow',
+    x: 220,
+    y: 130,
+    width: 180,
+    height: 0,
+    points: [[0, 0], [180, 0]],
+    startBinding: { elementId: 'box-src', port: 'e' },
+    endBinding: { elementId: 'box-dst', port: 'w' },
+  },
+];
+const nearPort = findNearestSnapPort(topoElements, 222, 128, 20);
+assert.strictEqual(nearPort?.elementId, 'box-src', '靠近东侧边缘应吸附到 box-src');
+assert.strictEqual(nearPort?.port, 'e', '应准确识别为东侧锚点 (port: e)');
+
+// 将 box-dst 移动到 (500, 260)，验证绑定箭头与容器文字自动同步
+const movedTopo = topoElements.map(el => (el.id === 'box-dst' ? { ...el, x: 500, y: 260 } : el));
+const syncedTopo = syncBoundElementsAfterTransform(movedTopo);
+const updatedArrow = syncedTopo.find(el => el.id === 'arr-1');
+assert.strictEqual(updatedArrow.x, 220, '箭头起点应保持在 box-src 东侧 (220,130)');
+assert.strictEqual(updatedArrow.x + updatedArrow.points[1][0], 500, '箭头终点 X 应自动跟随移动到 box-dst 西侧 500');
+assert.strictEqual(updatedArrow.y + updatedArrow.points[1][1], 290, '箭头终点 Y 应自动跟随移动到 box-dst 西侧中心 290');
+console.log('✅ 箭头磁吸锚点与节点移动拓扑跟随重算通过');
+
+// 16. 测试图层顺序、克隆副本与编组解组
+console.log('--- 测试 16: 图层排序、克隆与编组解组 ---');
+const layered = reorderElementsLayer(alignInput, new Set(['a1']), 'front');
+assert.strictEqual(layered[layered.length - 1].id, 'a1', '置于顶层后 a1 应位于数组末尾');
+const grouped = groupSelectedElements(alignInput, new Set(['a1', 'a2']));
+assert.strictEqual(grouped[0].groupIds.length, 1, '编组后应生成共享 groupId');
+assert.strictEqual(grouped[0].groupIds[0], grouped[1].groupIds[0], '同组元素 groupId 必须一致');
+const ungrouped = ungroupSelectedElements(grouped, new Set(['a1', 'a2']));
+assert.strictEqual(ungrouped[0].groupIds.length, 0, '解组后 groupIds 应清空');
+const clonedRes = cloneSelectedElements(alignInput, new Set(['a1']), 30, 30);
+assert.strictEqual(clonedRes.nextElements.length, 4, '克隆后图元总数应 +1');
+assert.strictEqual(clonedRes.nextElements[3].x, 50, '克隆图元 X 坐标应偏移 +30');
+console.log('✅ 图层排序、克隆与编组解组测试通过');
+
+console.log('🎉 Excalidraw 全部 16 组全能套件单元测试 100% 全部通过！\n');
+

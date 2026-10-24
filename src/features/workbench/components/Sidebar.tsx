@@ -196,23 +196,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div id="workbench-sidebar" className="flex h-full select-none shrink-0 z-10">
+    <div id="workbench-sidebar" className="relative flex h-full select-none shrink-0 z-10">
       {/* Activity Bar (VS Code left column) */}
       <div id="workbench-activity-bar" className="w-12 border-r flex flex-col items-center justify-between py-3 shrink-0">
         {/* Top items */}
         <div className="flex flex-col items-center gap-2.5">
           <button
             onClick={() => {
-              if (!sidebarOpen && onToggleSidebar) {
-                onToggleSidebar();
+              if (currentView === 'editor') {
+                if (onToggleSidebar) onToggleSidebar();
+              } else {
+                if (!sidebarOpen && onToggleSidebar) {
+                  onToggleSidebar();
+                }
+                onViewChange('editor');
               }
-              onViewChange('editor');
             }}
             className={`p-2 rounded-xl transition activity-bar-btn ${
               currentView === 'editor' && sidebarOpen ? 'active' : ''
             }`}
-            title="资源管理器 (Explorer)"
+            title={currentView === 'editor' && sidebarOpen ? '收起工作区文件面板 (Ctrl+B)' : '展开工作区文件面板 (Explorer)'}
             aria-label="资源管理器"
+            aria-expanded={sidebarOpen}
           >
             <Files className="w-5 h-5" />
           </button>
@@ -257,7 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onToggleSidebar}
               className="p-2 rounded-xl transition activity-bar-btn"
-              title={sidebarOpen ? '折叠文件侧边栏' : '展开文件侧边栏'}
+              title={sidebarOpen ? '折叠文件侧边栏 (Ctrl+B)' : '展开文件侧边栏 (Ctrl+B)'}
               aria-label={sidebarOpen ? '折叠文件侧边栏' : '展开文件侧边栏'}
             >
               {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
@@ -277,29 +282,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
+      {/* Collapsed Explorer Quick-Expand Handle Strip */}
+      {!sidebarOpen && onToggleSidebar && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="group absolute left-12 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-3.5 h-14 rounded-r-lg border border-l-0 border-[var(--ov-border)] bg-[var(--ov-surface-header,var(--ov-surface))] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] hover:w-4 transition-all shadow-sm cursor-pointer"
+          title="展开工作区文件面板 (Explorer)"
+          aria-label="展开工作区文件面板"
+        >
+          <ChevronRight className="w-3 h-3" />
+        </button>
+      )}
+
       {/* Explorer Side Pane */}
       {sidebarOpen && (
         <div
           id="workbench-explorer-pane"
-          className="w-60 flex flex-col overflow-hidden"
+          className="relative w-60 flex flex-col overflow-hidden transition-all duration-200"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
           {/* Pane Header */}
-          <div className="explorer-pane-header px-4 py-2.5 border-b text-[11px] font-bold uppercase tracking-wider flex items-center justify-between">
+          <div className="explorer-pane-header px-3 py-2 border-b text-[11px] font-bold uppercase tracking-wider flex items-center justify-between gap-1 shrink-0">
             <div
-              className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition"
+              className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition min-w-0 truncate"
               onClick={onToggleExplorer}
+              title={explorerOpen ? '折叠文件树列表' : '展开文件树列表'}
             >
-              {explorerOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-              <span>工作区文件 (EXPLORER)</span>
+              {explorerOpen ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
+              <span className="truncate">工作区文件 (EXPLORER)</span>
             </div>
-            <span className="explorer-file-count text-[10px] font-mono">{files.length} 个文件</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="explorer-file-count text-[10px] font-mono">{files.length} 个文件</span>
+              {onToggleSidebar && (
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    onToggleSidebar();
+                  }}
+                  className="p-1 rounded-md hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] transition cursor-pointer"
+                  title="收起工作区文件面板 (Ctrl+B)"
+                  aria-label="收起工作区文件面板"
+                  data-testid="explorer-collapse-btn"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* File List */}
-          {explorerOpen && (
+          {explorerOpen ? (
             <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
               {files.map(file => {
                 const isActive = activeFileId === file.id;
@@ -397,6 +433,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                 );
               })}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-4 text-center text-[11px] text-[var(--ov-text-muted)]">
+              <span>文件列表已折叠</span>
+              <button
+                type="button"
+                onClick={onToggleExplorer}
+                className="mt-1.5 px-2.5 py-1 rounded-md border border-[var(--ov-border)] bg-[var(--ov-surface)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] transition cursor-pointer"
+              >
+                展开列表
+              </button>
             </div>
           )}
 

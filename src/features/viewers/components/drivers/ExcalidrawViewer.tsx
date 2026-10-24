@@ -1303,13 +1303,19 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
 
         {/* 交互白板主画布（白板工作室模式与分屏模式） */}
         {(viewMode === 'canvas' || viewMode === 'split') && (
-          <div className="flex-1 min-w-0 h-full relative overflow-hidden bg-slate-900">
+          <div
+            style={{ backgroundColor: 'var(--ov-bg)' }}
+            className="flex-1 min-w-0 h-full relative overflow-hidden"
+          >
             <RenderErrorBoundary
               blockName="Excalidraw Whiteboard Canvas"
               fallback={
-                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-slate-300 gap-3">
+                <div
+                  style={{ color: 'var(--ov-text)' }}
+                  className="w-full h-full flex flex-col items-center justify-center p-6 gap-3"
+                >
                   <div className="text-amber-400 font-semibold text-sm">手绘白板画布初始化容错回退</div>
-                  <div className="text-xs text-slate-400 max-w-md text-center">
+                  <div style={{ color: 'var(--ov-text-secondary)' }} className="text-xs max-w-md text-center">
                     当前图元在白板引擎交互模式下遇到异常，您仍可使用顶部的“只读演示”、“分屏”或“源码”模式查看与编辑完整数据。
                   </div>
                   <button
@@ -1323,7 +1329,10 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
             >
               <React.Suspense
                 fallback={
-                  <div className="flex-1 min-h-[400px] flex items-center justify-center text-slate-400 text-xs">
+                  <div
+                    style={{ color: 'var(--ov-text-secondary)' }}
+                    className="flex-1 min-h-[400px] flex items-center justify-center text-xs"
+                  >
                     加载白板引擎...
                   </div>
                 }
@@ -1347,6 +1356,12 @@ export const ExcalidrawViewer: React.FC<ExcalidrawViewerProps> = ({
                         : `Loaded ${count} library items into canvas!`
                     );
                   }}
+                  customStencils={customStencils}
+                  onSaveSelectedAsStencil={() => {
+                    setShowStencilsDrawer(true);
+                    handleSaveSelectedAsStencil();
+                  }}
+                  onOpenFullMaterialsModal={() => setShowStencilsDrawer(true)}
                 />
               </React.Suspense>
             </RenderErrorBoundary>

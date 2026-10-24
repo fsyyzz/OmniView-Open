@@ -2,6 +2,12 @@
  * OmniView Excalidraw 手绘白板核心解析与 SVG 导出引擎
  */
 import DOMPurify from 'dompurify';
+import {
+  generateRoughRectPath,
+  generateRoughDiamondPath,
+  generateRoughEllipsePath,
+  generateHachureFillPath,
+} from './excalidrawStudioEngine';
 
 export interface ExcalidrawParsedData {
   elements: any[];
@@ -628,26 +634,69 @@ export async function renderExcalidrawToSvgString(
   let svgElements = '';
 
   elements.forEach((el) => {
+    if (el.isHidden) return;
     const stroke = el.strokeColor || (isDark ? '#e6edf3' : '#1e1e1e');
     const fill = el.backgroundColor === 'transparent' ? 'none' : (el.backgroundColor || 'none');
+    const fillStyle = el.fillStyle || 'hachure';
     const strokeWidth = el.strokeWidth || 1;
+    const roughness = typeof el.roughness === 'number' ? el.roughness : 1;
+    const seed = typeof el.seed === 'number' ? el.seed : 1337;
     const opacity = (el.opacity ?? 100) / 100;
     const strokeDash = el.strokeStyle === 'dashed' ? 'stroke-dasharray="6,6"' : el.strokeStyle === 'dotted' ? 'stroke-dasharray="2,4"' : '';
-    const transform = el.angle ? `transform="rotate(${(el.angle * 180) / Math.PI} ${el.x + el.width / 2} ${el.y + el.height / 2})"` : '';
+    const transform = el.angle ? `transform="rotate(${(el.angle * 180) / Math.PI} ${el.x + (el.width || 0) / 2} ${el.y + (el.height || 0) / 2})"` : '';
 
-    if (el.type === 'rectangle') {
+    if (el.type === 'frame') {
+      const frameName = String(el.name || 'Frame').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      svgElements += `<g opacity="${opacity}" ${transform}>
+        <text x="${el.x + 4}" y="${el.y - 8}" font-size="12" font-family="system-ui, sans-serif" font-weight="600" fill="${stroke}">${frameName}</text>
+        <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" rx="8" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-dasharray="6,6" />
+      </g>\n`;
+    } else if (el.type === 'rectangle') {
       const rx = el.roundness ? 8 : 0;
-      svgElements += `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" ${strokeDash} ${transform} />\n`;
+      const hachure = fill !== 'none' && fillStyle !== 'solid'
+        ? generateHachureFillPath(el.x, el.y, el.width, el.height, fillStyle, roughness, seed, 'rectangle')
+        : '';
+      const bgLayer = fill !== 'none' && fillStyle === 'solid'
+        ? `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" rx="${rx}" fill="${fill}" stroke="none" />`
+        : hachure
+        ? `<path d="${hachure}" fill="none" stroke="${fill}" stroke-width="${Math.max(1.5, strokeWidth * 0.9)}" stroke-linecap="round" />`
+        : '';
+      const borderPath = roughness > 0
+        ? `<path d="${generateRoughRectPath(el.x, el.y, el.width, el.height, roughness, Boolean(el.roundness), seed)}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} stroke-linecap="round" stroke-linejoin="round" />`
+        : `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" rx="${rx}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} />`;
+      svgElements += `<g opacity="${opacity}" ${transform}>${bgLayer}${borderPath}</g>\n`;
     } else if (el.type === 'ellipse') {
       const cx = el.x + el.width / 2;
       const cy = el.y + el.height / 2;
-      svgElements += `<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" ${strokeDash} ${transform} />\n`;
+      const hachure = fill !== 'none' && fillStyle !== 'solid'
+        ? generateHachureFillPath(el.x, el.y, el.width, el.height, fillStyle, roughness, seed, 'ellipse')
+        : '';
+      const bgLayer = fill !== 'none' && fillStyle === 'solid'
+        ? `<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}" stroke="none" />`
+        : hachure
+        ? `<path d="${hachure}" fill="none" stroke="${fill}" stroke-width="${Math.max(1.5, strokeWidth * 0.9)}" stroke-linecap="round" />`
+        : '';
+      const borderPath = roughness > 0
+        ? `<path d="${generateRoughEllipsePath(el.x, el.y, el.width, el.height, roughness, seed)}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} stroke-linecap="round" />`
+        : `<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} />`;
+      svgElements += `<g opacity="${opacity}" ${transform}>${bgLayer}${borderPath}</g>\n`;
     } else if (el.type === 'diamond') {
       const p1 = `${el.x + el.width / 2},${el.y}`;
       const p2 = `${el.x + el.width},${el.y + el.height / 2}`;
       const p3 = `${el.x + el.width / 2},${el.y + el.height}`;
       const p4 = `${el.x},${el.y + el.height / 2}`;
-      svgElements += `<polygon points="${p1} ${p2} ${p3} ${p4}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}" ${strokeDash} ${transform} />\n`;
+      const hachure = fill !== 'none' && fillStyle !== 'solid'
+        ? generateHachureFillPath(el.x, el.y, el.width, el.height, fillStyle, roughness, seed, 'diamond')
+        : '';
+      const bgLayer = fill !== 'none' && fillStyle === 'solid'
+        ? `<polygon points="${p1} ${p2} ${p3} ${p4}" fill="${fill}" stroke="none" />`
+        : hachure
+        ? `<path d="${hachure}" fill="none" stroke="${fill}" stroke-width="${Math.max(1.5, strokeWidth * 0.9)}" stroke-linecap="round" />`
+        : '';
+      const borderPath = roughness > 0
+        ? `<path d="${generateRoughDiamondPath(el.x, el.y, el.width, el.height, roughness, seed)}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} stroke-linecap="round" stroke-linejoin="round" />`
+        : `<polygon points="${p1} ${p2} ${p3} ${p4}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} />`;
+      svgElements += `<g opacity="${opacity}" ${transform}>${bgLayer}${borderPath}</g>\n`;
     } else if (el.type === 'line' || el.type === 'arrow') {
       const pts = (el.points || [[0, 0], [el.width, el.height]]).map((p: number[]) => `${el.x + p[0]},${el.y + p[1]}`).join(' ');
       const marker = el.type === 'arrow' ? 'marker-end="url(#ov-arrow)"' : '';
@@ -660,8 +709,11 @@ export async function renderExcalidrawToSvgString(
       const fontSize = el.fontSize || 16;
       const fontFamily = el.fontFamily === 2 ? 'monospace' : el.fontFamily === 3 ? 'serif' : 'sans-serif';
       const lines = String(el.text || '').split('\n');
-      const textLines = lines.map((line: string, idx: number) => `<tspan x="${el.x}" dy="${idx === 0 ? 0 : fontSize * 1.2}">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</tspan>`).join('');
-      svgElements += `<text x="${el.x}" y="${el.y + fontSize * 0.8}" font-size="${fontSize}" font-family="${fontFamily}" fill="${stroke}" opacity="${opacity}" ${transform}>${textLines}</text>\n`;
+      const align = el.textAlign || 'left';
+      const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
+      const baseX = align === 'center' ? (el.x || 0) + (el.width || 0) / 2 : align === 'right' ? (el.x || 0) + (el.width || 0) : (el.x || 0);
+      const textLines = lines.map((line: string, idx: number) => `<tspan x="${baseX}" dy="${idx === 0 ? 0 : fontSize * 1.25}">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</tspan>`).join('');
+      svgElements += `<text x="${baseX}" y="${el.y + fontSize * 0.85}" text-anchor="${anchor}" font-size="${fontSize}" font-family="${fontFamily}" fill="${stroke}" opacity="${opacity}" ${transform}>${textLines}</text>\n`;
     }
   });
 

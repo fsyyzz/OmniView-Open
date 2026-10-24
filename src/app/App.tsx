@@ -298,6 +298,23 @@ export default function App() {
     return unsub;
   }, [theme]);
 
+  // 独立工作台快捷键: Ctrl+B / Cmd+B 切换左侧工作区文件面板折叠与展开
+  useEffect(() => {
+    if (vscode || pluginFile) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        const target = e.target as HTMLElement | null;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+          return;
+        }
+        e.preventDefault();
+        handleToggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [vscode, pluginFile, handleToggleSidebar]);
+
   // File content modification
   const handleContentChange = (newContent: string) => {
     setFiles(prev => {
@@ -347,7 +364,13 @@ export default function App() {
   }
 
   const safeFiles = files.length > 0 ? files : INITIAL_FILES;
-  const activeFile = safeFiles.find(f => f.id === activeFileId) || safeFiles[0] || INITIAL_FILES[0];
+  const activeFile =
+    openTabIds.length === 0
+      ? undefined
+      : safeFiles.find(f => f.id === activeFileId) ||
+        safeFiles.find(f => openTabIds.includes(f.id)) ||
+        safeFiles[0] ||
+        INITIAL_FILES[0];
   const activeDriverId = activeFile ? getDriverIdForFile(activeFile) : 'markdown';
 
   // Tab management with persistence
@@ -361,17 +384,63 @@ export default function App() {
     saveStoredSettings({ activeFileId: fileId, openTabIds: nextTabs });
   };
 
-  const handleCloseTab = (tabId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCloseTab = (tabId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     const newTabs = openTabIds.filter(id => id !== tabId);
     setOpenTabIds(newTabs);
 
     let nextActiveId = activeFileId;
-    if (activeFileId === tabId && newTabs.length > 0) {
+    if (newTabs.length === 0) {
+      nextActiveId = '';
+      setActiveFileId('');
+    } else if (activeFileId === tabId) {
       nextActiveId = newTabs[newTabs.length - 1];
       setActiveFileId(nextActiveId);
     }
     saveStoredSettings({ activeFileId: nextActiveId, openTabIds: newTabs });
+  };
+
+  const handleCloseOtherTabs = (keepTabId: string) => {
+    const nextTabs = openTabIds.includes(keepTabId) ? [keepTabId] : [];
+    setOpenTabIds(nextTabs);
+    setActiveFileId(keepTabId);
+    saveStoredSettings({ activeFileId: keepTabId, openTabIds: nextTabs });
+  };
+
+  const handleCloseTabsToRight = (targetTabId: string) => {
+    const idx = openTabIds.indexOf(targetTabId);
+    if (idx === -1) return;
+    const nextTabs = openTabIds.slice(0, idx + 1);
+    setOpenTabIds(nextTabs);
+    const nextActiveId = nextTabs.includes(activeFileId) ? activeFileId : targetTabId;
+    setActiveFileId(nextActiveId);
+    saveStoredSettings({ activeFileId: nextActiveId, openTabIds: nextTabs });
+  };
+
+  const handleCloseTabsToLeft = (targetTabId: string) => {
+    const idx = openTabIds.indexOf(targetTabId);
+    if (idx <= 0) return;
+    const nextTabs = openTabIds.slice(idx);
+    setOpenTabIds(nextTabs);
+    const nextActiveId = nextTabs.includes(activeFileId) ? activeFileId : targetTabId;
+    setActiveFileId(nextActiveId);
+    saveStoredSettings({ activeFileId: nextActiveId, openTabIds: nextTabs });
+  };
+
+  const handleCloseSavedTabs = () => {
+    const nextTabs = openTabIds.filter(id => safeFiles.find(f => f.id === id)?.isModified);
+    setOpenTabIds(nextTabs);
+    const nextActiveId = nextTabs.includes(activeFileId)
+      ? activeFileId
+      : nextTabs[nextTabs.length - 1] || '';
+    setActiveFileId(nextActiveId);
+    saveStoredSettings({ activeFileId: nextActiveId, openTabIds: nextTabs });
+  };
+
+  const handleCloseAllTabs = () => {
+    setOpenTabIds([]);
+    setActiveFileId('');
+    saveStoredSettings({ activeFileId: '', openTabIds: [] });
   };
 
   // Upload local files with persistence
@@ -660,6 +729,11 @@ flowchart LR
                   saveStoredSettings({ activeFileId: id });
                 }}
                 onCloseTab={handleCloseTab}
+                onCloseOtherTabs={handleCloseOtherTabs}
+                onCloseTabsToRight={handleCloseTabsToRight}
+                onCloseTabsToLeft={handleCloseTabsToLeft}
+                onCloseSavedTabs={handleCloseSavedTabs}
+                onCloseAllTabs={handleCloseAllTabs}
                 onNewFile={handleNewFile}
                 onContentChange={handleContentChange}
                 enableOkf={settings.enableOkfRendering}
@@ -668,6 +742,8 @@ flowchart LR
                   setSettings(prev => ({ ...prev, enableOkfRendering: next }));
                   saveStoredSettings({ enableOkfRendering: next });
                 }}
+                sidebarOpen={sidebarOpen}
+                onToggleSidebar={handleToggleSidebar}
               />
             )}
           </main>
