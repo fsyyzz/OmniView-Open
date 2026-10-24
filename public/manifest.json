@@ -1,0 +1,21 @@
+{
+  "name": "OmniView — 多格式文件可视化工作台",
+  "short_name": "OmniView",
+  "description": "100% 纯前端离线的多格式文件统一渲染引擎，支持 23+ 文件格式",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "developer"],
+  "lang": "zh-CN",
+  "id": "com.omniview.web"
+}

@@ -34,6 +34,7 @@ import {
   FileText,
   Settings,
   Keyboard,
+  FolderOpen,
 } from 'lucide-react';
 import { getVsCodeApi } from '../../../shared/lib/vscode';
 import { requestPrintHtml } from '../../../shared/lib/printBridge';
@@ -54,6 +55,10 @@ interface WorkbenchHeaderProps {
   onZoomChange: (zoom: number) => void;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
+  /** 是否显示目录级导入按钮（仅独立 Web 应用模式下启用，VS Code 宿主不显示） */
+  showDirectoryImport?: boolean;
+  /** 是否显示扩展脚手架 Tab（仅 VS Code 宿主模式下启用，独立 Web 应用不显示） */
+  showScaffoldView?: boolean;
 }
 
 export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
@@ -72,9 +77,12 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
   onZoomChange,
   onOpenSettings,
   onOpenShortcuts,
+  showDirectoryImport = false,
+  showScaffoldView = true,
 }) => {
   const headerRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dirInputRef = useRef<HTMLInputElement>(null);
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [densityDropdownOpen, setDensityDropdownOpen] = useState(false);
   const [newFileDropdownOpen, setNewFileDropdownOpen] = useState(false);
@@ -165,6 +173,19 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
     if (file) {
       onFileUpload(file);
     }
+    // 重置 input 以便下次选择同一文件
+    e.target.value = '';
+  };
+
+  const handleDirInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dirFiles = e.target.files;
+    if (dirFiles && dirFiles.length > 0) {
+      for (let i = 0; i < dirFiles.length; i++) {
+        onFileUpload(dirFiles[i]);
+      }
+    }
+    // 重置 input 以便下次选择同一目录
+    e.target.value = '';
   };
 
   const handleCopy = async () => {
@@ -308,6 +329,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             <Cpu className="w-3.5 h-3.5" />
             <span>驱动矩阵</span>
           </button>
+          {showScaffoldView && (
           <button
             type="button"
             onClick={() => onViewChange('scaffold')}
@@ -323,6 +345,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             <Terminal className="w-3.5 h-3.5" />
             <span>扩展脚手架</span>
           </button>
+          )}
         </nav>
       </div>
 
@@ -709,6 +732,38 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           <Upload className="w-3.5 h-3.5 text-blue-400 shrink-0" />
           <span className="hidden xl:inline">导入</span>
         </button>
+
+        {/* 目录级批量导入（仅独立 Web 应用模式） */}
+        {showDirectoryImport && (
+          <>
+            <input
+              ref={dirInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleDirInputChange}
+              // @ts-expect-error webkitdirectory 非标准属性
+              webkitdirectory=""
+              directory=""
+              multiple
+            />
+            <button
+              type="button"
+              onClick={() => dirInputRef.current?.click()}
+              style={{
+                backgroundColor: 'var(--ov-bg-elevated)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text-secondary)',
+              }}
+              className="hidden md:flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md border transition shadow-sm text-xs hover:opacity-90"
+              title="导入整个项目目录（批量解析 23+ 格式文件）"
+              data-ov-tooltip="导入整个项目目录（批量解析 23+ 格式文件）"
+              aria-label="导入目录"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="hidden xl:inline">导入目录</span>
+            </button>
+          </>
+        )}
 
         {/* 新建文件复合按钮与下拉菜单 */}
         <div ref={newFileDropdownRef} className="relative flex items-center">

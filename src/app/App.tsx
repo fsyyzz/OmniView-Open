@@ -13,6 +13,7 @@ import { loadStoredSettings, saveStoredSettings, DEFAULT_SETTINGS } from '../sha
 import { loadStoredFiles, saveStoredFiles, resetStoredFiles, initStorageAsync } from '../shared/lib/fileStorage';
 import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../shared/lib/nativeTheme';
 import { useWorkbenchSettings } from './useWorkbenchSettings';
+import { encodeBinaryToBase64 } from '../shared/lib/base64Helper';
 
 const DocCenter = React.lazy(() => import('../features/docs/DocCenter').then(m => ({ default: m.DocCenter })));
 const DriversManager = React.lazy(() => import('../features/drivers/DriversManager').then(m => ({ default: m.DriversManager })));
@@ -79,7 +80,14 @@ export default function App() {
   }, [embeddedInitial]);
 
   // 2. 布局与主导航状态（双向持久化）
-  const [currentView, setCurrentView] = useState<WorkbenchView>(initialSettings.currentView || 'editor');
+  const [currentView, setCurrentView] = useState<WorkbenchView>(() => {
+    const initial = initialSettings.currentView || 'editor';
+    // Web 模式下 scaffold 视图无意义（仅 VS Code 插件脚手架导出），强制回退到 editor
+    if (initial === 'scaffold' && !vscode && !embeddedInitial) {
+      return 'editor';
+    }
+    return initial;
+  });
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(initialSettings.sidebarOpen ?? true);
   const [explorerOpen, setExplorerOpen] = useState<boolean>(initialSettings.explorerOpen ?? true);
 
@@ -191,6 +199,8 @@ export default function App() {
     };
     const handleMessage = (event: MessageEvent<{ type?: string; file?: FileItem; themeKind?: string; settings?: Partial<WorkbenchSettings> }>) => {
       const msgType = event.data?.type;
+      // Web 模式下 host-configuration / theme-changed / editor-scroll-sync 为 VS Code 宿主专属事件，直接跳过
+      if (msgType === 'host-configuration' && event.data.settings && !vscode) return;
       if (msgType === 'host-configuration' && event.data.settings) {
         // 接收来自 VS Code 宿主工作区/用户 settings.json 广播的 omniview 配置
         const hostSettings = event.data.settings;
@@ -230,11 +240,13 @@ export default function App() {
         }
         return;
       }
+      if (msgType === 'theme-changed' && !vscode) return;
       if (msgType === 'theme-changed') {
         // VS Code 宿主主动广播色彩主题切换 (例如切换为 One Dark Pro / Dracula)
         setTheme((curr) => (curr === 'system' ? 'system' : curr));
         return;
       }
+      if ((msgType === 'editor-scroll-sync' || msgType === 'editor-cursor-sync') && !vscode) return;
       if (msgType === 'editor-scroll-sync' || msgType === 'editor-cursor-sync') {
         window.dispatchEvent(new CustomEvent('omniview-editor-sync', { detail: event.data }));
         return;
@@ -287,8 +299,9 @@ export default function App() {
     };
   }, [vscode]);
 
-  // 监听 VS Code DOM 变动以捕获第三方主题热切换
+  // 监听 VS Code DOM 变动以捕获第三方主题热切换（仅 VS Code 宿主环境生效）
   useEffect(() => {
+    if (!vscode) return;
     const unsub = setupVsCodeThemeObserver(() => {
       // 当 VS Code 宿主主题切换时，触发状态更新
       if (theme === 'system') {
@@ -296,7 +309,7 @@ export default function App() {
       }
     });
     return unsub;
-  }, [theme]);
+  }, [theme, vscode]);
 
   // 独立工作台快捷键: Ctrl+B / Cmd+B 切换左侧工作区文件面板折叠与展开
   useEffect(() => {
@@ -467,22 +480,12 @@ export default function App() {
 
     if (isBinary) {
       const reader = new FileReader();
-      reader.onload = e => {
+      reader.onload = async e => {
         const arrayBuffer = e.target?.result as ArrayBuffer;
-        let base64String = '';
-        try {
-          if (arrayBuffer && arrayBuffer.byteLength > 0 && arrayBuffer.byteLength < 50 * 1024 * 1024) {
-            let binary = '';
-            const bytes = new Uint8Array(arrayBuffer);
-            const chunkSize = 0x8000;
-            for (let i = 0; i < bytes.length; i += chunkSize) {
-              binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
-            }
-            base64String = btoa(binary);
-          }
-        } catch {
-          base64String = '';
-        }
+        // 使用 Web Worker 进行 base64 编码，避免 >10MB 文件阻塞主线程
+        const base64String = arrayBuffer && arrayBuffer.byteLength > 0
+          ? await encodeBinaryToBase64(arrayBuffer)
+          : '';
 
         const newFile: FileItem = {
           id: `upload-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -645,6 +648,8 @@ flowchart LR
             setSettingsInitialTab('shortcuts');
             setIsSettingsModalOpen(true);
           }}
+          showDirectoryImport={!vscode && !pluginFile}
+          showScaffoldView={Boolean(vscode || pluginFile)}
         />
 
         {/* Main Workspace */}
@@ -673,6 +678,7 @@ flowchart LR
               const copyName = `${baseName}-copy.${sourceFile.extension}`;
               handleNewFile(copyName, sourceFile.content, sourceFile.extension);
             }}
+            showScaffoldView={Boolean(vscode || pluginFile)}
           />
 
           {/* Center Main Stage */}

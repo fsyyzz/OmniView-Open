@@ -9,6 +9,7 @@ import {
   isIndexedDbSupported,
   idbLoadFiles,
   idbSaveFiles,
+  idbSaveFilesIncremental,
   idbClearFiles,
   idbSaveBlob,
   idbGetBlob,
@@ -22,6 +23,8 @@ const MIGRATION_FLAG_KEY = 'omniview:workbench:idb_migrated:v1';
 // 内存热缓存，确保 React 首屏与同步操作时 0ms 延迟响应
 let inMemoryFilesCache: FileItem[] | null = null;
 let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+/** 上一次已持久化到 IndexedDB 的文件 ID 集合，用于增量 diff */
+let lastPersistedFileIds: Set<string> | null = null;
 
 /**
  * 校验并规范化文件数组
@@ -149,14 +152,17 @@ export function saveStoredFiles(files: FileItem[]): void {
     }
   }
 
-  // 3. 防抖异步落盘至 IndexedDB (200ms)
+  // 3. 防抖异步落盘至 IndexedDB (200ms)，采用增量 diff 避免全量重写
   if (isIndexedDbSupported()) {
     if (saveDebounceTimer) {
       clearTimeout(saveDebounceTimer);
     }
+    const prevIds = lastPersistedFileIds;
     saveDebounceTimer = setTimeout(() => {
-      idbSaveFiles(files).catch((err) => {
-        console.warn('[FileStorage] Async IDB save failed:', err);
+      idbSaveFilesIncremental(files, prevIds ?? undefined).then(() => {
+        lastPersistedFileIds = new Set(files.map(f => f.id));
+      }).catch((err) => {
+        console.warn('[FileStorage] Async IDB incremental save failed:', err);
       });
     }, 200);
   }
@@ -185,6 +191,9 @@ export async function initStorageAsync(): Promise<FileItem[]> {
       // 保持 IndexedDB 预置项同步
       if (merged.length !== idbFiles.length) {
         await idbSaveFiles(merged);
+        lastPersistedFileIds = new Set(merged.map(f => f.id));
+      } else {
+        lastPersistedFileIds = new Set(idbFiles.map(f => f.id));
       }
       return merged;
     }
@@ -193,6 +202,7 @@ export async function initStorageAsync(): Promise<FileItem[]> {
     const localFallback = loadFromLocalStorageFallback();
     if (localFallback.length > 0) {
       await idbSaveFiles(localFallback);
+      lastPersistedFileIds = new Set(localFallback.map(f => f.id));
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(MIGRATION_FLAG_KEY, 'true');
         // 迁移完成后清空旧版 LocalStorage 中的巨型冗余字符串，彻底释放 5MB 配额
@@ -214,6 +224,7 @@ export async function initStorageAsync(): Promise<FileItem[]> {
   try {
     if (isIndexedDbSupported()) {
       await idbSaveFiles(initial);
+      lastPersistedFileIds = new Set(initial.map(f => f.id));
     }
   } catch {
     // ignore
@@ -244,7 +255,9 @@ export function resetStoredFiles(): FileItem[] {
 
   // 异步清空并重写 IndexedDB
   if (isIndexedDbSupported()) {
-    idbSaveFiles(INITIAL_FILES).catch((err) => {
+    idbSaveFiles(INITIAL_FILES).then(() => {
+      lastPersistedFileIds = new Set(INITIAL_FILES.map(f => f.id));
+    }).catch((err) => {
       console.warn('[FileStorage] Failed to reset files in IndexedDB:', err);
     });
   }
@@ -266,7 +279,9 @@ export function clearStoredFiles(): void {
     }
   }
   if (isIndexedDbSupported()) {
-    idbClearFiles().catch((err) => {
+    idbClearFiles().then(() => {
+      lastPersistedFileIds = new Set();
+    }).catch((err) => {
       console.warn('[FileStorage] Failed to clear files in IndexedDB:', err);
     });
   }

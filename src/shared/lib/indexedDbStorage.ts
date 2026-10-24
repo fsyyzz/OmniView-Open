@@ -195,6 +195,51 @@ export async function idbSaveFiles(files: FileItem[]): Promise<void> {
 }
 
 /**
+ * 增量批量保存文件集合至 IndexedDB（仅 put 新增/变更 + delete 已删除，避免全量重写）
+ */
+export async function idbSaveFilesIncremental(files: FileItem[], previousIds?: Set<string>): Promise<void> {
+  const db = await getIndexedDB();
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction([STORE_FILES], 'readwrite');
+      const store = tx.objectStore(STORE_FILES);
+
+      const newIds = new Set(files.map(f => f.id));
+
+      // 删除已不存在的文件
+      if (previousIds && previousIds.size > 0) {
+        for (const id of previousIds) {
+          if (!newIds.has(id)) {
+            store.delete(id);
+          }
+        }
+      }
+
+      // 写入新增/变更文件
+      for (const file of files) {
+        store.put({
+          id: file.id,
+          name: file.name,
+          path: file.path,
+          extension: file.extension,
+          content: file.content,
+          size: file.size || new TextEncoder().encode(file.content || '').length,
+          lastModified: file.lastModified || Date.now(),
+          isModified: Boolean(file.isModified),
+          isCustomUploaded: Boolean(file.isCustomUploaded),
+        });
+      }
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('Transaction failed while saving files incrementally'));
+      tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
  * 从 IndexedDB 加载全量工作区文件
  */
 export async function idbLoadFiles(): Promise<FileItem[]> {

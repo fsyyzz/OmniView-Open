@@ -45,6 +45,8 @@ interface SidebarProps {
   onOpenSettings?: () => void;
   onOpenFileInMode?: (fileId: string, mode: ViewMode) => void;
   onDuplicateFile?: (file: FileItem) => void;
+  /** 是否显示扩展脚手架按钮（仅 VS Code 宿主模式下启用，独立 Web 应用不显示） */
+  showScaffoldView?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -62,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onOpenFileInMode,
   onDuplicateFile,
+  showScaffoldView = true,
 }) => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [copiedWikiId, setCopiedWikiId] = useState<string | null>(null);
@@ -244,6 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Cpu className="w-5 h-5" />
           </button>
 
+          {showScaffoldView && (
           <button
             onClick={() => onViewChange('scaffold')}
             className={`p-2 rounded-xl transition activity-bar-btn ${
@@ -254,6 +258,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Terminal className="w-5 h-5" />
           </button>
+          )}
         </div>
 
         {/* Bottom items: Sidebar Toggle & Settings */}
