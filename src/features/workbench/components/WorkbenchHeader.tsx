@@ -9,8 +9,6 @@ import {
   DENSITY_PRESETS,
 } from '../../../shared/types';
 import {
-  BookOpen,
-  Cpu,
   Terminal,
   Upload,
   Plus,
@@ -297,37 +295,6 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           >
             <Eye className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">渲染工作台</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange('docs')}
-            style={{
-              backgroundColor: currentView === 'docs' ? 'var(--ov-accent)' : 'transparent',
-              color: currentView === 'docs' ? '#ffffff' : 'var(--ov-text-secondary)',
-            }}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
-            title="工程技术规范与架构设计文档中心"
-            data-ov-tooltip="工程技术规范与架构设计文档中心"
-            aria-label="工程技术规范"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">工程技术规范</span>
-            <span className="xl:hidden">规范</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange('drivers')}
-            style={{
-              backgroundColor: currentView === 'drivers' ? 'var(--ov-accent)' : 'transparent',
-              color: currentView === 'drivers' ? '#ffffff' : 'var(--ov-text-secondary)',
-            }}
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
-            title="驱动矩阵与生态对标"
-            data-ov-tooltip="驱动矩阵与生态对标"
-            aria-label="驱动矩阵"
-          >
-            <Cpu className="w-3.5 h-3.5" />
-            <span>驱动矩阵</span>
           </button>
           {showScaffoldView && (
           <button

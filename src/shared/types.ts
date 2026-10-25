@@ -60,16 +60,7 @@ export interface ViewerDriver {
 }
 
 export type ViewMode = 'preview' | 'source' | 'split' | 'mindmap';
-export type WorkbenchView = 'editor' | 'docs' | 'drivers' | 'scaffold';
-
-export interface SoftwareDoc {
-  id: string;
-  title: string;
-  category: 'PRD' | 'Architecture' | 'Scaffold' | 'Security';
-  summary: string;
-  content: string;
-  tags: string[];
-}
+export type WorkbenchView = 'editor' | 'scaffold';
 
 export type ThemeId =
   | 'system'

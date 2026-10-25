@@ -15,8 +15,6 @@ import { isVsCodeEnvironment, setupVsCodeThemeObserver } from '../shared/lib/nat
 import { useWorkbenchSettings } from './useWorkbenchSettings';
 import { encodeBinaryToBase64 } from '../shared/lib/base64Helper';
 
-const DocCenter = React.lazy(() => import('../features/docs/DocCenter').then(m => ({ default: m.DocCenter })));
-const DriversManager = React.lazy(() => import('../features/drivers/DriversManager').then(m => ({ default: m.DriversManager })));
 const ScaffoldExporter = React.lazy(() => import('../features/scaffold/ScaffoldExporter').then(m => ({ default: m.ScaffoldExporter })));
 const WorkbenchSettingsModal = React.lazy(() => import('../features/workbench/components/WorkbenchSettingsModal').then(m => ({ default: m.WorkbenchSettingsModal })));
 
@@ -683,34 +681,6 @@ flowchart LR
 
           {/* Center Main Stage */}
           <main className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--ov-bg)' }}>
-            {/* If viewing Documentation Center */}
-            {currentView === 'docs' && (
-              <React.Suspense fallback={<div className="flex-1 flex items-center justify-center text-slate-400 text-xs">加载规范与文档中心...</div>}>
-                <DocCenter
-                  theme={theme}
-                  onOpenInWorkbench={(title, content) => {
-                    handleNewFile(`${title.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_')}.md`, content, 'md');
-                    handleCurrentViewChange('editor');
-                  }}
-                />
-              </React.Suspense>
-            )}
-
-            {/* If viewing Drivers Manager */}
-            {currentView === 'drivers' && (
-              <React.Suspense fallback={<div className="flex-1 flex items-center justify-center text-slate-400 text-xs">加载驱动管理器...</div>}>
-                <DriversManager
-                  onOpenSampleFile={(extension) => {
-                    const match = files.find(f => f.extension.toLowerCase() === extension.toLowerCase());
-                    if (match) {
-                      handleSelectFile(match.id);
-                    }
-                    handleCurrentViewChange('editor');
-                  }}
-                />
-              </React.Suspense>
-            )}
-
             {/* If viewing Extension Scaffolding */}
             {currentView === 'scaffold' && (
               <React.Suspense fallback={<div className="flex-1 flex items-center justify-center text-slate-400 text-xs">加载脚手架导出器...</div>}>

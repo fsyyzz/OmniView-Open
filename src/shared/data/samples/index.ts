@@ -1,25 +1,14 @@
 /**
- * OmniView 内置演示样本与驱动元数据聚合中心
+ * OmniView 内置演示工作区文件聚合中心
+ *
+ * INITIAL_FILES 现基于 examples/ 目录中的真实文件动态生成，
+ * 避免 4 个庞大内嵌样本文件的双份数据维护。
  */
 import type { FileItem } from '../../types';
 import { SUPPORTED_DRIVERS } from './driversMeta';
-import { DIAGRAM_SAMPLES } from './diagramSamples';
-import { DOCUMENT_SAMPLES } from './documentSamples';
-import { DATA_SAMPLES } from './dataSamples';
-import { CLOUD_NATIVE_SAMPLES } from './cloudNativeSamples';
 
 export { SUPPORTED_DRIVERS } from './driversMeta';
-export { DIAGRAM_SAMPLES } from './diagramSamples';
-export { DOCUMENT_SAMPLES } from './documentSamples';
-export { DATA_SAMPLES } from './dataSamples';
-export { CLOUD_NATIVE_SAMPLES } from './cloudNativeSamples';
+export { INITIAL_FILES } from './examplesLoader';
 
-/**
- * 聚合所有内置演示工作区文件
- */
-export const INITIAL_FILES: FileItem[] = [
-  ...DIAGRAM_SAMPLES,
-  ...DOCUMENT_SAMPLES,
-  ...DATA_SAMPLES,
-  ...CLOUD_NATIVE_SAMPLES,
-];
+/** 聚合所有内置演示工作区文件（基于 examples/ 真实文件） */
+export type { FileItem };

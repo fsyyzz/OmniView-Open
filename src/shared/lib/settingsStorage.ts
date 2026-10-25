@@ -79,7 +79,7 @@ export function loadStoredSettings(): WorkbenchSettings {
       ? parsed.locale
       : DEFAULT_SETTINGS.locale || 'zh-CN';
 
-    const currentView: WorkbenchView = ['editor', 'docs', 'drivers', 'scaffold'].includes(parsed.currentView)
+    const currentView: WorkbenchView = ['editor', 'scaffold'].includes(parsed.currentView)
       ? parsed.currentView
       : DEFAULT_SETTINGS.currentView || 'editor';
 

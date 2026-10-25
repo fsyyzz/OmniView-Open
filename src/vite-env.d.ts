@@ -5,6 +5,31 @@ declare module '*?url' {
   export default content;
 }
 
+declare module '*.docx' {
+  const url: string;
+  export default url;
+}
+
+declare module '*.pptx' {
+  const url: string;
+  export default url;
+}
+
+declare module '*.xlsx' {
+  const url: string;
+  export default url;
+}
+
+declare module '*.pdf' {
+  const url: string;
+  export default url;
+}
+
+declare module '*.webm' {
+  const url: string;
+  export default url;
+}
+
 declare module '@excalidraw/excalidraw' {
   import * as React from 'react';
   export const Excalidraw: React.FC<any>;

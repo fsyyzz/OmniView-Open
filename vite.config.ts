@@ -7,6 +7,13 @@ export default defineConfig(({ mode }) => {
   const isProd = mode === 'production';
   return {
     base: isProd ? './' : '/',
+    assetsInclude: [
+      '**/*.docx',
+      '**/*.pptx',
+      '**/*.xlsx',
+      '**/*.pdf',
+      '**/*.webm',
+    ],
     build: {
       outDir: 'dist',
       emptyOutDir: true,

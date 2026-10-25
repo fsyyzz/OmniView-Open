@@ -3,7 +3,6 @@ import { FileItem, WorkbenchView, ViewMode } from '../../../shared/types';
 import {
   Files,
   BookOpen,
-  Cpu,
   Terminal,
   FileText,
   Network,
@@ -223,28 +222,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             aria-expanded={sidebarOpen}
           >
             <Files className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={() => onViewChange('docs')}
-            className={`p-2 rounded-xl transition activity-bar-btn ${
-              currentView === 'docs' ? 'active' : ''
-            }`}
-            title="工程技术文档中心 (PRD & 架构)"
-            aria-label="工程技术文档中心"
-          >
-            <BookOpen className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={() => onViewChange('drivers')}
-            className={`p-2 rounded-xl transition activity-bar-btn ${
-              currentView === 'drivers' ? 'active' : ''
-            }`}
-            title="驱动矩阵与竞品对标 (Drivers)"
-            aria-label="驱动矩阵与竞品对标"
-          >
-            <Cpu className="w-5 h-5" />
           </button>
 
           {showScaffoldView && (
