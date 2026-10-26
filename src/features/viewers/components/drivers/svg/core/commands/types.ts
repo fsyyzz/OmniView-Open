@@ -293,3 +293,23 @@ export interface CanvasSetSizeParams {
   readonly padding?: number;
   readonly offsetContent?: { readonly x: number; readonly y: number };
 }
+
+export interface CanvasSetGlobalStylesParams {
+  readonly css: string;
+}
+
+export interface CanvasUpdateCssVariableParams {
+  readonly varName: string;
+  readonly value: string;
+}
+
+// --- object.* (styles & class) ---
+export interface ObjectSetClassNameParams {
+  readonly ids: ReadonlyArray<NodeId>;
+  readonly className: string;
+}
+
+export interface ObjectExtractToClassParams {
+  readonly id: NodeId;
+  readonly className?: string;
+}

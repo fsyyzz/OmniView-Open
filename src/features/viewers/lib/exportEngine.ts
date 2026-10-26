@@ -63,19 +63,56 @@ export async function convertSvgElementToPngBase64(svgEl: SVGElement, scale = 2)
  * 清理 DOM 节点中的交互控件（工具栏、复制按钮、缩放控制器等）
  */
 export function cleanInteractiveElements(root: HTMLElement): void {
+  // 1. 展开所有被折叠的 details（Callout、卡片组、FAQ 等），确保打印和导出时不丢失折叠内容
+  root.querySelectorAll('details').forEach((el) => {
+    el.setAttribute('open', '');
+  });
+
+  // 2. 处理多标签组 (Tabs)：在移除交互按钮前提取各 Tab 标题并转化为打印友好的徽标，同时展开全部 Tab 面板
+  root.querySelectorAll('.ov-tab-group').forEach((group) => {
+    const navButtons = Array.from(group.querySelectorAll('.ov-tab-btn')) as HTMLElement[];
+    const panels = Array.from(group.querySelectorAll('.ov-tab-panel')) as HTMLElement[];
+
+    panels.forEach((panel, idx) => {
+      panel.style.display = 'block';
+      const labelText =
+        navButtons[idx]?.textContent?.trim() ||
+        panel.getAttribute('data-tab-label') ||
+        `Tab ${idx + 1}`;
+      if (!panel.querySelector('.ov-tab-print-badge')) {
+        const badge = document.createElement('div');
+        badge.className = 'ov-tab-print-badge';
+        badge.innerHTML = `<span class="ov-tab-print-tag">标签页: ${labelText}</span>`;
+        panel.insertBefore(badge, panel.firstChild);
+      }
+    });
+  });
+
   const selectorsToRemove = [
     '.diagram-header',
     '.code-block-header',
     '.diagram-tools',
     '.markdown-toolbar',
     '.markdown-outline',
+    '.markdown-outline-sidebar',
     '.doc-status-bar',
+    '#doc-status-bar',
+    '#workbench-header',
+    '#workbench-sidebar',
+    '#workbench-statusbar',
     '.table-block-toolbar',
     '.ov-table-block-toolbar',
     '.table-block-footer',
     '.ov-table-block-footer',
     '.ov-table-sort-icon',
     '.ov-col-resizer',
+    '.ov-callout-fold-icon',
+    '.ov-faq-chevron',
+    '.ov-block-action-bar',
+    '.ov-bubble-toolbar',
+    '.lightbox-modal',
+    '.code-lightbox-modal',
+    '.ov-table-lightbox-modal',
     '.no-print',
     'button',
     '.ov-image-fallback',
@@ -388,6 +425,14 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
       border-collapse: collapse;
       width: 100%;
       margin: 20px 0;
+      break-inside: auto;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     th, td {
       border: 1px solid #cbd5e1;
@@ -402,6 +447,12 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
     tr:nth-child(even) td {
       background: #f8fafc;
     }
+    .ov-table-block, .ov-table-wrapper {
+      margin: 18px 0;
+      width: 100%;
+      overflow: visible;
+      break-inside: auto;
+    }
     blockquote {
       border-left: 4px solid #3b82f6;
       margin: 16px 0;
@@ -410,6 +461,404 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
       color: #1e40af;
       border-radius: 0 6px 6px 0;
     }
+    /* =========================================================
+       Callout / GitHub Alerts
+       ========================================================= */
+    .ov-callout {
+      margin: 16px 0;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--callout-border, rgba(59, 130, 246, 0.25));
+      border-left: 4px solid var(--callout-color, #3b82f6);
+      background: var(--callout-bg, #eff6ff);
+      break-inside: avoid;
+      page-break-inside: avoid;
+      box-sizing: border-box;
+    }
+    .ov-callout-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--callout-color, #3b82f6);
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+    .ov-callout-title-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ov-callout-icon {
+      flex-shrink: 0;
+      stroke: var(--callout-color, #3b82f6);
+      width: 18px;
+      height: 18px;
+    }
+    .ov-callout-body {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #1e293b;
+    }
+    .ov-callout-body > :first-child { margin-top: 0; }
+    .ov-callout-body > :last-child { margin-bottom: 0; }
+    .ov-callout-note { --callout-color: #2563eb; --callout-border: #bfdbfe; --callout-bg: #eff6ff; }
+    .ov-callout-tip { --callout-color: #059669; --callout-border: #a7f3d0; --callout-bg: #ecfdf5; }
+    .ov-callout-important { --callout-color: #7c3aed; --callout-border: #ddd6fe; --callout-bg: #f5f3ff; }
+    .ov-callout-warning { --callout-color: #d97706; --callout-border: #fde68a; --callout-bg: #fffbeb; }
+    .ov-callout-caution { --callout-color: #dc2626; --callout-border: #fecaca; --callout-bg: #fef2f2; }
+    .ov-callout-success { --callout-color: #16a34a; --callout-border: #bbf7d0; --callout-bg: #f0fdf4; }
+    .ov-callout-question { --callout-color: #0891b2; --callout-border: #a5f3fc; --callout-bg: #ecfeff; }
+    .ov-callout-example { --callout-color: #4f46e5; --callout-border: #c7d2fe; --callout-bg: #eef2ff; }
+    .ov-callout-quote { --callout-color: #475569; --callout-border: #cbd5e1; --callout-bg: #f8fafc; }
+
+    /* =========================================================
+       Card Grids & Single Cards
+       ========================================================= */
+    .ov-card-grid-container {
+      margin: 20px 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-card-grid-header, .ov-card-single-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .ov-card-grid-title-left, .ov-card-single-title-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ov-card-grid-body > ul, .ov-card-grid-body > ol {
+      display: grid;
+      grid-template-columns: repeat(var(--ov-card-cols, 2), minmax(0, 1fr));
+      gap: 14px;
+      list-style: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .ov-card-grid-body > ul > li, .ov-card-grid-body > ol > li, .ov-card-single {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 14px 16px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-card-single {
+      margin: 16px 0;
+    }
+
+    /* =========================================================
+       Tabs Group
+       ========================================================= */
+    .ov-tab-group {
+      margin: 20px 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      overflow: hidden;
+    }
+    .ov-tab-header-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #f8fafc;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 8px 14px;
+    }
+    .ov-tab-group-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .ov-tab-panels {
+      padding: 14px 18px;
+    }
+    .ov-tab-panel {
+      display: block;
+      margin-bottom: 12px;
+    }
+    .ov-tab-panel:not(:last-child) {
+      border-bottom: 1px dashed #e2e8f0;
+      padding-bottom: 12px;
+    }
+    .ov-tab-print-badge {
+      margin-bottom: 8px;
+    }
+    .ov-tab-print-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #2563eb;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+
+    /* =========================================================
+       Steps Guide & Timeline
+       ========================================================= */
+    .ov-steps-container, .ov-timeline-container {
+      margin: 20px 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 18px 20px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-steps-header, .ov-timeline-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .ov-steps-body > ol, .ov-steps-body > ul {
+      list-style: none !important;
+      padding-left: 0 !important;
+      margin: 0 !important;
+      counter-reset: ov-step-counter;
+      position: relative;
+    }
+    .ov-steps-body > ol > li, .ov-steps-body > ul > li {
+      position: relative;
+      counter-increment: ov-step-counter;
+      padding-left: 42px !important;
+      margin-bottom: 18px !important;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-steps-body > ol > li:last-child, .ov-steps-body > ul > li:last-child {
+      margin-bottom: 0 !important;
+    }
+    .ov-steps-body > ol > li::before, .ov-steps-body > ul > li::before {
+      content: counter(ov-step-counter);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #2563eb;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .ov-steps-body > ol > li::after, .ov-steps-body > ul > li::after {
+      content: '';
+      position: absolute;
+      left: 13px;
+      top: 28px;
+      bottom: -16px;
+      width: 2px;
+      background: #cbd5e1;
+    }
+    .ov-steps-body > ol > li:last-child::after, .ov-steps-body > ul > li:last-child::after {
+      display: none;
+    }
+
+    .ov-timeline-body > ul, .ov-timeline-body > ol {
+      list-style: none !important;
+      padding-left: 0 !important;
+      margin: 0 !important;
+      position: relative;
+    }
+    .ov-timeline-body > ul > li, .ov-timeline-body > ol > li {
+      position: relative;
+      padding-left: 30px !important;
+      margin-bottom: 18px !important;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-timeline-body > ul > li:last-child, .ov-timeline-body > ol > li:last-child {
+      margin-bottom: 0 !important;
+    }
+    .ov-timeline-body > ul > li::before, .ov-timeline-body > ol > li::before {
+      content: '';
+      position: absolute;
+      left: 2px;
+      top: 6px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #7c3aed;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 2px #7c3aed;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .ov-timeline-body > ul > li::after, .ov-timeline-body > ol > li::after {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 16px;
+      bottom: -16px;
+      width: 2px;
+      background: #cbd5e1;
+    }
+    .ov-timeline-body > ul > li:last-child::after, .ov-timeline-body > ol > li:last-child::after {
+      display: none;
+    }
+
+    /* =========================================================
+       Compare, Metrics, FAQ, Quotes, Banner
+       ========================================================= */
+    .ov-compare-container, .ov-metrics-container, .ov-faq-container, .ov-quotes-container, .ov-banner-container {
+      margin: 20px 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 18px 20px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-compare-header, .ov-metrics-header, .ov-faq-header, .ov-quotes-header, .ov-banner-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .ov-compare-body > ul, .ov-compare-body > ol {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      list-style: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .ov-compare-body > ul > li, .ov-compare-body > ol > li {
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-compare-body > ul > li:first-child, .ov-compare-body > ol > li:first-child {
+      border-top: 3px solid #e11d48;
+    }
+    .ov-compare-body > ul > li:nth-child(2), .ov-compare-body > ol > li:nth-child(2) {
+      border-top: 3px solid #059669;
+    }
+
+    .ov-metrics-body > ul, .ov-metrics-body > ol {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      list-style: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .ov-metrics-body > ul > li, .ov-metrics-body > ol > li {
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      text-align: center;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-metrics-body > ul > li strong, .ov-metrics-body > ol > li strong,
+    .ov-metrics-body > ul > li b, .ov-metrics-body > ol > li b {
+      display: block;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #059669;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+
+    .ov-faq-item {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      margin-bottom: 10px;
+      overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .ov-faq-q {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: 13.5px;
+      color: #0f172a;
+      background: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .ov-faq-a {
+      padding: 10px 14px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #334155;
+    }
+
+    .ov-quotes-body > ul > li, .ov-quotes-body > ol > li {
+      padding: 14px 16px;
+      border-left: 4px solid #6366f1;
+      background: #f8fafc;
+      font-style: italic;
+      margin-bottom: 10px;
+      border-radius: 0 6px 6px 0;
+    }
+    .ov-banner-container {
+      border: 1px solid #93c5fd;
+      border-radius: 10px;
+      background: #eff6ff;
+    }
+
+    /* =========================================================
+       Prism Syntax Token Styling
+       ========================================================= */
+    .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #64748b; font-style: italic; }
+    .token.punctuation { color: #475569; }
+    .token.property, .token.tag, .token.boolean, .token.number, .token.constant, .token.symbol { color: #ea580c; }
+    .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin { color: #16a34a; }
+    .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string { color: #0284c7; }
+    .token.atrule, .token.attr-value, .token.keyword { color: #2563eb; font-weight: 600; }
+    .token.function, .token.class-name { color: #7c3aed; }
+    .token.regex, .token.important, .token.variable { color: #e11d48; }
+
+    /* OKF Header Card */
+    #okf-header-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
     img, svg {
       max-width: 100%;
       height: auto;
@@ -429,12 +878,16 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
       background: #ffffff;
       display: flex;
       justify-content: center;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .ov-katex-block {
       display: flex;
       justify-content: center;
       margin: 16px 0;
       overflow-x: auto;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .ov-footnote-ref {
       font-size: 0.75em;
@@ -463,6 +916,8 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
       border-radius: 8px;
       margin: 16px 0;
       overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .ov-wiki-embed-header {
       padding: 8px 12px;
@@ -491,21 +946,46 @@ export function buildPortableHtml(documentTitle: string, container: HTMLElement)
       padding-left: 0.5rem;
       border-left: 2px solid #7dd3fc;
     }
+    .page-break, .page-break-print-divider, .print-pagebreak {
+      display: block !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      page-break-after: always !important;
+      break-after: page !important;
+    }
     @media print {
       @page {
         size: A4;
         margin: 18mm 15mm;
+      }
+      *, *::before, *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       body {
         max-width: 100%;
         margin: 0;
         padding: 0;
       }
-      .markdown-diagram, .markdown-code-block, .ov-table-wrapper, table, img, blockquote {
+      details {
+        display: block !important;
+      }
+      details > summary {
+        pointer-events: none !important;
+      }
+      details > summary ~ * {
+        display: block !important;
+      }
+      .markdown-diagram, .markdown-code-block, .ov-table-wrapper, .ov-table-block, table, img, blockquote,
+      .ov-callout, .ov-card-grid-container, .ov-card-single, .ov-tab-group, .ov-steps-container,
+      .ov-timeline-container, .ov-compare-container, .ov-metrics-container, .ov-faq-container,
+      .ov-quotes-container, .ov-banner-container, #okf-header-card {
         break-inside: avoid !important;
         page-break-inside: avoid !important;
       }
-      h1, h2, h3 {
+      h1, h2, h3, h4, h5, h6 {
         break-after: avoid !important;
         page-break-after: avoid !important;
       }

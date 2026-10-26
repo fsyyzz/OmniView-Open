@@ -58,7 +58,16 @@ import type {
   PathConvertLineStyleParams,
   PathSetRectRadiusParams,
   CanvasSetSizeParams,
+  CanvasSetGlobalStylesParams,
+  CanvasUpdateCssVariableParams,
+  ObjectSetClassNameParams,
+  ObjectExtractToClassParams,
 } from './types';
+import {
+  setDocumentGlobalStyles,
+  updateDocumentCssVariable,
+  extractNodeToGlobalClass,
+} from '../model/globalStyles';
 import type {
   AffineTransform,
   Anchor,
@@ -1293,6 +1302,56 @@ const canvasSetSize: CommandHandler = (doc, sel, params) => {
   return ok(next, sel);
 };
 
+const canvasSetGlobalStyles: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as CanvasSetGlobalStylesParams;
+  const css = typeof p?.css === 'string' ? p.css : '';
+  const nextDoc = setDocumentGlobalStyles(doc, css);
+  return ok(nextDoc, sel);
+};
+
+const canvasUpdateCssVariable: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as CanvasUpdateCssVariableParams;
+  if (!p?.varName || typeof p.value !== 'string') {
+    return badParams('canvas.updateCssVariable', '缺少 varName 或 value');
+  }
+  const nextDoc = updateDocumentCssVariable(doc, p.varName, p.value);
+  return ok(nextDoc, sel);
+};
+
+const objectSetClassName: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as ObjectSetClassNameParams;
+  const ids = p?.ids ?? sel.nodeIds;
+  if (!ids || ids.length === 0) {
+    return badParams('object.setClassName', '缺少目标图元 ids');
+  }
+  const className = typeof p?.className === 'string' ? p.className.trim() : '';
+  const nextNodes = new Map(doc.nodes);
+  for (const id of ids) {
+    const node = nextNodes.get(id);
+    if (!node) continue;
+    nextNodes.set(id, {
+      ...node,
+      className: className.length > 0 ? className : null,
+    } as any);
+  }
+  const nextDoc: Document = {
+    ...doc,
+    nodes: nextNodes,
+    _internal: { revision: doc._internal.revision + 1 },
+  };
+  return ok(nextDoc, sel);
+};
+
+const objectExtractToClass: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as ObjectExtractToClassParams;
+  const id = p?.id ?? sel.primaryId ?? sel.nodeIds[0];
+  if (!id) {
+    return badParams('object.extractToClass', '未选中图元');
+  }
+  const { doc: nextDoc } = extractNodeToGlobalClass(doc, id, p?.className);
+  return ok(nextDoc, sel);
+};
+
 // ============================================================================
 // 9. 注册表
 // ============================================================================
@@ -1315,6 +1374,45 @@ function createRegistry(): Map<CommandId, CommandSpec> {
       { key: 'padding', type: 'number', required: false, min: 0, description: '自适应内容留白 (px)' },
     ],
     handler: canvasSetSize,
+  });
+  reg({
+    id: 'canvas.setGlobalStyles',
+    title: '设置全局样式表',
+    undoLabel: '更新全局样式表',
+    params: [{ key: 'css', type: 'string', required: true, description: 'CSS 样式代码' }],
+    handler: canvasSetGlobalStyles,
+  });
+  reg({
+    id: 'canvas.updateCssVariable',
+    title: '修改 CSS 变量',
+    undoLabel: '修改 CSS 变量',
+    params: [
+      { key: 'varName', type: 'string', required: true, description: '变量名 (如 --primary)' },
+      { key: 'value', type: 'string', required: true, description: '变量值' },
+    ],
+    handler: canvasUpdateCssVariable,
+  });
+
+  // object.* (class)
+  reg({
+    id: 'object.setClassName',
+    title: '设置图元 CSS 类名',
+    undoLabel: '修改 CSS 类名',
+    params: [
+      { key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' },
+      { key: 'className', type: 'string', required: true, description: 'CSS 类名' },
+    ],
+    handler: objectSetClassName,
+  });
+  reg({
+    id: 'object.extractToClass',
+    title: '图元样式提取为全局 CSS 类',
+    undoLabel: '提取全局样式',
+    params: [
+      { key: 'id', type: 'nodeId', required: true, description: '图元 ID' },
+      { key: 'className', type: 'string', required: false, description: '自定义类名' },
+    ],
+    handler: objectExtractToClass,
   });
 
   // path.*

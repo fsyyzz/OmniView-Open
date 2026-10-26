@@ -2128,6 +2128,311 @@ body.vscode-high-contrast-light[data-theme="system"] {
     border-radius: 0 4pt 4pt 0 !important;
   }
 
+  /* 强制打开所有 details 折叠块，避免打印内容丢失 */
+  details {
+    display: block !important;
+  }
+  details > summary {
+    pointer-events: none !important;
+  }
+  details > summary ~ * {
+    display: block !important;
+  }
+  .ov-callout-fold-icon,
+  .ov-faq-chevron {
+    display: none !important;
+  }
+
+  /* GitHub Alert / Callout 高保真打印色彩 */
+  .ov-callout {
+    margin: 12pt 0 !important;
+    padding: 10pt 14pt !important;
+    border-radius: 6pt !important;
+    border: 1pt solid var(--callout-border, #bfdbfe) !important;
+    border-left: 3.5pt solid var(--callout-color, #2563eb) !important;
+    background-color: var(--callout-bg, #eff6ff) !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ov-callout-title {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6pt !important;
+    font-weight: 700 !important;
+    font-size: 10.5pt !important;
+    color: var(--callout-color, #2563eb) !important;
+    margin-bottom: 4pt !important;
+  }
+
+  .ov-callout-icon {
+    stroke: var(--callout-color, #2563eb) !important;
+  }
+
+  .ov-callout-body {
+    font-size: 10pt !important;
+    line-height: 1.6 !important;
+    color: #1e293b !important;
+  }
+
+  .ov-callout-note { --callout-color: #2563eb !important; --callout-border: #bfdbfe !important; --callout-bg: #eff6ff !important; }
+  .ov-callout-tip { --callout-color: #059669 !important; --callout-border: #a7f3d0 !important; --callout-bg: #ecfdf5 !important; }
+  .ov-callout-important { --callout-color: #7c3aed !important; --callout-border: #ddd6fe !important; --callout-bg: #f5f3ff !important; }
+  .ov-callout-warning { --callout-color: #d97706 !important; --callout-border: #fde68a !important; --callout-bg: #fffbeb !important; }
+  .ov-callout-caution { --callout-color: #dc2626 !important; --callout-border: #fecaca !important; --callout-bg: #fef2f2 !important; }
+  .ov-callout-success { --callout-color: #16a34a !important; --callout-border: #bbf7d0 !important; --callout-bg: #f0fdf4 !important; }
+  .ov-callout-question { --callout-color: #0891b2 !important; --callout-border: #a5f3fc !important; --callout-bg: #ecfeff !important; }
+  .ov-callout-example { --callout-color: #4f46e5 !important; --callout-border: #c7d2fe !important; --callout-bg: #eef2ff !important; }
+  .ov-callout-quote { --callout-color: #475569 !important; --callout-border: #cbd5e1 !important; --callout-bg: #f8fafc !important; }
+
+  /* 卡片矩阵网格 (Card Grid) 打印适配：限制为 2 列，防止纵向挤压撕裂 */
+  .ov-card-grid-container {
+    margin: 14pt 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ov-card-grid-header,
+  .ov-card-single-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6pt !important;
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    margin-bottom: 8pt !important;
+    padding-bottom: 6pt !important;
+    border-bottom: 1pt solid #e2e8f0 !important;
+  }
+
+  .ov-card-grid-body > ul,
+  .ov-card-grid-body > ol {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10pt !important;
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .ov-card-grid-body > ul > li,
+  .ov-card-grid-body > ol > li,
+  .ov-card-single {
+    border: 1pt solid #cbd5e1 !important;
+    border-radius: 6pt !important;
+    background-color: #f8fafc !important;
+    padding: 10pt 12pt !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* 多标签组 (Tabs)：打印时全部展开，且展示标签导航指示 */
+  .ov-tab-group {
+    margin: 14pt 0 !important;
+    border: 1pt solid #cbd5e1 !important;
+    border-radius: 6pt !important;
+    background: #ffffff !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    box-shadow: none !important;
+  }
+
+  .ov-tab-header-wrap {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8pt !important;
+    background: #f8fafc !important;
+    border-bottom: 1pt solid #cbd5e1 !important;
+    padding: 6pt 10pt !important;
+  }
+
+  .ov-tab-group-title {
+    font-size: 10pt !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+  }
+
+  .ov-tab-nav {
+    display: flex !important;
+    gap: 4pt !important;
+  }
+
+  button.ov-tab-btn {
+    display: inline-flex !important;
+    padding: 2pt 6pt !important;
+    font-size: 8.5pt !important;
+    font-weight: 600 !important;
+    border-radius: 3pt !important;
+    border: 1pt solid #cbd5e1 !important;
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    cursor: default !important;
+  }
+
+  button.ov-tab-btn.active {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+  }
+
+  .ov-tab-panels {
+    padding: 10pt 12pt !important;
+  }
+
+  .ov-tab-panel {
+    display: block !important;
+    margin-bottom: 10pt !important;
+  }
+
+  .ov-tab-panel:not(:last-child) {
+    border-bottom: 1pt dashed #e2e8f0 !important;
+    padding-bottom: 10pt !important;
+  }
+
+  /* 步骤引导 (Steps) 与 时间线 (Timeline) */
+  .ov-steps-container,
+  .ov-timeline-container {
+    margin: 14pt 0 !important;
+    border: 1pt solid #cbd5e1 !important;
+    border-radius: 6pt !important;
+    background: #ffffff !important;
+    padding: 14pt 16pt !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ov-steps-header,
+  .ov-timeline-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6pt !important;
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    margin-bottom: 12pt !important;
+    padding-bottom: 6pt !important;
+    border-bottom: 1pt solid #e2e8f0 !important;
+  }
+
+  .ov-steps-body > ol > li::before,
+  .ov-steps-body > ul > li::before {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .ov-timeline-body > ul > li::before,
+  .ov-timeline-body > ol > li::before {
+    background: #7c3aed !important;
+    box-shadow: 0 0 0 1.5pt #7c3aed !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 对比卡片 (Compare) 与 指标看板 (Metrics) */
+  .ov-compare-container,
+  .ov-metrics-container,
+  .ov-faq-container,
+  .ov-quotes-container,
+  .ov-banner-container {
+    margin: 14pt 0 !important;
+    border: 1pt solid #cbd5e1 !important;
+    border-radius: 6pt !important;
+    background: #ffffff !important;
+    padding: 14pt 16pt !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ov-compare-body > ul,
+  .ov-compare-body > ol {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10pt !important;
+  }
+
+  .ov-compare-body > ul > li,
+  .ov-compare-body > ol > li {
+    border: 1pt solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    padding: 10pt 12pt !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ov-compare-body > ul > li:first-child,
+  .ov-compare-body > ol > li:first-child {
+    border-top: 3pt solid #e11d48 !important;
+  }
+
+  .ov-compare-body > ul > li:nth-child(2),
+  .ov-compare-body > ol > li:nth-child(2) {
+    border-top: 3pt solid #059669 !important;
+  }
+
+  .ov-metrics-body > ul,
+  .ov-metrics-body > ol {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10pt !important;
+  }
+
+  .ov-metrics-body > ul > li,
+  .ov-metrics-body > ol > li {
+    border: 1pt solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    padding: 10pt !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ov-metrics-body > ul > li strong,
+  .ov-metrics-body > ol > li strong,
+  .ov-metrics-body > ul > li b,
+  .ov-metrics-body > ol > li b {
+    color: #059669 !important;
+    font-size: 15pt !important;
+  }
+
+  .ov-faq-item {
+    border: 1pt solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    margin-bottom: 8pt !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ov-faq-q {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    padding: 8pt 10pt !important;
+    border-bottom: 1pt solid #e2e8f0 !important;
+  }
+
+  .ov-faq-a {
+    background: #ffffff !important;
+    color: #334155 !important;
+    padding: 8pt 10pt !important;
+  }
+
+  /* OKF Header Card 打印样式 */
+  #okf-header-card {
+    border: 1pt solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
   /* 链接与图片 */
   a {
     color: #0284c7 !important;
@@ -5645,7 +5950,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   .ov-lightbox-modal,
   .code-lightbox-modal,
   .ov-table-lightbox-modal,
-  button,
+  button:not(.ov-tab-btn),
   .ov-wiki-embed-open {
     display: none !important;
   }
@@ -5657,7 +5962,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
     color: #0f172a !important;
   }
 
-  /* 块级元素防跨页撕裂保护 */
+  /* 块级元素防跨页撕裂保护与阴影清除 */
   .ov-table-block,
   .ov-table-wrapper,
   table,
@@ -5665,16 +5970,25 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   .ov-code-block,
   .ov-diagram-block,
   .ov-callout,
+  .ov-card-grid-container,
+  .ov-card-single,
+  .ov-tab-group,
+  .ov-steps-container,
+  .ov-timeline-container,
+  .ov-compare-container,
+  .ov-metrics-container,
+  .ov-faq-container,
+  .ov-quotes-container,
+  .ov-banner-container,
   .ov-gallery-container,
   .ov-figure-container,
   .ov-media-container,
   .ov-wiki-embed,
-  .ov-math-block {
+  .ov-math-block,
+  #okf-header-card {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     box-shadow: none !important;
-    border-color: #cbd5e1 !important;
-    background-color: transparent !important;
   }
 
   /* 表格打印保真 */

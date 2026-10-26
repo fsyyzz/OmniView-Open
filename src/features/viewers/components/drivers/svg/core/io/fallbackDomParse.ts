@@ -309,6 +309,10 @@ function computeSpecificity(selector: string): number {
 }
 
 function elementMatchesSelector(el: Element, selector: string): boolean {
+  const trimmed = selector.trim();
+  if (trimmed === ':root') {
+    return el.tagName.toLowerCase() === 'svg' || el.ownerDocument?.documentElement === el;
+  }
   try {
     if (typeof el.matches === 'function') {
       return el.matches(selector);
@@ -316,7 +320,6 @@ function elementMatchesSelector(el: Element, selector: string): boolean {
   } catch {
     // 降级到基础选择器匹配
   }
-  const trimmed = selector.trim();
   if (trimmed === '*' || trimmed.toLowerCase() === el.tagName.toLowerCase()) return true;
   if (trimmed.startsWith('.')) {
     const cls = trimmed.slice(1);
@@ -329,6 +332,18 @@ function elementMatchesSelector(el: Element, selector: string): boolean {
   return false;
 }
 
+function resolveCssVar(val: string, cssRules: ReadonlyArray<CssRule>): string {
+  if (!val || !val.includes('var(')) return val;
+  return val.replace(/var\(\s*(--[a-zA-Z0-9_-]+)(?:\s*,\s*([^)]+))?\s*\)/g, (_m, varName, fallback) => {
+    const targetName = varName.trim().toLowerCase();
+    for (const r of cssRules) {
+      const decl = r.declarations.get(targetName);
+      if (decl) return decl.value;
+    }
+    return fallback ? fallback.trim() : varName;
+  });
+}
+
 function getStyleProp(el: Element, prop: string): string | null {
   const style = el.getAttribute('style');
   if (!style) return null;
@@ -339,7 +354,7 @@ function getStyleProp(el: Element, prop: string): string | null {
 
 function getOwnProp(el: Element, prop: string, cssRules: ReadonlyArray<CssRule>): string | null {
   const inlineVal = getStyleProp(el, prop);
-  if (inlineVal !== null && inlineVal !== '') return inlineVal;
+  if (inlineVal !== null && inlineVal !== '') return resolveCssVar(inlineVal, cssRules);
 
   let bestVal: string | null = null;
   let bestScore = -1;
@@ -353,10 +368,10 @@ function getOwnProp(el: Element, prop: string, cssRules: ReadonlyArray<CssRule>)
       bestVal = decl.value;
     }
   }
-  if (bestVal !== null) return bestVal;
+  if (bestVal !== null) return resolveCssVar(bestVal, cssRules);
 
   const attrVal = el.getAttribute(prop);
-  if (attrVal !== null && attrVal.trim() !== '') return attrVal.trim();
+  if (attrVal !== null && attrVal.trim() !== '') return resolveCssVar(attrVal.trim(), cssRules);
   return null;
 }
 
@@ -991,6 +1006,22 @@ function regexFallbackParse(svg: string): LoadResult {
   doc.layers = [layerId];
   doc.nextNodeId = 2;
 
+  // 收集 defs 与 style 块，保留全局样式与渐变/滤镜元数据
+  const defsChunks: string[] = [];
+  const styleRe = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
+  let sm: RegExpExecArray | null;
+  while ((sm = styleRe.exec(svg)) !== null) {
+    if (sm[0]) defsChunks.push(sm[0].trim());
+  }
+  const defsRe = /<defs\b[^>]*>([\s\S]*?)<\/defs>/gi;
+  let dm: RegExpExecArray | null;
+  while ((dm = defsRe.exec(svg)) !== null) {
+    if (dm[1]) defsChunks.push(dm[1].trim());
+  }
+  if (defsChunks.length > 0) {
+    doc.metadata[RAW_DEFS_METADATA_KEY] = defsChunks.join('\n');
+  }
+
   // 提取 rect/circle/line/path/polygon 子节点并转换为 Path
   let nextId = 2;
   const childIds: NodeId[] = [];
@@ -1008,8 +1039,11 @@ function regexFallbackParse(svg: string): LoadResult {
     const rx = rxRaw !== undefined ? Number(rxRaw) : 0;
     const ry = ryRaw !== undefined ? Number(ryRaw) : rx;
     const fill = (a.match(/\bfill\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1] ?? '#000000';
+    const className = (a.match(/\bclass\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1];
     const id = nextId++ as NodeId;
-    doc.nodes.set(id, makeRectPath(id, x, y, ww, hh, fill, rx, ry));
+    const node = makeRectPath(id, x, y, ww, hh, fill, rx, ry);
+    if (className) (node as any).className = className;
+    doc.nodes.set(id, node);
     childIds.push(id);
   }
 
@@ -1020,8 +1054,11 @@ function regexFallbackParse(svg: string): LoadResult {
     const cy = Number((a.match(/\bcy\s*=\s*["']?\s*([\d.-]+)/i) || [])[1] ?? 0);
     const r = Number((a.match(/\br\s*=\s*["']?\s*([\d.-]+)/i) || [])[1] ?? 0);
     const fill = (a.match(/\bfill\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1] ?? '#000000';
+    const className = (a.match(/\bclass\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1];
     const id = nextId++ as NodeId;
-    doc.nodes.set(id, makeCirclePath(id, cx, cy, r, fill));
+    const node = makeCirclePath(id, cx, cy, r, fill);
+    if (className) (node as any).className = className;
+    doc.nodes.set(id, node);
     childIds.push(id);
   }
 
@@ -1033,8 +1070,11 @@ function regexFallbackParse(svg: string): LoadResult {
     const x2 = Number((a.match(/\bx2\s*=\s*["']?\s*([\d.-]+)/i) || [])[1] ?? 0);
     const y2 = Number((a.match(/\by2\s*=\s*["']?\s*([\d.-]+)/i) || [])[1] ?? 0);
     const stroke = (a.match(/\bstroke\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1] ?? '#000000';
+    const className = (a.match(/\bclass\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1];
     const id = nextId++ as NodeId;
-    doc.nodes.set(id, makeLinePath(id, x1, y1, x2, y2, stroke));
+    const node = makeLinePath(id, x1, y1, x2, y2, stroke);
+    if (className) (node as any).className = className;
+    doc.nodes.set(id, node);
     childIds.push(id);
   }
 
@@ -1046,8 +1086,11 @@ function regexFallbackParse(svg: string): LoadResult {
     const hint = (a.match(/\bdata-omniview-hint\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1];
     const rxRaw = (a.match(/\bdata-omniview-rx\s*=\s*["']?\s*([\d.-]+)/i) || [])[1];
     const rx = rxRaw !== undefined ? Number(rxRaw) : undefined;
+    const className = (a.match(/\bclass\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1];
     const id = nextId++ as NodeId;
-    doc.nodes.set(id, makeDPath(id, d, fill, hint, rx));
+    const node = makeDPath(id, d, fill, hint, rx);
+    if (className) (node as any).className = className;
+    doc.nodes.set(id, node);
     childIds.push(id);
   }
 
@@ -1056,8 +1099,11 @@ function regexFallbackParse(svg: string): LoadResult {
     const a = m[1];
     const ptsRaw = (a.match(/\bpoints\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1] ?? '';
     const pts = ptsRaw.trim().split(/[\s,]+/).map(Number);
+    const className = (a.match(/\bclass\s*=\s*["']\s*([^"']+)\s*["']/i) || [])[1];
     const id = nextId++ as NodeId;
-    doc.nodes.set(id, makePolygonPath(id, pts));
+    const node = makePolygonPath(id, pts);
+    if (className) (node as any).className = className;
+    doc.nodes.set(id, node);
     childIds.push(id);
   }
 

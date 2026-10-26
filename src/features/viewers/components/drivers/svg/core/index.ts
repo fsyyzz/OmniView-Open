@@ -270,3 +270,20 @@ export { getSvgEngineFlag, setSvgEngineFlag, SVG_ENGINE_FLAG_KEY } from './featu
 export type { SvgEngineVersion } from './featureFlag';
 export { shouldWriteBackup, tagBackupContent, writeBackup, backupFileName } from './backup';
 export type { BackupOptions } from './backup';
+
+// ---- 全局样式与 CSS 变量 (Global Styles) ----
+export {
+  extractCssFromRawDefs,
+  parseGlobalStyles,
+  getDocumentGlobalStyles,
+  setDocumentGlobalStyles,
+  updateDocumentCssVariable,
+  extractNodeToGlobalClass,
+  getClassesInUse,
+  SVG_STYLE_PRESETS,
+} from './model/globalStyles';
+export type {
+  CssVariableItem,
+  CssClassRuleItem,
+  GlobalStylesInfo,
+} from './model/globalStyles';

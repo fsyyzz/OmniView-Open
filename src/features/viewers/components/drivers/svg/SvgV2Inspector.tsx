@@ -17,6 +17,12 @@ import {
   Scaling,
   Maximize2,
   Copy,
+  Tag,
+  Code,
+  Sparkles,
+  ChevronDown,
+  ChevronRight,
+  Plus,
 } from 'lucide-react';
 import {
   getBoundingBox,
@@ -31,6 +37,11 @@ import {
   getPolylineWorldAnchors,
   nodeWorldBBox,
   nodeWorldTransform,
+  parseGlobalStyles,
+  getDocumentGlobalStyles,
+  SVG_STYLE_PRESETS,
+  getClassesInUse,
+  RAW_DEFS_METADATA_KEY,
   type AlignMode,
   type CommandId,
   type CommandParams,
@@ -125,6 +136,23 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
   const [lockCanvasAspect, setLockCanvasAspect] = useState(true);
   const [canvasResizeMode, setCanvasResizeMode] = useState<'scale-content' | 'canvas-only'>('scale-content');
   const [lockElementAspect, setLockElementAspect] = useState(false);
+  const [cssEditorOpen, setCssEditorOpen] = useState(false);
+  const rawDefs = doc.metadata[RAW_DEFS_METADATA_KEY] ?? '';
+  const currentGlobalCss = getDocumentGlobalStyles(doc);
+  const [cssDraft, setCssDraft] = useState(currentGlobalCss);
+
+  useEffect(() => {
+    setCssDraft(currentGlobalCss);
+  }, [currentGlobalCss]);
+
+  const globalStylesInfo = parseGlobalStyles(rawDefs);
+  const classesInUse = getClassesInUse(doc);
+  const allDefinedClasses = Array.from(
+    new Set([
+      ...globalStylesInfo.classRules.map((r) => r.className),
+      ...Array.from(classesInUse.keys()),
+    ]),
+  );
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const ids = selection.nodeIds;
@@ -628,6 +656,193 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
             💡 提示：直接拖拽画布中 SVG 白色外框四周与四角的 8 个蓝色控制点，即可实时拉伸调整 SVG 图形本身尺寸。
           </div>
         </div>
+
+        {/* 全局样式与 CSS 变量 (Global Styles & CSS) */}
+        <div className="space-y-2 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/40 p-2 text-xs">
+          <div className="flex items-center justify-between text-[var(--ov-fg-muted)]">
+            <span className="flex items-center gap-1 font-semibold text-[var(--ov-fg)]">
+              <Sparkles size={12} className="text-[var(--ov-accent)]" />
+              <span>全局样式与 CSS 变量</span>
+            </span>
+            <span className="font-mono text-[10px] text-[var(--ov-accent)]">
+              {globalStylesInfo.cssVariables.length} 变量 · {globalStylesInfo.classRules.length} 样式类
+            </span>
+          </div>
+
+          {/* 1. 变量快捷调试器 (CSS Custom Properties) */}
+          {globalStylesInfo.cssVariables.length > 0 ? (
+            <div className="space-y-1.5 pt-1 border-t border-[var(--ov-border)]/50">
+              <span className="text-[11px] font-semibold text-[var(--ov-fg-muted)]">
+                CSS 变量实时调色
+              </span>
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-0.5">
+                {globalStylesInfo.cssVariables.map((v) => {
+                  const isColor = /^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(|[a-zA-Z]+$)/.test(v.value.trim());
+                  return (
+                    <div
+                      key={`${v.selector}-${v.name}`}
+                      className="flex items-center justify-between gap-1.5 rounded border border-[var(--ov-border)]/60 bg-[var(--ov-surface)] px-1.5 py-1"
+                    >
+                      <span className="font-mono text-[10px] text-[var(--ov-accent)] truncate max-w-[110px]" title={v.name}>
+                        {v.name}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {isColor && (
+                          <input
+                            type="color"
+                            value={v.value.startsWith('#') && (v.value.length === 7 || v.value.length === 4) ? v.value : '#3b82f6'}
+                            className="h-5 w-6 cursor-pointer rounded border border-[var(--ov-border)] p-0"
+                            title={`修改变量 ${v.name} 的颜色`}
+                            onChange={(e) => {
+                              execute('canvas.updateCssVariable', { varName: v.name, value: e.target.value });
+                              showFeedback(`已更新变量 ${v.name} 为 ${e.target.value}`);
+                            }}
+                          />
+                        )}
+                        <input
+                          type="text"
+                          value={v.value}
+                          className="w-20 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1 py-0.5 font-mono text-[10px] text-[var(--ov-fg)]"
+                          onChange={(e) => {
+                            execute('canvas.updateCssVariable', { varName: v.name, value: e.target.value });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-[10px] text-[var(--ov-fg-muted)] pt-0.5">
+              暂未定义全局 CSS 变量。可通过下方预设或源码编辑器注入 <code className="text-[var(--ov-accent)]">:root &#123; --color: #hex &#125;</code>。
+            </div>
+          )}
+
+          {/* 2. 常用样式预设一键注入 */}
+          <div className="space-y-1 pt-1 border-t border-[var(--ov-border)]/50">
+            <span className="text-[11px] font-semibold text-[var(--ov-fg-muted)]">
+              预设样式库注入
+            </span>
+            <div className="grid grid-cols-2 gap-1">
+              {SVG_STYLE_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  title={`${p.name}：${p.description}`}
+                  className="flex items-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] px-1.5 py-1 text-[10px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-accent)] transition-colors text-left truncate"
+                  onClick={() => {
+                    const currentCss = getDocumentGlobalStyles(doc);
+                    const mergedCss = currentCss.trim()
+                      ? `${currentCss.trim()}\n\n/* === ${p.name} === */\n${p.css}`
+                      : `/* === ${p.name} === */\n${p.css}`;
+                    execute('canvas.setGlobalStyles', { css: mergedCss });
+                    showFeedback(`已注入预设: ${p.name}`);
+                  }}
+                >
+                  <Plus size={10} className="text-[var(--ov-accent)] shrink-0" />
+                  <span className="truncate">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. 已知 CSS 类名清单与关联图元筛选 */}
+          {globalStylesInfo.classRules.length > 0 && (
+            <div className="space-y-1 pt-1 border-t border-[var(--ov-border)]/50">
+              <span className="text-[11px] font-semibold text-[var(--ov-fg-muted)]">
+                已定义的样式类 ({globalStylesInfo.classRules.length})
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {globalStylesInfo.classRules.map((c) => {
+                  const count = classesInUse.get(c.className) ?? 0;
+                  return (
+                    <button
+                      key={c.selector}
+                      type="button"
+                      title={`点击选中所有应用了 .${c.className} 类的图元（当前有 ${count} 个图元使用）`}
+                      className="flex items-center gap-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] px-1.5 py-0.5 text-[10px] text-[var(--ov-fg)] hover:border-[var(--ov-accent)] transition-colors"
+                      onClick={() => {
+                        const matchingIds: NodeId[] = [];
+                        for (const n of doc.nodes.values()) {
+                          if (n.className && n.className.split(/\s+/).includes(c.className)) {
+                            matchingIds.push(n.id);
+                          }
+                        }
+                        if (matchingIds.length > 0) {
+                          execute('select.set', { ids: matchingIds, additive: false });
+                          showFeedback(`已选中 ${matchingIds.length} 个匹配 .${c.className} 的图元`);
+                        } else {
+                          showFeedback(`画布中暂无图元应用 .${c.className}`);
+                        }
+                      }}
+                    >
+                      <span className="font-mono text-[var(--ov-accent)]">.{c.className}</span>
+                      <span className="rounded-full bg-[var(--ov-accent-soft)] px-1 font-mono text-[9px] text-[var(--ov-accent)]">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 4. CSS 源码查看与直接编辑 */}
+          <div className="space-y-1 pt-1 border-t border-[var(--ov-border)]/50">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                className="flex items-center gap-1 text-[11px] font-semibold text-[var(--ov-fg-muted)] hover:text-[var(--ov-fg)]"
+                onClick={() => setCssEditorOpen((v) => !v)}
+              >
+                {cssEditorOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <span>全局 &lt;style&gt; CSS 源码编辑器</span>
+              </button>
+              {cssEditorOpen && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="rounded bg-[var(--ov-accent)] px-1.5 py-0.5 text-[10px] text-white hover:opacity-90 font-medium"
+                    onClick={() => {
+                      execute('canvas.setGlobalStyles', { css: cssDraft });
+                      showFeedback('全局 CSS 样式已保存并生效');
+                    }}
+                  >
+                    保存样式
+                  </button>
+                </div>
+              )}
+            </div>
+            {cssEditorOpen && (
+              <div className="space-y-1 pt-1">
+                <textarea
+                  rows={8}
+                  value={cssDraft}
+                  placeholder={`/* 在此处输入 SVG 全局 CSS 规则，例如：*/\n:root {\n  --brand: #3b82f6;\n}\n.my-shape {\n  fill: var(--brand);\n  stroke: #1e293b;\n  stroke-width: 2px;\n}`}
+                  className="w-full rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] p-1.5 font-mono text-[11px] leading-relaxed text-[var(--ov-fg)] resize-y focus:outline-none focus:border-[var(--ov-accent)]"
+                  onChange={(e) => setCssDraft(e.target.value)}
+                />
+                <div className="flex items-center justify-between text-[10px] text-[var(--ov-fg-muted)]">
+                  <span>支持 :root 变量、CSS Class、伪类与媒体查询</span>
+                  <button
+                    type="button"
+                    className="hover:text-rose-500"
+                    onClick={() => {
+                      if (window.confirm('确定清空 SVG 内的所有全局样式吗？')) {
+                        setCssDraft('');
+                        execute('canvas.setGlobalStyles', { css: '' });
+                        showFeedback('已清空全局样式表');
+                      }
+                    }}
+                  >
+                    清空样式
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -681,6 +896,76 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
             <span>刷新样式 (Alt+V)</span>
           </button>
         </div>
+      </div>
+
+      {/* CSS 类名与全局样式提取 (CSS Class & Styling) */}
+      <div className="mb-2 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)]/40 p-1.5 text-xs">
+        <div className="mb-1 flex items-center justify-between text-[var(--ov-fg-muted)]">
+          <span className="flex items-center gap-1 font-semibold text-[var(--ov-fg)]">
+            <Tag size={12} className="text-[var(--ov-accent)]" />
+            <span>CSS 类名 (Class Name)</span>
+          </span>
+          {primary?.className && (
+            <span className="font-mono text-[10px] text-emerald-500 font-medium">
+              已绑定类
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <input
+            type="text"
+            placeholder="如: icon-primary glow"
+            value={primary?.className ?? ''}
+            className="flex-1 rounded border border-[var(--ov-border)] bg-[var(--ov-bg)] px-1.5 py-1 font-mono text-[11px] text-[var(--ov-fg)] focus:outline-none focus:border-[var(--ov-accent)]"
+            onChange={(e) => {
+              execute('object.setClassName', { ids, className: e.target.value });
+            }}
+          />
+          <button
+            type="button"
+            title="将当前选中的图元外观（填充、描边、透明度）一键提取为全局 CSS 类并赋给该图元"
+            className="flex items-center gap-1 whitespace-nowrap rounded border border-[var(--ov-border)] bg-[var(--ov-surface)] px-2 py-1 text-[11px] text-[var(--ov-fg)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-accent)] transition-colors"
+            onClick={() => {
+              if (primary) {
+                execute('object.extractToClass', { id: primary.id });
+                showFeedback(`已提取外观为全局 CSS 类 .cls-${primary.id}`);
+              }
+            }}
+          >
+            <Sparkles size={11} className="text-[var(--ov-accent)]" />
+            <span>提取样式</span>
+          </button>
+        </div>
+        {/* 快速选择文档中已有 Class */}
+        {allDefinedClasses.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1 pt-1 border-t border-[var(--ov-border)]/40">
+            <span className="text-[10px] text-[var(--ov-fg-muted)]">快捷绑定:</span>
+            {allDefinedClasses.map((cls) => {
+              const isApplied = (primary?.className || '').split(/\s+/).includes(cls);
+              return (
+                <button
+                  key={cls}
+                  type="button"
+                  className={`rounded px-1.5 py-0.5 font-mono text-[10px] transition-colors ${
+                    isApplied
+                      ? 'bg-[var(--ov-accent)] text-white font-medium'
+                      : 'border border-[var(--ov-border)] bg-[var(--ov-surface)] text-[var(--ov-fg)] hover:border-[var(--ov-accent)]'
+                  }`}
+                  onClick={() => {
+                    const currentClasses = (primary?.className || '').split(/\s+/).filter(Boolean);
+                    const nextClasses = isApplied
+                      ? currentClasses.filter((c) => c !== cls)
+                      : [...currentClasses, cls];
+                    execute('object.setClassName', { ids, className: nextClasses.join(' ') });
+                    showFeedback(`${isApplied ? '已移除' : '已添加'}类 .${cls}`);
+                  }}
+                >
+                  .{cls}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 对齐与分布（≥2 才能对齐；≥3 才能分布） */}

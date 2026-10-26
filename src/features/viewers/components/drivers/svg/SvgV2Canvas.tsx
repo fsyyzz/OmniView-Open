@@ -47,6 +47,7 @@ export interface SvgV2CanvasProps {
 /** `<defs>` 净化配置（支持完整 SVG 滤镜、渐变、marker、style 及内嵌图元白名单）。 */
 const DEFS_SANITIZE = {
   USE_PROFILES: { svg: true, svgFilters: true },
+  PARSER_MEDIA_TYPE: 'application/xhtml+xml',
   ADD_TAGS: [
     'svg', 'defs', 'style', 'clipPath', 'linearGradient', 'radialGradient', 'stop',
     'filter', 'feDropShadow', 'feGaussianBlur', 'feOffset', 'feMerge', 'feMergeNode',
@@ -83,7 +84,7 @@ export function sanitizeDefsFragment(rawDefs: string): string {
   const trimmed = rawDefs.trim();
   if (!trimmed) return '';
   const wrapped = `<svg xmlns="http://www.w3.org/2000/svg"><defs id="__ov_defs_wrap__">${trimmed}</defs></svg>`;
-  const clean = DOMPurify.sanitize(wrapped, DEFS_SANITIZE);
+  const clean = String(DOMPurify.sanitize(wrapped, DEFS_SANITIZE as any));
   const match = clean.match(/<defs[^>]*id=["']__ov_defs_wrap__["'][^>]*>([\s\S]*?)<\/defs>/i)
     ?? clean.match(/<defs[^>]*>([\s\S]*?)<\/defs>/i);
   return match ? match[1] ?? '' : '';
@@ -838,13 +839,6 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
     const mEnd = resolveMarkerAttr(node.markerEnd);
     const inlineStyle: React.CSSProperties = {
       cursor: 'default',
-      ...(node.className
-        ? {
-            fill: fillValue,
-            stroke: strokeValue,
-            strokeWidth: strokeWidth || undefined,
-          }
-        : undefined),
       ...selStyle,
     };
 
@@ -885,15 +879,6 @@ export function renderNode(node: Node, doc: SvgDocument, selection: Selection): 
       cursor: 'default',
       userSelect: 'none',
       WebkitUserSelect: 'none',
-      ...(node.className
-        ? {
-            fill: fillValue,
-            fontSize: node.fontSize ?? 16,
-            fontFamily: node.fontFamily,
-            fontWeight: node.fontWeight as React.CSSProperties['fontWeight'],
-            fontStyle: node.fontStyle as React.CSSProperties['fontStyle'],
-          }
-        : undefined),
       ...selStyle,
     };
 

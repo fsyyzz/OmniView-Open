@@ -8,7 +8,38 @@
 
 ---
 
-## [1.3.30] - 2026-10-24 (当前最新发布)
+## [1.3.38] - 2026-10-26 (当前最新发布)
+
+> [!TIP] v1.3.38 核心升级亮点
+> **Markdown 渲染效果全量对齐打印与单文件离线导出管线 (Print & Export Fidelity)**：
+> 1. **根治打印背景透明洗脱问题**：彻底清除 `@media print` 中抹杀 `.ov-callout`、`table`、`pre` 背景色彩与边框的 `background-color: transparent !important` 与泛化灰边覆盖，完整保留 GitHub Alert 语义块色彩基调与左边框高光；
+> 2. **现代扩展排版组件打印样式补全**：全面补齐多列卡片矩阵 (`.ov-card-grid`)、多标签页组 (`.ov-tab-group`)、步骤引导条 (`.ov-steps-container`)、时间线 (`.ov-timeline-container`)、对比差分卡 (`.ov-compare-container`)、KPI 指标看板 (`.ov-metrics-container`)、问答手风琴 (`.ov-faq-container`)、引言墙 (`.ov-quotes-container`) 与 OKF 概念卡片的打印印刷 CSS；
+> 3. **折叠块展开与多 Tab 保全**：
+>    - 打印与导出时自动强制将所有折叠块（`<details>`）设置为 `open`，杜绝打印时未手动展开的内容被截断丢失；
+>    - 彻底解决以前打印时因 `button { display: none }` 导致 Tab 标题丢失且仅打印首个 Tab 的缺陷，自动展开所有 Tab 面板并注入醒目的打印徽标（如 `标签页: npm`）；
+> 4. **工作台外置打印统一收敛**：`WorkbenchHeader.tsx` 的 Webview 打印统一接入 `buildPortableHtml`，确保工作台与插件文档视图的外置打印呈现 100% 像素级一致的高保真效果；
+> 5. **代码高亮与表格打印加固**：单文件便携 HTML 内联 Prism 代码高亮词法配色，表格保持斑马纹与跨页重复表头（`thead { display: table-header-group }`）。
+
+---
+
+## [1.3.37] - 2026-10-26
+
+> [!TIP] v1.3.37 核心升级亮点
+> **SVG 渲染与编辑全面支持全局样式表 (`<style>`) 与 CSS 变量系统**：
+> 1. **DOMPurify 净化保真**：在 `sanitizeDefsFragment` 中配置 `PARSER_MEDIA_TYPE: 'application/xhtml+xml'`，彻底根除 DOMPurify 默认 HTML 上下文剥离 `<style>` 标签的问题，使全局 CSS 样式表、渐变、滤镜与 SVG 图元得以完整注入 DOM；
+> 2. **解除内联样式覆盖**：移除 `<path>` / `<text>` 渲染时强制注入内联 `style` 的 `fill`/`stroke` 覆盖，严格遵循 W3C SVG 规范将默认外观作为 presentation attributes 分发，使全局样式表中的 CSS 类规则（如 `.my-class { fill: red; }`）及 `:root` 变量（`var(--primary)`）能够无缝层叠生效；
+> 3. **全局样式与 CSS 变量核心引擎 (`core/model/globalStyles.ts`)**：提供 `parseGlobalStyles`、`setDocumentGlobalStyles`、`updateDocumentCssVariable`、`extractNodeToGlobalClass` 与 `getClassesInUse` 等不可变文档模型操作；
+> 4. **Inspector 全功能全局样式与变量编辑器 (`SvgV2Inspector.tsx`)**：
+>    - **CSS 变量实时调色器**：自动侦测提取 `:root` / `svg` 中的 `--var` 变量并提供拾色器与数值调节，即时更新整图；
+>    - **CSS 类名管理与图元筛选**：罗列已定义的样式类名与图元引用计数徽章，支持一键点击选中所有使用该类的图元；
+>    - **预设样式库一键注入**：支持注入主题调色盘、霓虹发光、工业线框、悬浮微动效、暗黑自适应等预设样式；
+>    - **代码级 `<style>` 编辑器**：支持实时查看与直接编辑完整 CSS 源码；
+>    - **图元 Class 绑定与一键抽取**：选中图元时支持快速输入/选择 `className`，并提供「提取为全局 CSS 类」一键抽样生成样式类；
+> 5. **命令管线与撤销重做**：注册 `canvas.setGlobalStyles`、`canvas.updateCssVariable`、`object.setClassName`、`object.extractToClass` 命令，全量支持撤销重做与 SVG 导出回写保真。
+
+---
+
+## [1.3.30] - 2026-10-24
 
 > [!TIP] v1.3.30 核心升级亮点
 > **文档图形化专项治理：docs 核心文档充分图形化改造 + 全仓 12 处 ASCII 文本图升级为标准 Mermaid/Markmap 图形**：
