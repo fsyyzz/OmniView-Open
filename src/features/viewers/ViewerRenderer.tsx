@@ -118,6 +118,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
       onOpenInEditor,
       onOpenSettings,
       onOpenShortcuts,
+      onSelectFile,
       files,
     };
 
@@ -129,7 +130,10 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   };
 
   return (
-    <RenderErrorBoundary blockName={`OmniView Driver (${driverId})`}>
+    <RenderErrorBoundary
+      key={`${driverId}:${file.path || file.name || file.id}`}
+      blockName={`OmniView Driver (${driverId})`}
+    >
       <Suspense fallback={<DriverLoadingFallback fileName={file.name} />}>
         {renderDriverContent()}
       </Suspense>

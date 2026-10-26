@@ -35,4 +35,12 @@ assert.match(
 assert.match(codeViewer, /type: 'save-content'/, 'CodeViewer 显式保存必须发送 save-content');
 assert.match(codeViewer, /content-saved/, 'CodeViewer 必须等待 content-saved 再标记已保存');
 
+// 超链接点击与文件跳转契约：Host 必须处理 open-link，Webview 必须通过 IPC 委托打开
+const scrollSync = read('src/features/viewers/hooks/useMarkdownScrollSync.ts');
+assert.match(editorProvider, /message\?\.type === 'open-link'/, 'Host 必须监听 open-link 消息以打开文件与外部链接');
+assert.match(editorProvider, /vscode\.commands\.executeCommand\('vscode\.open'/, 'Host 必须调用 vscode.open 打开关联文档');
+assert.match(editorProvider, /vscode\.env\.openExternal/, 'Host 必须调用 openExternal 打开外部超链接');
+assert.match(pluginView, /type:\s*'open-link'/, 'PluginDocumentView 必须拦截超链接并发送 open-link IPC');
+assert.match(scrollSync, /type:\s*'open-link'/, 'useMarkdownScrollSync 必须拦截相对路径/WikiLink 并发送 open-link IPC');
+
 console.log('test-webview-save-writeback: OK');

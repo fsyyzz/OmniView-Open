@@ -1364,6 +1364,16 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           onNavigate={() => {
             if (hoverWikiLinkInfo.file && onSelectFile) {
               onSelectFile(hoverWikiLinkInfo.file);
+            } else if (onSelectFile) {
+              onSelectFile({
+                id: hoverWikiLinkInfo.target,
+                name: hoverWikiLinkInfo.target,
+                path: hoverWikiLinkInfo.target,
+                extension: 'md',
+                content: '',
+                size: 0,
+                lastModified: Date.now(),
+              });
             }
           }}
           onClose={() => setHoverWikiLinkInfo(null)}

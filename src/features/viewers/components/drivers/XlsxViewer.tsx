@@ -45,6 +45,8 @@ import { ColumnSparklineMini } from './csv/ColumnSparklineMini';
 import type { ThemeId } from '../../../../shared/types';
 import { type Locale } from '../../../../shared/lib/i18n';
 
+import { resilientImport } from '../../lib/resilientImport';
+
 export interface XlsxViewerProps {
   content?: string;
   binaryUrl?: string;
@@ -56,7 +58,9 @@ export interface XlsxViewerProps {
   onContentChange?: (content: string) => void;
 }
 
-const UniverSheetViewer = React.lazy(() => import('./xlsx/UniverSheetViewer'));
+const UniverSheetViewer = React.lazy(() =>
+  resilientImport(() => import('./xlsx/UniverSheetViewer'), { tag: 'UniverSheetViewer' })
+);
 
 export const XlsxViewer: React.FC<XlsxViewerProps> = ({
   content,

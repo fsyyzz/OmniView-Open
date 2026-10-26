@@ -185,6 +185,21 @@ async function testConvertOmniWorkbookToUniver() {
   console.log('  ✓ OmniView -> Univer 数据模型适配测试通过');
 }
 
+import { isStaleModuleOrDispatcherError } from '../src/features/viewers/components/common/RenderErrorBoundary.tsx';
+
+async function testStaleModuleOrDispatcherDetection() {
+  console.log('  [test] Vite 依赖重打包哈希不一致 / React 双实例 Dispatcher 异常识别测试...');
+  const err = new TypeError("Cannot read properties of null (reading 'useState')");
+  err.stack = `TypeError: Cannot read properties of null (reading 'useState')
+    at exports.useState (https://localhost:3000/node_modules/.vite/deps/chunk-USTO3F3J.js?v=9fb88ae5:959:35)
+    at XlsxViewer (https://localhost:3000/src/features/viewers/components/drivers/XlsxViewer.tsx:47:35)`;
+  assert.equal(isStaleModuleOrDispatcherError(err), true);
+
+  const normalErr = new Error('Workbook XML corrupted');
+  assert.equal(isStaleModuleOrDispatcherError(normalErr), false);
+  console.log('  ✓ Vite 依赖哈希不一致与 React 双实例异常识别测试通过');
+}
+
 async function runAll() {
   console.log('=== 开始执行 XLSX 渲染引擎自动化测试套件 ===');
   await testColLetterConversion();
@@ -194,7 +209,8 @@ async function runAll() {
   await testExportToCsvJsonMarkdown();
   await testResilienceOnEmptyInput();
   await testConvertOmniWorkbookToUniver();
-  console.log('=== XLSX 渲染引擎 7 项测试全部 PASSED ===\n');
+  await testStaleModuleOrDispatcherDetection();
+  console.log('=== XLSX 渲染引擎 8 项测试全部 PASSED ===\n');
 }
 
 runAll().catch(err => {

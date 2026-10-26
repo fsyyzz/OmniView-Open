@@ -13,6 +13,7 @@ import {
   measureSourceBlocks,
   type PaneSyncDetail,
 } from '../lib/scrollSync';
+import { getVsCodeApi } from '../../../shared/lib/vscode';
 
 export interface UseMarkdownScrollSyncOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -167,6 +168,8 @@ export function useMarkdownScrollSync({
           return;
         }
 
+        const vscode = getVsCodeApi();
+
         if (
           href &&
           !href.startsWith('http://') &&
@@ -174,15 +177,23 @@ export function useMarkdownScrollSync({
           !href.startsWith('mailto:')
         ) {
           if (href.startsWith('#')) {
-            if (isWiki) {
-              e.preventDefault();
-              e.stopPropagation();
-              const id = decodeURIComponent(href.slice(1));
-              const el = container?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
-              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            e.preventDefault();
+            e.stopPropagation();
+            const id = decodeURIComponent(href.slice(1));
+            const el =
+              container?.querySelector<HTMLElement>(`#${CSS.escape(id)}`) ||
+              container?.querySelector<HTMLElement>(`[id="${id}"]`) ||
+              container?.querySelector<HTMLElement>(`[name="${id}"]`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+              scrollToHeading(id);
             }
             return;
           }
+
+          e.preventDefault();
+          e.stopPropagation();
 
           const cleanHref = decodeURIComponent(href.trim().split(/[?#]/, 1)[0])
             .replace(/\\/g, '/')
@@ -194,15 +205,28 @@ export function useMarkdownScrollSync({
               f.name.replace(/\.[^.]+$/, '').toLowerCase() === baseName.replace(/\.[^.]+$/, '').toLowerCase() ||
               (f.path && f.path.replace(/^\//, '').toLowerCase().endsWith(cleanHref.toLowerCase()))
           );
+
+          if (vscode) {
+            vscode.postMessage({
+              type: 'open-link',
+              href: isWiki && wikiTarget ? (wikiHeading ? `${wikiTarget}#${wikiHeading}` : wikiTarget) : href,
+              heading: isWiki ? wikiHeading : undefined,
+            });
+            return;
+          }
+
           if (targetFile && onSelectFile) {
-            e.preventDefault();
-            e.stopPropagation();
             onSelectFile(targetFile);
             return;
           }
-          if (isWiki) {
+        } else if (href && (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:'))) {
+          if (vscode) {
             e.preventDefault();
             e.stopPropagation();
+            vscode.postMessage({
+              type: 'open-link',
+              href,
+            });
           }
         }
       }

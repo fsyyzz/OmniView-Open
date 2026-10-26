@@ -59,6 +59,15 @@ export interface ViewerDriver {
   license: string;
 }
 
+export interface SoftwareDoc {
+  id: string;
+  title: string;
+  category: 'PRD' | 'Architecture' | 'Scaffold' | 'Security' | string;
+  summary: string;
+  tags: string[];
+  content: string;
+}
+
 export type ViewMode = 'preview' | 'source' | 'split' | 'mindmap';
 export type WorkbenchView = 'editor' | 'scaffold';
 

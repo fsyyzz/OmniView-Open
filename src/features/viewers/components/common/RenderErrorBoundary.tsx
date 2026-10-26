@@ -27,6 +27,22 @@ export interface RenderErrorBoundaryState {
   copied: boolean;
 }
 
+/**
+ * 检测是否为动态模块加载中断或 Vite 依赖重打包哈希不一致引发的 React 双实例 Dispatcher 空指针异常
+ */
+export function isStaleModuleOrDispatcherError(error: Error | null | undefined): boolean {
+  if (!error) return false;
+  const msg = error.message || '';
+  const stack = error.stack || '';
+  return (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('error loading dynamically imported module') ||
+    (msg.includes('Cannot read properties of null') && /reading 'use[A-Z]\w*'/.test(msg)) ||
+    (stack.includes('.vite/deps/') && msg.includes('Cannot read properties of null'))
+  );
+}
+
 // 继承自 React.Component
 export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProps, RenderErrorBoundaryState> {
   constructor(props: RenderErrorBoundaryProps) {
@@ -48,9 +64,23 @@ export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProp
     this.setState({ errorInfo });
     this.props.onCatch?.(error, errorInfo);
 
-    // 若捕获动态模块载入错误，主动清空缓存以备自愈
-    if (error.message?.includes('Failed to fetch dynamically imported module')) {
+    // 若捕获动态模块载入错误或 Vite 依赖哈希更新导致的 React 双实例异常，主动清空缓存并尝试无感自愈刷新
+    if (isStaleModuleOrDispatcherError(error)) {
       clearAllDriverCaches();
+      try {
+        if (typeof window !== 'undefined' && !this.props.vscode && window.sessionStorage) {
+          const reloadKey = 'omniview:vite-dep-reload-ts';
+          const lastReload = Number(window.sessionStorage.getItem(reloadKey) || '0');
+          const now = Date.now();
+          if (now - lastReload > 10000) {
+            window.sessionStorage.setItem(reloadKey, String(now));
+            window.location.reload();
+            return;
+          }
+        }
+      } catch {
+        // ignore storage/reload restrictions
+      }
     }
 
     // 报告给 VS Code 宿主方便统一调试排查
@@ -68,8 +98,17 @@ export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProp
   }
 
   private handleReset = () => {
+    const { error } = this.state;
     // 强制清理驱动缓存，使 React 重新挂载时能够重新发起 dynamic import
     clearAllDriverCaches();
+    if (isStaleModuleOrDispatcherError(error) && typeof window !== 'undefined' && !this.props.vscode) {
+      try {
+        window.location.reload();
+        return;
+      } catch {
+        // fallback to normal state reset
+      }
+    }
     this.setState({
       hasError: false,
       error: null,
@@ -142,10 +181,10 @@ ${errorInfo?.componentStack || 'No component stack'}`;
         </div>
 
         <p className="ov-error-desc">
-          {error?.message?.includes('Failed to fetch dynamically imported module')
+          {isStaleModuleOrDispatcherError(error)
             ? (locale?.startsWith('en')
-                ? 'Driver module loading was interrupted. Please click "Retry" to reload the driver.'
-                : '驱动模块动态加载被中断或网络抖动，请点击「重试」重新加载驱动。')
+                ? 'Driver module cache was updated during hot reload. Click "Retry" to synchronize and reload the driver.'
+                : '驱动模块动态缓存已更新或网络抖动，请点击「重试」同步模块并重新加载驱动。')
             : (error?.message || t('errorBoundaryDesc', locale))}
         </p>
 

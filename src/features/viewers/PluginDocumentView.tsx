@@ -692,6 +692,55 @@ const MarkdownPluginView: React.FC<{
     }
   }, [vscode, file?.path]);
 
+  const handleSelectFile = useCallback(
+    (selectedFile: FileItem) => {
+      if (vscode) {
+        vscode.postMessage({
+          type: 'open-link',
+          href: selectedFile.path || selectedFile.name,
+          currentFilePath: file?.path,
+        });
+      }
+    },
+    [vscode, file?.path]
+  );
+
+  // 全局容器级超链接点击监听（支持非 Markdown 驱动与外部链接统一委托至 VS Code 宿主处理）
+  useEffect(() => {
+    if (!vscode) return;
+    const handleContainerClick = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const anchor = target.closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href') || '';
+      if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+      if (href.startsWith('#')) {
+        e.preventDefault();
+        const id = decodeURIComponent(href.slice(1));
+        const el = document.getElementById(id) || document.querySelector(`[name="${id}"]`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      vscode.postMessage({
+        type: 'open-link',
+        href,
+        currentFilePath: file?.path,
+      });
+    };
+
+    const root = shellRef.current || document;
+    root.addEventListener('click', handleContainerClick as EventListener);
+    return () => {
+      root.removeEventListener('click', handleContainerClick as EventListener);
+    };
+  }, [vscode, file?.path]);
+
   const currentHeading = headings?.[activeHeadingIndex];
   const fileWordCount = Math.max(1, (file?.content || '').trim().split(/\s+/).filter(Boolean).length || 1);
   const activeDriverId = activeFile ? getDriverIdForFile(activeFile) : 'markdown';
@@ -719,6 +768,7 @@ const MarkdownPluginView: React.FC<{
             onRenderComplete={handleRenderComplete}
             onOpenSourceAtLine={handleOpenSourceAtLine}
             onOpenInEditor={handleOpenInEditor}
+            onSelectFile={handleSelectFile}
             enableOkf={enableOkfRendering}
             onToggleOkf={handleToggleOkf}
             eagerMount={eagerMountBlocks}
@@ -868,6 +918,7 @@ const MarkdownPluginView: React.FC<{
               onRenderComplete={handleRenderComplete}
               onOpenSourceAtLine={handleOpenSourceAtLine}
               onOpenInEditor={handleOpenInEditor}
+              onSelectFile={handleSelectFile}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
               eagerMount={eagerMountBlocks}
@@ -887,6 +938,7 @@ const MarkdownPluginView: React.FC<{
               onRenderComplete={handleRenderComplete}
               onOpenSourceAtLine={handleOpenSourceAtLine}
               onOpenInEditor={handleOpenInEditor}
+              onSelectFile={handleSelectFile}
               enableOkf={enableOkfRendering}
               onToggleOkf={handleToggleOkf}
               eagerMount={eagerMountBlocks}
@@ -912,6 +964,7 @@ const MarkdownPluginView: React.FC<{
                 onRenderComplete={handleRenderComplete}
                 onOpenSourceAtLine={handleOpenSourceAtLine}
                 onOpenInEditor={handleOpenInEditor}
+                onSelectFile={handleSelectFile}
                 enableOkf={enableOkfRendering}
                 onToggleOkf={handleToggleOkf}
                 eagerMount={eagerMountBlocks}

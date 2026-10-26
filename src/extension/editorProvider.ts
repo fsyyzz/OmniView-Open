@@ -1,5 +1,6 @@
+import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import * as vscode from 'vscode';
 import { BINARY_EXTENSIONS, getMimeType } from './types';
 import { isSameDocumentUri } from './utils';
@@ -337,6 +338,190 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
           log('Saved configuration back to VS Code global settings');
         } catch (err) {
           log('Failed to save configuration to VS Code workspace', err);
+        }
+        return;
+      }
+      if (message?.type === 'open-link') {
+        const rawHref = typeof message?.href === 'string' ? message.href.trim() : '';
+        log(`Webview requested open-link: "${rawHref}"`);
+        if (!rawHref || rawHref === '#') return;
+
+        // 1. 外部网页或邮件链接
+        if (/^(https?:\/\/|mailto:)/i.test(rawHref)) {
+          try {
+            await vscode.env.openExternal(vscode.Uri.parse(rawHref));
+            log(`Opened external URL: ${rawHref}`);
+          } catch (err) {
+            log(`Failed to open external URL: ${rawHref}`, err);
+            void vscode.window.showErrorMessage(`无法打开外部链接: ${rawHref}`);
+          }
+          return;
+        }
+
+        // 2. 自定义协议 (vscode:, command: 等)
+        if (/^(vscode|command):/i.test(rawHref)) {
+          try {
+            await vscode.env.openExternal(vscode.Uri.parse(rawHref));
+            log(`Opened URI scheme: ${rawHref}`);
+          } catch (err) {
+            log(`Failed to open URI: ${rawHref}`, err);
+          }
+          return;
+        }
+
+        // 3. 文档或工作区文件链接 (相对路径、绝对路径、WikiLink、带 #锚点/行号)
+        try {
+          let targetPath = rawHref;
+          let fragment = typeof message?.heading === 'string' ? message.heading.trim() : '';
+          const hashIdx = targetPath.indexOf('#');
+          if (hashIdx !== -1) {
+            if (!fragment) fragment = targetPath.slice(hashIdx + 1);
+            targetPath = targetPath.slice(0, hashIdx);
+          }
+          const queryIdx = targetPath.indexOf('?');
+          if (queryIdx !== -1) {
+            targetPath = targetPath.slice(0, queryIdx);
+          }
+
+          try {
+            targetPath = decodeURIComponent(targetPath);
+          } catch {
+            // 忽略 URI 格式异常
+          }
+
+          if (!targetPath) return;
+
+          const currentDocPath = (typeof message?.currentFilePath === 'string' && message.currentFilePath)
+            ? message.currentFilePath
+            : document.uri.fsPath;
+          const currentDir = currentDocPath ? dirname(currentDocPath) : '';
+
+          let resolvedPath: string | undefined;
+
+          // 候选 1: file:// 协议 URI
+          if (targetPath.startsWith('file://')) {
+            try {
+              resolvedPath = vscode.Uri.parse(targetPath).fsPath;
+            } catch {
+              // 忽略
+            }
+          }
+
+          // 候选 2: 绝对文件路径
+          if (!resolvedPath && isAbsolute(targetPath)) {
+            if (existsSync(targetPath)) {
+              resolvedPath = targetPath;
+            } else if (vscode.workspace.workspaceFolders) {
+              const stripSlash = targetPath.replace(/^[/\\]+/, '');
+              for (const wf of vscode.workspace.workspaceFolders) {
+                const candidate = join(wf.uri.fsPath, stripSlash);
+                if (existsSync(candidate)) {
+                  resolvedPath = candidate;
+                  break;
+                }
+              }
+            }
+          }
+
+          // 候选 3: 相对于当前文档所在目录
+          if (!resolvedPath && currentDir) {
+            const candidate = resolve(currentDir, targetPath);
+            if (existsSync(candidate)) {
+              resolvedPath = candidate;
+            } else {
+              const commonExtensions = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.svg', '.json', '.pdf', '.docx', '.xlsx', '.csv', '.html', '.txt'];
+              for (const ext of commonExtensions) {
+                if (existsSync(candidate + ext)) {
+                  resolvedPath = candidate + ext;
+                  break;
+                }
+              }
+            }
+          }
+
+          // 候选 4: 相对于工作区根目录
+          if (!resolvedPath && vscode.workspace.workspaceFolders) {
+            for (const wf of vscode.workspace.workspaceFolders) {
+              const candidate = resolve(wf.uri.fsPath, targetPath);
+              if (existsSync(candidate)) {
+                resolvedPath = candidate;
+                break;
+              }
+              const commonExtensions = ['.md', '.markdown', '.okf', '.puml', '.plantuml', '.svg', '.json', '.pdf', '.docx', '.xlsx', '.csv', '.html', '.txt'];
+              for (const ext of commonExtensions) {
+                if (existsSync(candidate + ext)) {
+                  resolvedPath = candidate + ext;
+                  break;
+                }
+              }
+            }
+          }
+
+          // 候选 5: 裸文件名 / WikiLink 在工作区内检索定位
+          if (!resolvedPath && vscode.workspace.workspaceFolders) {
+            const cleanBase = basename(targetPath);
+            if (cleanBase) {
+              const matches = await vscode.workspace.findFiles(`**/${cleanBase}`, '**/node_modules/**', 1);
+              if (matches.length > 0) {
+                resolvedPath = matches[0].fsPath;
+              } else if (!extname(cleanBase)) {
+                const matchesWithExt = await vscode.workspace.findFiles(`**/${cleanBase}.{md,markdown,okf,puml,plantuml,svg,pdf,json,csv,xlsx}`, '**/node_modules/**', 1);
+                if (matchesWithExt.length > 0) {
+                  resolvedPath = matchesWithExt[0].fsPath;
+                }
+              }
+            }
+          }
+
+          if (resolvedPath && existsSync(resolvedPath)) {
+            const targetUri = vscode.Uri.file(resolvedPath);
+            log(`Opening resolved file: ${resolvedPath} (fragment: ${fragment || 'none'})`);
+
+            let lineNum: number | undefined;
+            if (fragment) {
+              const lineMatch = fragment.match(/^L?(\d+)$/i);
+              if (lineMatch) {
+                lineNum = parseInt(lineMatch[1], 10);
+              }
+            }
+
+            if (lineNum !== undefined && lineNum > 0) {
+              const lineIdx = lineNum - 1;
+              const pos = new vscode.Position(lineIdx, 0);
+              await vscode.window.showTextDocument(targetUri, {
+                selection: new vscode.Range(pos, pos),
+                preview: false,
+              });
+            } else {
+              try {
+                await vscode.commands.executeCommand('vscode.open', targetUri);
+              } catch (openErr) {
+                log('vscode.open failed, fallback to showTextDocument', openErr);
+                await vscode.window.showTextDocument(targetUri, { preview: false });
+              }
+            }
+            return;
+          }
+
+          log(`File not found for link: ${targetPath} (resolved: ${resolvedPath || 'none'})`);
+          const choice = await vscode.window.showWarningMessage(
+            `找不到对应的链接文件: ${targetPath}`,
+            '在当前目录下新建文件',
+            '取消'
+          );
+          if (choice === '在当前目录下新建文件' && currentDir) {
+            const targetExt = extname(targetPath) || '.md';
+            const cleanName = extname(targetPath) ? targetPath : `${targetPath}${targetExt}`;
+            const newFilePath = resolve(currentDir, cleanName);
+            const newUri = vscode.Uri.file(newFilePath);
+            await vscode.workspace.fs.writeFile(newUri, new Uint8Array(0));
+            await vscode.commands.executeCommand('vscode.open', newUri);
+          }
+        } catch (err) {
+          log(`Error handling open-link for "${rawHref}"`, err);
+          void vscode.window.showErrorMessage(
+            `打开链接文件失败: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
         return;
       }
