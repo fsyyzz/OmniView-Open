@@ -8,7 +8,22 @@
 
 ---
 
-## [1.3.38] - 2026-10-26 (当前最新发布)
+## [1.3.39] - 2026-10-26 (当前最新发布)
+
+> [!TIP] v1.3.39 核心升级亮点
+> **`omniview-markdown-authoring` 技能库六大场景范本全景扩充与规约对齐**：
+> 1. **从 2 个简短示例扩展为 6 大生产级全景样板 (`examples/*.md`)**：
+>    - `enterprise-architecture.md`：企业级架构设计（RFC/ADR）样板，涵盖 OKF YAML Frontmatter、`[!BANNER]`、`[!METRICS]`、Graphviz `dot`、Mermaid 时序与状态机、`[!CARDS:3]`、`[!COMPARE]`、KaTeX `aligned`/`cases` 与 `<!-- pagebreak -->`；
+>    - `release-notes-callouts.md`：版本发布与交互组件百科样板，完整覆盖 9 类标准与扩展 Callout（`NOTE`/`TIP`/`IMPORTANT`/`WARNING`/`CAUTION`/`SUCCESS`/`QUESTION`/`EXAMPLE`/`QUOTE`）、`+`/`-` 折叠手风琴、`[!CARDS:2/3/4/6]` 与 `[!CARD]`、以及 `[!TABS]`/`[!STEPS]`/`[!TIMELINE]`/`[!COMPARE]`/`[!METRICS]`/`[!FAQ]`/`[!QUOTES]` 与 Emoji 简码；
+>    - `data-dashboard-echarts.md`：BI 数据大盘与性能基准样板，涵盖完整 `echarts` 双 Y 轴配置、`echarts:radar`、`echarts:line` 二维数组极简模式、`[!CARDS:2]` 内嵌 `echarts:bar`/`echarts:pie` 组合仪表盘、富表格（含 `\vert` 公式与一键转图）及结构化 `csv`/`yaml` 代码块；
+>    - `domain-modeling-and-attachments.md`：DDD 领域建模与知识图谱样板，涵盖 `domainstory` 领域故事讲述 DSL、`markmap` 限界上下文思维导图、`![[...]]` 与 `![]()` 外部工程图表内联挂载（`.excalidraw`/`.dst`/`.mmd`/`.puml`/`.dot`/`.markmap`）、Obsidian 双向 WikiLinks、Pandoc 定义列表与学术脚注；
+>    - `visual-media-and-svg-gallery.md`：视觉画廊与多主题矢量样板，涵盖图片管道修饰符（`|width|bg-light|bg-dark|bg-checker|center|rounded|circle|caption`）、`#gh-dark-mode-only`、`[!GALLERY:3]`、`[!FIGURE]`、`[!MEDIA]`/`[!MEDIA:RIGHT]` 以及带 `:root` 与 `[data-theme="dark"]` CSS 变量的内联自适应 `<svg>`；
+>    - `scientific-paper-and-print.md`：科学计算推演与 A4 出版级打印样板，涵盖 KaTeX 矩阵（`pmatrix`/`bmatrix`）、多行推导、表格内 `\vert` 与 `\parallel` 防冲突、货币 `\$` 转义、Shell 命令行 `$ ` 提示符自动剥离复制及 `<!-- pagebreak -->` 打印分页规范；
+> 2. **专项参考手册与主技能决策树同步 (`SKILL.md`, `references/*.md`)**：补齐 ECharts、Domain Storytelling、外部工程图表内联挂载、OKF Frontmatter、WikiLinks/定义列表/脚注与 A4 打印分页规范，并重建 `.codex/codex.index.json`（收录 100 项规范定义，100% 通过 `lint:codex` 校验）。
+
+---
+
+## [1.3.38] - 2026-10-26
 
 > [!TIP] v1.3.38 核心升级亮点
 > **Markdown 渲染效果全量对齐打印与单文件离线导出管线 (Print & Export Fidelity)**：

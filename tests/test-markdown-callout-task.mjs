@@ -281,5 +281,41 @@ assert.ok(
 
 console.log('✅ Callout 与手风琴折叠图标定位一致性校验全部通过');
 
+// 7. omniview-markdown-authoring 技能库六大全景示例与参考规约完备性校验
+console.log('--- 测试 7: omniview-markdown-authoring 技能库六大全景示例完备性校验 ---');
+const skillDir = path.resolve(process.cwd(), '.codex/skills/omniview-markdown-authoring');
+const expectedExamples = [
+  'enterprise-architecture.md',
+  'release-notes-callouts.md',
+  'data-dashboard-echarts.md',
+  'domain-modeling-and-attachments.md',
+  'visual-media-and-svg-gallery.md',
+  'scientific-paper-and-print.md',
+];
 
-console.log('🎉 全部 6 组 Markdown Callout / TaskList / KaTeX / CardGrid / ExtendedCallouts / FoldIcon 单元测试用例 100% 通过！');
+const skillMainContent = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf-8');
+for (const exampleFile of expectedExamples) {
+  const fullExamplePath = path.join(skillDir, 'examples', exampleFile);
+  assert.ok(fs.existsSync(fullExamplePath), `技能示例文件必须存在: ${exampleFile}`);
+  const exampleContent = fs.readFileSync(fullExamplePath, 'utf-8');
+  assert.ok(exampleContent.split('\n').length >= 80, `技能示例文件 ${exampleFile} 必须内容详实 (>= 80 行)`);
+  assert.ok(skillMainContent.includes(exampleFile), `SKILL.md 索引表必须收录示例文件: ${exampleFile}`);
+}
+
+// 验证关键 Markdown 增强特性在六大示例中均有覆盖
+const echartsExample = fs.readFileSync(path.join(skillDir, 'examples/data-dashboard-echarts.md'), 'utf-8');
+assert.ok(echartsExample.includes('```echarts:radar') && echartsExample.includes('```echarts:bar'), '数据大盘示例必须包含 ECharts 简写与卡片仪表盘');
+
+const domainExample = fs.readFileSync(path.join(skillDir, 'examples/domain-modeling-and-attachments.md'), 'utf-8');
+assert.ok(domainExample.includes('```domainstory') && domainExample.includes('![['), '领域建模示例必须包含 domainstory DSL 与外部图表内联挂载');
+
+const visualExample = fs.readFileSync(path.join(skillDir, 'examples/visual-media-and-svg-gallery.md'), 'utf-8');
+assert.ok(visualExample.includes('[!GALLERY:3]') && visualExample.includes('[!MEDIA:RIGHT]') && visualExample.includes('bg-checker'), '视觉画廊示例必须包含 GALLERY、MEDIA:RIGHT 与图片管道修饰符');
+
+const printExample = fs.readFileSync(path.join(skillDir, 'examples/scientific-paper-and-print.md'), 'utf-8');
+assert.ok(printExample.includes('\\begin{pmatrix}') && printExample.includes('<!-- pagebreak -->'), '科学计算示例必须包含矩阵方程与 A4 显式分页指令');
+
+console.log('✅ omniview-markdown-authoring 技能库六大全景示例完备性校验全部通过');
+
+console.log('🎉 全部 7 组 Markdown Callout / TaskList / KaTeX / CardGrid / ExtendedCallouts / FoldIcon / AuthoringSkill 单元测试用例 100% 通过！');
+
