@@ -87,7 +87,13 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
       id={id}
       data-source-line={startLine}
       data-source-end-line={endLine}
+      data-theme={theme}
       className={`markdown-diagram markdown-diagram-markmap group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}
+      style={{
+        backgroundColor: 'var(--ov-surface)',
+        borderColor: 'var(--ov-border)',
+        color: 'var(--ov-text)',
+      }}
     >
       {/* 默认折叠微型展开胶囊 */}
       {!isToolbarExpanded && viewMode !== 'code' && (
@@ -100,15 +106,15 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
 
       {/* Header Toolbar: 悬浮 Overlay 纯图标设计 */}
       <div className={`diagram-header ${viewMode === 'code' ? 'is-code' : ''}`}>
-        <div className="flex items-center gap-2 font-mono text-slate-300">
-          <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
-            <Network className="w-4 h-4 text-emerald-400" />
+        <div className="flex items-center gap-2 font-mono text-[var(--ov-text-secondary)]">
+          <span className="flex items-center gap-1.5 font-semibold text-emerald-500">
+            <Network className="w-4 h-4 text-emerald-500" />
             <span>Markmap Mindmap</span>
           </span>
           {startLine !== undefined && onOpenSourceAtLine && (
             <button
               onClick={() => onOpenSourceAtLine(startLine)}
-              className="hidden sm:inline-block text-[10px] text-slate-400 hover:text-sky-400 transition"
+              className="hidden sm:inline-block text-[10px] text-[var(--ov-text-muted)] hover:text-sky-500 transition"
               title={t('doubleClickToLocate', locale)}
             >
               L{startLine}
@@ -119,13 +125,13 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
         {/* Action Controls */}
         <div className="flex items-center gap-1.5">
           {/* View Mode Switcher */}
-          <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-700">
+          <div className="flex items-center bg-[var(--ov-surface-header)] rounded p-0.5 border border-[var(--ov-border)]">
             <button
               onClick={() => onSetViewMode('visual')}
               className={`p-1 rounded flex items-center gap-1 text-[11px] transition ${
                 viewMode === 'visual'
                   ? 'bg-emerald-600 text-white font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)]'
               }`}
               title={t('previewTooltip', locale)}
               aria-label={t('preview', locale)}
@@ -137,7 +143,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
               className={`p-1 rounded flex items-center gap-1 text-[11px] transition ${
                 viewMode === 'code'
                   ? 'bg-emerald-600 text-white font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)]'
               }`}
               title={t('codeTooltip', locale)}
               aria-label={t('code', locale)}
@@ -149,24 +155,24 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
           {viewMode === 'visual' && (
             <>
               {/* Zoom Controls */}
-              <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-700">
+              <div className="flex items-center bg-[var(--ov-surface-header)] rounded p-0.5 border border-[var(--ov-border)]">
                 <button
                   onClick={() => onZoomChange(-0.1)}
-                  className="p-1 text-slate-400 hover:text-slate-200 transition"
+                  className="p-1 text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] transition"
                   title={t('zoomOut', locale)}
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={onResetZoom}
-                  className="px-1.5 text-[10px] font-mono text-slate-300 hover:text-white transition"
+                  className="px-1.5 text-[10px] font-mono text-[var(--ov-text)] transition"
                   title={t('resetZoom', locale)}
                 >
                   {Math.round(zoom * 100)}%
                 </button>
                 <button
                   onClick={() => onZoomChange(0.1)}
-                  className="p-1 text-slate-400 hover:text-slate-200 transition"
+                  className="p-1 text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] transition"
                   title={t('zoomIn', locale)}
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
@@ -176,7 +182,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
               {/* Lightbox Modal Button */}
               <button
                 onClick={() => handleOpenLightbox()}
-                className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition"
+                className="p-1.5 rounded bg-[var(--ov-surface-header)] border border-[var(--ov-border)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)] transition"
                 title={t('fullScreen', locale)}
               >
                 <Maximize2 className="w-3.5 h-3.5" />
@@ -187,10 +193,10 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
           {/* Copy Code */}
           <button
             onClick={onCopy}
-            className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition"
+            className="p-1.5 rounded bg-[var(--ov-surface-header)] border border-[var(--ov-border)] text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:border-[var(--ov-accent)] transition"
             title={t('copyCode', locale)}
           >
-            {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
 
           {/* 收起工具栏 */}
@@ -198,7 +204,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
             <button
               type="button"
               onClick={() => setIsToolbarExpanded(false)}
-              className="p-1.5 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-slate-400 hover:text-slate-200 ml-0.5"
+              className="p-1.5 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] ml-0.5"
               title={t('collapseDiagramToolbar', locale)}
               aria-label={t('collapseDiagramToolbar', locale)}
             >
@@ -211,7 +217,8 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
       {/* Main Container: 紧凑自适应居中呈现思维导图，无多余大片空白 */}
       <div
         ref={canvasRef}
-        className={`diagram-canvas relative h-[280px] bg-[var(--ov-diagram-canvas-bg,transparent)] p-1.5 overflow-hidden flex items-center justify-center ${viewMode === 'visual' ? 'cursor-zoom-in' : ''}`}
+        className={`diagram-canvas relative h-[280px] p-1.5 overflow-hidden flex items-center justify-center ${viewMode === 'visual' ? 'cursor-zoom-in' : ''}`}
+        style={{ backgroundColor: 'var(--ov-diagram-canvas-bg, transparent)' }}
         onDoubleClick={viewMode === 'visual' ? handleOpenLightbox : undefined}
         title={viewMode === 'visual' ? t('fullScreen', locale) : undefined}
       >
@@ -230,11 +237,11 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
             />
           </div>
         ) : (
-          <div className="p-3">
+          <div className="p-3 w-full">
             <textarea
               value={activeCode}
               onChange={e => onChangeEditedCode(e.target.value)}
-              className="w-full h-[320px] font-mono text-xs bg-slate-900 text-slate-200 p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 resize-y"
+              className="w-full h-[320px] font-mono text-xs bg-[var(--ov-surface-secondary,var(--ov-surface))] text-[var(--ov-text)] p-3 rounded-lg border border-[var(--ov-border)] focus:outline-none focus:border-emerald-500 resize-y"
               placeholder="Enter Markmap Markdown content..."
             />
           </div>

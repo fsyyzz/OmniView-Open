@@ -8,7 +8,22 @@
 
 ---
 
-## [1.3.41] - 2026-10-26 (当前最新发布)
+## [1.3.42] - 2026-10-27 (当前最新发布)
+
+> [!TIP] v1.3.42 核心升级亮点
+> **Markdown 内嵌 Markmap 思维导图全主题背景与文字颜色像素级适配**：
+> 1. **卡片与画布背景语义设计令牌化**：
+>    - 彻底移除 `MarkmapBlock` 根容器与画布中残留的写死暗色类名（`bg-slate-950/40`）与工具栏写死暗色背景，全面重构为 `--ov-surface`、`--ov-border` 与 `--ov-diagram-canvas-bg` 动态设计令牌；
+>    - 在 `src/index.css` 补齐 `.markdown-diagram-markmap` 及 `.diagram-canvas` 在 `sepia`（暖阳羊皮）、`light`（明雅日光）、`solarized` 与 `notion` 主题下的卡片背景与边框规则，彻底根治羊皮纸等浅色主题下“黑底深褐字”失配问题；
+> 2. **主题判定与持久化链路健全**：
+>    - 导出统一 `isThemeDark(theme)` 判定函数，解决 `ViewerRenderer` 遗漏现代扩展主题（`github-dark`、`catppuccin`、`tokyo-night`、`notion`）及 VS Code 原生 `system` 主题注入的明暗识别漏洞；
+>    - 补齐 `settingsStorage.ts` 对全部 15 项支持主题的读取校验；
+> 3. **工程化与单元测试回归验证**：
+>    - 新增 `tests/test-markmap-theme.mjs` 测试套件，全量 91 套测试与硬性门禁 100% 顺利通过，并重新编译产出最新 webview 与插件产物。
+
+---
+
+## [1.3.41] - 2026-10-26
 
 > [!TIP] v1.3.41 核心升级亮点
 > **Markdown 内嵌图表与纯文本块全主题深度适配 + 表格数学公式渲染修复 + 开源同步净化加固**：

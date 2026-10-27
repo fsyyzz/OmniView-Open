@@ -67,7 +67,7 @@ export function loadStoredSettings(): WorkbenchSettings {
     if (!raw) return { ...DEFAULT_SETTINGS };
 
     const parsed = JSON.parse(raw);
-    const theme: ThemeId = ['system', 'vscode', 'dark', 'light', 'sepia', 'midnight', 'cyber', 'nord', 'dracula', 'forest', 'solarized'].includes(parsed.theme)
+    const theme: ThemeId = ['system', 'vscode', 'dark', 'light', 'sepia', 'midnight', 'cyber', 'nord', 'dracula', 'forest', 'solarized', 'github-dark', 'catppuccin', 'tokyo-night', 'notion'].includes(parsed.theme)
       ? (parsed.theme === 'vscode' ? 'system' : parsed.theme)
       : DEFAULT_SETTINGS.theme;
 

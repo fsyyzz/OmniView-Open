@@ -359,6 +359,8 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-table-hover: rgba(19, 95, 141, 0.07);
   --ov-table-col-hover: rgba(19, 95, 141, 0.03);
   --ov-surface-hover: rgba(0, 0, 0, 0.04);
+  --ov-diagram-canvas-bg: rgba(245, 237, 214, 0.6);
+  --ov-diagram-mask-from: rgba(253, 246, 227, 0.85);
 }
 
 [data-theme="github-dark"] {
@@ -1846,8 +1848,14 @@ body.vscode-high-contrast-light[data-theme="system"] {
    Markmap 思维导图全主题像素级适配 (Theme-Adaptive Markmap)
    ========================================================= */
 
+.markdown-diagram-markmap {
+  background: var(--ov-surface) !important;
+  border-color: var(--ov-border) !important;
+  color: var(--ov-text) !important;
+}
+
 .markdown-diagram-markmap .diagram-canvas {
-  background: var(--ov-diagram-canvas-bg, var(--ov-surface, transparent)) !important;
+  background: var(--ov-diagram-canvas-bg, transparent) !important;
 }
 
 svg.markmap {
@@ -1875,6 +1883,17 @@ svg.markmap .markmap-foreign a {
   color: var(--ov-accent) !important;
 }
 
+/* 暖阳羊皮主题专属 */
+[data-theme="sepia"] .markdown-diagram-markmap {
+  background: #fffbf0 !important;
+  border-color: #ddceb4 !important;
+  box-shadow: 0 4px 14px rgba(78, 56, 30, 0.08) !important;
+}
+
+[data-theme="sepia"] .markdown-diagram-markmap .diagram-canvas {
+  background: rgba(244, 236, 216, 0.5) !important;
+}
+
 [data-theme="sepia"] svg.markmap text,
 [data-theme="sepia"] svg.markmap .markmap-node text,
 [data-theme="sepia"] svg.markmap .markmap-foreign,
@@ -1885,6 +1904,27 @@ svg.markmap .markmap-foreign a {
 
 [data-theme="sepia"] svg.markmap circle {
   stroke-width: 1.5px;
+}
+
+/* 日光与极简浅色主题 */
+[data-theme="light"] .markdown-diagram-markmap,
+[data-theme="notion"] .markdown-diagram-markmap {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] .markdown-diagram-markmap .diagram-canvas,
+[data-theme="notion"] .markdown-diagram-markmap .diagram-canvas {
+  background: rgba(248, 250, 252, 0.6) !important;
+}
+
+[data-theme="solarized"] .markdown-diagram-markmap {
+  background: #fffdf6 !important;
+  border-color: #d3cbb7 !important;
+}
+
+[data-theme="solarized"] .markdown-diagram-markmap .diagram-canvas {
+  background: rgba(245, 237, 214, 0.6) !important;
 }
 
 /* =========================================================

@@ -227,6 +227,32 @@ export const RENDER_THEMES: RenderTheme[] = [
   },
 ];
 
+/**
+ * 判定指定主题标识是否属于暗色模式
+ * 优先依据 RENDER_THEMES 元数据，若处于 VS Code system 原生主题注入则探测 body 类名或媒体查询
+ */
+export function isThemeDark(theme?: ThemeId): boolean {
+  if (!theme || theme === 'system' || theme === 'vscode') {
+    if (typeof document !== 'undefined') {
+      if (document.body.classList.contains('vscode-light')) {
+        return false;
+      }
+      if (document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')) {
+        return true;
+      }
+    }
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return true;
+  }
+  const found = RENDER_THEMES.find(t => t.id === theme);
+  if (found) {
+    return found.isDark;
+  }
+  return !['light', 'sepia', 'solarized', 'notion'].includes(theme);
+}
+
 export type DensityMode = 'compact' | 'standard' | 'comfortable';
 
 export interface DensityPreset {

@@ -1,9 +1,5 @@
-/**
- * OmniView 多格式统一渲染分发驱动
- * 基于 Driver Registry 插件注册表动态调度分发
- */
 import React, { Suspense } from 'react';
-import { FileItem, DriverId, ViewMode, ThemeId, ContentWidthMode } from '../../shared/types';
+import { FileItem, DriverId, ViewMode, ThemeId, ContentWidthMode, isThemeDark } from '../../shared/types';
 import { Locale } from '../../shared/lib/i18n';
 import { Loader2 } from 'lucide-react';
 import { getDriverIdForFile, resolveDriverPluginForFile } from './lib/driverRegistry';
@@ -66,7 +62,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
 }) => {
   const plugin = resolveDriverPluginForFile(file);
   const driverId = plugin.id;
-  const isDarkTheme = ['dark', 'midnight', 'cyber', 'nord', 'dracula', 'forest'].includes(theme);
+  const isDarkTheme = isThemeDark(theme);
 
   const zoomStyle = zoom !== 1.0 ? { zoom } : undefined;
 
