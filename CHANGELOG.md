@@ -8,7 +8,28 @@
 
 ---
 
-## [1.3.39] - 2026-10-26 (当前最新发布)
+## [1.3.41] - 2026-10-26 (当前最新发布)
+
+> [!TIP] v1.3.41 核心升级亮点
+> **Markdown 内嵌图表与纯文本块全主题深度适配 + 表格数学公式渲染修复 + 开源同步净化加固**：
+> 1. **Markdown 内嵌 Markmap 思维导图全主题自适应**：
+>    - 打通 `driverRegistry` $\rightarrow$ `MarkdownViewer` $\rightarrow$ `MarkmapBlock` $\rightarrow$ `MarkmapViewer` 完整主题传递链路；
+>    - 移除画布容器写死的深色背景，内嵌模式底色设为透明以无缝融入卡片表面；
+>    - 将 SVG 节点文字、行内代码底色与字体族全面绑定至 `--ov-text`、`--ov-code-bg` 与 `--ov-font-family`，并新增暖阳羊皮（`sepia`）、森林（`forest`）、Dracula 与 Nord 专属分支调色板；
+> 2. **Markdown 内嵌 ECharts 动态图表全主题与热切换自适应**：
+>    - 扩展 `getOmniViewEchartsTheme` 支持按具体 `themeId` 生成专属数据系列调色板、坐标轴与提示框配色（`sepia` 暖阳羊皮采用温润琥珀/陶土/松绿复古色系与深棕文字）；
+>    - 修复同属亮色系的 `light` 与 `sepia` 切换时图表主题不刷新的问题，移除卡片头部与源码视图写死的暗色类名；
+> 3. **Markdown `text` 纯文本代码块暖阳羊皮（`sepia`）护眼对比度优化**：
+>    - 新增 `--ov-code-color` 语义设计令牌（`sepia` 主题下采用温润深棕褐色 `#5c4028` 搭配 `#f4ecda` 羊皮纸底色），覆盖 `prism-tomorrow.css` 默认暗灰文字色；
+> 4. **Markdown 表格单元格与表头 KaTeX 数学公式渲染修复**：
+>    - 修复 `formatRichCellContent` 中反引号行内代码包裹的公式（如 `` `$\lVert \mathbf{w} \rVert_{1}$` ``）被二次 `renderInlineMath` 正则误替换并被 `marked.parseInline` 转义为裸 `<span class="ov-katex-inline">` HTML 文本的问题；
+>    - 保护表格搜索高亮时的数学占位符，并将表头单元格（`<th>`）统一接入富文本与公式渲染管线；
+> 5. **开源镜像同步与打包隔离加固**：
+>    - 在 `.gitignore`、`.vscodeignore`、`.dockerignore` 与开源同步流水线中严格隔离 `.agents` 与 `.aistudio` 内部目录，保留 `.github` 社区模板与 CI/Release 工作流并拦截内部同步脚本，确保纯净开源导出环境 90 项自动化测试套件 100% 独立通过。
+
+---
+
+## [1.3.39] - 2026-10-26
 
 > [!TIP] v1.3.39 核心升级亮点
 > **`omniview-markdown-authoring` 技能库六大场景范本全景扩充与规约对齐**：

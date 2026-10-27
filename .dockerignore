@@ -3,6 +3,8 @@ dist
 .git
 .github
 .codex
+.agents
+.aistudio
 .vscode
 *.vsix
 *.log

@@ -79,4 +79,7 @@ Thumbs.db
 *.tmp
 *.temp
 
+# --- AI Studio 运行时沙箱与临时构件 ---
+.aistudio/
+
 

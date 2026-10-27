@@ -2,6 +2,8 @@ node_modules
 .git
 .github
 .codex
+.agents
+.aistudio
 src
 scripts
 docs
