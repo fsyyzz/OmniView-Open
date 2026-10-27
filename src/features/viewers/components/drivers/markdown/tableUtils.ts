@@ -134,75 +134,94 @@ export function compareCellValues(a: string, b: string, direction: 'asc' | 'desc
 export function formatRichCellContent(rawText: string, searchTerm?: string): string {
   if (!rawText) return '';
 
-  // 0. 在表格单元格中，若用户使用 \| 转义数学绝对值或范数，先在公式内归一化处理并提取为占位符，
-  //    彻底避免 marked.parseInline 将 KaTeX <annotation> 中的下划线 _ 误转义为 <em>！
-  const normalizedCellMath = rawText.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (m) => {
-    return m.replace(/\\\|/g, '|');
-  });
+  // 0. 优先保护行内代码段 (`...`)，彻底避免代码段内的 $...$、\|、[x] 或 [DONE] 被误当作公式、复选框或徽标替换
+  const cellCodeSlots: string[] = [];
+  const protectedCodeText = rawText.replace(
+    /(?<!`)(`+)(?!`)([^\n]*?)\1(?!`)/g,
+    (match) => {
+      const idx = cellCodeSlots.length;
+      cellCodeSlots.push(match);
+      return `%%OV_CELL_CODE_${idx}%%`;
+    }
+  );
+
+  // 1. 在非代码的表格单元格数学公式中，若存在奇数个 \|（用户在 GFM 表格中为防列切分而转义的单竖线，如 $P(A \| B)$），
+  //    将其归一化为单竖线 |；若为偶数个 \|（如双竖线范数 $\|\mathbf{w}\|_1$），则保留原样以正确渲染 ∥
+  const normalizedCellMath = protectedCodeText.replace(
+    /(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g,
+    (m, inner: string) => {
+      const escapedPipes = inner.match(/\\\|/g);
+      if (escapedPipes && escapedPipes.length % 2 === 1) {
+        return m.replace(/\\\|/g, '|');
+      }
+      return m;
+    }
+  );
   const { markdown: mathProtected, mathSlots } = processMarkdownMath(normalizedCellMath);
   let content = mathProtected;
 
-  // 1. 兜底兼容：若仍残留简单 $formula$，调用 renderInlineMath
-  content = content.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (match, formula) => {
-    if (/^\d+(\.\d+)?$/.test(formula.trim())) return match;
-    return renderInlineMath(formula);
-  });
-
-  // 2. 转换复选框 [x] / [ ] 为现代化 SVG 图标样式的 span
-  content = content.replace(/\[([ xX])\]/g, (_match, mark) => {
+  // 2. 转换复选框 [x] / [ ] 为现代化 SVG 图标样式的 span（排除 Markdown 链接 [x](...)）
+  content = content.replace(/\[([ xX])\](?![(\[])/g, (_match, mark) => {
     const isChecked = mark.toLowerCase() === 'x';
     return isChecked
       ? `<span class="ov-table-checkbox ov-table-checkbox-checked" title="Completed">✓</span>`
       : `<span class="ov-table-checkbox" title="Incomplete"></span>`;
   });
 
-  // 3. 状态标签/徽标自动增强 (例如 [DONE], [SUCCESS], [FAIL], [WARN], [INFO] 或常见单词)
+  // 3. 状态标签/徽标自动增强 (例如 [DONE], [SUCCESS], [FAIL], [WARN], [INFO] 或常见单词，排除 Markdown 链接)
   content = content.replace(
-    /\[(DONE|SUCCESS|PASS|COMPLETED|OK)\]/gi,
+    /\[(DONE|SUCCESS|PASS|COMPLETED|OK)\](?![(\[])/gi,
     '<span class="ov-badge ov-badge-success">$1</span>'
   );
   content = content.replace(
-    /\[(PENDING|WARN|WARNING|WAITING|IN PROGRESS)\]/gi,
+    /\[(PENDING|WARN|WARNING|WAITING|IN PROGRESS)\](?![(\[])/gi,
     '<span class="ov-badge ov-badge-warning">$1</span>'
   );
   content = content.replace(
-    /\[(FAIL|FAILED|ERROR|REJECTED|BLOCKED)\]/gi,
+    /\[(FAIL|FAILED|ERROR|REJECTED|BLOCKED)\](?![(\[])/gi,
     '<span class="ov-badge ov-badge-danger">$1</span>'
   );
   content = content.replace(
-    /\[(INFO|NOTE|DRAFT|TODO|RUNNING)\]/gi,
+    /\[(INFO|NOTE|DRAFT|TODO|RUNNING)\](?![(\[])/gi,
     '<span class="ov-badge ov-badge-info">$1</span>'
   );
 
-  // 4. 解析内联 Markdown (粗体、斜体、代码块、链接等)
+  // 4. 还原行内代码段占位符，交由 marked.parseInline 原生渲染为 <code>
+  if (cellCodeSlots.length > 0) {
+    content = content.replace(/%%OV_CELL_CODE_(\d+)%%/g, (_m, idx) => {
+      return cellCodeSlots[Number(idx)] ?? _m;
+    });
+  }
+
+  // 5. 解析内联 Markdown (粗体、斜体、代码块、链接等)
   let html = marked.parseInline(content) as string;
 
-  // 5. 若存在搜索关键词且非空，对纯文本做高亮处理（在还原 KaTeX DOM 前执行，避免污染公式内部标签）
+  // 6. 若存在搜索关键词且非空，对纯文本做高亮处理（在还原 KaTeX DOM 前执行，避免污染公式内部标签与占位符）
   if (searchTerm && searchTerm.trim().length > 0) {
     html = highlightMatches(html, searchTerm.trim());
   }
 
-  // 6. 还原 KaTeX 数学公式 DOM (包含 <svg><path> 根号/向量箭头与 <math> 无障碍树)
+  // 7. 还原 KaTeX 数学公式 DOM (包含 <svg><path> 根号/向量箭头与 <math> 无障碍树)
   html = restoreMarkdownMath(html, mathSlots);
 
-  // 7. 安全净化 (保留 KaTeX SVG 与 MathML 节点)
+  // 8. 安全净化 (保留 KaTeX SVG 与 MathML 节点)
   return sanitizeDiagramHtml(html);
 }
 
 /**
- * 安全高亮 HTML 文本中的匹配关键词（避免破坏 HTML 标签与属性）
+ * 安全高亮 HTML 文本中的匹配关键词（避免破坏 HTML 标签、属性与数学公式占位符）
  */
 export function highlightMatches(html: string, query: string): string {
   if (!query) return html;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`(${escaped})`, 'gi');
 
-  // 将 HTML 按标签分割：偶数位为文本内容，奇数位为 <tag>
-  const parts = html.split(/(<[^>]+>)/g);
+  // 将 HTML 按标签或数学公式占位符分割：偶数位为文本内容，奇数位为 <tag> 或 %%OV_MATH_*%%
+  const parts = html.split(/(<[^>]+>|%%OV_MATH_(?:INLINE|BLOCK)_\d+%%)/g);
   return parts
     .map((part, index) => {
       if (index % 2 === 1) {
-        return part; // 保护 HTML 标签
+        return part; // 保护 HTML 标签与数学公式占位符
       }
       return part.replace(regex, '<mark class="ov-table-search-mark">$1</mark>');
     })

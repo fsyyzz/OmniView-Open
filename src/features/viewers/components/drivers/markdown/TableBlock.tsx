@@ -472,7 +472,12 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                         : 'justify-start'
                     }`}
                   >
-                    <span className={colWidth ? 'truncate' : ''}>{h.text}</span>
+                    <span
+                      className={colWidth ? 'truncate' : ''}
+                      dangerouslySetInnerHTML={{
+                        __html: formatRichCellContent(h.text, searchQuery),
+                      }}
+                    />
                     <span
                       data-clipboard-ignore="true"
                       className={`ov-table-sort-icon ov-clipboard-ignore inline-flex transition-transform duration-200 ${

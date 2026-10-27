@@ -85,7 +85,30 @@ console.log('🧪 开始 Markdown 表格工具链单元测试...');
   const withHighlight = highlightMatches('<span>Hello World</span>', 'world');
   assert(withHighlight.includes('ov-table-search-mark'));
   assert(withHighlight.includes('World'));
-  console.log('  ✅ 4. 单元格富文本渲染与高亮测试通过');
+
+  // 行内代码段包裹的公式源码不得被二次 KaTeX 渲染转义为 &lt;span class="ov-katex-inline"&gt;
+  const codeWithMath = formatRichCellContent(
+    '`$\\lVert \\mathbf{w} \\rVert_{1} = \\sum_{i} \\lvert w_{i} \\rvert$`'
+  );
+  assert.ok(codeWithMath.includes('<code>'), '应渲染为 <code> 标签');
+  assert.ok(!codeWithMath.includes('&lt;span'), '严禁将 KaTeX HTML 标签转义进 <code> 内部');
+  assert.ok(!codeWithMath.includes('ov-katex-inline'), '反引号内的公式源码不应被渲染为 KaTeX DOM');
+
+  // 同一单元格同时包含行内代码公式与真实渲染公式
+  const mixedCodeAndMath = formatRichCellContent(
+    '写法 `$\\lVert \\mathbf{w} \\rVert_{1}$` 渲染为 $\\lVert \\mathbf{w} \\rVert_{1}$'
+  );
+  assert.ok(mixedCodeAndMath.includes('<code>$\\lVert \\mathbf{w} \\rVert_{1}$</code>'), '反引号部分应保持源码');
+  assert.ok(mixedCodeAndMath.includes('ov-katex-inline'), '非反引号部分应正常渲染为 KaTeX 公式');
+  assert.ok(!mixedCodeAndMath.includes('&lt;span'), '混合单元格不得产生转义的 HTML 标签');
+
+  // 单元格存在搜索词（如数字 0 或 1）时，不得破坏 %%OV_MATH_INLINE_0%% 占位符
+  const mathWithSearch = formatRichCellContent('稀疏范数 $L_1$ 耗时 10ms', '0');
+  assert.ok(mathWithSearch.includes('ov-katex-inline'), '带搜索词时公式仍应正常还原');
+  assert.ok(!mathWithSearch.includes('OV_MATH'), '不得残留未还原的数学占位符');
+  assert.ok(mathWithSearch.includes('ov-table-search-mark'), '纯文本中的匹配项应正常高亮');
+
+  console.log('  ✅ 4. 单元格富文本渲染、反引号公式保护与高亮测试通过');
 }
 
 // 5. CSV 与 Markdown 导出格式测试

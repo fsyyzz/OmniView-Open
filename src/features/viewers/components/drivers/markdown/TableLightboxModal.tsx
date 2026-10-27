@@ -702,7 +702,12 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
                               : 'justify-start'
                           }`}
                         >
-                          <span className={colWidth ? 'truncate text-sm' : 'text-sm'}>{h.text}</span>
+                          <span
+                            className={colWidth ? 'truncate text-sm' : 'text-sm'}
+                            dangerouslySetInnerHTML={{
+                              __html: formatRichCellContent(h.text, searchQuery),
+                            }}
+                          />
                           <span
                             className={`ov-table-sort-icon inline-flex transition-transform duration-200 ${
                               isSorted
