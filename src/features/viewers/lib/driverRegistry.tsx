@@ -259,6 +259,7 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
                 <MarkdownViewer
                   content={file.content}
                   files={files}
+                  theme={theme}
                   isDarkTheme={isDarkTheme}
                   density={density}
                   contentWidth={contentWidth}
@@ -297,6 +298,7 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
         <MarkdownViewer
           content={file.content}
           files={files}
+          theme={theme}
           isDarkTheme={isDarkTheme}
           density={density}
           contentWidth={contentWidth}

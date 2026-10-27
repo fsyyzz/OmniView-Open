@@ -7,6 +7,7 @@
  * 4. 自动推断主图表类型（折线、柱状、饼图、仪表盘、雷达图等）与展示徽章。
  */
 import { load as loadYaml } from 'js-yaml';
+import type { ThemeId } from '../../../shared/types';
 
 export interface EChartsThemeConfig {
   color: string[];
@@ -35,7 +36,7 @@ export interface EChartsThemeConfig {
 /**
  * 现代高辨识度图表配色调色板 (Dark & Light 通用自适应)
  */
-const ECHARTS_PALETTE = [
+const ECHARTS_DARK_PALETTE = [
   '#38bdf8', // 蔚蓝
   '#818cf8', // 靛青
   '#34d399', // 翡翠
@@ -48,15 +49,63 @@ const ECHARTS_PALETTE = [
   '#c084fc', // 亮紫
 ];
 
+const ECHARTS_LIGHT_PALETTE = [
+  '#0284c7', // 蔚蓝
+  '#4f46e5', // 靛蓝
+  '#059669', // 翡翠绿
+  '#d97706', // 琥珀黄
+  '#db2777', // 玫红
+  '#7c3aed', // 紫罗兰
+  '#e11d48', // 珊瑚红
+  '#0d9488', // 松绿
+  '#2563eb', // 皇家蓝
+  '#9333ea', // 深紫
+];
+
+const ECHARTS_SEPIA_PALETTE = [
+  '#b45309', // 暖阳琥珀 (Amber 700)
+  '#0d9488', // 绿松古青 (Teal 700)
+  '#c2410c', // 陶土赤褐 (Orange 700)
+  '#4d7c0f', // 橄榄秋叶 (Lime 700)
+  '#854d0e', // 暖棕铜金 (Yellow 800)
+  '#7c2d12', // 檀木深褐 (Warm Brown)
+  '#4338ca', // 黛蓝复古 (Indigo 700)
+  '#9f1239', // 胭脂暖红 (Rose 800)
+];
+
+const ECHARTS_FOREST_PALETTE = [
+  '#10b981', '#14b8a6', '#84cc16', '#eab308', '#06b6d4', '#22c55e', '#15803d', '#a3e635'
+];
+
+const ECHARTS_DRACULA_PALETTE = [
+  '#bd93f9', '#ff79c6', '#8be9fd', '#50fa7b', '#f1fa8c', '#ffb86c', '#ff5555', '#a78bfa'
+];
+
+const ECHARTS_NORD_PALETTE = [
+  '#88c0d0', '#81a1c1', '#5e81ac', '#a3be8c', '#ebcb8b', '#d08770', '#bf616a', '#b48ead'
+];
+
+/**
+ * 根据主题 ID 获取专属调色板
+ */
+export function getEChartsPaletteForTheme(themeId?: ThemeId, isDark = true): string[] {
+  if (themeId === 'sepia') return ECHARTS_SEPIA_PALETTE;
+  if (themeId === 'forest') return ECHARTS_FOREST_PALETTE;
+  if (themeId === 'dracula') return ECHARTS_DRACULA_PALETTE;
+  if (themeId === 'nord') return ECHARTS_NORD_PALETTE;
+  return isDark ? ECHARTS_DARK_PALETTE : ECHARTS_LIGHT_PALETTE;
+}
+
 /**
  * 获取与当前主题深度贴合的 ECharts 主题配置
  */
-export function getOmniViewEchartsTheme(isDark = true): EChartsThemeConfig {
-  let textColor = isDark ? '#e2e8f0' : '#1e293b';
-  let subtextColor = isDark ? '#94a3b8' : '#64748b';
-  let borderColor = isDark ? '#334155' : '#cbd5e1';
-  let splitLineColor = isDark ? 'rgba(51, 65, 85, 0.45)' : 'rgba(226, 232, 240, 0.8)';
-  let tooltipBg = isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.96)';
+export function getOmniViewEchartsTheme(isDark = true, themeId?: ThemeId): EChartsThemeConfig {
+  const isSepia = themeId === 'sepia';
+  let textColor = isSepia ? '#38291a' : isDark ? '#e2e8f0' : '#1e293b';
+  let subtextColor = isSepia ? '#564330' : isDark ? '#94a3b8' : '#64748b';
+  let borderColor = isSepia ? '#ddceb4' : isDark ? '#334155' : '#cbd5e1';
+  let splitLineColor = isSepia ? 'rgba(221, 206, 180, 0.65)' : isDark ? 'rgba(51, 65, 85, 0.45)' : 'rgba(226, 232, 240, 0.8)';
+  let tooltipBg = isSepia ? 'rgba(251, 243, 228, 0.96)' : isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.96)';
 
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const computed = window.getComputedStyle(document.documentElement);
@@ -74,11 +123,13 @@ export function getOmniViewEchartsTheme(isDark = true): EChartsThemeConfig {
     if (ovBgElevated) tooltipBg = ovBgElevated;
   }
 
+  const palette = getEChartsPaletteForTheme(themeId, isDark);
+
   return {
-    color: ECHARTS_PALETTE,
+    color: palette,
     backgroundColor: 'transparent',
     textStyle: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontFamily: 'var(--ov-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
       color: textColor,
     },
     title: {

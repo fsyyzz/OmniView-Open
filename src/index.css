@@ -34,6 +34,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-text-secondary: var(--vscode-descriptionForeground, var(--vscode-editor-foreground, #9d9d9d));
   --ov-text-muted: var(--vscode-disabledForeground, rgba(160, 160, 160, 0.7));
   --ov-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  --ov-code-color: var(--vscode-editor-foreground, #cccccc);
   --ov-inline-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.18));
   --ov-inline-code-color: var(--vscode-textPreformat-foreground, var(--vscode-textLink-foreground, #4fc1ff));
   --ov-quote-bg: var(--vscode-textBlockQuote-background, rgba(128, 128, 128, 0.08));
@@ -126,6 +127,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-text-secondary: #cbd5e1;
   --ov-text-muted: #94a3b8;
   --ov-code-bg: #0f172a;
+  --ov-code-color: #e2e8f0;
   --ov-inline-code-bg: #1e293b;
   --ov-inline-code-color: #bae6fd;
   --ov-quote-bg: rgba(51, 65, 85, 0.25);
@@ -161,6 +163,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-text-secondary: #334155;
   --ov-text-muted: #475569;
   --ov-code-bg: #f8fafc;
+  --ov-code-color: #1e293b;
   --ov-inline-code-bg: #e2e8f0;
   --ov-inline-code-color: #0369a1;
   --ov-quote-bg: rgba(226, 232, 240, 0.45);
@@ -190,6 +193,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   --ov-text-secondary: #564330;
   --ov-text-muted: #64513b;
   --ov-code-bg: #f4ecda;
+  --ov-code-color: #5c4028;
   --ov-inline-code-bg: #ebdcc3;
   --ov-inline-code-color: #92400e;
   --ov-quote-bg: rgba(221, 206, 180, 0.35);
@@ -1771,6 +1775,138 @@ body.vscode-high-contrast-light[data-theme="system"] {
 
 .markdown-diagram textarea:focus {
   border-color: var(--ov-accent, #3b82f6) !important;
+}
+
+/* =========================================================
+   Markdown 代码块 (CodeBlock) 全主题与语言自适应
+   ========================================================= */
+
+.markdown-code-block {
+  background: var(--ov-surface);
+  border: 1px solid var(--ov-border);
+  box-shadow: var(--ov-shadow);
+}
+
+.markdown-code-block .code-block-body {
+  background-color: var(--ov-code-bg) !important;
+  color: var(--ov-code-color, var(--ov-text)) !important;
+}
+
+.markdown-code-block .code-line-gutter {
+  background-color: color-mix(in srgb, var(--ov-surface-header) 70%, transparent) !important;
+  border-right-color: var(--ov-border) !important;
+  color: var(--ov-text-muted) !important;
+}
+
+.markdown-code-block pre.code-line-body {
+  background-color: transparent !important;
+  color: var(--ov-code-color, var(--ov-text)) !important;
+}
+
+.markdown-code-block pre.code-line-body code {
+  color: var(--ov-code-color, var(--ov-text)) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+}
+
+/* text / txt / plain / log 等未着色代码块的文本显式赋予当前主题字体色，彻底杜绝 #ccc 干扰或过暗失衡 */
+.markdown-code-block[data-lang="text"] pre code,
+.markdown-code-block[data-lang="txt"] pre code,
+.markdown-code-block[data-lang="plain"] pre code,
+.markdown-code-block[data-lang="log"] pre code,
+.markdown-code-block code.language-text,
+.markdown-code-block code.language-txt,
+.markdown-code-block code.language-plain {
+  color: var(--ov-code-color, var(--ov-text)) !important;
+}
+
+/* 暖阳羊皮主题专属：温暖柔和、对比度舒缓的代码块字体与行号 */
+[data-theme="sepia"] .markdown-code-block {
+  background: #fffbf0 !important;
+  border-color: #ddceb4 !important;
+}
+
+[data-theme="sepia"] .markdown-code-block .code-block-body {
+  background-color: #f4ecda !important;
+  color: #5c4028 !important;
+}
+
+[data-theme="sepia"] .markdown-code-block pre.code-line-body code,
+[data-theme="sepia"] .markdown-code-block code.language-text,
+[data-theme="sepia"] .markdown-code-block code.language-txt {
+  color: #5c4028 !important;
+}
+
+[data-theme="sepia"] .markdown-code-block .code-line-gutter {
+  background-color: #ede4ce !important;
+  color: #8c7355 !important;
+  border-right-color: #ddceb4 !important;
+}
+
+/* =========================================================
+   Markmap 思维导图全主题像素级适配 (Theme-Adaptive Markmap)
+   ========================================================= */
+
+.markdown-diagram-markmap .diagram-canvas {
+  background: var(--ov-diagram-canvas-bg, var(--ov-surface, transparent)) !important;
+}
+
+svg.markmap {
+  background: transparent !important;
+  font-family: var(--ov-font-family, system-ui, -apple-system, sans-serif) !important;
+}
+
+svg.markmap text,
+svg.markmap .markmap-node text,
+svg.markmap .markmap-foreign,
+svg.markmap .markmap-foreign * {
+  color: var(--ov-text) !important;
+  fill: var(--ov-text) !important;
+  font-family: var(--ov-font-family, system-ui, -apple-system, sans-serif) !important;
+}
+
+svg.markmap .markmap-foreign code {
+  background-color: var(--ov-code-bg) !important;
+  color: var(--ov-inline-code-color, var(--ov-accent)) !important;
+  border-radius: 3px !important;
+  padding: 1px 4px !important;
+}
+
+svg.markmap .markmap-foreign a {
+  color: var(--ov-accent) !important;
+}
+
+[data-theme="sepia"] svg.markmap text,
+[data-theme="sepia"] svg.markmap .markmap-node text,
+[data-theme="sepia"] svg.markmap .markmap-foreign,
+[data-theme="sepia"] svg.markmap .markmap-foreign * {
+  color: #38291a !important;
+  fill: #38291a !important;
+}
+
+[data-theme="sepia"] svg.markmap circle {
+  stroke-width: 1.5px;
+}
+
+/* =========================================================
+   Apache ECharts 动态图表全主题像素级适配
+   ========================================================= */
+
+.markdown-diagram-echarts {
+  background: var(--ov-surface);
+  border: 1px solid var(--ov-border);
+  box-shadow: var(--ov-shadow);
+}
+
+[data-theme="sepia"] .markdown-diagram-echarts {
+  background: #fffbf0 !important;
+  border-color: #ddceb4 !important;
+  box-shadow: 0 4px 14px rgba(78, 56, 30, 0.08) !important;
+}
+
+[data-theme="sepia"] .markdown-diagram-echarts > div:first-child {
+  background: #ede4ce !important;
+  border-bottom-color: #ddceb4 !important;
+  color: #564330 !important;
 }
 
 /* =========================================================

@@ -63,6 +63,29 @@ const LIGHT_PALETTE = [
   '#dc2626', // rose-600
 ];
 
+const SEPIA_PALETTE = [
+  '#b45309', // amber-700
+  '#0d9488', // teal-700
+  '#c2410c', // orange-700
+  '#4d7c0f', // lime-700
+  '#854d0e', // yellow-800
+  '#7c2d12', // warm brown
+  '#4338ca', // indigo-700
+  '#9f1239', // rose-800
+];
+
+const FOREST_PALETTE = [
+  '#10b981', '#14b8a6', '#84cc16', '#eab308', '#06b6d4', '#22c55e', '#15803d', '#a3e635'
+];
+
+const DRACULA_PALETTE = [
+  '#bd93f9', '#ff79c6', '#8be9fd', '#50fa7b', '#f1fa8c', '#ffb86c', '#ff5555', '#a78bfa'
+];
+
+const NORD_PALETTE = [
+  '#88c0d0', '#81a1c1', '#5e81ac', '#a3be8c', '#ebcb8b', '#d08770', '#bf616a', '#b48ead'
+];
+
 function calculateTreeMetrics(node?: IPureNode | null): { totalNodes: number; maxDepth: number } {
   if (!node) return { totalNodes: 0, maxDepth: 0 };
   let total = 1;
@@ -160,7 +183,13 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
   }, [content, transformer]);
 
   // Color palette selection
-  const activePalette = isDarkTheme ? DARK_PALETTE : LIGHT_PALETTE;
+  const activePalette = useMemo(() => {
+    if (theme === 'sepia') return SEPIA_PALETTE;
+    if (theme === 'forest') return FOREST_PALETTE;
+    if (theme === 'dracula') return DRACULA_PALETTE;
+    if (theme === 'nord') return NORD_PALETTE;
+    return isDarkTheme ? DARK_PALETTE : LIGHT_PALETTE;
+  }, [theme, isDarkTheme]);
 
   const colorFunction = useCallback(
     (node: INode) => {
@@ -401,11 +430,11 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
     <div
       ref={containerRef}
       style={{
-        backgroundColor: 'var(--ov-bg)',
+        backgroundColor: embedded ? 'transparent' : 'var(--ov-bg)',
         color: 'var(--ov-text)',
       }}
       className={`h-full w-full flex flex-col overflow-hidden select-none relative ${
-        isDarkTheme ? 'markmap-dark' : ''
+        isDarkTheme ? 'markmap-dark' : 'markmap-light'
       }`}
       data-theme={theme}
     >
@@ -607,14 +636,18 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
         {rootNode ? (
           <svg
             ref={svgRef}
-            className="w-full h-full block cursor-grab active:cursor-grabbing"
+            className="w-full h-full block cursor-grab active:cursor-grabbing markmap"
             style={{
+              backgroundColor: 'transparent',
               // Inject custom CSS variables matching theme
               // @ts-expect-error CSS custom variable
-              '--markmap-text-color': isDarkTheme ? '#f1f5f9' : '#0f172a',
-              '--markmap-circle-open-bg': isDarkTheme ? '#1e293b' : '#ffffff',
-              '--markmap-code-bg': isDarkTheme ? '#1e293b' : '#f1f5f9',
-              '--markmap-code-color': isDarkTheme ? '#38bdf8' : '#0284c7',
+              '--markmap-text-color': 'var(--ov-text)',
+              '--markmap-circle-open-bg': 'var(--ov-surface, #ffffff)',
+              '--markmap-code-bg': 'var(--ov-code-bg, rgba(125, 125, 125, 0.15))',
+              '--markmap-code-color': 'var(--ov-inline-code-color, var(--ov-accent))',
+              '--markmap-a-color': 'var(--ov-accent)',
+              '--markmap-font': '500 13px/18px var(--ov-font-family, system-ui, -apple-system, sans-serif)',
+              fontFamily: 'var(--ov-font-family, system-ui, -apple-system, sans-serif)',
             }}
           />
         ) : (

@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Code2,
 } from 'lucide-react';
+import { ThemeId } from '../../../../../shared/types';
 import {
   getOmniViewEchartsTheme,
   parseEChartsOption,
@@ -29,6 +30,7 @@ export interface EChartsBlockProps {
   raw: string;
   langSuffix?: string;
   isDarkTheme?: boolean;
+  theme?: ThemeId;
   onOpenLightbox?: (item: {
     type: string;
     title: string;
@@ -45,6 +47,7 @@ export const EChartsBlock: React.FC<EChartsBlockProps> = ({
   raw,
   langSuffix,
   isDarkTheme = true,
+  theme,
   onOpenLightbox,
   isCompactCard = false,
 }) => {
@@ -84,10 +87,11 @@ export const EChartsBlock: React.FC<EChartsBlockProps> = ({
         }
 
         // 获取当前主题令牌配置
-        const themeConfig = getOmniViewEchartsTheme(isDarkTheme);
+        const themeConfig = getOmniViewEchartsTheme(isDarkTheme, theme);
 
-        // 注册 OmniView 动态主题
-        const themeName = `ov-echarts-${isDarkTheme ? 'dark' : 'light'}`;
+        // 注册 OmniView 动态主题 (唯一主题键名确保动态切换实时生效)
+        const effectiveThemeKey = theme || (isDarkTheme ? 'dark' : 'light');
+        const themeName = `ov-echarts-${effectiveThemeKey}-${Date.now()}`;
         echarts.registerTheme(themeName, themeConfig);
 
         // 优先采用 SVG 渲染器保证绝对矢量高清
@@ -118,7 +122,7 @@ export const EChartsBlock: React.FC<EChartsBlockProps> = ({
         chartInstanceRef.current = null;
       }
     };
-  }, [parsedResult, isDarkTheme]);
+  }, [parsedResult, isDarkTheme, theme]);
 
   // 3. 响应式容器尺寸监听 (ResizeObserver)，关键适配 >[!CARDS:列数] 拖拽缩放
   useEffect(() => {
@@ -225,49 +229,70 @@ export const EChartsBlock: React.FC<EChartsBlockProps> = ({
 
   return (
     <div
-      className={`group relative my-3 rounded-xl border border-slate-700/40 bg-slate-900/30 transition-all hover:border-sky-500/30 hover:shadow-lg ${
-        isCompactCard ? 'my-1 rounded-lg border-transparent bg-transparent shadow-none' : ''
+      className={`markdown-diagram markdown-diagram-echarts group relative my-3 rounded-xl border transition-all ${
+        isCompactCard ? 'my-1 rounded-lg !border-transparent !bg-transparent !shadow-none' : ''
       }`}
+      style={{
+        backgroundColor: isCompactCard ? 'transparent' : 'var(--ov-surface)',
+        borderColor: isCompactCard ? 'transparent' : 'var(--ov-border)',
+        boxShadow: isCompactCard ? 'none' : 'var(--ov-shadow)',
+      }}
     >
       {/* 顶部微型悬浮操作栏 */}
-      <div className="flex items-center justify-between border-b border-slate-700/30 px-3 py-1.5 text-xs text-slate-400 bg-slate-950/20 rounded-t-xl">
-        <span className="flex items-center gap-1.5 font-medium text-sky-400">
-          <span className="inline-block h-2 w-2 rounded-full bg-sky-400/80 animate-pulse" />
+      <div
+        className="flex items-center justify-between border-b px-3 py-1.5 text-xs rounded-t-xl transition-colors"
+        style={{
+          backgroundColor: isCompactCard ? 'transparent' : 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+          color: 'var(--ov-text-secondary)',
+        }}
+      >
+        <span className="flex items-center gap-1.5 font-medium" style={{ color: 'var(--ov-accent)' }}>
+          <span className="inline-block h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--ov-accent)' }} />
           {parsedResult.typeLabel}
         </span>
 
         <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
           <button
+            type="button"
             onClick={() => setIsSourceVisible((prev) => !prev)}
             title="查看/隐藏 JSON 配置"
-            className={`rounded p-1 transition hover:bg-slate-700/50 hover:text-slate-200 ${
-              isSourceVisible ? 'bg-sky-500/20 text-sky-300' : ''
-            }`}
+            className="rounded p-1 transition cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+            style={{
+              color: isSourceVisible ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
+              backgroundColor: isSourceVisible ? 'var(--ov-accent-subtle, rgba(125,125,125,0.15))' : 'transparent',
+            }}
           >
             <Code2 className="h-3.5 w-3.5" />
           </button>
 
           <button
+            type="button"
             onClick={handleCopyCode}
             title="复制配置"
-            className="rounded p-1 transition hover:bg-slate-700/50 hover:text-slate-200"
+            className="rounded p-1 transition cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+            style={{ color: 'var(--ov-text-secondary)' }}
           >
-            {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
 
           <button
+            type="button"
             onClick={() => handleExport('svg')}
             title="导出为矢量 SVG"
-            className="rounded p-1 transition hover:bg-slate-700/50 hover:text-slate-200"
+            className="rounded p-1 transition cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+            style={{ color: 'var(--ov-text-secondary)' }}
           >
             <Download className="h-3.5 w-3.5" />
           </button>
 
           {onOpenLightbox && (
             <button
+              type="button"
               onClick={handleOpenLightbox}
               title="全屏居中放大灯箱"
-              className="rounded p-1 transition hover:bg-slate-700/50 hover:text-slate-200"
+              className="rounded p-1 transition cursor-pointer hover:bg-[var(--ov-surface-hover)]"
+              style={{ color: 'var(--ov-text-secondary)' }}
             >
               <Maximize2 className="h-3.5 w-3.5" />
             </button>
@@ -277,16 +302,26 @@ export const EChartsBlock: React.FC<EChartsBlockProps> = ({
 
       {/* 源码配置折叠面板 */}
       {isSourceVisible && (
-        <div className="border-b border-slate-700/20 bg-slate-950/60 p-3 font-mono text-xs text-slate-300 max-h-56 overflow-y-auto">
-          <pre>{raw}</pre>
+        <div
+          className="border-b p-3 font-mono text-xs max-h-56 overflow-y-auto"
+          style={{
+            backgroundColor: 'var(--ov-code-bg)',
+            borderColor: 'var(--ov-border)',
+            color: 'var(--ov-code-color, var(--ov-text))',
+          }}
+        >
+          <pre className="!m-0 !p-0 !bg-transparent">{raw}</pre>
         </div>
       )}
 
       {/* 图表真实渲染画布容器 */}
       <div className="relative p-2" onDoubleClick={handleOpenLightbox}>
         {isLoading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm rounded-b-xl">
-            <RefreshCw className="h-5 w-5 animate-spin text-sky-400 opacity-80" />
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-xs rounded-b-xl"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--ov-bg) 60%, transparent)' }}
+          >
+            <RefreshCw className="h-5 w-5 animate-spin opacity-80" style={{ color: 'var(--ov-accent)' }} />
           </div>
         )}
         <div

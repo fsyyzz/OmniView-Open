@@ -255,6 +255,7 @@ export const CodeLightboxModal: React.FC<CodeLightboxModalProps> = ({
             >
               <code
                 className={`language-${lang}`}
+                style={{ color: 'var(--ov-code-color, var(--ov-text))' }}
                 dangerouslySetInnerHTML={{ __html: highlightedHtml }}
               />
             </pre>

@@ -368,7 +368,14 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
               )}
             </div>
           ) : (
-            <div className="code-block-body overflow-x-auto flex bg-[var(--ov-code-bg)] text-xs leading-relaxed" data-lang={lang}>
+            <div
+              className="code-block-body overflow-x-auto flex text-xs leading-relaxed"
+              data-lang={lang}
+              style={{
+                backgroundColor: 'var(--ov-code-bg)',
+                color: 'var(--ov-code-color, var(--ov-text))',
+              }}
+            >
               <div
                 className="code-line-gutter py-3.5 pl-3.5 pr-2.5 text-right select-none bg-[var(--ov-surface-header)]/60 text-[var(--ov-text-muted)] border-r border-[var(--ov-border)] font-mono shrink-0 min-w-[44px]"
                 aria-hidden="true"
@@ -379,9 +386,13 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
                   </div>
                 ))}
               </div>
-              <pre className="code-line-body p-3.5 font-mono overflow-x-auto flex-1 !m-0 !bg-transparent !p-3.5">
+              <pre
+                className="code-line-body p-3.5 font-mono overflow-x-auto flex-1 !m-0 !bg-transparent !p-3.5"
+                style={{ color: 'var(--ov-code-color, var(--ov-text))' }}
+              >
                 <code
                   className={`language-${lang}`}
+                  style={{ color: 'var(--ov-code-color, var(--ov-text))' }}
                   dangerouslySetInnerHTML={{ __html: highlightedHtml }}
                 />
               </pre>

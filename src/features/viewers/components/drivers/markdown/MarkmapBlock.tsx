@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { DiagramCompactTrigger } from './DiagramCompactTrigger';
 import { Locale, t } from '../../../../../shared/lib/i18n.ts';
+import type { ThemeId } from '../../../../../shared/types.ts';
 import { MarkmapViewer } from '../MarkmapViewer.tsx';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill.tsx';
 
@@ -30,6 +31,7 @@ interface MarkmapBlockProps {
   zoom: number;
   editedCode: string;
   isDarkTheme?: boolean;
+  theme?: ThemeId;
   onChangeEditedCode: (val: string) => void;
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onZoomChange: (delta: number) => void;
@@ -51,6 +53,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
   zoom,
   editedCode,
   isDarkTheme = true,
+  theme,
   onChangeEditedCode,
   onSetViewMode,
   onZoomChange,
@@ -208,7 +211,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
       {/* Main Container: 紧凑自适应居中呈现思维导图，无多余大片空白 */}
       <div
         ref={canvasRef}
-        className={`diagram-canvas relative h-[280px] bg-slate-950/40 p-1.5 overflow-hidden flex items-center justify-center ${viewMode === 'visual' ? 'cursor-zoom-in' : ''}`}
+        className={`diagram-canvas relative h-[280px] bg-[var(--ov-diagram-canvas-bg,transparent)] p-1.5 overflow-hidden flex items-center justify-center ${viewMode === 'visual' ? 'cursor-zoom-in' : ''}`}
         onDoubleClick={viewMode === 'visual' ? handleOpenLightbox : undefined}
         title={viewMode === 'visual' ? t('fullScreen', locale) : undefined}
       >
@@ -220,6 +223,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
             <MarkmapViewer
               content={activeCode}
               isDarkTheme={isDarkTheme}
+              theme={theme}
               locale={locale}
               onOpenSourceAtLine={onOpenSourceAtLine}
               embedded={true}

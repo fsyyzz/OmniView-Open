@@ -92,6 +92,14 @@ assert.strictEqual(darkTheme.backgroundColor, 'transparent', '默认背景色应
 
 const lightTheme = getOmniViewEchartsTheme(false);
 assert.ok(lightTheme.textStyle.color !== undefined, '亮色主题应提供前景色');
+
+const sepiaTheme = getOmniViewEchartsTheme(false, 'sepia');
+assert.strictEqual(sepiaTheme.textStyle.color, '#38291a', '暖阳羊皮主题应使用温润深棕文字色');
+assert.strictEqual(sepiaTheme.color[0], '#b45309', '暖阳羊皮主题应使用专属琥珀色系调色板');
+
+const forestTheme = getOmniViewEchartsTheme(true, 'forest');
+assert.strictEqual(forestTheme.color[0], '#10b981', '森系主题应使用翡翠绿主色调色板');
+console.log('✅ 主题配色自适应（含暖阳羊皮 sepia 专属色板）测试通过');
 // 7. 防御性自动补齐测试 (防止 axisBuilder 与 get 报错)
 console.log('--- 测试 7: 缺失对偶坐标轴与 series.type 的防御性补齐 ---');
 const incompleteBar = `

@@ -43,7 +43,7 @@ import {
 } from '../../lib/markdownBlockEditor';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
-import { ContentWidthMode } from '../../../../shared/types';
+import { ContentWidthMode, ThemeId } from '../../../../shared/types';
 import { useMarkdownAstPipeline, type RenderedBlock } from '../../hooks/useMarkdownAstPipeline';
 import { useMarkdownScrollSync } from '../../hooks/useMarkdownScrollSync';
 import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
@@ -57,6 +57,7 @@ export type { RenderedBlock };
 
 export interface MarkdownViewerProps {
   content: string;
+  theme?: ThemeId;
   isDarkTheme?: boolean;
   density?: 'compact' | 'standard' | 'comfortable';
   contentWidth?: ContentWidthMode;
@@ -74,6 +75,7 @@ export interface MarkdownViewerProps {
 
 export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   content,
+  theme,
   isDarkTheme = true,
   density = 'compact',
   contentWidth = 'standard',
@@ -188,6 +190,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             raw={rawCode}
             langSuffix={suffix}
             isDarkTheme={isDarkTheme}
+            theme={theme}
             isCompactCard={true}
             onOpenLightbox={item => setLightboxItem(item)}
           />
@@ -204,7 +207,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     return () => {
       unmountFns.forEach(fn => fn());
     };
-  }, [blocks, isDarkTheme]);
+  }, [blocks, isDarkTheme, theme]);
 
   // 监听预览区划选文本事件 (支持单行格式化回写与跨行/只读智能复制定位)
   useEffect(() => {
@@ -1192,6 +1195,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
+                  theme={theme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
                   onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
@@ -1265,6 +1269,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   raw={block.raw}
                   langSuffix={block.langSuffix}
                   isDarkTheme={isDarkTheme}
+                  theme={theme}
                   onOpenLightbox={item => setLightboxItem(item)}
                 />
               </RenderErrorBoundary>
