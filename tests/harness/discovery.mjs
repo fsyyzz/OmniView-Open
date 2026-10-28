@@ -40,6 +40,7 @@ const SUITE_CONFIG_OVERRIDES = {
   'test-svg-global-styles.mjs': { mode: 'node', category: 'svg' },
   'test-pdf-search-controller.mjs': { mode: 'node', category: 'unit' },
   'test-echarts-block.mjs': { mode: 'node', category: 'diagram' },
+  'test-doc-image-export.mjs': { mode: 'node', category: 'office' },
 
   // 带外部包或特殊打包策略的配置
   'test-excalidraw.mjs': { mode: 'esbuild', external: ['@excalidraw/*'], category: 'driver' },

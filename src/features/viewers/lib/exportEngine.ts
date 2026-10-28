@@ -1,62 +1,357 @@
+import { solidifySvgElement } from '../../../shared/lib/svgSolidifier';
+import { convertSvgToDataUrl } from '../../../shared/lib/copyImageHelper';
+
 /**
  * OmniView 高保真文档导出引擎 (PDF 打印排版 / 原生 Word / 单文件便携 HTML)
  * 支持智能防跨页截断、SVG 矢量转嵌入高清位图、Office MSO 样式映射
  */
 
 /**
- * 将 DOM 中的单个 SVG 元素通过 Canvas 转换为高质量 PNG Base64 字符串
+ * 将 DOM 中的单个 SVG 元素通过 SvgSolidifier 样式固化与 Canvas 转换为高质量 PNG Base64 字符串
+ * 针对 Microsoft Word 深度优化：
+ * - 自动将 <foreignObject> 转为原生 <text>，防止 Word/Canvas 丢失文字
+ * - 强制填充纯白背景 (#ffffff)，防止在 Word 中出现黑底
+ * - 优先从真实 DOM 宿主读取 getBoundingClientRect 精确计算渲染尺寸
  */
-export async function convertSvgElementToPngBase64(svgEl: SVGElement, scale = 2): Promise<string> {
-  return new Promise((resolve) => {
-    try {
-      const serializer = new XMLSerializer();
-      let svgXml = serializer.serializeToString(svgEl);
+export async function convertSvgElementToPngBase64(
+  svgEl: SVGElement,
+  scale = 2,
+  liveSvgEl?: SVGElement | null
+): Promise<string> {
+  if (!svgEl || typeof window === 'undefined') return '';
 
-      // 确保包含命名空间
-      if (!svgXml.includes('xmlns="http://www.w3.org/2000/svg"')) {
-        svgXml = svgXml.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  try {
+    const targetSvg = (svgEl.cloneNode ? svgEl.cloneNode(true) : svgEl) as SVGElement;
+    const solidified = solidifySvgElement(targetSvg, { isDarkTheme: false, targetBgColor: '#ffffff' });
+
+    // 计算真实渲染尺寸
+    let baseWidth = 0;
+    let baseHeight = 0;
+    if (liveSvgEl && typeof liveSvgEl.getBoundingClientRect === 'function') {
+      try {
+        const rect = liveSvgEl.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          baseWidth = rect.width;
+          baseHeight = rect.height;
+        }
+      } catch {
+        // ignore
       }
+    }
 
-      const rect = svgEl.getBoundingClientRect();
-      const width = Math.max(300, (rect.width || parseInt(svgEl.getAttribute('width') || '600', 10)) * scale);
-      const height = Math.max(150, (rect.height || parseInt(svgEl.getAttribute('height') || '400', 10)) * scale);
+    if (!baseWidth || !baseHeight) {
+      const wAttr = parseFloat(solidified.getAttribute('width') || '0');
+      const hAttr = parseFloat(solidified.getAttribute('height') || '0');
+      if (wAttr > 0 && hAttr > 0) {
+        baseWidth = wAttr;
+        baseHeight = hAttr;
+      }
+    }
 
-      const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
-      const blobUrl = URL.createObjectURL(blob);
+    if (!baseWidth || !baseHeight) {
+      const vb = solidified.getAttribute('viewBox');
+      if (vb) {
+        const parts = vb.trim().split(/[\s,]+/).map(Number);
+        if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+          baseWidth = parts[2];
+          baseHeight = parts[3];
+        }
+      }
+    }
+
+    baseWidth = Math.max(200, baseWidth || 600);
+    baseHeight = Math.max(100, baseHeight || 400);
+
+    if (!solidified.getAttribute('xmlns')) {
+      solidified.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+    solidified.setAttribute('width', String(Math.round(baseWidth)));
+    solidified.setAttribute('height', String(Math.round(baseHeight)));
+
+    const serializer = new XMLSerializer();
+    const svgXml = serializer.serializeToString(solidified);
+
+    // 优先调用 copyImageHelper 中的高清光栅化引擎
+    const png = await convertSvgToDataUrl(svgXml, {
+      scale,
+      backgroundColor: '#ffffff',
+    });
+
+    if (png && png.startsWith('data:image/png')) {
+      return png;
+    }
+
+    // 降级 Canvas 手动绘制
+    return new Promise((resolve) => {
+      try {
+        const width = Math.round(baseWidth * scale);
+        const height = Math.round(baseHeight * scale);
+        const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              const pngData = canvas.toDataURL('image/png', 0.95);
+              URL.revokeObjectURL(blobUrl);
+              resolve(pngData);
+              return;
+            }
+          } catch (e) {
+            console.warn('Canvas export fallback failed', e);
+          }
+          URL.revokeObjectURL(blobUrl);
+          resolve('');
+        };
+
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          resolve('');
+        };
+
+        img.src = blobUrl;
+      } catch {
+        resolve('');
+      }
+    });
+  } catch (err) {
+    console.warn('Failed in convertSvgElementToPngBase64', err);
+    return '';
+  }
+}
+
+/**
+ * 将任意光栅图 DataURL (如 WebP, AVIF) 转为 Word 100% 兼容的 PNG DataURL
+ */
+async function convertRasterDataUrlToPng(dataUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png', 0.95));
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      resolve(null);
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * 将任意图片源 (外部 HTTP/HTTPS 外链、PlantUML 远程图表、Blob URL、本地/相对路径、SVG DataURI、WebP)
+ * 转换为 Microsoft Word / WPS 深度兼容的原生 Base64 PNG/JPEG DataURI
+ */
+export async function convertImageSourceToBase64(
+  src: string,
+  liveImg?: HTMLImageElement | null
+): Promise<string | null> {
+  if (!src || typeof window === 'undefined') return null;
+
+  const trimmed = src.trim();
+
+  // 1. 如果已经是 Word 原生支持的光栅图 Base64 (PNG, JPEG, GIF, BMP)，直接复用
+  if (/^data:image\/(png|jpeg|jpg|gif|bmp);base64,/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 2. 如果是 SVG DataURI (例如 PlantUML 离线缓存、Markmap、内联 SVG 图标)
+  // Word 不支持在 HTML .doc 中渲染 SVG DataURI，必须栅格化为高清 PNG
+  if (trimmed.startsWith('data:image/svg+xml')) {
+    try {
+      let svgText = '';
+      if (trimmed.includes(';base64,')) {
+        const base64Part = trimmed.split(';base64,')[1];
+        if (typeof atob === 'function') {
+          svgText = atob(base64Part);
+        }
+      } else {
+        const commaIdx = trimmed.indexOf(',');
+        if (commaIdx !== -1) {
+          svgText = decodeURIComponent(trimmed.substring(commaIdx + 1));
+        }
+      }
+      if (svgText) {
+        const png = await convertSvgToDataUrl(svgText, { backgroundColor: '#ffffff', scale: 2 });
+        if (png && png.startsWith('data:image/png')) {
+          return png;
+        }
+      }
+    } catch (e) {
+      console.warn('[Word Export] Failed to convert SVG DataURI to PNG', e);
+    }
+  }
+
+  // 3. 优先尝试从宿主 DOM 中已渲染完成的 liveImg 获取位图像素 (最快、最保真)
+  if (liveImg && liveImg.complete && liveImg.naturalWidth > 0) {
+    try {
+      const maxDim = 1800;
+      let w = liveImg.naturalWidth;
+      let h = liveImg.naturalHeight;
+      if (w > maxDim || h > maxDim) {
+        const ratio = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // 纯白背景防止透明通道在 Word 中黑底
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(liveImg, 0, 0, w, h);
+        const isJpeg = /\.(jpe?g)(\?|$)/i.test(trimmed);
+        const mime = isJpeg ? 'image/jpeg' : 'image/png';
+        const dataUrl = canvas.toDataURL(mime, 0.95);
+        if (dataUrl && dataUrl.startsWith('data:image/')) {
+          return dataUrl;
+        }
+      }
+    } catch {
+      // 若因跨域导致 canvas 受到污染 (SecurityError)，平滑继续后续网络拉取与重构流程
+    }
+  }
+
+  // 4. 网络异步拉取 (支持远程 HTTP/HTTPS 外链、PlantUML 外链、Blob URL、相对路径)
+  try {
+    let fetchUrl = trimmed;
+    if (trimmed.startsWith('//')) {
+      fetchUrl = window.location.protocol + trimmed;
+    } else if (trimmed.startsWith('/') && !trimmed.startsWith('data:')) {
+      fetchUrl = window.location.origin + trimmed;
+    }
+
+    const res = await fetch(fetchUrl, { mode: 'cors' });
+    if (res.ok) {
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      const isSvg =
+        contentType.includes('image/svg') ||
+        fetchUrl.toLowerCase().includes('.svg') ||
+        fetchUrl.includes('/plantuml/svg/');
+
+      if (isSvg) {
+        const svgText = await res.text();
+        if (svgText) {
+          const png = await convertSvgToDataUrl(svgText, { backgroundColor: '#ffffff', scale: 2 });
+          if (png && png.startsWith('data:image/png')) {
+            return png;
+          }
+        }
+      } else {
+        const blob = await res.blob();
+        if (blob) {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string) || '');
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          // 如果是 WebP / AVIF 等 Word 不兼容的格式，转为 PNG
+          if (
+            contentType.includes('webp') ||
+            contentType.includes('avif') ||
+            fetchUrl.toLowerCase().endsWith('.webp')
+          ) {
+            const png = await convertRasterDataUrlToPng(dataUrl);
+            if (png) return png;
+          }
+
+          if (dataUrl && dataUrl.startsWith('data:image/')) {
+            return dataUrl;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // 若 fetch 失败 (例如 PlantUML 远程图表请求受限)，尝试请求其官方 PNG 端点
+    if (trimmed.includes('plantuml.com') && trimmed.includes('/svg/')) {
+      try {
+        const pngUrl = trimmed.replace('/svg/', '/png/');
+        const resPng = await fetch(pngUrl, { mode: 'cors' });
+        if (resPng.ok) {
+          const blob = await resPng.blob();
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string) || '');
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(blob);
+          });
+          if (dataUrl && dataUrl.startsWith('data:image/')) {
+            return dataUrl;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // 5. 跨域匿名 Image 载入重试 (针对支持 CORS 的第三方 CDN)
+  try {
+    const dataUrl = await new Promise<string>((resolve) => {
       const img = new Image();
-
+      img.crossOrigin = 'anonymous';
       img.onload = () => {
         try {
+          const maxDim = 1800;
+          let w = img.naturalWidth || 600;
+          let h = img.naturalHeight || 400;
+          if (w > maxDim || h > maxDim) {
+            const ratio = Math.min(maxDim / w, maxDim / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
           const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
+          canvas.width = w;
+          canvas.height = h;
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            const pngData = canvas.toDataURL('image/png', 0.95);
-            URL.revokeObjectURL(blobUrl);
-            resolve(pngData);
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/png', 0.95));
             return;
           }
-        } catch (e) {
-          console.warn('Canvas export failed, falling back to SVG data URL', e);
+        } catch {
+          // ignore
         }
-        URL.revokeObjectURL(blobUrl);
-        resolve('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgXml));
+        resolve('');
       };
+      img.onerror = () => resolve('');
+      img.src = trimmed;
+    });
 
-      img.onerror = () => {
-        URL.revokeObjectURL(blobUrl);
-        resolve('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgXml));
-      };
-
-      img.src = blobUrl;
-    } catch {
-      resolve('');
+    if (dataUrl && dataUrl.startsWith('data:image/')) {
+      return dataUrl;
     }
-  });
+  } catch {
+    // ignore
+  }
+
+  return null;
 }
 
 /**
@@ -150,27 +445,96 @@ export async function exportToWordDocument(documentTitle: string, container: HTM
   const clone = container.cloneNode(true) as HTMLElement;
   cleanInteractiveElements(clone);
 
-  // 1. 将所有 SVG 转换为嵌入式高清 PNG 图片，确保 Word 正常显示且不依赖外链
-  const svgs = Array.from(clone.querySelectorAll('svg'));
-  for (const svg of svgs) {
+  // 1. 将所有 Canvas 元素 (如 ECharts 图表、画布绘图等) 转换为高保真内嵌 Base64 PNG 图片
+  const liveCanvases = Array.from(container.querySelectorAll('canvas'));
+  const cloneCanvases = Array.from(clone.querySelectorAll('canvas'));
+  cloneCanvases.forEach((c, idx) => {
     try {
-      const pngBase64 = await convertSvgElementToPngBase64(svg, 2);
-      if (pngBase64) {
-        const img = document.createElement('img');
-        img.src = pngBase64;
-        img.alt = 'Exported Diagram';
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        img.style.display = 'block';
-        img.style.margin = '12pt auto';
-        svg.parentNode?.replaceChild(img, svg);
+      const liveC = liveCanvases[idx] || c;
+      if (liveC && liveC.width > 0 && liveC.height > 0) {
+        const dataUrl = liveC.toDataURL('image/png');
+        if (dataUrl && dataUrl.startsWith('data:image/png')) {
+          const img = document.createElement('img');
+          img.src = dataUrl;
+          img.alt = 'Rendered Canvas Diagram';
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.style.display = 'block';
+          img.style.margin = '12pt auto';
+          c.parentNode?.replaceChild(img, c);
+        }
       }
     } catch (err) {
-      console.warn('Failed to convert SVG to image for Word export', err);
+      console.warn('[Word Export] Failed to convert canvas to image', err);
     }
-  }
+  });
 
-  // 2. 将代码块优化为 Word 专用底色表格与等宽字体
+  // 2. 将所有 SVG (Mermaid, Graphviz, Svg, Markmap, DomainStory 等) 深度固化并转换为内嵌高清 PNG 图片
+  const liveSvgs = Array.from(container.querySelectorAll('svg'));
+  const cloneSvgs = Array.from(clone.querySelectorAll('svg'));
+  await Promise.all(
+    cloneSvgs.map(async (svg, idx) => {
+      try {
+        const liveSvg = liveSvgs[idx] || svg;
+        const pngBase64 = await convertSvgElementToPngBase64(svg, 2, liveSvg);
+        if (pngBase64 && pngBase64.startsWith('data:image/')) {
+          const img = document.createElement('img');
+          img.src = pngBase64;
+          img.alt = svg.getAttribute('aria-label') || 'Exported Diagram';
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.style.display = 'block';
+          img.style.margin = '12pt auto';
+          svg.parentNode?.replaceChild(img, svg);
+        }
+      } catch (err) {
+        console.warn('[Word Export] Failed to convert SVG to image for Word export', err);
+      }
+    })
+  );
+
+  // 3. 将所有 <img> 图片（外链网络图片、PlantUML 架构图、Blob 本地缓存、相对路径、SVG DataURI）
+  // 深度光栅化并转为内嵌式 Base64 PNG/JPEG DataURI，彻底杜绝 Word/WPS 打开时断链红叉或无法显示的问题
+  const liveImgs = Array.from(container.querySelectorAll('img'));
+  const cloneImgs = Array.from(clone.querySelectorAll('img'));
+  await Promise.all(
+    cloneImgs.map(async (img, idx) => {
+      const src = img.getAttribute('src') || img.src || '';
+      if (!src) return;
+
+      let liveImg = liveImgs[idx] || null;
+      if (!liveImg || (liveImg.getAttribute('src') !== src && liveImg.src !== img.src)) {
+        liveImg = liveImgs.find((li) => li.getAttribute('src') === src || li.src === img.src) || null;
+      }
+
+      try {
+        const base64DataUrl = await convertImageSourceToBase64(src, liveImg);
+        if (base64DataUrl && base64DataUrl.startsWith('data:image/')) {
+          img.setAttribute('src', base64DataUrl);
+          img.src = base64DataUrl;
+        }
+      } catch (err) {
+        console.warn('[Word Export] Failed to embed image to base64', src, err);
+      }
+
+      // 规范化图片在 Word 排版中的样式，剥除断链 class、loading 属性与交互冗余
+      img.removeAttribute('onerror');
+      img.removeAttribute('loading');
+      img.removeAttribute('decoding');
+      img.removeAttribute('srcset');
+      img.removeAttribute('sizes');
+      img.removeAttribute('crossorigin');
+      img.classList.remove('ov-img-broken');
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+      img.style.margin = '12pt auto';
+      img.style.border = 'none';
+      img.style.borderWidth = '0';
+    })
+  );
+
+  // 4. 将代码块优化为 Word 专用底色表格与等宽字体
   clone.querySelectorAll('pre').forEach((pre) => {
     pre.style.backgroundColor = '#f8fafc';
     pre.style.border = '1pt solid #e2e8f0';
@@ -182,7 +546,7 @@ export async function exportToWordDocument(documentTitle: string, container: HTM
     pre.style.wordBreak = 'break-word';
   });
 
-  // 3. 将表格设置兼容 Word 的边框属性
+  // 5. 将表格设置兼容 Word 的边框属性
   clone.querySelectorAll('table').forEach((tbl) => {
     tbl.setAttribute('border', '1');
     tbl.setAttribute('cellspacing', '0');
@@ -200,7 +564,7 @@ export async function exportToWordDocument(documentTitle: string, container: HTM
     });
   });
 
-  // 4. 引用块 Callout 优化
+  // 6. 引用块 Callout 优化
   clone.querySelectorAll('blockquote').forEach((bq) => {
     bq.style.borderLeft = '3pt solid #3b82f6';
     bq.style.backgroundColor = '#f0f9ff';
@@ -209,14 +573,15 @@ export async function exportToWordDocument(documentTitle: string, container: HTM
     bq.style.color = '#1e40af';
   });
 
-  // 5. 组合 Microsoft Word 专有 MSO HTML 模板
+  // 7. 组合 Microsoft Word 专有 MSO HTML 模板
+  const safeTitle = (documentTitle || 'OmniView Document').replace(/[<>&"]/g, '');
   const wordHtml = `<!DOCTYPE html>
 <html xmlns:o='urn:schemas-microsoft-com:office:office'
       xmlns:w='urn:schemas-microsoft-com:office:word'
       xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
   <meta charset="utf-8">
-  <title>${documentTitle}</title>
+  <title>${safeTitle}</title>
   <!--[if gte mso 9]>
   <xml>
     <w:WordDocument>
@@ -281,7 +646,33 @@ export async function exportToWordDocument(documentTitle: string, container: HTM
     img {
       max-width: 100%;
       height: auto;
+      display: block;
+      margin: 12pt auto;
     }
+    .katex {
+      font-size: 1.1em;
+      font-family: 'KaTeX_Main', 'Cambria Math', 'Times New Roman', serif;
+    }
+    .ov-katex-block {
+      text-align: center;
+      margin: 12pt 0;
+      page-break-inside: avoid;
+    }
+    .ov-katex-inline {
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .ov-callout {
+      border-left: 3.5pt solid #3b82f6;
+      background-color: #f8fafc;
+      padding: 8pt 12pt;
+      margin: 10pt 0;
+    }
+    .ov-callout-note { border-left-color: #0284c7; background-color: #f0f9ff; }
+    .ov-callout-tip { border-left-color: #10b981; background-color: #f0fdf4; }
+    .ov-callout-important { border-left-color: #8b5cf6; background-color: #f5f3ff; }
+    .ov-callout-warning { border-left-color: #f59e0b; background-color: #fffbeb; }
+    .ov-callout-caution { border-left-color: #ef4444; background-color: #fef2f2; }
     .markdown-diagram, .markdown-code-block, .ov-table-wrapper, .ov-katex-block {
       page-break-inside: avoid;
     }
