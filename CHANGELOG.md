@@ -8,7 +8,20 @@
 
 ---
 
-## [1.3.46] - 2026-10-28 (当前最新发布)
+## [1.3.47] - 2026-10-28 (当前最新发布)
+
+> [!TIP] v1.3.47 核心升级亮点
+> **Excel (.xlsx) 工作台全面升级为纯 Univer 专业可编辑引擎（移除极速预览模式，开放全单元格与公式实时编辑）**：
+> 1. **精简双模冗余，全面统一至 Univer 专业工作台 (`XlsxViewer.tsx`)**：
+>    - 移除“极速预览 (`fast`)”模式切换开关及冗余静态表格/分页底栏，统一使用 `UniverSheetViewer` 作为唯一电子表格工作台，同时保留顶部 `Ctrl+F` 全局检索高亮、列排序、列特征画像（`ColumnProfileModal`）及多格式导出（CSV / TSV / JSON / Markdown）；
+> 2. **Univer 单元格就地编辑、公式栏 (`fx`) 编辑与依赖公式实时重算 (`UniverSheetViewer.tsx` & `xlsxToUniverAdapter.ts`)**：
+>    - 支持双击单元格、选中单元格按 `Enter` / `F2`、直接敲击可打印字符就地编辑，以及在顶部 `fx` 公式栏直接输入修改；
+>    - 支持方向键、`Tab` / `Shift+Tab`、`Enter`、`Escape`、`Delete` / `Backspace` 完整电子表格键盘导航与一键清空，并支持动态追加行（`+ 行`）与列（`+ 列`）；
+>    - 内置纯前端离线公式计算与依赖重算引擎（`evaluateUniverFormula` / `updateWorksheetCell` / `applyWorkbookCellEdit`），支持 `=SUM(...)`、`=AVERAGE(...)`、`=MAX(...)`、`=MIN(...)`、`=COUNT(...)`、`=COUNTA(...)` 及跨单元格四则运算表达式（如 `=C2-D2`、`=(A1+B1)*C1`），编辑任意单元格后自动实时重算关联公式并同步至导出数据流。
+
+---
+
+## [1.3.46] - 2026-10-28
 
 > [!TIP] v1.3.46 核心升级亮点
 > **开源镜像仓 (`sync-to-oss.yml`) Personal Access Token 缺少 `workflow` 权限时的自动降级自愈推流**：

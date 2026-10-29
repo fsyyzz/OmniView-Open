@@ -1,6 +1,5 @@
 /**
  * OmniView Word (.docx) 与 PowerPoint (.pptx) 全部操作可用性验证矩阵
- * 作者: 周赞
  */
 import assert from 'assert';
 import fs from 'fs';

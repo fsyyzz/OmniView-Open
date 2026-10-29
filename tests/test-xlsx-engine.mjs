@@ -14,7 +14,6 @@ import {
   exportSheetToJson,
   exportSheetToMarkdown,
 } from '../src/features/viewers/lib/xlsxEngine.ts';
-import { convertOmniWorkbookToUniver } from '../src/features/viewers/components/drivers/xlsx/xlsxToUniverAdapter.ts';
 
 async function testColLetterConversion() {
   console.log('  [test] 列字母与 0-based 索引双向换算测试...');
@@ -185,6 +184,14 @@ async function testConvertOmniWorkbookToUniver() {
   console.log('  ✓ OmniView -> Univer 数据模型适配测试通过');
 }
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import {
+  convertOmniWorkbookToUniver,
+  evaluateUniverFormula,
+  updateWorksheetCell,
+  applyWorkbookCellEdit,
+} from '../src/features/viewers/components/drivers/xlsx/xlsxToUniverAdapter.ts';
 import { isStaleModuleOrDispatcherError } from '../src/features/viewers/components/common/RenderErrorBoundary.tsx';
 
 async function testStaleModuleOrDispatcherDetection() {
@@ -200,6 +207,69 @@ async function testStaleModuleOrDispatcherDetection() {
   console.log('  ✓ Vite 依赖哈希不一致与 React 双实例异常识别测试通过');
 }
 
+async function testUniverCellEditingAndFormulaRecalculation() {
+  console.log('  [test] Univer 单元格编辑与依赖公式实时重算测试...');
+  const sampleZip = await generateSampleXlsxZip();
+  const buffer = await sampleZip.generateAsync({ type: 'nodebuffer' });
+  const workbook = await parseXlsx(buffer);
+
+  // 初始状态: Sheet 1 的 C2=2850000, D2=3200000, E2=3650000, F2=4120000, G2=SUM(C2:F2)=13820000
+  const sheet1 = workbook.sheets[0];
+  assert.equal(sheet1.cells['G2'].value, '13820000');
+
+  // 1. 修改 C2 从 2850000 -> 3850000 (+1000000)，验证依赖公式 G2 自动重算为 14820000
+  const updatedWorkbook1 = applyWorkbookCellEdit(workbook, 0, 1, 2, '3850000');
+  const updatedSheet1 = updatedWorkbook1.sheets[0];
+  assert.equal(updatedSheet1.cells['C2'].value, '3850000');
+  assert.equal(updatedSheet1.rows[1][2], '3850000');
+  assert.equal(updatedSheet1.cells['G2'].value, '14820000', '修改 C2 后 G2 的 SUM(C2:F2) 应自动重算为 14820000');
+  assert.equal(updatedSheet1.rows[1][6], '14820000');
+
+  // 2. 在空白单元格 J2 (row=1, col=9) 输入新公式 =AVERAGE(C2:F2)
+  const updatedSheet2 = updateWorksheetCell(updatedSheet1, 1, 9, '=AVERAGE(C2:F2)');
+  assert.equal(updatedSheet2.cells['J2'].formula, 'AVERAGE(C2:F2)');
+  assert.equal(updatedSheet2.cells['J2'].value, '3705000', 'AVERAGE(3850000, 3200000, 3650000, 4120000) 应为 3705000');
+
+  // 3. 测试 Sheet 2 的四则运算公式 C2-D2 自动重算
+  // 初始 Sheet 2: C2=5000000, D2=3200000, E2=C2-D2=1800000
+  const updatedWorkbook2 = applyWorkbookCellEdit(updatedWorkbook1, 1, 1, 3, '2000000');
+  const updatedBudgetSheet = updatedWorkbook2.sheets[1];
+  assert.equal(updatedBudgetSheet.cells['E2'].value, '3000000', '修改 D2 为 2000000 后 E2 (C2-D2) 应重算为 3000000');
+
+  // 4. 直接验证 evaluateUniverFormula 各类聚合函数
+  const dummyGrid = [
+    ['10', '20', '30'],
+    ['40', '50', '60'],
+  ];
+  const getter = (r, c) => dummyGrid[r]?.[c] ?? '';
+  assert.equal(evaluateUniverFormula('=SUM(A1:C2)', getter), '210');
+  assert.equal(evaluateUniverFormula('=MAX(A1:C2)', getter), '60');
+  assert.equal(evaluateUniverFormula('=MIN(A1:C2)', getter), '10');
+  assert.equal(evaluateUniverFormula('=COUNT(A1:C2)', getter), '6');
+  assert.equal(evaluateUniverFormula('=(A1+B1)*C1', getter), '900');
+  console.log('  ✓ Univer 单元格编辑与依赖公式实时重算通过');
+}
+
+async function testUniverExclusiveModeAndEditableUIContract() {
+  console.log('  [test] Excel 预览仅保留 Univer 工作台且开启可编辑交互契约测试...');
+  const root = process.cwd();
+  const xlsxViewerSrc = readFileSync(resolve(root, 'src/features/viewers/components/drivers/XlsxViewer.tsx'), 'utf8');
+  const univerViewerSrc = readFileSync(resolve(root, 'src/features/viewers/components/drivers/xlsx/UniverSheetViewer.tsx'), 'utf8');
+
+  // 验证 XlsxViewer 已彻底移除极速预览模式切换，仅保留 UniverSheetViewer
+  assert.ok(!xlsxViewerSrc.includes("setViewEngine('fast')"), 'XlsxViewer 不应再包含 fast 极速预览切换按钮');
+  assert.ok(!xlsxViewerSrc.includes('<span>极速预览</span>'), 'XlsxViewer 不应再包含极速预览文案');
+  assert.ok(xlsxViewerSrc.includes('<UniverSheetViewer'), 'XlsxViewer 必须直接渲染 UniverSheetViewer');
+  assert.ok(xlsxViewerSrc.includes('onWorkbookChange={handleWorkbookChange}'), 'XlsxViewer 必须监听 Univer 工作簿编辑变更');
+
+  // 验证 UniverSheetViewer 具备双击编辑、回车/F2编辑、公式栏输入编辑与提交逻辑
+  assert.ok(univerViewerSrc.includes('onDoubleClick'), 'UniverSheetViewer 单元格必须支持双击进入编辑');
+  assert.ok(univerViewerSrc.includes('commitCellEdit'), 'UniverSheetViewer 必须包含 commitCellEdit 提交逻辑');
+  assert.ok(univerViewerSrc.includes('applyWorkbookCellEdit'), 'UniverSheetViewer 必须调用 applyWorkbookCellEdit 更新工作簿');
+  assert.ok(univerViewerSrc.includes('formulaInputRef'), 'UniverSheetViewer 必须支持顶部 fx 公式栏直接输入编辑');
+  console.log('  ✓ Excel 预览仅保留 Univer 工作台且开启可编辑交互契约通过');
+}
+
 async function runAll() {
   console.log('=== 开始执行 XLSX 渲染引擎自动化测试套件 ===');
   await testColLetterConversion();
@@ -210,7 +280,9 @@ async function runAll() {
   await testResilienceOnEmptyInput();
   await testConvertOmniWorkbookToUniver();
   await testStaleModuleOrDispatcherDetection();
-  console.log('=== XLSX 渲染引擎 8 项测试全部 PASSED ===\n');
+  await testUniverCellEditingAndFormulaRecalculation();
+  await testUniverExclusiveModeAndEditableUIContract();
+  console.log('=== XLSX 渲染引擎 10 项测试全部 PASSED ===\n');
 }
 
 runAll().catch(err => {

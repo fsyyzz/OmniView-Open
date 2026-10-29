@@ -2,7 +2,6 @@
  * OmniView -> Univer 主题桥接与全主题令牌映射器
  * 确保 Univer 电子表格在 VS Code 多主题 (如 Catppuccin, Tokyo Night, GitHub Dark 等) 及高对比度下
  * 保持无刺眼白边、无色彩断层且与 --ov-* 变量像素级融合
- * 作者: 周赞
  */
 import type { ThemeId } from '../../../../../shared/types';
 
