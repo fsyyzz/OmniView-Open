@@ -201,4 +201,35 @@ const sampleDoc = [
   console.log('  ✅ 8. 首块与中间块向下移动 (Move Down) 互换位置测试通过');
 }
 
-console.log('🎉 Markdown 块级原地专注编辑与块级 CRUD 引擎全部 8 项测试 100% 通过！');
+// 9. 测试 MarkdownBlockActionBar 二段式极简渐进披露契约（默认仅展示「编辑」与「更多」两个小按钮，点击「更多」后展开进阶操作）
+{
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const actionBarSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/features/viewers/components/drivers/markdown/MarkdownBlockActionBar.tsx'),
+    'utf8'
+  );
+  assert.match(
+    actionBarSource,
+    /const\s+\[isMoreOpen,\s*setIsMoreOpen\]\s*=\s*useState\(false\)/,
+    'MarkdownBlockActionBar 应包含 isMoreOpen 折叠状态且默认为 false'
+  );
+  assert.match(
+    actionBarSource,
+    /aria-label="Focused Block Edit"/,
+    '应包含主操作「编辑」小按钮'
+  );
+  assert.match(
+    actionBarSource,
+    /aria-label="More Block Actions"/,
+    '应包含「更多」小按钮用于按需展开更多操作'
+  );
+  assert.match(
+    actionBarSource,
+    /\{!isMoreOpen\s*\?\s*\(/,
+    '默认未展开状态下应仅渲染「更多」触发按钮，隐藏插入/克隆/上下移动/删除按钮'
+  );
+  console.log('  ✅ 9. MarkdownBlockActionBar 默认二按钮（编辑 + 更多）渐进披露契约测试通过');
+}
+
+console.log('🎉 Markdown 块级原地专注编辑与块级 CRUD 引擎全部 9 项测试 100% 通过！');

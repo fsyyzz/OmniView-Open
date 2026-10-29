@@ -400,6 +400,160 @@ export function applyWorkbookCellEdit(
   };
 }
 
+export interface ColumnFilterRule {
+  keyword?: string;
+  selectedValues?: string[] | null;
+}
+
+export const EMPTY_FILTER_TOKEN = '(空白)';
+
+/**
+ * 读取工作表指定单元格的展示文本
+ */
+export function getSheetCellDisplayText(sheet: XlsxWorksheet, row: number, col: number): string {
+  const ref = `${indexToColLetter(col)}${row + 1}`;
+  if (sheet.cells?.[ref] && sheet.cells[ref].value !== undefined) {
+    return String(sheet.cells[ref].value ?? '');
+  }
+  if (sheet.rows?.[row]?.[col] !== undefined) {
+    return String(sheet.rows[row][col] ?? '');
+  }
+  return '';
+}
+
+/**
+ * 提取工作表指定列的去重候选值列表（供列头过滤下拉菜单勾选使用）
+ * 默认跳过第 0 行（表头行），仅提取有数据的非空数据行中的此列值
+ */
+export function getColumnDistinctValues(
+  sheet: XlsxWorksheet,
+  colIdx: number,
+  skipHeaderRow = true
+): { value: string; count: number }[] {
+  const counts = new Map<string, number>();
+  const startRow = skipHeaderRow ? 1 : 0;
+  const maxRow = sheet.rows?.length || 0;
+
+  for (let r = startRow; r < maxRow; r++) {
+    const rowData = sheet.rows?.[r];
+    const isRowNonEmpty = rowData && rowData.some(c => String(c ?? '').trim() !== '');
+    if (!isRowNonEmpty) continue;
+
+    const raw = getSheetCellDisplayText(sheet, r, colIdx).trim();
+    const token = raw === '' ? EMPTY_FILTER_TOKEN : raw;
+    counts.set(token, (counts.get(token) || 0) + 1);
+  }
+
+  return Array.from(counts.entries()).map(([value, count]) => ({ value, count }));
+}
+
+/**
+ * 根据列头过滤规则与列排序规则，计算当前应当展示的工作表行索引数组 (0-based)
+ * 第 0 行（表头行）始终固定在首行，后续数据行支持多列组合过滤与升降序排列
+ */
+export function filterAndSortWorksheetRows(options: {
+  sheet: XlsxWorksheet;
+  totalRows: number;
+  columnFilters?: Record<number, ColumnFilterRule>;
+  sortCol?: number | null;
+  sortAsc?: boolean;
+}): number[] {
+  const { sheet, totalRows, columnFilters = {}, sortCol = null, sortAsc = true } = options;
+  const maxRows = Math.min(Math.max(totalRows, 1), 200);
+  const allIndices = Array.from({ length: maxRows }, (_, idx) => idx);
+  if (maxRows <= 1) return allIndices;
+
+  const activeFilterEntries = Object.entries(columnFilters)
+    .map(([colStr, rule]) => ({ colIdx: Number(colStr), rule }))
+    .filter(({ rule }) => {
+      if (!rule) return false;
+      const hasKeyword = Boolean(rule.keyword && rule.keyword.trim() !== '');
+      const hasSubset = Array.isArray(rule.selectedValues);
+      return hasKeyword || hasSubset;
+    });
+
+  const hasAnyActiveFilter = activeFilterEntries.length > 0;
+  const headerRow = 0;
+  const bodyIndices = allIndices.slice(1);
+
+  const nonEmptyBody: number[] = [];
+  const emptyBody: number[] = [];
+
+  for (const rIdx of bodyIndices) {
+    const rowData = sheet.rows?.[rIdx];
+    const hasDataInCells =
+      (rowData && rowData.some(c => String(c ?? '').trim() !== '')) ||
+      Object.values(sheet.cells || {}).some(cell => cell.row === rIdx && String(cell.value ?? '').trim() !== '');
+
+    if (!hasDataInCells) {
+      emptyBody.push(rIdx);
+      continue;
+    }
+
+    // 检查是否通过所有激活的列头过滤条件
+    let matched = true;
+    for (const { colIdx, rule } of activeFilterEntries) {
+      const cellText = getSheetCellDisplayText(sheet, rIdx, colIdx);
+      const token = cellText.trim() === '' ? EMPTY_FILTER_TOKEN : cellText.trim();
+
+      if (rule.keyword && rule.keyword.trim() !== '') {
+        if (!cellText.toLowerCase().includes(rule.keyword.trim().toLowerCase())) {
+          matched = false;
+          break;
+        }
+      }
+      if (Array.isArray(rule.selectedValues)) {
+        if (!rule.selectedValues.includes(token)) {
+          matched = false;
+          break;
+        }
+      }
+    }
+
+    if (matched) {
+      nonEmptyBody.push(rIdx);
+    }
+  }
+
+  if (sortCol !== null && sortCol >= 0) {
+    nonEmptyBody.sort((rA, rB) => {
+      const valA = getSheetCellDisplayText(sheet, rA, sortCol);
+      const valB = getSheetCellDisplayText(sheet, rB, sortCol);
+      const numA = Number(valA);
+      const numB = Number(valB);
+      if (!Number.isNaN(numA) && !Number.isNaN(numB) && valA !== '' && valB !== '') {
+        return sortAsc ? numA - numB : numB - numA;
+      }
+      return sortAsc
+        ? String(valA).localeCompare(String(valB), undefined, { numeric: true })
+        : String(valB).localeCompare(String(valA), undefined, { numeric: true });
+    });
+  }
+
+  // 当存在激活的列头过滤时，仅展示表头行 + 命中过滤的数据行（末尾预留 3 行空白供快速追加输入）
+  if (hasAnyActiveFilter) {
+    return [headerRow, ...nonEmptyBody, ...emptyBody.slice(0, 3)];
+  }
+
+  return [headerRow, ...nonEmptyBody, ...emptyBody];
+}
+
+/**
+ * 计算冻结列在 sticky 定位下的左侧偏移量 (px)
+ * 行号列固定宽度为 rowHeaderWidth (默认 48px)，每列宽度为 colWidth (默认 128px)
+ */
+export function calculateFrozenColumnLeftOffset(
+  colIdx: number,
+  frozenColCount: number,
+  rowHeaderWidth = 48,
+  colWidth = 128
+): number | null {
+  if (frozenColCount <= 0 || colIdx < 0 || colIdx >= frozenColCount) {
+    return null;
+  }
+  return rowHeaderWidth + colIdx * colWidth;
+}
+
 export function convertOmniWorkbookToUniver(
   workbook: ParsedXlsxWorkbook,
   workbookName = 'OmniView Spreadsheet',

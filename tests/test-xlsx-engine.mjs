@@ -9,6 +9,7 @@ import {
   parseCellRef,
   parseSharedStrings,
   parseXlsx,
+  serializeXlsxWorkbook,
   generateSampleXlsxZip,
   exportSheetToCsv,
   exportSheetToJson,
@@ -191,6 +192,9 @@ import {
   evaluateUniverFormula,
   updateWorksheetCell,
   applyWorkbookCellEdit,
+  getColumnDistinctValues,
+  filterAndSortWorksheetRows,
+  calculateFrozenColumnLeftOffset,
 } from '../src/features/viewers/components/drivers/xlsx/xlsxToUniverAdapter.ts';
 import { isStaleModuleOrDispatcherError } from '../src/features/viewers/components/common/RenderErrorBoundary.tsx';
 
@@ -236,7 +240,14 @@ async function testUniverCellEditingAndFormulaRecalculation() {
   const updatedBudgetSheet = updatedWorkbook2.sheets[1];
   assert.equal(updatedBudgetSheet.cells['E2'].value, '3000000', '修改 D2 为 2000000 后 E2 (C2-D2) 应重算为 3000000');
 
-  // 4. 直接验证 evaluateUniverFormula 各类聚合函数
+  // 4. 验证编辑后通过 serializeXlsxWorkbook 持久化快照再经过 parseXlsx 不会丢失修改
+  const serialized = serializeXlsxWorkbook(updatedWorkbook2);
+  const restoredWorkbook = await parseXlsx(serialized);
+  assert.equal(restoredWorkbook.sheets[0].cells['C2'].value, '3850000', '序列化后再解析必须保留已修改的 C2 值');
+  assert.equal(restoredWorkbook.sheets[0].cells['G2'].value, '14820000', '序列化后再解析必须保留重算后的 G2 公式值');
+  assert.equal(restoredWorkbook.sheets[1].cells['E2'].value, '3000000', '序列化后再解析必须保留 Sheet 2 的修改');
+
+  // 5. 直接验证 evaluateUniverFormula 各类聚合函数
   const dummyGrid = [
     ['10', '20', '30'],
     ['40', '50', '60'],
@@ -250,24 +261,71 @@ async function testUniverCellEditingAndFormulaRecalculation() {
   console.log('  ✓ Univer 单元格编辑与依赖公式实时重算通过');
 }
 
+async function testColumnHeaderFilteringAndFreezing() {
+  console.log('  [test] Univer 列头过滤 (Column Filter) 与列冻结 (Column Freeze) 测试...');
+  const sampleZip = await generateSampleXlsxZip();
+  const buffer = await sampleZip.generateAsync({ type: 'nodebuffer' });
+  const workbook = await parseXlsx(buffer);
+  const sheet1 = workbook.sheets[0];
+
+  // 1. 提取列 I (colIdx=8, "达成状态") 的唯一值及计数
+  const distinctStatus = getColumnDistinctValues(sheet1, 8, true);
+  assert.equal(distinctStatus.length, 2, '达成状态列应有 2 种唯一值 ("超额达成" 与 "顺利达成")');
+  const overAchieved = distinctStatus.find(d => d.value === '超额达成');
+  assert.ok(overAchieved && overAchieved.count === 3, '"超额达成" 应出现 3 次');
+
+  // 2. 按唯一值勾选过滤：仅勾选 ["顺利达成"]
+  const filteredByValue = filterAndSortWorksheetRows({
+    sheet: sheet1,
+    totalRows: 10,
+    columnFilters: {
+      8: { selectedValues: ['顺利达成'] },
+    },
+  });
+  // 第 0 行表头 + 命中的第 3 行 (DiagramStudio 协同画布) + 末尾预留空白行
+  assert.equal(filteredByValue[0], 0, '首行表头必须保留在索引 0');
+  assert.equal(filteredByValue[1], 3, '命中的唯一数据行应为 rIdx=3 (DiagramStudio 协同画布)');
+
+  // 3. 按关键字过滤：在第 0 列搜索 "CodeGraph"
+  const filteredByKeyword = filterAndSortWorksheetRows({
+    sheet: sheet1,
+    totalRows: 10,
+    columnFilters: {
+      0: { keyword: 'codegraph' },
+    },
+  });
+  assert.equal(filteredByKeyword[0], 0);
+  assert.equal(filteredByKeyword[1], 2, '关键字过滤应命中 rIdx=2 (CodeGraph 智能索引服务)');
+
+  // 4. 列冻结偏移量计算验证
+  assert.equal(calculateFrozenColumnLeftOffset(0, 0, 48, 128), null, '未启用列冻结时应返回 null');
+  assert.equal(calculateFrozenColumnLeftOffset(0, 2, 48, 128), 48, '第 0 列冻结偏移应为 48px');
+  assert.equal(calculateFrozenColumnLeftOffset(1, 2, 48, 128), 176, '第 1 列冻结偏移应为 48+128=176px');
+  assert.equal(calculateFrozenColumnLeftOffset(2, 2, 48, 128), null, '超出冻结列数的列应返回 null');
+  console.log('  ✓ Univer 列头过滤与列冻结逻辑测试通过');
+}
+
 async function testUniverExclusiveModeAndEditableUIContract() {
-  console.log('  [test] Excel 预览仅保留 Univer 工作台且开启可编辑交互契约测试...');
+  console.log('  [test] Excel 预览仅保留 Univer 工作台且开启可编辑/列过滤/列冻结契约测试...');
   const root = process.cwd();
   const xlsxViewerSrc = readFileSync(resolve(root, 'src/features/viewers/components/drivers/XlsxViewer.tsx'), 'utf8');
   const univerViewerSrc = readFileSync(resolve(root, 'src/features/viewers/components/drivers/xlsx/UniverSheetViewer.tsx'), 'utf8');
 
-  // 验证 XlsxViewer 已彻底移除极速预览模式切换，仅保留 UniverSheetViewer
+  // 验证 XlsxViewer 已彻底移除极速预览模式切换，仅保留 UniverSheetViewer，且具备防回环写回保护
   assert.ok(!xlsxViewerSrc.includes("setViewEngine('fast')"), 'XlsxViewer 不应再包含 fast 极速预览切换按钮');
   assert.ok(!xlsxViewerSrc.includes('<span>极速预览</span>'), 'XlsxViewer 不应再包含极速预览文案');
   assert.ok(xlsxViewerSrc.includes('<UniverSheetViewer'), 'XlsxViewer 必须直接渲染 UniverSheetViewer');
   assert.ok(xlsxViewerSrc.includes('onWorkbookChange={handleWorkbookChange}'), 'XlsxViewer 必须监听 Univer 工作簿编辑变更');
+  assert.ok(xlsxViewerSrc.includes('lastEmittedContentRef'), 'XlsxViewer 必须包含 lastEmittedContentRef 防止编辑回写触发重解包覆盖');
 
-  // 验证 UniverSheetViewer 具备双击编辑、回车/F2编辑、公式栏输入编辑与提交逻辑
+  // 验证 UniverSheetViewer 具备同步编辑事务锁、列头过滤与列冻结能力
+  assert.ok(univerViewerSrc.includes('editingSessionRef'), 'UniverSheetViewer 必须使用 editingSessionRef 保证双击/回车/失焦提交不丢数据');
   assert.ok(univerViewerSrc.includes('onDoubleClick'), 'UniverSheetViewer 单元格必须支持双击进入编辑');
   assert.ok(univerViewerSrc.includes('commitCellEdit'), 'UniverSheetViewer 必须包含 commitCellEdit 提交逻辑');
   assert.ok(univerViewerSrc.includes('applyWorkbookCellEdit'), 'UniverSheetViewer 必须调用 applyWorkbookCellEdit 更新工作簿');
-  assert.ok(univerViewerSrc.includes('formulaInputRef'), 'UniverSheetViewer 必须支持顶部 fx 公式栏直接输入编辑');
-  console.log('  ✓ Excel 预览仅保留 Univer 工作台且开启可编辑交互契约通过');
+  assert.ok(univerViewerSrc.includes('columnFilters'), 'UniverSheetViewer 必须支持列头过滤状态');
+  assert.ok(univerViewerSrc.includes('frozenColCount'), 'UniverSheetViewer 必须支持列冻结状态');
+  console.log('  ✓ Excel 预览仅保留 Univer 工作台且开启可编辑/列过滤/列冻结契约通过');
 }
 
 async function runAll() {
@@ -281,8 +339,9 @@ async function runAll() {
   await testConvertOmniWorkbookToUniver();
   await testStaleModuleOrDispatcherDetection();
   await testUniverCellEditingAndFormulaRecalculation();
+  await testColumnHeaderFilteringAndFreezing();
   await testUniverExclusiveModeAndEditableUIContract();
-  console.log('=== XLSX 渲染引擎 10 项测试全部 PASSED ===\n');
+  console.log('=== XLSX 渲染引擎 11 项测试全部 PASSED ===\n');
 }
 
 runAll().catch(err => {

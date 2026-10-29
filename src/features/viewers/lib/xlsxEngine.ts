@@ -342,12 +342,34 @@ export async function parseXlsxMetadata(zip: JSZip, sheetNames: string[]): Promi
 }
 
 /**
+ * 将已编辑的 ParsedXlsxWorkbook 序列化为持久化 JSON 快照字符串，
+ * 确保单元格/公式编辑回写至宿主 content 后不会因重新解包丢失修改
+ */
+export function serializeXlsxWorkbook(workbook: ParsedXlsxWorkbook): string {
+  return JSON.stringify({
+    __omniview_xlsx_workbook__: true,
+    workbook,
+  });
+}
+
+/**
  * 完整解析 XLSX 归档数据
  */
 export async function parseXlsx(data: ArrayBuffer | Uint8Array | string): Promise<ParsedXlsxWorkbook> {
   let zip: JSZip;
 
   if (typeof data === 'string') {
+    const trimmed = data.trim();
+    if (trimmed.startsWith('{"__omniview_xlsx_workbook__":true')) {
+      try {
+        const parsedSnapshot = JSON.parse(trimmed);
+        if (parsedSnapshot?.workbook && Array.isArray(parsedSnapshot.workbook.sheets)) {
+          return parsedSnapshot.workbook as ParsedXlsxWorkbook;
+        }
+      } catch {
+        // Ignore and fallback to standard zip parsing
+      }
+    }
     if (data.startsWith('data:')) {
       const base64Content = data.split(',')[1] || '';
       zip = await JSZip.loadAsync(base64Content, { base64: true });

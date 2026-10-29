@@ -2,14 +2,15 @@
  * Markdown 块级渐进式悬浮动作胶囊与删除撤销通知条 (Scheme 1: Progressive Hover Action Capsule + Undo Toast)
  *
  * 核心特性：
- * 1. 遵循渐进式披露 (Progressive Disclosure)：默认仅凸显主操作「局部编辑」，并排提供「下方插入」「克隆块」「上移/下移」「删除块」紧凑图标按钮
- * 2. 智能正文右侧贴合定位：当段落、标题、居中图件框 ([!FIGURE]) 或图片未铺满整行时，自动贴合实际正文/图件右侧边缘，免去鼠标长距离横跨空白区
+ * 1. 二段式极简渐进披露 (Two-Stage Progressive Disclosure)：默认悬浮仅展示「编辑」与「更多」两个紧凑小按钮，点击「更多」后才展开「下方插入」「克隆块」「上移/下移」「删除块」等进阶操作
+ * 2. 智能正文右侧贴合定位：当段落、标题、居中图件框 ([!FIGURE]) 或图片未铺满整行时，自动贴合实际正文/图件右侧边缘，免去鼠标长距离横跨空白区；展开更多操作时自动防左溢钳制
  * 3. 防误触双保险：支持行内二次确认态 (Inline Confirm) + 删除后底部 6 秒非阻塞「一键撤销 (Undo)」浮条
  * 4. 100% 遵循 --ov-* 语义化设计令牌，且全量标记 data-clipboard-ignore="true" 杜绝复制污染
  */
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Edit3,
+  MoreHorizontal,
   Plus,
   CopyPlus,
   ArrowUp,
@@ -27,7 +28,7 @@ import type { Locale } from '../../../../../shared/lib/i18n';
  */
 export function computeBlockContentRightOffset(
   wrapperEl: HTMLElement | null,
-  barWidth = 210
+  barWidth = 96
 ): number {
   if (!wrapperEl || typeof document === 'undefined') return 8;
   const wrapperRect = wrapperEl.getBoundingClientRect();
@@ -73,7 +74,7 @@ export function computeBlockContentRightOffset(
       // 将胶囊置于文字右端附近（若文字极短则紧邻文字右侧展开，不超出容器左界）
       const desiredRightEdge = Math.max(
         wrapperRect.left + barWidth + 8,
-        Math.min(wrapperRect.right - 8, rangeRect.right + Math.min(barWidth * 0.65, 130))
+        Math.min(wrapperRect.right - 8, rangeRect.right + Math.min(barWidth * 0.75, 84))
       );
       const rightOffset = Math.round(wrapperRect.right - desiredRightEdge);
       return Math.max(8, rightOffset);
@@ -116,6 +117,7 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
   onDelete,
 }) => {
   const isZh = locale === 'zh-CN';
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -131,17 +133,28 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
   const lineRangeText =
     endLine && endLine > startLine ? `L${startLine}–L${endLine}` : `L${startLine}`;
 
+  // 当展开「更多」或处于「删除确认」时胶囊变宽，自动钳制 rightOffset 防止在极短标题/段落上向左溢出容器
+  const effectiveRightOffsetPx = (() => {
+    if (!isMoreOpen && !confirmingDelete) return rightOffsetPx;
+    const parentWidth = barRef.current?.parentElement?.clientWidth ?? 0;
+    if (parentWidth <= 0) return rightOffsetPx;
+    const expandedEstimatedWidth = 228;
+    const maxSafeRightOffset = Math.max(8, parentWidth - expandedEstimatedWidth - 8);
+    return Math.min(rightOffsetPx, maxSafeRightOffset);
+  })();
+
   return (
     <div
       ref={barRef}
       data-clipboard-ignore="true"
       onMouseLeave={() => {
         if (confirmingDelete) setConfirmingDelete(false);
+        if (isMoreOpen) setIsMoreOpen(false);
       }}
       onClick={e => e.stopPropagation()}
       onDoubleClick={e => e.stopPropagation()}
       style={{
-        right: `${rightOffsetPx}px`,
+        right: `${effectiveRightOffsetPx}px`,
         backgroundColor: 'var(--ov-bg-elevated)',
         borderColor: 'var(--ov-border)',
         color: 'var(--ov-text-secondary)',
@@ -151,16 +164,17 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
     >
       {!confirmingDelete ? (
         <>
-          {/* 主操作：局部专注编辑 */}
+          {/* 按钮 1：编辑小按钮（主操作） */}
           <button
             type="button"
             data-clipboard-ignore="true"
             onClick={e => {
               e.preventDefault();
               e.stopPropagation();
+              setIsMoreOpen(false);
               onEdit();
             }}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
             title={
               isZh
                 ? `原地专注编辑此块 (${lineRangeText} · Alt+双击)`
@@ -169,98 +183,142 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
             aria-label="Focused Block Edit"
           >
             <Edit3 className="w-3 h-3" />
-            <span>{isZh ? '局部编辑' : 'Edit'}</span>
+            <span>{isZh ? '编辑' : 'Edit'}</span>
           </button>
 
-          <span
-            aria-hidden="true"
-            style={{ backgroundColor: 'var(--ov-border-subtle)' }}
-            className="w-px h-3.5 mx-0.5 shrink-0"
-          />
-
-          {/* 下方插入新块并直接聚焦编辑 */}
-          <button
-            type="button"
-            data-clipboard-ignore="true"
-            onClick={e => {
-              e.preventDefault();
-              e.stopPropagation();
-              onInsertBelow();
-            }}
-            className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
-            title={isZh ? '在下方插入新段落并立即编辑' : 'Insert New Block Below & Edit'}
-            aria-label="Insert Block Below"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-
-          {/* 克隆当前块到下方 */}
-          <button
-            type="button"
-            data-clipboard-ignore="true"
-            onClick={e => {
-              e.preventDefault();
-              e.stopPropagation();
-              onDuplicate();
-            }}
-            className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
-            title={isZh ? '向下方克隆此块副本' : 'Duplicate Block Below'}
-            aria-label="Duplicate Block"
-          >
-            <CopyPlus className="w-3.5 h-3.5" />
-          </button>
-
-          {/* 上移块 */}
-          {canMoveUp && (
+          {/* 按钮 2：未展开时仅显示「更多」小按钮；点击「更多」后展开进阶操作项 */}
+          {!isMoreOpen ? (
             <button
               type="button"
               data-clipboard-ignore="true"
               onClick={e => {
                 e.preventDefault();
                 e.stopPropagation();
-                onMoveUp();
+                setIsMoreOpen(true);
               }}
-              className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
-              title={isZh ? '与上方相邻块交换位置 (上移)' : 'Move Block Up'}
-              aria-label="Move Block Up"
+              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+              title={isZh ? '展开更多块操作（插入/克隆/移动/删除）' : 'More Block Actions'}
+              aria-label="More Block Actions"
+              aria-expanded={false}
             >
-              <ArrowUp className="w-3.5 h-3.5" />
+              <MoreHorizontal className="w-3.5 h-3.5" />
+              <span>{isZh ? '更多' : 'More'}</span>
             </button>
-          )}
+          ) : (
+            <>
+              <span
+                aria-hidden="true"
+                style={{ backgroundColor: 'var(--ov-border-subtle)' }}
+                className="w-px h-3.5 mx-0.5 shrink-0"
+              />
 
-          {/* 下移块 */}
-          {canMoveDown && (
-            <button
-              type="button"
-              data-clipboard-ignore="true"
-              onClick={e => {
-                e.preventDefault();
-                e.stopPropagation();
-                onMoveDown();
-              }}
-              className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
-              title={isZh ? '与下方相邻块交换位置 (下移)' : 'Move Block Down'}
-              aria-label="Move Block Down"
-            >
-              <ArrowDown className="w-3.5 h-3.5" />
-            </button>
-          )}
+              {/* 下方插入新块并直接聚焦编辑 */}
+              <button
+                type="button"
+                data-clipboard-ignore="true"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsMoreOpen(false);
+                  onInsertBelow();
+                }}
+                className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+                title={isZh ? '在下方插入新段落并立即编辑' : 'Insert New Block Below & Edit'}
+                aria-label="Insert Block Below"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
 
-          {/* 删除此块（触发行内防误触确认） */}
-          <button
-            type="button"
-            data-clipboard-ignore="true"
-            onClick={e => {
-              e.preventDefault();
-              e.stopPropagation();
-              setConfirmingDelete(true);
-            }}
-            className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-danger,#ef4444)] transition-colors cursor-pointer"
-            title={isZh ? `删除此块 (${lineRangeText})` : `Delete Block (${lineRangeText})`}
-            aria-label="Delete Block"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+              {/* 克隆当前块到下方 */}
+              <button
+                type="button"
+                data-clipboard-ignore="true"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsMoreOpen(false);
+                  onDuplicate();
+                }}
+                className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+                title={isZh ? '向下方克隆此块副本' : 'Duplicate Block Below'}
+                aria-label="Duplicate Block"
+              >
+                <CopyPlus className="w-3.5 h-3.5" />
+              </button>
+
+              {/* 上移块 */}
+              {canMoveUp && (
+                <button
+                  type="button"
+                  data-clipboard-ignore="true"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsMoreOpen(false);
+                    onMoveUp();
+                  }}
+                  className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+                  title={isZh ? '与上方相邻块交换位置 (上移)' : 'Move Block Up'}
+                  aria-label="Move Block Up"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* 下移块 */}
+              {canMoveDown && (
+                <button
+                  type="button"
+                  data-clipboard-ignore="true"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsMoreOpen(false);
+                    onMoveDown();
+                  }}
+                  className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-accent)] transition-colors cursor-pointer"
+                  title={isZh ? '与下方相邻块交换位置 (下移)' : 'Move Block Down'}
+                  aria-label="Move Block Down"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* 删除此块（触发行内防误触确认） */}
+              <button
+                type="button"
+                data-clipboard-ignore="true"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setConfirmingDelete(true);
+                }}
+                className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-danger,#ef4444)] transition-colors cursor-pointer"
+                title={isZh ? `删除此块 (${lineRangeText})` : `Delete Block (${lineRangeText})`}
+                aria-label="Delete Block"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+
+              {/* 收起更多操作按钮 */}
+              <button
+                type="button"
+                data-clipboard-ignore="true"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsMoreOpen(false);
+                }}
+                style={{ color: 'var(--ov-text-muted)' }}
+                className="p-1 rounded-md hover:bg-[var(--ov-surface-header)] hover:text-[var(--ov-text)] transition-colors cursor-pointer"
+                title={isZh ? '收起更多操作' : 'Collapse More Actions'}
+                aria-label="Collapse More Actions"
+                aria-expanded={true}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </>
+          )}
         </>
       ) : (
         /* 行内二次确认态 */
@@ -278,6 +336,7 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
               e.preventDefault();
               e.stopPropagation();
               setConfirmingDelete(false);
+              setIsMoreOpen(false);
               onDelete();
             }}
             style={{

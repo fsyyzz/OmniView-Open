@@ -8,16 +8,30 @@
 
 ---
 
-## [1.3.47] - 2026-10-28 (当前最新发布)
+## [1.4.1] - 2026-10-29 (当前最新发布)
 
-> [!TIP] v1.3.47 核心升级亮点
-> **Excel (.xlsx) 工作台全面升级为纯 Univer 专业可编辑引擎（移除极速预览模式，开放全单元格与公式实时编辑）**：
-> 1. **精简双模冗余，全面统一至 Univer 专业工作台 (`XlsxViewer.tsx`)**：
->    - 移除“极速预览 (`fast`)”模式切换开关及冗余静态表格/分页底栏，统一使用 `UniverSheetViewer` 作为唯一电子表格工作台，同时保留顶部 `Ctrl+F` 全局检索高亮、列排序、列特征画像（`ColumnProfileModal`）及多格式导出（CSV / TSV / JSON / Markdown）；
-> 2. **Univer 单元格就地编辑、公式栏 (`fx`) 编辑与依赖公式实时重算 (`UniverSheetViewer.tsx` & `xlsxToUniverAdapter.ts`)**：
->    - 支持双击单元格、选中单元格按 `Enter` / `F2`、直接敲击可打印字符就地编辑，以及在顶部 `fx` 公式栏直接输入修改；
->    - 支持方向键、`Tab` / `Shift+Tab`、`Enter`、`Escape`、`Delete` / `Backspace` 完整电子表格键盘导航与一键清空，并支持动态追加行（`+ 行`）与列（`+ 列`）；
->    - 内置纯前端离线公式计算与依赖重算引擎（`evaluateUniverFormula` / `updateWorksheetCell` / `applyWorkbookCellEdit`），支持 `=SUM(...)`、`=AVERAGE(...)`、`=MAX(...)`、`=MIN(...)`、`=COUNT(...)`、`=COUNTA(...)` 及跨单元格四则运算表达式（如 `=C2-D2`、`=(A1+B1)*C1`），编辑任意单元格后自动实时重算关联公式并同步至导出数据流。
+> [!TIP] v1.4.1 核心升级亮点
+> **Markdown 段落悬浮动作胶囊二段式极简渐进披露优化 (`MarkdownBlockActionBar.tsx`)**：
+> 1. **默认仅保留「编辑」与「更多」两个紧凑小按钮**：
+>    - 移除默认悬浮时一次性铺开 6 个操作按钮的视觉干扰，鼠标悬停段落时默认仅展示主操作「编辑 (`Edit3`)」与「更多 (`MoreHorizontal`)」两个轻量小按钮，胶囊默认宽度精简逾 50%；
+> 2. **按需点击「更多」展开进阶块操作**：
+>    - 点击「更多」小按钮后才平滑展开「下方插入 (`Plus`)」、「克隆块 (`CopyPlus`)」、「上移/下移 (`ArrowUp`/`ArrowDown`)」、「删除块 (`Trash2`)」及收起按钮，并在鼠标移出块区域 (`onMouseLeave`) 后自动复位至二按钮极简态，同时内置短标题/短段落展开时的防左溢边界钳制。
+
+---
+
+## [1.4.0] - 2026-10-28
+
+> [!TIP] v1.4.0 核心升级亮点
+> **Excel (.xlsx) Univer 专业工作台重大升级：单元格编辑持久化修复、列头多维过滤与列冻结**：
+> 1. **精简双模冗余，全面统一至 Univer 专业可编辑工作台 (`XlsxViewer.tsx`)**：
+>    - 移除“极速预览 (`fast`)”模式切换开关及静态表格冗余代码，统一使用 `UniverSheetViewer` 作为唯一电子表格引擎；
+> 2. **彻底修复双击单元格编辑后按回车 (`Enter`) 或失焦离开 (`onBlur`) 修改失效回滚的缺陷 (`UniverSheetViewer.tsx` / `XlsxViewer.tsx` / `xlsxEngine.ts`)**：
+>    - 引入同步编辑会话锁（`editingSessionRef` + `internalWorkbookRef`），彻底消除按下 `Enter` / `Tab` 或切换单元格时同步 `focus()` 抢占触发旧闭包 `onBlur` 导致的输入丢失与二次覆盖；
+>    - 新增工作簿内存快照序列化协议（`serializeXlsxWorkbook`）与父级回流防抖比对（`lastEmittedContentRef`），彻底阻断单元格修改回传父组件后触发 `useEffect` 重新拉取原始 `binaryUrl` 或回退默认样例 ZIP 导致修改被瞬间重置的回环；
+> 3. **新增列头多维过滤引擎 (`ColumnFilterRule` & `UniverSheetViewer.tsx`)**：
+>    - 每个列头新增漏斗过滤触发器与浮动过滤面板，支持**关键词包含过滤**与**唯一值勾选清单（含空值识别、出现频次徽标、全选/清空快捷操作）**，顶部工具栏实时展示激活过滤列数并支持一键清除全部过滤；
+> 4. **新增列冻结 (`Pin` / `PinOff`) 与多列粘性定位引擎 (`calculateFrozenColumnLeftOffset`)**：
+>    - 支持在任意列头一键固定/取消冻结至该列，或在顶部工具栏「冻结列」菜单切换「取消列冻结 / 冻结首列 (列 A) / 冻结前 2 列 (A-B) / 冻结至当前列」，横向滚动时自动保持冻结列粘性固定与 `2px solid var(--ov-accent)` 视觉分隔线。
 
 ---
 

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import {
   parseXlsx,
+  serializeXlsxWorkbook,
   exportSheetToCsv,
   exportSheetToJson,
   exportSheetToMarkdown,
@@ -82,6 +83,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const lastEmittedContentRef = useRef<string | null>(null);
 
   // 全局 Ctrl+F 快捷聚焦搜索框
   useEffect(() => {
@@ -99,10 +101,22 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
   }, []);
 
   const [reloadNonce, setReloadNonce] = useState(0);
-  const loadWorkbook = useCallback(() => setReloadNonce(n => n + 1), []);
+  const loadWorkbook = useCallback(() => {
+    lastEmittedContentRef.current = null;
+    setReloadNonce(n => n + 1);
+  }, []);
 
-  // 载入与解析工作簿 (含并发竞态防护与过时结果丢弃)
+  // 载入与解析工作簿 (含并发竞态防护、内部编辑防回环与过时结果丢弃)
   useEffect(() => {
+    // 若当前 content 变更来自 Univer 内部单元格编辑回写，直接跳过重新解包，避免重置已编辑数据或闪屏卸载
+    if (
+      typeof content === 'string' &&
+      lastEmittedContentRef.current !== null &&
+      content === lastEmittedContentRef.current
+    ) {
+      return;
+    }
+
     let isCancelled = false;
     setLoading(true);
     setError(null);
@@ -110,8 +124,11 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
     const run = async () => {
       try {
         let rawData: ArrayBuffer | Uint8Array | string = content || '';
+        const isSerializedSnapshot =
+          typeof content === 'string' &&
+          content.trim().startsWith('{"__omniview_xlsx_workbook__":true');
 
-        if (binaryUrl) {
+        if (binaryUrl && !isSerializedSnapshot) {
           const resp = await fetch(binaryUrl);
           rawData = await resp.arrayBuffer();
         }
@@ -171,17 +188,17 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
     }
   }, [displayHeaders, dataRows]);
 
-  // 同步 Univer 内部单元格/公式编辑回主工作簿状态
+  // 同步 Univer 内部单元格/公式编辑回主工作簿状态与持久化快照
   const handleWorkbookChange = useCallback(
     (updatedWorkbook: ParsedXlsxWorkbook) => {
       setWorkbook(updatedWorkbook);
-      const activeUpdatedSheet =
-        updatedWorkbook.sheets[activeSheetIdx] || updatedWorkbook.sheets[0];
-      if (activeUpdatedSheet && onContentChange) {
-        onContentChange(exportSheetToCsv(activeUpdatedSheet, ','));
+      if (onContentChange) {
+        const serialized = serializeXlsxWorkbook(updatedWorkbook);
+        lastEmittedContentRef.current = serialized;
+        onContentChange(serialized);
       }
     },
-    [activeSheetIdx, onContentChange]
+    [onContentChange]
   );
 
   // 一键复制当前工作表为 TSV (可直接粘贴到 Excel / 飞书 / Notion)
