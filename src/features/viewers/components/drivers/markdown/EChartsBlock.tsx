@@ -77,7 +77,6 @@ export const EChartsBlock: React.FC<EChartsBlockProps> = ({
       try {
         setIsLoading(true);
         // 按需动态载入 ECharts 核心库
-        // @ts-expect-error dynamic import for echarts
         const echarts = await import('echarts');
         if (isCancelled || !containerRef.current) return;
 

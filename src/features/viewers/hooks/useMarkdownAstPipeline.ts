@@ -710,6 +710,29 @@ export function useMarkdownAstPipeline({
         return `<blockquote data-source-line="${currentTokenStartLine}">${tokenOrQuote}</blockquote>\n`;
       };
 
+      const origList = customRenderer.list.bind(customRenderer);
+      customRenderer.list = function (tokenOrBody: any, ordered?: boolean, start?: number) {
+        if (typeof tokenOrBody === 'object' && tokenOrBody !== null && 'ordered' in tokenOrBody) {
+          const isOrdered = Boolean(tokenOrBody.ordered);
+          const startNum = tokenOrBody.start;
+          const tag = isOrdered ? 'ol' : 'ul';
+          const hasTask = Array.isArray(tokenOrBody.items) && tokenOrBody.items.some((it: any) => it.task);
+          let body = '';
+          for (let i = 0; i < tokenOrBody.items.length; i++) {
+            body += this.listitem(tokenOrBody.items[i]);
+          }
+          const startAttr = isOrdered && typeof startNum === 'number' && startNum !== 1 ? ` start="${startNum}"` : '';
+          const taskClass = hasTask ? ' ov-task-list' : '';
+          const listClass = isOrdered ? `ov-ordered-list${taskClass}` : `ov-unordered-list${taskClass}`;
+          return `<${tag} class="${listClass}"${startAttr} data-source-line="${currentTokenStartLine}">\n${body}</${tag}>\n`;
+        }
+        const isOrdered = typeof ordered === 'boolean' ? ordered : false;
+        const tag = isOrdered ? 'ol' : 'ul';
+        const startAttr = isOrdered && typeof start === 'number' && start !== 1 ? ` start="${start}"` : '';
+        const listClass = isOrdered ? 'ov-ordered-list' : 'ov-unordered-list';
+        return `<${tag} class="${listClass}"${startAttr} data-source-line="${currentTokenStartLine}">\n${tokenOrBody}</${tag}>\n`;
+      };
+
       const origListitem = customRenderer.listitem.bind(customRenderer);
       customRenderer.listitem = function (itemOrText: any, task?: boolean, checked?: boolean) {
         if (typeof itemOrText === 'object' && itemOrText !== null) {

@@ -8,7 +8,28 @@
 
 ---
 
-## [1.3.42] - 2026-10-27 (当前最新发布)
+## [1.3.43] - 2026-10-28 (当前最新发布)
+
+> [!TIP] v1.3.43 核心升级亮点
+> **Markdown 列表渲染与序号/符号体系全面修复与增强**：
+> 1. **根治 Tailwind CSS Preflight Reset 导致的序号与圆点缺失缺陷**：
+>    - 深度重构 `src/index.css` 列表系统，显式补充 `.markdown-content ol`、`.markdown-document ol` 与 `ol.ov-ordered-list` 的 `list-style-type: decimal !important` 规则，彻底恢复有序列表序号（`1.`, `2.`, `3.` 等）显示；
+>    - 显式声明 `ul` 的 `list-style-type: disc !important`，恢复无序列表项目符号展示；
+> 2. **多层级有序/无序/混合列表递进排版**：
+>    - 完整支持二级有序列表 `lower-alpha`（`a.`, `b.`）、三级 `lower-roman`（`i.`, `ii.`）与多级嵌套自然递进；
+>    - 完整支持二级无序列表 `circle`、三级 `square` 与有序/无序混合嵌套样式；
+>    - 优化列表项（`li`）行高（`1.68`）、子段落边距与嵌套子列表缩进（`1.45em`），确保紧凑模式（`data-density="compact"`）与大序号无重叠错位；
+> 3. **全主题设计令牌自适应与交互式任务列表防干扰**：
+>    - 列表序号 marker 颜色绑定至 `--ov-text-secondary` 并开启 `tabular-nums` 等宽对齐，项目符号 marker 颜色绑定至 `--ov-accent` 主题色；
+>    - 对交互式任务列表（`- [ ]`, `- [x]`）彻底清除原生符号与 marker，保证复选框纯净居中对齐；
+>    - 补齐 GitHub Alert / Callout 引用框内部列表以及卡片矩阵（Card Grid）内部嵌套有序列表排版；
+> 4. **A4 打印保真与自动化回归验证**：
+>    - 在 `@media print` 中同步补齐打印时有序列表序号与符号保真规则，增加列表项防跨页断裂保护（`page-break-inside: avoid`）；
+>    - 新增 `tests/test-markdown-list-rendering.mjs` 专项测试，全量 93 项自动化测试套件与所有质量门禁 100% 顺利通过。
+
+---
+
+## [1.3.42] - 2026-10-27
 
 > [!TIP] v1.3.42 核心升级亮点
 > **Markdown 内嵌 Markmap 思维导图全主题背景与文字颜色像素级适配**：

@@ -1149,14 +1149,170 @@ body.vscode-high-contrast-light[data-theme="system"] {
 .markdown-content strong { color: var(--ov-text); font-weight: 650; }
 .markdown-content em { color: var(--ov-text-secondary); }
 
-.markdown-content ul,
-.markdown-content ol {
-  margin: 0.5em 0 1.15em;
-  padding-left: 1.65em;
+/* =========================================================
+   Markdown 列表系统深度排版与序号/符号渲染
+   彻底修复 Tailwind Preflight reset 导致的序号/圆点缺失
+   ========================================================= */
+
+.markdown-content ol,
+.markdown-document ol,
+ol.ov-ordered-list {
+  list-style-type: decimal !important;
+  list-style-position: outside;
+  margin: 0.55em 0 1.15em;
+  padding-left: 1.85em;
 }
 
-.markdown-content li { margin: 0.3em 0; padding-left: 0.25em; }
-.markdown-content li > p { margin: 0; }
+.markdown-content ul,
+.markdown-document ul,
+ul.ov-unordered-list {
+  list-style-type: disc !important;
+  list-style-position: outside;
+  margin: 0.55em 0 1.15em;
+  padding-left: 1.85em;
+}
+
+/* 多层级有序列表嵌套递进：decimal -> lower-alpha -> lower-roman -> decimal */
+.markdown-content ol ol,
+.markdown-document ol ol,
+ol.ov-ordered-list ol,
+ol.ov-ordered-list ol.ov-ordered-list {
+  list-style-type: lower-alpha !important;
+}
+
+.markdown-content ol ol ol,
+.markdown-document ol ol ol,
+ol.ov-ordered-list ol ol,
+ol.ov-ordered-list ol.ov-ordered-list ol.ov-ordered-list {
+  list-style-type: lower-roman !important;
+}
+
+.markdown-content ol ol ol ol,
+.markdown-document ol ol ol ol,
+ol.ov-ordered-list ol ol ol,
+ol.ov-ordered-list ol.ov-ordered-list ol.ov-ordered-list ol.ov-ordered-list {
+  list-style-type: decimal !important;
+}
+
+/* 多层级无序列表嵌套递进：disc -> circle -> square */
+.markdown-content ul ul,
+.markdown-document ul ul,
+ul.ov-unordered-list ul,
+ul.ov-unordered-list ul.ov-unordered-list {
+  list-style-type: circle !important;
+}
+
+.markdown-content ul ul ul,
+.markdown-document ul ul ul,
+ul.ov-unordered-list ul ul,
+ul.ov-unordered-list ul.ov-unordered-list ul.ov-unordered-list {
+  list-style-type: square !important;
+}
+
+/* 混合嵌套场景 (Mixed nesting) */
+.markdown-content ol ul,
+.markdown-document ol ul,
+ol.ov-ordered-list ul {
+  list-style-type: disc !important;
+}
+
+.markdown-content ul ol,
+.markdown-document ul ol,
+ul.ov-unordered-list ol {
+  list-style-type: decimal !important;
+}
+
+/* 嵌套子列表缩进与间距紧凑化 */
+.markdown-content ul ul,
+.markdown-content ol ol,
+.markdown-content ul ol,
+.markdown-content ol ul,
+.markdown-document ul ul,
+.markdown-document ol ol,
+.markdown-document ul ol,
+.markdown-document ol ul,
+ol.ov-ordered-list ol,
+ol.ov-ordered-list ul,
+ul.ov-unordered-list ul,
+ul.ov-unordered-list ol {
+  margin: 0.25em 0 0.35em;
+  padding-left: 1.45em;
+}
+
+/* 列表项基础样式与对齐 */
+.markdown-content li,
+.markdown-document li {
+  display: list-item !important;
+  margin: 0.32em 0;
+  padding-left: 0.25em;
+  line-height: 1.68;
+}
+
+.markdown-content li > p,
+.markdown-document li > p {
+  margin: 0;
+}
+
+.markdown-content li > p + p,
+.markdown-document li > p + p {
+  margin-top: 0.45em;
+}
+
+/* 序号与符号设计令牌自适应 (Theme-adaptive List Markers) */
+.markdown-content ol > li::marker,
+.markdown-document ol > li::marker,
+ol.ov-ordered-list > li::marker {
+  color: var(--ov-text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.markdown-content ul > li::marker,
+.markdown-document ul > li::marker,
+ul.ov-unordered-list > li::marker {
+  color: var(--ov-accent);
+}
+
+/* 交互式任务列表彻底剔除符号与序号 */
+.markdown-content ul:has(> .ov-task-list-item),
+.markdown-document ul:has(> .ov-task-list-item),
+ul.ov-task-list,
+.ov-task-list-item {
+  list-style: none !important;
+  list-style-type: none !important;
+}
+
+.markdown-content ul:has(> .ov-task-list-item),
+.markdown-document ul:has(> .ov-task-list-item),
+ul.ov-task-list {
+  padding-left: 0.25em !important;
+}
+
+.ov-task-list-item::marker {
+  display: none !important;
+  content: "" !important;
+}
+
+/* GitHub Alert / Callout 引用框内部列表保真 */
+.ov-callout-body ol {
+  list-style-type: decimal !important;
+  padding-left: 1.65em;
+  margin: 0.4em 0 0.8em;
+}
+
+.ov-callout-body ul {
+  list-style-type: disc !important;
+  padding-left: 1.65em;
+  margin: 0.4em 0 0.8em;
+}
+
+.ov-callout-body ul:has(> .ov-task-list-item),
+.ov-callout-body ul.ov-task-list {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding-left: 0.25em !important;
+}
+
 .markdown-content hr { border: 0; border-top: 1px solid var(--ov-border); margin: 2.2em 0; }
 
 .markdown-content blockquote {
@@ -1489,17 +1645,29 @@ body.vscode-high-contrast-light[data-theme="system"] {
   margin: 0 0 0.65em;
 }
 
-[data-density="compact"] .markdown-content ul,
 [data-density="compact"] .markdown-content ol,
-.density-compact .markdown-content ul,
-.density-compact .markdown-content ol {
+[data-density="compact"] .markdown-document ol,
+.density-compact .markdown-content ol,
+.density-compact .markdown-document ol {
+  list-style-type: decimal !important;
   margin: 0.35em 0 0.75em;
-  padding-left: 1.35em;
+  padding-left: 1.6em;
+}
+
+[data-density="compact"] .markdown-content ul,
+[data-density="compact"] .markdown-document ul,
+.density-compact .markdown-content ul,
+.density-compact .markdown-document ul {
+  list-style-type: disc !important;
+  margin: 0.35em 0 0.75em;
+  padding-left: 1.6em;
 }
 
 [data-density="compact"] .markdown-content li,
-.density-compact .markdown-content li {
-  margin: 0.15em 0;
+[data-density="compact"] .markdown-document li,
+.density-compact .markdown-content li,
+.density-compact .markdown-document li {
+  margin: 0.18em 0;
 }
 
 [data-density="compact"] .markdown-code-block,
@@ -2115,13 +2283,69 @@ svg.markmap .markmap-foreign a {
     margin-bottom: 5pt !important;
   }
 
-  /* 段落与文本排版 */
-  p, ul, ol {
+  /* 段落排版 */
+  p {
     color: #1e293b !important;
     margin-top: 0 !important;
     margin-bottom: 8pt !important;
     orphans: 3 !important;
     widows: 3 !important;
+  }
+
+  /* 列表打印保真与序号保留 */
+  ol,
+  .markdown-content ol,
+  .markdown-document ol,
+  ol.ov-ordered-list {
+    list-style-type: decimal !important;
+    padding-left: 1.85em !important;
+    margin: 4pt 0 8pt !important;
+    color: #1e293b !important;
+  }
+
+  ul,
+  .markdown-content ul,
+  .markdown-document ul,
+  ul.ov-unordered-list {
+    list-style-type: disc !important;
+    padding-left: 1.85em !important;
+    margin: 4pt 0 8pt !important;
+    color: #1e293b !important;
+  }
+
+  ol ol, .markdown-content ol ol { list-style-type: lower-alpha !important; }
+  ol ol ol, .markdown-content ol ol ol { list-style-type: lower-roman !important; }
+  ul ul, .markdown-content ul ul { list-style-type: circle !important; }
+  ul ul ul, .markdown-content ul ul ul { list-style-type: square !important; }
+  ol ul, .markdown-content ol ul { list-style-type: disc !important; }
+  ul ol, .markdown-content ul ol { list-style-type: decimal !important; }
+
+  li,
+  .markdown-content li,
+  .markdown-document li {
+    display: list-item !important;
+    color: #1e293b !important;
+    margin: 2pt 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  ol > li::marker,
+  .markdown-content ol > li::marker {
+    color: #334155 !important;
+    font-weight: 600 !important;
+  }
+
+  ul > li::marker,
+  .markdown-content ul > li::marker {
+    color: #475569 !important;
+  }
+
+  ul:has(> .ov-task-list-item),
+  ul.ov-task-list,
+  li.ov-task-list-item {
+    list-style: none !important;
+    list-style-type: none !important;
   }
 
   /* 打印代码块：浅灰底；有行号 gutter 时禁止仅对 code 换行，避免行号错位 */
@@ -3776,6 +4000,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 .ov-card-grid-body > ul > li ul,
 .ov-card-grid-body > ol > li ul {
   list-style: disc !important;
+  list-style-type: disc !important;
   padding-left: 20px !important;
   margin: 8px 0 !important;
   display: block !important;
@@ -3795,6 +4020,32 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 
 .ov-card-grid-body > ul > li ul > li::before,
 .ov-card-grid-body > ol > li ul > li::before {
+  display: none !important;
+}
+
+.ov-card-grid-body > ul > li ol,
+.ov-card-grid-body > ol > li ol {
+  list-style: decimal !important;
+  list-style-type: decimal !important;
+  padding-left: 20px !important;
+  margin: 8px 0 !important;
+  display: block !important;
+}
+
+.ov-card-grid-body > ul > li ol > li,
+.ov-card-grid-body > ol > li ol > li {
+  padding: 2px 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  display: list-item !important;
+  font-size: 0.84rem;
+}
+
+.ov-card-grid-body > ul > li ol > li::before,
+.ov-card-grid-body > ol > li ol > li::before {
   display: none !important;
 }
 
