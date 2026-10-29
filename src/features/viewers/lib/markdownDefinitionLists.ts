@@ -116,7 +116,7 @@ export function processMarkdownDefinitionLists(source: string): DefinitionListPr
       i += 1;
     }
 
-    const dlParts: string[] = ['<dl class="ov-deflist">'];
+    const dlParts: string[] = [];
     let cursor = termStart;
 
     while (cursor < lines.length) {
@@ -174,12 +174,17 @@ export function processMarkdownDefinitionLists(source: string): DefinitionListPr
           }
           break;
         }
-        dlParts.push(`<dd>${renderBlock(bodyLines.join('\n'))}</dd>`);
+        dlParts.push(`<dd>${renderBlock(bodyLines.join('\n')).replace(/\r?\n/g, ' ')}</dd>`);
       }
     }
 
-    dlParts.push('</dl>');
-    out.push(dlParts.join('\n'));
+    const consumedLines = Math.max(1, cursor - termStart);
+    const singleLineDl = `<dl class="ov-deflist" data-deflist-lines="${consumedLines}">${dlParts.join('')}</dl>`.replace(
+      `<dl class="ov-deflist" data-deflist-lines="${consumedLines}">`,
+      `<dl class="ov-deflist"><span hidden data-deflist-lines="${consumedLines}"></span>`
+    );
+    const paddingNewlines = '\n'.repeat(Math.max(0, consumedLines - 1));
+    out.push(singleLineDl + paddingNewlines);
     listCount += 1;
     i = cursor;
   }

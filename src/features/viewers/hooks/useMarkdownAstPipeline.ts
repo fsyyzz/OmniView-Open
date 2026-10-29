@@ -318,8 +318,38 @@ export function processInlineSvgImages(markdown: string): string {
   }
   return markdown.replace(
     /!\[(.*?)\]\((data:image\/svg\+xml(?:;[a-zA-Z0-9_\-]+)*?,)(<svg[\s\S]*?<\/svg>)\)/gi,
-    (_match, alt, prefix, svg) => `![${alt}](${prefix}${encodeURIComponent(svg)})`
+    (match, alt, prefix, svg) => {
+      const newlineCount = (match.match(/\n/g) || []).length;
+      return `![${alt}](${prefix}${encodeURIComponent(svg)})${'\n'.repeat(newlineCount)}`;
+    }
   );
+}
+
+function assignInnerTokenLines(token: any, startLine: number): void {
+  if (!token || typeof token !== 'object') return;
+  token._startLine = startLine;
+
+  if (token.type === 'list' && Array.isArray(token.items)) {
+    let itemRunningLine = startLine;
+    for (const item of token.items) {
+      item._startLine = itemRunningLine;
+      if (Array.isArray(item.tokens)) {
+        let subLine = itemRunningLine;
+        for (const sub of item.tokens) {
+          assignInnerTokenLines(sub, subLine);
+          subLine += (sub.raw?.match(/\n/g) || []).length;
+        }
+      }
+      const itemNewlines = (item.raw?.match(/\n/g) || []).length;
+      itemRunningLine += itemNewlines;
+    }
+  } else if (token.type === 'blockquote' && Array.isArray(token.tokens)) {
+    let subLine = startLine;
+    for (const sub of token.tokens) {
+      assignInnerTokenLines(sub, subLine);
+      subLine += (sub.raw?.match(/\n/g) || []).length;
+    }
+  }
 }
 
 export function useMarkdownAstPipeline({
@@ -435,6 +465,10 @@ export function useMarkdownAstPipeline({
       customRenderer.heading = function (headerOrToken: any, depth?: any) {
         let text = '';
         let level = depth || 1;
+        const lineNum =
+          typeof headerOrToken === 'object' && headerOrToken !== null && headerOrToken._startLine
+            ? headerOrToken._startLine
+            : currentTokenStartLine;
         if (typeof headerOrToken === 'object' && headerOrToken !== null) {
           level = headerOrToken.depth || 1;
           text = this.parser.parseInline(headerOrToken.tokens || []);
@@ -442,21 +476,26 @@ export function useMarkdownAstPipeline({
           text = headerOrToken;
         }
         const slug = text.toLowerCase().replace(/[^\w\u4e00-\u9fa5]+/g, '-').replace(/^-+|-+$/g, '') || `h-${Math.random().toString(36).slice(2, 7)}`;
-        return `<h${level} id="${slug}" data-source-line="${currentTokenStartLine}">${text}</h${level}>\n`;
+        return `<h${level} id="${slug}" data-source-line="${lineNum}">${text}</h${level}>\n`;
       };
 
       customRenderer.paragraph = function (tokenOrText: any) {
         let text = '';
+        const lineNum =
+          typeof tokenOrText === 'object' && tokenOrText !== null && tokenOrText._startLine
+            ? tokenOrText._startLine
+            : currentTokenStartLine;
         if (typeof tokenOrText === 'object' && tokenOrText !== null) {
           text = this.parser.parseInline(tokenOrText.tokens || []);
         } else {
           text = tokenOrText;
         }
-        return `<p data-source-line="${currentTokenStartLine}">${text}</p>\n`;
+        return `<p data-source-line="${lineNum}">${text}</p>\n`;
       };
 
       customRenderer.blockquote = function (tokenOrQuote: any) {
         if (typeof tokenOrQuote === 'object' && tokenOrQuote !== null && tokenOrQuote.tokens) {
+          const quoteStartLine = tokenOrQuote._startLine || currentTokenStartLine;
           const firstToken = tokenOrQuote.tokens[0];
           if (firstToken && (firstToken.type === 'paragraph' || firstToken.type === 'text')) {
             const firstRaw = (firstToken.raw || firstToken.text || '').trimStart();
@@ -474,6 +513,11 @@ export function useMarkdownAstPipeline({
               const restTokens = [...tokenOrQuote.tokens];
               if (remainingText.trim()) {
                 const innerTokens = marked.lexer(remainingText);
+                let innerLine = (firstToken._startLine || quoteStartLine) + 1;
+                for (const it of innerTokens) {
+                  assignInnerTokenLines(it, innerLine);
+                  innerLine += (it.raw?.match(/\n/g) || []).length;
+                }
                 restTokens.splice(0, 1, ...innerTokens);
               } else {
                 restTokens.shift();
@@ -492,6 +536,7 @@ export function useMarkdownAstPipeline({
                   for (const item of (listToken as any).items) {
                     let label = 'Tab';
                     const itemTokens = [...(item.tokens || [])];
+                    const itemStart = item._startLine || quoteStartLine;
                     if (itemTokens.length > 0) {
                       const first = itemTokens[0];
                       if (first.type === 'text' || first.type === 'paragraph') {
@@ -501,6 +546,11 @@ export function useMarkdownAstPipeline({
                         if (lines.length > 1 && lines.slice(1).join('\n').trim()) {
                           const restText = lines.slice(1).join('\n');
                           const lexed = marked.lexer(restText);
+                          let subLine = itemStart + 1;
+                          for (const lt of lexed) {
+                            assignInnerTokenLines(lt, subLine);
+                            subLine += (lt.raw?.match(/\n/g) || []).length;
+                          }
                           itemTokens.splice(0, 1, ...lexed);
                         } else {
                           itemTokens.shift();
@@ -521,7 +571,7 @@ export function useMarkdownAstPipeline({
                     `<div class="ov-tab-panel ${idx === 0 ? 'active' : ''}" data-tab-index="${idx}" role="tabpanel" style="${idx === 0 ? '' : 'display:none;'}">${tab.html}</div>`
                   ).join('');
 
-                  return `<div class="ov-tab-group" data-source-line="${currentTokenStartLine}"><div class="ov-tab-header-wrap">${titleHtml}<div class="ov-tab-nav" role="tablist">${navButtons}</div></div><div class="ov-tab-panels">${panels}</div></div>\n`;
+                  return `<div class="ov-tab-group" data-source-line="${quoteStartLine}"><div class="ov-tab-header-wrap">${titleHtml}<div class="ov-tab-nav" role="tablist">${navButtons}</div></div><div class="ov-tab-panels">${panels}</div></div>\n`;
                 }
               }
 
@@ -531,7 +581,7 @@ export function useMarkdownAstPipeline({
                 const titleHtml = customTitle
                   ? `<div class="ov-steps-header"><span class="ov-steps-title-left">${stepsIcon}<span class="ov-steps-title-text">${customTitle}</span></span></div>`
                   : '';
-                return `<div class="ov-steps-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-steps-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-steps-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-steps-body">${bodyHtml}</div></div>\n`;
               }
 
               // 3. 时间线 / 里程碑 (Timeline): [!TIMELINE]
@@ -540,7 +590,7 @@ export function useMarkdownAstPipeline({
                 const titleHtml = customTitle
                   ? `<div class="ov-timeline-header"><span class="ov-timeline-title-left">${timeIcon}<span class="ov-timeline-title-text">${customTitle}</span></span></div>`
                   : '';
-                return `<div class="ov-timeline-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-timeline-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-timeline-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-timeline-body">${bodyHtml}</div></div>\n`;
               }
 
               // 4. 对比卡片 / 方案权衡 (Compare): [!COMPARE], [!DIFF]
@@ -549,7 +599,7 @@ export function useMarkdownAstPipeline({
                 const titleHtml = customTitle
                   ? `<div class="ov-compare-header"><span class="ov-compare-title-left">${compareIcon}<span class="ov-compare-title-text">${customTitle}</span></span></div>`
                   : '';
-                return `<div class="ov-compare-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-compare-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-compare-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-compare-body">${bodyHtml}</div></div>\n`;
               }
 
               // 5. 数字 KPI 指标看板 (Metrics): [!METRICS], [!STATS], [!KPI]
@@ -558,7 +608,7 @@ export function useMarkdownAstPipeline({
                 const titleHtml = customTitle
                   ? `<div class="ov-metrics-header"><span class="ov-metrics-title-left">${metricsIcon}<span class="ov-metrics-title-text">${customTitle}</span></span></div>`
                   : '';
-                return `<div class="ov-metrics-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-metrics-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-metrics-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-metrics-body">${bodyHtml}</div></div>\n`;
               }
 
               // 6. 问答手风琴 (FAQ): [!FAQ]
@@ -572,6 +622,7 @@ export function useMarkdownAstPipeline({
                   const itemsHtml = (listToken as any).items.map((item: any, idx: number) => {
                     let q = `Q${idx + 1}`;
                     const itemTokens = [...(item.tokens || [])];
+                    const itemStart = item._startLine || quoteStartLine;
                     if (itemTokens.length > 0) {
                       const first = itemTokens[0];
                       if (first.type === 'text' || first.type === 'paragraph') {
@@ -581,6 +632,11 @@ export function useMarkdownAstPipeline({
                         if (lines.length > 1 && lines.slice(1).join('\n').trim()) {
                           const restText = lines.slice(1).join('\n');
                           const lexed = marked.lexer(restText);
+                          let subLine = itemStart + 1;
+                          for (const lt of lexed) {
+                            assignInnerTokenLines(lt, subLine);
+                            subLine += (lt.raw?.match(/\n/g) || []).length;
+                          }
                           itemTokens.splice(0, 1, ...lexed);
                         } else {
                           itemTokens.shift();
@@ -588,11 +644,11 @@ export function useMarkdownAstPipeline({
                       }
                     }
                     const ansHtml = itemTokens.length > 0 ? this.parser.parse(itemTokens) : '';
-                    return `<details class="ov-faq-item"><summary class="ov-faq-q"><span class="ov-faq-q-text">${q}</span><svg class="ov-faq-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="ov-faq-a">${ansHtml}</div></details>`;
+                    return `<details class="ov-faq-item" data-source-line="${itemStart}"><summary class="ov-faq-q"><span class="ov-faq-q-text">${q}</span><svg class="ov-faq-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="ov-faq-a">${ansHtml}</div></details>`;
                   }).join('');
-                  return `<div class="ov-faq-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-faq-body">${itemsHtml}</div></div>\n`;
+                  return `<div class="ov-faq-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-faq-body">${itemsHtml}</div></div>\n`;
                 }
-                return `<div class="ov-faq-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-faq-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-faq-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-faq-body">${bodyHtml}</div></div>\n`;
               }
 
               // 7. 引言卡片墙 (Quotes): [!QUOTES], [!QUOTE-WALL]
@@ -600,7 +656,7 @@ export function useMarkdownAstPipeline({
                 const titleHtml = customTitle
                   ? `<div class="ov-quotes-header"><span class="ov-quotes-title-text">${customTitle}</span></div>`
                   : '';
-                return `<div class="ov-quotes-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-quotes-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-quotes-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-quotes-body">${bodyHtml}</div></div>\n`;
               }
 
               // 8. 宣传横幅 / 首屏推荐 (Banner / Hero): [!BANNER], [!HERO]
@@ -609,7 +665,7 @@ export function useMarkdownAstPipeline({
                 const titleHtml = customTitle
                   ? `<div class="ov-banner-header"><span class="ov-banner-title-left">${bannerIcon}<span class="ov-banner-title-text">${customTitle}</span></span></div>`
                   : '';
-                return `<div class="ov-banner-container" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-banner-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-banner-container" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-banner-body">${bodyHtml}</div></div>\n`;
               }
 
               // 9. 多图画廊网格 (Gallery / Image Grid): [!GALLERY], [!GALLERY:2~6], [!IMAGES], [!PHOTO-GRID]
@@ -622,11 +678,11 @@ export function useMarkdownAstPipeline({
                 const galleryBodyHtml = injectAutoImageCaptions(bodyHtml);
 
                 if (isCollapsible) {
-                  return `<details class="ov-gallery-container" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-gallery-header">${titleHtml}${chevronSvg}</summary><div class="ov-gallery-grid ov-gallery-cols-${cols}" style="--ov-gallery-cols: ${cols};" data-cols="${cols}"><div class="ov-gallery-body">${galleryBodyHtml}</div></div></details>\n`;
+                  return `<details class="ov-gallery-container" ${isOpen ? 'open' : ''} data-source-line="${quoteStartLine}"><summary class="ov-gallery-header">${titleHtml}${chevronSvg}</summary><div class="ov-gallery-grid ov-gallery-cols-${cols}" style="--ov-gallery-cols: ${cols};" data-cols="${cols}"><div class="ov-gallery-body">${galleryBodyHtml}</div></div></details>\n`;
                 }
 
                 const headerBlock = customTitle ? `<div class="ov-gallery-header">${titleHtml}</div>` : '';
-                return `<div class="ov-gallery-container" data-source-line="${currentTokenStartLine}"><div class="ov-gallery-grid ov-gallery-cols-${cols}" style="--ov-gallery-cols: ${cols};" data-cols="${cols}">${headerBlock}<div class="ov-gallery-body">${galleryBodyHtml}</div></div></div>\n`;
+                return `<div class="ov-gallery-container" data-source-line="${quoteStartLine}"><div class="ov-gallery-grid ov-gallery-cols-${cols}" style="--ov-gallery-cols: ${cols};" data-cols="${cols}">${headerBlock}<div class="ov-gallery-body">${galleryBodyHtml}</div></div></div>\n`;
               }
 
               // 10. 标准技术图件框 (Figure): [!FIGURE], [!FIG]
@@ -639,10 +695,10 @@ export function useMarkdownAstPipeline({
 
                 if (isCollapsible) {
                   const summaryTitle = customTitle || (locale === 'zh-CN' ? '技术图件 (Figure)' : 'Figure');
-                  return `<details class="ov-figure-container" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-figure-header"><span class="ov-figure-title-left">${figIcon}<span class="ov-figure-caption-text">${summaryTitle}</span></span>${chevronSvg}</summary><div class="ov-figure-stage">${figureBodyHtml}</div></details>\n`;
+                  return `<details class="ov-figure-container" ${isOpen ? 'open' : ''} data-source-line="${quoteStartLine}"><summary class="ov-figure-header"><span class="ov-figure-title-left">${figIcon}<span class="ov-figure-caption-text">${summaryTitle}</span></span>${chevronSvg}</summary><div class="ov-figure-stage">${figureBodyHtml}</div></details>\n`;
                 }
 
-                return `<figure class="ov-figure-container" data-source-line="${currentTokenStartLine}"><div class="ov-figure-stage">${figureBodyHtml}</div>${captionBlock}</figure>\n`;
+                return `<figure class="ov-figure-container" data-source-line="${quoteStartLine}"><div class="ov-figure-stage">${figureBodyHtml}</div>${captionBlock}</figure>\n`;
               }
 
               // 11. 图文并排分栏 (Media Split): [!MEDIA], [!MEDIA:RIGHT], [!MEDIA-RIGHT], [!MEDIA:LEFT], [!MEDIA-LEFT]
@@ -653,7 +709,7 @@ export function useMarkdownAstPipeline({
                   ? `<div class="ov-media-header"><span class="ov-media-title-left">${mediaIcon}<span class="ov-media-title-text">${customTitle}</span></span></div>`
                   : '';
                 const dirClass = isRight ? ' ov-media-reverse' : '';
-                return `<div class="ov-media-container${dirClass}" data-source-line="${currentTokenStartLine}">${titleHtml}<div class="ov-media-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-media-container${dirClass}" data-source-line="${quoteStartLine}">${titleHtml}<div class="ov-media-body">${bodyHtml}</div></div>\n`;
               }
 
               // 卡片矩阵网格 (Card Grid): [!CARDS], [!CARDS:3], [!CARDS:4], [!CARDS:6], [!CARD-GRID], [!GRID]
@@ -665,11 +721,11 @@ export function useMarkdownAstPipeline({
                   : '';
 
                 if (isCollapsible) {
-                  return `<details class="ov-card-grid-container" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-card-grid-header">${titleHtml}${chevronSvg}</summary><div class="ov-card-grid ov-cards-cols-${cols}" style="--ov-card-cols: ${cols};" data-cols="${cols}"><div class="ov-card-grid-body">${bodyHtml}</div></div></details>\n`;
+                  return `<details class="ov-card-grid-container" ${isOpen ? 'open' : ''} data-source-line="${quoteStartLine}"><summary class="ov-card-grid-header">${titleHtml}${chevronSvg}</summary><div class="ov-card-grid ov-cards-cols-${cols}" style="--ov-card-cols: ${cols};" data-cols="${cols}"><div class="ov-card-grid-body">${bodyHtml}</div></div></details>\n`;
                 }
 
                 const headerBlock = customTitle ? `<div class="ov-card-grid-header">${titleHtml}</div>` : '';
-                return `<div class="ov-card-grid-container" data-source-line="${currentTokenStartLine}"><div class="ov-card-grid ov-cards-cols-${cols}" style="--ov-card-cols: ${cols};" data-cols="${cols}">${headerBlock}<div class="ov-card-grid-body">${bodyHtml}</div></div></div>\n`;
+                return `<div class="ov-card-grid-container" data-source-line="${quoteStartLine}"><div class="ov-card-grid ov-cards-cols-${cols}" style="--ov-card-cols: ${cols};" data-cols="${cols}">${headerBlock}<div class="ov-card-grid-body">${bodyHtml}</div></div></div>\n`;
               }
 
               // 单体卡片 (Single Card): [!CARD]
@@ -680,11 +736,11 @@ export function useMarkdownAstPipeline({
                   : '';
 
                 if (isCollapsible) {
-                  return `<details class="ov-card-single" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-card-single-header">${titleHtml}${chevronSvg}</summary><div class="ov-card-single-body">${bodyHtml}</div></details>\n`;
+                  return `<details class="ov-card-single" ${isOpen ? 'open' : ''} data-source-line="${quoteStartLine}"><summary class="ov-card-single-header">${titleHtml}${chevronSvg}</summary><div class="ov-card-single-body">${bodyHtml}</div></details>\n`;
                 }
 
                 const headerBlock = customTitle ? `<div class="ov-card-single-header">${titleHtml}</div>` : '';
-                return `<div class="ov-card-single" data-source-line="${currentTokenStartLine}">${headerBlock}<div class="ov-card-single-body">${bodyHtml}</div></div>\n`;
+                return `<div class="ov-card-single" data-source-line="${quoteStartLine}">${headerBlock}<div class="ov-card-single-body">${bodyHtml}</div></div>\n`;
               }
 
               // 标准 / 扩展 Callout 语义提醒块
@@ -698,14 +754,14 @@ export function useMarkdownAstPipeline({
               const displayTitle = customTitle || meta.title;
 
               if (isCollapsible) {
-                return `<details class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" ${isOpen ? 'open' : ''} data-source-line="${currentTokenStartLine}"><summary class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span>${chevronSvg}</summary><div class="ov-callout-body">${bodyHtml}</div></details>\n`;
+                return `<details class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" ${isOpen ? 'open' : ''} data-source-line="${quoteStartLine}"><summary class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span>${chevronSvg}</summary><div class="ov-callout-body">${bodyHtml}</div></details>\n`;
               }
 
-              return `<div class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" data-source-line="${currentTokenStartLine}"><div class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span></div><div class="ov-callout-body">${bodyHtml}</div></div>\n`;
+              return `<div class="ov-callout ${meta.colorClass}" data-callout="${meta.type}" data-source-line="${quoteStartLine}"><div class="ov-callout-title"><span class="ov-callout-title-left">${meta.icon}<span class="ov-callout-title-text">${displayTitle}</span></span></div><div class="ov-callout-body">${bodyHtml}</div></div>\n`;
             }
           }
           const body = this.parser.parse(tokenOrQuote.tokens);
-          return `<blockquote data-source-line="${currentTokenStartLine}">${body}</blockquote>\n`;
+          return `<blockquote data-source-line="${quoteStartLine}">${body}</blockquote>\n`;
         }
         return `<blockquote data-source-line="${currentTokenStartLine}">${tokenOrQuote}</blockquote>\n`;
       };
@@ -715,6 +771,7 @@ export function useMarkdownAstPipeline({
         if (typeof tokenOrBody === 'object' && tokenOrBody !== null && 'ordered' in tokenOrBody) {
           const isOrdered = Boolean(tokenOrBody.ordered);
           const startNum = tokenOrBody.start;
+          const listLine = tokenOrBody._startLine || currentTokenStartLine;
           const tag = isOrdered ? 'ol' : 'ul';
           const hasTask = Array.isArray(tokenOrBody.items) && tokenOrBody.items.some((it: any) => it.task);
           let body = '';
@@ -724,7 +781,7 @@ export function useMarkdownAstPipeline({
           const startAttr = isOrdered && typeof startNum === 'number' && startNum !== 1 ? ` start="${startNum}"` : '';
           const taskClass = hasTask ? ' ov-task-list' : '';
           const listClass = isOrdered ? `ov-ordered-list${taskClass}` : `ov-unordered-list${taskClass}`;
-          return `<${tag} class="${listClass}"${startAttr} data-source-line="${currentTokenStartLine}">\n${body}</${tag}>\n`;
+          return `<${tag} class="${listClass}"${startAttr} data-source-line="${listLine}">\n${body}</${tag}>\n`;
         }
         const isOrdered = typeof ordered === 'boolean' ? ordered : false;
         const tag = isOrdered ? 'ol' : 'ul';
@@ -739,11 +796,14 @@ export function useMarkdownAstPipeline({
           const isTask = itemOrText.task;
           const isChecked = itemOrText.checked;
           const itemLine = itemOrText._startLine || currentTokenStartLine;
+          const prevStartLine = currentTokenStartLine;
+          currentTokenStartLine = itemLine;
           let body = this.parser.parse(itemOrText.tokens || []);
+          currentTokenStartLine = prevStartLine;
           if (isTask) {
             body = body.replace(/<input[^>]*type=["']checkbox["'][^>]*>/gi, '').trim();
             const checkboxHtml = `<input type="checkbox" class="ov-task-checkbox" data-task-line="${itemLine}" ${isChecked ? 'checked' : ''} aria-label="${isChecked ? 'Mark incomplete' : 'Mark complete'}" title="${t('taskToggleTooltip', locale)}" />`;
-            return `<li class="ov-task-list-item ${isChecked ? 'ov-task-done' : ''}" data-task-line="${itemLine}" data-checked="${isChecked ? 'true' : 'false'}"><label class="ov-task-label">${checkboxHtml}<span class="ov-task-text">${body}</span></label></li>\n`;
+            return `<li class="ov-task-list-item ${isChecked ? 'ov-task-done' : ''}" data-task-line="${itemLine}" data-source-line="${itemLine}" data-checked="${isChecked ? 'true' : 'false'}"><label class="ov-task-label">${checkboxHtml}<span class="ov-task-text">${body}</span></label></li>\n`;
           }
           return `<li data-source-line="${itemLine}">${body}</li>\n`;
         }
@@ -773,20 +833,35 @@ export function useMarkdownAstPipeline({
 
       for (const token of tokens) {
         const tokenNewlines = (token.raw.match(/\n/g) || []).length;
-        const tokenStartLine = runningLine;
-        const tokenEndLine = token.raw.endsWith('\n')
-          ? tokenStartLine + Math.max(0, tokenNewlines - 1)
-          : tokenStartLine + tokenNewlines;
-        runningLine += tokenNewlines;
+        const addedLinesMatch =
+          token.type === 'code' && typeof (token as any).lang === 'string'
+            ? (token as any).lang.match(/\baddedLines="(\d+)"/)
+            : null;
+        const addedLines = addedLinesMatch ? parseInt(addedLinesMatch[1], 10) : 0;
+        const effectiveNewlines = Math.max(0, tokenNewlines - addedLines);
+        let tokenStartLine = runningLine;
+        let tokenEndLine =
+          addedLines > 0
+            ? tokenStartLine + Math.max(0, effectiveNewlines - (token.raw.endsWith('\n') ? 1 : 0))
+            : token.raw.endsWith('\n')
+            ? tokenStartLine + Math.max(0, effectiveNewlines - 1)
+            : tokenStartLine + effectiveNewlines;
+        runningLine += effectiveNewlines;
 
-        if (token.type === 'list' && (token as any).items) {
-          let itemRunningLine = tokenStartLine;
-          for (const item of (token as any).items) {
-            item._startLine = itemRunningLine;
-            const itemNewlines = (item.raw.match(/\n/g) || []).length;
-            itemRunningLine += itemNewlines;
+        if (token.type === 'html' && typeof token.raw === 'string') {
+          const deflistMatch = token.raw.match(/\bdata-deflist-lines="(\d+)"/);
+          if (deflistMatch) {
+            tokenEndLine = tokenStartLine + Math.max(0, parseInt(deflistMatch[1], 10) - 1);
+          }
+          const fnStartMatch = token.raw.match(/\bdata-footnote-start-line="(\d+)"/);
+          const fnEndMatch = token.raw.match(/\bdata-footnote-end-line="(\d+)"/);
+          if (fnStartMatch && fnEndMatch) {
+            tokenStartLine = frontmatterLines + parseInt(fnStartMatch[1], 10);
+            tokenEndLine = frontmatterLines + parseInt(fnEndMatch[1], 10);
           }
         }
+
+        assignInnerTokenLines(token, tokenStartLine);
 
         const isPageBreakToken = (t: any): boolean => {
           const rawText = (t.raw || t.text || '').trim();

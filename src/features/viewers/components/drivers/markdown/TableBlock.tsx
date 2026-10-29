@@ -3,7 +3,7 @@
  * 支持智能多态排序、全文检索过滤、吸顶表头、行列十字交叉高亮、
  * 格式化多态复制 (Markdown/CSV)、全屏沉浸视口与原生微图表可视化 (Table to Chart)
  */
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ArrowUpDown,
   ArrowUp,
@@ -71,6 +71,7 @@ export interface TableBlockProps {
   isDarkTheme?: boolean;
   locale?: Locale;
   onOpenSourceAtLine?: (line: number) => void;
+  onUpdateTableMarkdown?: (newMarkdown: string) => void;
 }
 
 export const TableBlock: React.FC<TableBlockProps> = React.memo(({
@@ -83,6 +84,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   isDarkTheme = true,
   locale = 'zh-CN',
   onOpenSourceAtLine,
+  onUpdateTableMarkdown,
 }) => {
   // 1. 状态矩阵
   const [sortCol, setSortCol] = useState<number | null>(null);
@@ -149,9 +151,19 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     });
   }, [headerTexts, currentMatrix]);
 
-  // 保存单元格内联编辑
+  // 当外部块级专注编辑器修改了表格源码时，同步重置内部缓存矩阵
+  useEffect(() => {
+    setEditedMatrix(null);
+  }, [rawMarkdown]);
+
+  // 保存单元格内联编辑并持久化回写 Markdown 源码
   const handleSaveCellEdit = (originalRowIdx: number, colIdx: number, val: string) => {
-    const next = (editedMatrix || rawMatrix).map((r, rIdx) => {
+    const baseMatrix = editedMatrix || rawMatrix;
+    if (baseMatrix[originalRowIdx]?.[colIdx] === val) {
+      setEditingCell(null);
+      return;
+    }
+    const next = baseMatrix.map((r, rIdx) => {
       if (rIdx !== originalRowIdx) return [...r];
       const nextRow = [...r];
       nextRow[colIdx] = val;
@@ -159,6 +171,13 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
     });
     setEditedMatrix(next);
     setEditingCell(null);
+    if (onUpdateTableMarkdown) {
+      const effectiveAlign = align || header.map(h => h.align ?? null);
+      const nextMd = tableToMarkdown(headerTexts, next, effectiveAlign);
+      if (nextMd) {
+        onUpdateTableMarkdown(nextMd);
+      }
+    }
   };
 
   // 2. 检索与排序复合处理流水线
@@ -575,6 +594,7 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
               return (
                 <tr
                   key={rowItem.originalIndex}
+                  data-source-line={startLine ? startLine + 2 + rowItem.originalIndex : undefined}
                   className="group/row transition-colors ov-table-row"
                   style={{
                     backgroundColor: isEven ? 'var(--ov-table-alt)' : 'transparent',

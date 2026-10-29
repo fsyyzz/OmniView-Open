@@ -57,8 +57,16 @@ export function useDiagramBlockStates() {
     setDiagramViewModes((prev) => ({ ...prev, [id]: mode }));
   }, []);
 
-  const setEditedCode = useCallback((id: string, code: string) => {
-    setEditedCodes((prev) => ({ ...prev, [id]: code }));
+  const setEditedCode = useCallback((id: string, code?: string) => {
+    setEditedCodes((prev) => {
+      if (code === undefined) {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      return { ...prev, [id]: code };
+    });
   }, []);
 
   const handleDownloadSvg = useCallback((svgContent: string, fileName = 'diagram') => {

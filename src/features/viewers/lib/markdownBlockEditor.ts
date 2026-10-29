@@ -86,6 +86,131 @@ export type BlockQuickSnippet =
   | 'heading';
 
 /**
+ * 当行号因宏展开发生偏移或越界时，基于 fallbackRaw 内容指纹在原始文档行数组中自愈重定位真实行区间
+ */
+function locateFallbackInLines(
+  lines: string[],
+  fallbackRaw: string,
+  hintLine?: number
+): { startLine: number; endLine: number } | null {
+  const cleanFallback = fallbackRaw.replace(/\r\n/g, '\n').replace(/\n+$/, '');
+  if (!cleanFallback.trim()) return null;
+
+  const fbLines = cleanFallback.split('\n');
+  const fbLen = fbLines.length;
+  const totalLines = lines.length;
+  const refLine =
+    typeof hintLine === 'number' && !isNaN(hintLine) && hintLine > 0
+      ? Math.min(hintLine, totalLines)
+      : totalLines;
+
+  const candidates: Array<{ startLine: number; endLine: number; dist: number }> = [];
+  const openFenceRe = /^ {0,3}(?:`{3,}|~{3,}|\$\$)/;
+  const closeFenceRe = /^ {0,3}(?:`{3,}|~{3,}|\$\$)\s*$/;
+
+  for (let i = 0; i <= totalLines - fbLen; i++) {
+    let match = true;
+    for (let k = 0; k < fbLen; k++) {
+      if (lines[i + k].trimEnd() !== fbLines[k].trimEnd()) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      if (
+        i > 0 &&
+        i + fbLen < totalLines &&
+        openFenceRe.test(lines[i - 1]) &&
+        closeFenceRe.test(lines[i + fbLen])
+      ) {
+        const sLine = i; // 1-indexed index of i-1
+        const eLine = i + fbLen + 1; // 1-indexed index of i+fbLen
+        candidates.push({
+          startLine: sLine,
+          endLine: eLine,
+          dist: Math.abs(sLine - refLine),
+        });
+      } else {
+        const sLine = i + 1;
+        const eLine = i + fbLen;
+        candidates.push({
+          startLine: sLine,
+          endLine: eLine,
+          dist: Math.abs(sLine - refLine),
+        });
+      }
+    }
+  }
+
+  // 单行公式 $$...$$ 容错定位
+  if (candidates.length === 0 && fbLen === 1) {
+    const trimmedFormula = fbLines[0].trim();
+    if (trimmedFormula.length > 0) {
+      for (let i = 0; i < totalLines; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith('$$') && line.endsWith('$$') && line.includes(trimmedFormula)) {
+          candidates.push({
+            startLine: i + 1,
+            endLine: i + 1,
+            dist: Math.abs(i + 1 - refLine),
+          });
+        }
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.dist - b.dist);
+  return { startLine: candidates[0].startLine, endLine: candidates[0].endLine };
+}
+
+/**
+ * 校验按行号切片出的 rawSlice 是否与 AST 块原始文本相符
+ */
+function isSliceConsistentWithFallback(rawSlice: string, fallbackRaw: string): boolean {
+  const cleanFallback = fallbackRaw.replace(/\r\n/g, '\n').trim();
+  if (!cleanFallback) return true;
+
+  // 若 fallbackRaw 是预处理器生成的 HTML 包装（定义列表、脚注区、Wiki 嵌入卡片），源切片即为真实 Markdown
+  if (
+    /^<(?:dl\b[^>]*class="ov-deflist"|section\b[^>]*class="ov-footnotes"|aside\b[^>]*class="ov-wiki-embed")/i.test(
+      cleanFallback
+    )
+  ) {
+    return rawSlice.trim().length > 0;
+  }
+
+  const cleanSlice = rawSlice.replace(/\r\n/g, '\n').trim();
+  if (!cleanSlice) return false;
+  if (cleanSlice === cleanFallback) return true;
+
+  // 外挂图表嵌入行 (![alt](file.ext) 或 ![[file.ext]])
+  if (/^!?\[\[.+?\]\]|^!\[.*?\]\(.+?\)/.test(cleanSlice)) {
+    return true;
+  }
+
+  const fbFirstLine = cleanFallback.split('\n')[0].trim();
+  const sliceLines = cleanSlice.split('\n');
+  const sliceFirstLine = sliceLines[0].trim();
+
+  if (sliceFirstLine === fbFirstLine) return true;
+
+  // 围栏代码块 / 图表块 / 数学公式块：slice 首行是 ```lang 或 $$，次行对应 fallback 首行
+  if (/^ {0,3}(?:`{3,}|~{3,}|\$\$)/.test(sliceFirstLine)) {
+    if (sliceLines.length > 1 && sliceLines[1].trim() === fbFirstLine) return true;
+    if (cleanSlice.includes(fbFirstLine)) return true;
+  }
+
+  // 行内 WikiLink / Emoji / 脚注宏展开后的段落首行局部匹配
+  const strippedFbFirst = fbFirstLine.replace(/<[^>]+>/g, '').trim();
+  if (strippedFbFirst && cleanSlice.includes(strippedFbFirst.slice(0, Math.min(16, strippedFbFirst.length)))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * 从原始文档中按行区间 [startLine, endLine] 精准提取块的真实 Markdown 源码
  * 自动剔除末尾被 Lexer 吞入的段落分隔空行，确保回写时不破坏上下文块间距
  */
@@ -105,12 +230,30 @@ export function extractBlockRawMarkdown(
     startLine < 1 ||
     startLine > totalLines
   ) {
+    const relocated = locateFallbackInLines(lines, fallbackRaw, startLine);
+    if (relocated) {
+      const sliceLines = lines.slice(relocated.startLine - 1, relocated.endLine);
+      const rawSlice = sliceLines.join('\n');
+      return {
+        rawSlice,
+        actualStartLine: relocated.startLine,
+        actualEndLine: relocated.endLine,
+        lineCount: sliceLines.length,
+        charCount: rawSlice.length,
+      };
+    }
+
     const cleanFallback = fallbackRaw.replace(/\r\n/g, '\n').replace(/\n+$/, '');
     const fbLines = cleanFallback ? cleanFallback.split('\n').length : 1;
+    const safeFallbackStart =
+      typeof startLine === 'number' && startLine > totalLines
+        ? Math.max(1, totalLines - fbLines + 1)
+        : 1;
+    const safeFallbackEnd = Math.min(totalLines, safeFallbackStart + fbLines - 1);
     return {
       rawSlice: cleanFallback,
-      actualStartLine: 1,
-      actualEndLine: fbLines,
+      actualStartLine: safeFallbackStart,
+      actualEndLine: safeFallbackEnd,
       lineCount: fbLines,
       charCount: cleanFallback.length,
     };
@@ -130,6 +273,22 @@ export function extractBlockRawMarkdown(
 
   const sliceLines = lines.slice(clampedStart - 1, trimmedEnd);
   const rawSlice = sliceLines.join('\n');
+
+  // 若提供了 fallbackRaw 且当前行区间切片与 fallbackRaw 不一致，自动执行指纹自愈重定位
+  if (fallbackRaw && !isSliceConsistentWithFallback(rawSlice, fallbackRaw)) {
+    const relocated = locateFallbackInLines(lines, fallbackRaw, clampedStart);
+    if (relocated) {
+      const relLines = lines.slice(relocated.startLine - 1, relocated.endLine);
+      const relSlice = relLines.join('\n');
+      return {
+        rawSlice: relSlice,
+        actualStartLine: relocated.startLine,
+        actualEndLine: relocated.endLine,
+        lineCount: relLines.length,
+        charCount: relSlice.length,
+      };
+    }
+  }
 
   return {
     rawSlice,
@@ -339,18 +498,20 @@ export function insertAdjacentBlockRawMarkdown(
  */
 export function moveBlockRawMarkdown(
   fullContent: string,
-  currentBlock: { startLine: number; endLine?: number },
-  adjacentBlock: { startLine: number; endLine?: number }
+  currentBlock: { startLine: number; endLine?: number; raw?: string },
+  adjacentBlock: { startLine: number; endLine?: number; raw?: string }
 ): BlockMoveResult {
   const curSlice = extractBlockRawMarkdown(
     fullContent,
     currentBlock.startLine,
-    currentBlock.endLine ?? currentBlock.startLine
+    currentBlock.endLine ?? currentBlock.startLine,
+    currentBlock.raw || ''
   );
   const adjSlice = extractBlockRawMarkdown(
     fullContent,
     adjacentBlock.startLine,
-    adjacentBlock.endLine ?? adjacentBlock.startLine
+    adjacentBlock.endLine ?? adjacentBlock.startLine,
+    adjacentBlock.raw || ''
   );
 
   const normalizedFull = fullContent.replace(/\r\n/g, '\n');

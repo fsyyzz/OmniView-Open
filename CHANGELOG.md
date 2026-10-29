@@ -8,7 +8,50 @@
 
 ---
 
-## [1.3.43] - 2026-10-28 (当前最新发布)
+## [1.3.46] - 2026-10-28 (当前最新发布)
+
+> [!TIP] v1.3.46 核心升级亮点
+> **开源镜像仓 (`sync-to-oss.yml`) Personal Access Token 缺少 `workflow` 权限时的自动降级自愈推流**：
+> 1. **PAT `workflow` 权限冲突自动捕获与自愈**：
+>    - 当 `REPO_SYNC_TOKEN` 未勾选 GitHub `workflow` 权限作用域、导致推送 `.github/workflows/ci.yml` 或 `release.yml` 变更被 GitHub 拒绝（`refusing to allow a Personal Access Token to create or update workflow without workflow scope`）时，流水线自动捕获异常并回退 `.github/workflows` 目录至目标开源仓 `FETCH_HEAD` 状态，仅提交并推送其余全部源码、测试与版本 Tag，彻底消除同步阻断。
+
+---
+
+## [1.3.45] - 2026-10-28
+
+> [!TIP] v1.3.45 核心升级亮点
+> **Markdown 局部编辑（块级专注编辑 / 划选气泡工具栏 / 表格双击编辑 / 任务列表勾选）全链路精准度与持久化修复**：
+> 1. **根治 AST 预处理管线行号漂移与越界回写缺陷 (`useMarkdownAstPipeline` & `markdownBlockEditor`)**：
+>    - 修复外挂图表嵌入（`![alt](file.svg)` / `![[file.dst]]`）、Obsidian 笔记嵌入（`![[Note]]`）、Pandoc 定义列表（`<dl>`）、脚注尾注区（`<section class="ov-footnotes">`）及多行内联 SVG 展开后导致的后续块行号越界偏移问题；
+>    - 在 `extractBlockRawMarkdown` 中新增内容指纹自愈重定位机制（`locateFallbackInLines` + `isSliceConsistentWithFallback`），当块行号越界或偏移时自动定位真实源码行区间，彻底消除修改文档中后部段落时误覆盖第 1 行导致修改无效的问题；
+> 2. **划选气泡工具栏 (`MarkdownBubbleToolbar` / `applyMarkdownSelectionFormat`) 全场景生效**：
+>    - 修复已格式化文本（`**加粗**`、`` `代码` ``、`==高亮==`、`[[Wiki]]`、`[链接](url)`）在点击工具栏取消格式时因裸 `indexOf` 抢先命中内部子串而叠加为 `****word****` 的问题；
+>    - 新增跨内联格式选区容错匹配与由近及远三级渐进式搜索窗口，支持在超过 10 行的大型 Callout（`[!CARDS]`、`[!TABS]` 等）、表格与嵌套列表内精准定位回写；
+> 3. **表格单元格双击编辑、图表/公式代码视图编辑与任务列表勾选持久化**：
+>    - 修复 `TableBlock` 双击单元格编辑后仅更新组件局部状态、未持久化回写至文档 `onContentChange` 的问题，并支持外部块编辑后自动同步刷新；
+>    - 修复图表与数学公式块在“代码”视图下修改并点击“重绘”或切回“预览”时未同步回写源码、以及块专注编辑保存后旧缓存覆盖新内容的问题；
+>    - 增强 `useMarkdownScrollSync` 任务列表复选框勾选匹配，支持 Callout/引用块内任务项（`> - [ ]`）与有序任务列表（`1. [ ]`）回写。
+
+---
+
+## [1.3.44] - 2026-10-28
+
+> [!TIP] v1.3.44 核心升级亮点
+> **GitHub Releases、Tags、Actions 构建产物（Artifacts）与运行记录全自动滚动清理体系**：
+> 1. **`release.yml` 滚动窗口自动清理与产物极速回收**：
+>    - 新增 `cleanup` 自动化治理 Job，在 VSIX 构建与发布完成后立即清理中转及历史 Actions Artifacts；
+>    - 自动按创建时间倒序保留最新 **5 个** GitHub Releases，自动删除超出的旧版 Release、关联 `.vsix` 安装包及对应远程 Git Tags（支持通过 `workflow_dispatch` 自定义 `keep_releases` 与 `keep_runs` 参数）；
+>    - 自动保留最新 **10 条** 已完成 Actions 运行记录（Workflow Runs），清理冗余历史流水线记录；
+>    - 将 `actions/upload-artifact@v4` 的 `retention-days` 从 7 天收敛至 1 天；
+> 2. **`ci.yml` 与 `sync-to-oss.yml` 双仓联动治理**：
+>    - `ci.yml` 每次运行后自动保留最新 3 个未过期构建产物与最新 10 条已完成运行记录；
+>    - `sync-to-oss.yml` 在同步完成后自动对主仓与开源镜像仓（`fsyyzz/OmniView-Open`）同步执行 Releases、Tags 与 Workflow Runs 滚动清理；
+> 3. **工程化验证**：
+>    - 新增 `tests/test-github-workflow-cleanup.mjs` 单元测试套件，全量 94 项测试套件 100% 顺利通过。
+
+---
+
+## [1.3.43] - 2026-10-28
 
 > [!TIP] v1.3.43 核心升级亮点
 > **Markdown 列表渲染与序号/符号体系全面修复与增强**：

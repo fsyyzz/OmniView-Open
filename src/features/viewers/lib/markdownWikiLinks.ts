@@ -254,7 +254,7 @@ function buildNoteEmbedHtml(
   let bodyHtml: string;
   if (isNote) {
     const preview = stripPreview(resolved.content, opts.previewMaxChars);
-    bodyHtml = `<pre class="ov-wiki-embed-preview">${escapeHtml(preview)}</pre>`;
+    bodyHtml = `<pre class="ov-wiki-embed-preview">${escapeHtml(preview).replace(/\r?\n/g, '&#10;')}</pre>`;
   } else {
     bodyHtml =
       `<div class="ov-wiki-embed-meta">${escapeHtml(resolved.name)} · ${escapeHtml(ext || 'file')}</div>`;
@@ -329,37 +329,59 @@ export function processExternalDiagramEmbeds(
   const { text: protectedText, slots } = protectCodeSegments(source);
 
   // 1. 处理 Obsidian 风格 Wiki 嵌入: ![[file.ext]] 或 ![[file.ext|alias]]
-  let processed = protectedText.replace(/!\[\[([^\]]+?)\]\]/g, (fullMatch, inner: string) => {
-    const parts = parseWikiLinkInner(inner);
-    const resolved = resolveWikiTarget(parts.target, files);
-    if (!resolved) return fullMatch;
+  let processed = protectedText.replace(
+    /!\[\[([^\]]+?)\]\]/g,
+    (fullMatch, inner: string, offset: number, fullStr: string) => {
+      const parts = parseWikiLinkInner(inner);
+      const resolved = resolveWikiTarget(parts.target, files);
+      if (!resolved) return fullMatch;
 
-    const ext = (resolved.extension || getExtension(resolved.name)).toLowerCase();
-    if (!DIAGRAM_EXTS.has(ext)) return fullMatch;
+      const ext = (resolved.extension || getExtension(resolved.name)).toLowerCase();
+      if (!DIAGRAM_EXTS.has(ext)) return fullMatch;
 
-    const lang = getDiagramLang(ext);
-    const fileName = resolved.name || parts.target;
+      const lang = getDiagramLang(ext);
+      const fileName = resolved.name || parts.target;
+      const cleanBody = resolved.content.replace(/\r\n/g, '\n').replace(/\n+$/, '');
+      const needLeadingNl = offset > 0 && fullStr[offset - 1] !== '\n';
+      const afterIdx = offset + fullMatch.length;
+      const needTrailingNl = afterIdx < fullStr.length && fullStr[afterIdx] !== '\n';
+      const origNewlines = (fullMatch.match(/\n/g) || []).length;
+      const bodyNewlines = (cleanBody.match(/\n/g) || []).length;
+      const addedLines =
+        2 + bodyNewlines + (needLeadingNl ? 1 : 0) + (needTrailingNl ? 1 : 0) - origNewlines;
 
-    return `\n\n\`\`\`${lang} external="${encodeURIComponent(fileName)}"\n${resolved.content}\n\`\`\`\n\n`;
-  });
+      return `${needLeadingNl ? '\n' : ''}\`\`\`${lang} external="${encodeURIComponent(fileName)}" addedLines="${addedLines}"\n${cleanBody}\n\`\`\`${needTrailingNl ? '\n' : ''}`;
+    }
+  );
 
   // 2. 处理 CommonMark 标准图片嵌入: ![alt](file.ext)
-  processed = processed.replace(/!\[([^\]]*?)\]\(([^)]+?)\)/g, (fullMatch, altText: string, href: string) => {
-    // 忽略内联 base64
-    if (href.startsWith('data:')) return fullMatch;
+  processed = processed.replace(
+    /!\[([^\]]*?)\]\(([^)]+?)\)/g,
+    (fullMatch, altText: string, href: string, offset: number, fullStr: string) => {
+      // 忽略内联 base64
+      if (href.startsWith('data:')) return fullMatch;
 
-    const targetName = href.split('?')[0].split('#')[0];
-    const resolved = resolveWikiTarget(targetName, files);
-    if (!resolved) return fullMatch;
+      const targetName = href.split('?')[0].split('#')[0];
+      const resolved = resolveWikiTarget(targetName, files);
+      if (!resolved) return fullMatch;
 
-    const ext = (resolved.extension || getExtension(resolved.name)).toLowerCase();
-    if (!DIAGRAM_EXTS.has(ext)) return fullMatch;
+      const ext = (resolved.extension || getExtension(resolved.name)).toLowerCase();
+      if (!DIAGRAM_EXTS.has(ext)) return fullMatch;
 
-    const lang = getDiagramLang(ext);
-    const fileName = resolved.name || targetName;
+      const lang = getDiagramLang(ext);
+      const fileName = resolved.name || targetName;
+      const cleanBody = resolved.content.replace(/\r\n/g, '\n').replace(/\n+$/, '');
+      const needLeadingNl = offset > 0 && fullStr[offset - 1] !== '\n';
+      const afterIdx = offset + fullMatch.length;
+      const needTrailingNl = afterIdx < fullStr.length && fullStr[afterIdx] !== '\n';
+      const origNewlines = (fullMatch.match(/\n/g) || []).length;
+      const bodyNewlines = (cleanBody.match(/\n/g) || []).length;
+      const addedLines =
+        2 + bodyNewlines + (needLeadingNl ? 1 : 0) + (needTrailingNl ? 1 : 0) - origNewlines;
 
-    return `\n\n\`\`\`${lang} external="${encodeURIComponent(fileName)}"${altText ? ` alt="${encodeURIComponent(altText)}"` : ''}\n${resolved.content}\n\`\`\`\n\n`;
-  });
+      return `${needLeadingNl ? '\n' : ''}\`\`\`${lang} external="${encodeURIComponent(fileName)}" addedLines="${addedLines}"${altText ? ` alt="${encodeURIComponent(altText)}"` : ''}\n${cleanBody}\n\`\`\`${needTrailingNl ? '\n' : ''}`;
+    }
+  );
 
   return restoreCodeSegments(processed, slots);
 }

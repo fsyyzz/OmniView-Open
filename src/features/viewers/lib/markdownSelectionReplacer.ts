@@ -247,6 +247,104 @@ function getNextFootnoteId(fullContent: string): string {
 /**
  * 依据预览区选区信息与起始行号，在源 Markdown 内容中执行精准指纹校验与替换
  */
+/**
+ * 在单行 Markdown 源码中定位用户在预览区选中的纯文本片段：
+ * 1. 优先识别已被 `**...**`、`*...*`、`` `...` ``、`~~...~~`、`==...==`、`$...$`、`[[...]]`、`[...](...)` 包裹的片段（确保取消加粗/斜体等 toggle 操作正常生效）
+ * 2. 其次直接匹配纯文本子串
+ * 3. 若选区跨越了行内 Markdown 格式符（如预览区选中 "包含 加粗文本 和"，源码为 "包含 **加粗文本** 和"），自动通过容忍内联标记的正则精准定位源码跨度
+ */
+function findSelectionInMarkdownLine(
+  line: string,
+  cleanSelected: string
+): { colIdx: number; slice: string } | null {
+  const trimmedLine = line.trim();
+  if (!trimmedLine) return null;
+  if (trimmedLine.startsWith('```') || trimmedLine.startsWith('~~~')) return null;
+  if (trimmedLine.startsWith('|') && /^\|[\s:|-]+\|$/.test(trimmedLine)) return null;
+
+  const escaped = escapeRegExp(cleanSelected);
+
+  // 1. 优先检查带行内格式包裹的完整 token（避免 `indexOf` 仅命中 `**word**` 内部的 `word` 导致无法取消格式或叠加成 `****word****`）
+  const wrapperPatterns = [
+    `\\*\\*${escaped}\\*\\*`,
+    `__${escaped}__`,
+    `\`${escaped}\``,
+    `\\[\\[${escaped}(?:\\|[^\\]]+)?\\]\\]`,
+    `\\[[^\\]\\|]+\\|${escaped}\\]\\]`,
+    `\\[${escaped}\\]\\([^)]*\\)`,
+    `(?<!\\*)\\*${escaped}\\*(?!\\*)`,
+    `(?<!_)_${escaped}_(?!_)`,
+    `~~${escaped}~~`,
+    `==${escaped}==`,
+    `(?<!\\$)\\$${escaped}\\$(?!\\$)`,
+  ];
+
+  for (const pat of wrapperPatterns) {
+    const reg = new RegExp(pat);
+    const match = reg.exec(line);
+    if (match) {
+      return { colIdx: match.index, slice: match[0] };
+    }
+  }
+
+  // 2. 直接子串匹配
+  const directCol = line.indexOf(cleanSelected);
+  if (directCol !== -1) {
+    return { colIdx: directCol, slice: cleanSelected };
+  }
+
+  // 3. 跨内联格式选区容错匹配（例如选中文本跨越了 **、*、`、~~、==、[text](url)、[[wiki]]）
+  if (cleanSelected.length >= 2 && cleanSelected.length <= 240) {
+    const inlineTokenNoise = `(?:\\*\\*|\\*|__|_|~~|==|\`|\\[\\[(?:[^\\]|]*\\|)?|\\]\\]|\\[|\\]\\([^)]*\\))*`;
+    // 将选中文本按空白或标点/词界拆分为片段，允许片段之间存在内联 Markdown 标记
+    const tokens = cleanSelected.match(/[\u4e00-\u9fa5]+|[a-zA-Z0-9_]+|\s+|[^\s\u4e00-\u9fa5a-zA-Z0-9_]+/g);
+    if (tokens && tokens.length >= 1 && tokens.length <= 40) {
+      const pattern =
+        inlineTokenNoise +
+        tokens
+          .map(tk => (/^\s+$/.test(tk) ? `\\s+` : escapeRegExp(tk)))
+          .join(inlineTokenNoise) +
+        inlineTokenNoise;
+      try {
+        const reg = new RegExp(pattern);
+        const match = reg.exec(line);
+        if (match && match[0].trim().length > 0) {
+          return { colIdx: match.index, slice: match[0] };
+        }
+      } catch {
+        // 忽略极端正则复杂度异常
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 生成以 targetIdx 为中心、由近及远辐射的行索引序列
+ */
+function buildDistanceOrderedIndices(
+  totalLines: number,
+  targetIdx: number,
+  minIdx: number,
+  maxIdx: number
+): number[] {
+  const clampedMin = Math.max(0, minIdx);
+  const clampedMax = Math.min(totalLines - 1, maxIdx);
+  const indices: number[] = [];
+  for (let i = clampedMin; i <= clampedMax; i++) {
+    indices.push(i);
+  }
+  indices.sort((a, b) => {
+    const distDiff = Math.abs(a - targetIdx) - Math.abs(b - targetIdx);
+    return distDiff !== 0 ? distDiff : a - b;
+  });
+  return indices;
+}
+
+/**
+ * 依据预览区选区信息与起始行号，在源 Markdown 内容中执行精准指纹校验与替换
+ */
 export function applyMarkdownSelectionFormat({
   fullContent,
   selectedText,
@@ -264,65 +362,44 @@ export function applyMarkdownSelectionFormat({
   if (!cleanSelected || !fullContent) return null;
 
   const lines = fullContent.split('\n');
+  const totalLines = lines.length;
+  const hasSourceLine = typeof sourceLine === 'number' && !isNaN(sourceLine) && sourceLine > 0;
+  const targetIdx = hasSourceLine ? Math.min(totalLines - 1, Math.max(0, sourceLine! - 1)) : 0;
 
-  // 计算行级搜索窗口：若带有 data-source-line 则优先在该行及前后展开探测
-  let startIdx = 0;
-  let endIdx = lines.length - 1;
-
-  if (typeof sourceLine === 'number' && !isNaN(sourceLine) && sourceLine > 0) {
-    const targetIdx = sourceLine - 1;
-    startIdx = Math.max(0, targetIdx - 2);
-    endIdx = Math.min(lines.length - 1, targetIdx + 10);
-  }
-
-  // 1. 优先在局部行窗口搜索目标文本（指纹比对）
   let foundLineIdx = -1;
   let foundColIdx = -1;
   let targetSlice = cleanSelected;
 
-  // 优先直接匹配选中文本
-  for (let i = startIdx; i <= endIdx; i++) {
-    const col = lines[i].indexOf(cleanSelected);
-    if (col !== -1) {
-      // 避免表格分隔线或代码围栏内部误改
-      if (lines[i].trim().startsWith('|') && lines[i].includes('---')) continue;
-      if (lines[i].trim().startsWith('```')) continue;
-      foundLineIdx = i;
-      foundColIdx = col;
-      break;
-    }
-  }
+  // 分级渐进搜索窗口：
+  // Tier 1: 紧邻窗口 [targetIdx - 3, targetIdx + 15]
+  // Tier 2: 扩展块窗口 [targetIdx - 25, targetIdx + 120]（覆盖大型 Callout / 卡片网格 / 表格 / 列表）
+  // Tier 3: 全文最近邻兜底（当选中文本具备足够区分度或未提供行号时）
+  const searchWindows: number[][] = hasSourceLine
+    ? [
+        buildDistanceOrderedIndices(totalLines, targetIdx, targetIdx - 3, targetIdx + 15),
+        buildDistanceOrderedIndices(totalLines, targetIdx, targetIdx - 25, targetIdx + 120),
+        ...(cleanSelected.length >= 2
+          ? [buildDistanceOrderedIndices(totalLines, targetIdx, 0, totalLines - 1)]
+          : []),
+      ]
+    : [buildDistanceOrderedIndices(totalLines, 0, 0, totalLines - 1)];
 
-  // 2. 若直搜失败（探测周围格式标记，如源文本是 `**word**` 而选中的是 `word`）
-  if (foundLineIdx === -1) {
-    for (let i = startIdx; i <= endIdx; i++) {
-      const line = lines[i];
-      if (line.trim().startsWith('```')) continue;
-      const wrapperPatterns = [
-        `\\*\\*${escapeRegExp(cleanSelected)}\\*\\*`,
-        `\`${escapeRegExp(cleanSelected)}\``,
-        `\\[\\[${escapeRegExp(cleanSelected)}\\]\\]`,
-        `\\[${escapeRegExp(cleanSelected)}\\]\\([^)]*\\)`,
-        `\\*${escapeRegExp(cleanSelected)}\\*`,
-        `~~${escapeRegExp(cleanSelected)}~~`,
-        `==${escapeRegExp(cleanSelected)}==`,
-        `\\$${escapeRegExp(cleanSelected)}\\$`,
-      ];
-      for (const pat of wrapperPatterns) {
-        const reg = new RegExp(pat);
-        const match = reg.exec(line);
-        if (match) {
-          foundLineIdx = i;
-          foundColIdx = match.index;
-          targetSlice = match[0];
-          break;
-        }
+  const visited = new Set<number>();
+  for (const windowIndices of searchWindows) {
+    for (const i of windowIndices) {
+      if (visited.has(i)) continue;
+      visited.add(i);
+      const hit = findSelectionInMarkdownLine(lines[i], cleanSelected);
+      if (hit) {
+        foundLineIdx = i;
+        foundColIdx = hit.colIdx;
+        targetSlice = hit.slice;
+        break;
       }
-      if (foundLineIdx !== -1) break;
     }
+    if (foundLineIdx !== -1) break;
   }
 
-  // 3. 严格安全指纹：如果行级窗口内未找到，严禁盲目全局猜测篡改（防止同名短词静默改坏其他段落）
   if (foundLineIdx === -1 || foundColIdx === -1) {
     return null;
   }

@@ -55,7 +55,7 @@ export function useMarkdownScrollSync({
     const handleContainerClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
 
-      // 1. Task List 任务列表复选框可交互勾选回写
+      // 1. Task List 任务列表复选框可交互勾选回写（支持顶层列表、嵌套列表、有序任务列表及 Callout/引用块内任务项）
       if (
         target.tagName.toLowerCase() === 'input' &&
         target.getAttribute('type') === 'checkbox' &&
@@ -66,18 +66,38 @@ export function useMarkdownScrollSync({
           const lineNum = parseInt(lineAttr, 10);
           if (!isNaN(lineNum) && lineNum > 0) {
             const lines = content.split('\n');
-            const targetIdx = lineNum - 1;
-            if (targetIdx >= 0 && targetIdx < lines.length) {
-              const currentLine = lines[targetIdx];
-              const isChecked = (target as HTMLInputElement).checked;
-              let updatedLine = currentLine;
-              if (isChecked) {
-                updatedLine = currentLine.replace(/^(\s*[-*+]\s*\[)[ xX](\])/, '$1x$2');
-              } else {
-                updatedLine = currentLine.replace(/^(\s*[-*+]\s*\[)[ xX](\])/, '$1 $2');
+            const isChecked = (target as HTMLInputElement).checked;
+            const taskPrefixRe = /^((\s*(?:>\s*)*)(?:[-*+]|\d+[.)])\s+\[)[ xX](\])/;
+            const clampedIdx = Math.min(lines.length - 1, Math.max(0, lineNum - 1));
+
+            let matchedIdx = -1;
+            if (taskPrefixRe.test(lines[clampedIdx])) {
+              matchedIdx = clampedIdx;
+            } else {
+              const labelText =
+                target.closest('li')?.querySelector('.ov-task-text')?.textContent?.trim() || '';
+              for (let delta = 1; delta <= lines.length; delta++) {
+                const candidates = [clampedIdx - delta, clampedIdx + delta];
+                for (const idx of candidates) {
+                  if (idx >= 0 && idx < lines.length && taskPrefixRe.test(lines[idx])) {
+                    if (!labelText || lines[idx].includes(labelText.slice(0, 12))) {
+                      matchedIdx = idx;
+                      break;
+                    }
+                  }
+                }
+                if (matchedIdx !== -1) break;
               }
+            }
+
+            if (matchedIdx !== -1) {
+              const currentLine = lines[matchedIdx];
+              const updatedLine = currentLine.replace(
+                taskPrefixRe,
+                isChecked ? '$1x$3' : '$1 $3'
+              );
               if (updatedLine !== currentLine) {
-                lines[targetIdx] = updatedLine;
+                lines[matchedIdx] = updatedLine;
                 onContentChange(lines.join('\n'));
               }
             }

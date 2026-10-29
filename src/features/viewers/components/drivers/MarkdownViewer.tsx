@@ -245,11 +245,20 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           return;
         }
 
-        // 获取所在行号
-        const sourceLineEl = anchorEl?.closest('[data-source-line]');
+        // 获取所在行号：优先从选区起点元素向上查找 data-source-line / data-task-line，回退至公共祖先
+        const startEl = (
+          range.startContainer.nodeType === Node.ELEMENT_NODE
+            ? range.startContainer
+            : range.startContainer.parentElement
+        ) as HTMLElement | null;
+        const sourceLineEl =
+          startEl?.closest('[data-source-line], [data-task-line]') ||
+          anchorEl?.closest('[data-source-line], [data-task-line]');
         let lineNum: number | undefined;
         if (sourceLineEl) {
-          const attr = sourceLineEl.getAttribute('data-source-line');
+          const attr =
+            sourceLineEl.getAttribute('data-source-line') ||
+            sourceLineEl.getAttribute('data-task-line');
           if (attr) {
             const parsed = parseInt(attr, 10);
             if (!isNaN(parsed) && parsed > 0) {
@@ -496,6 +505,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     actualEndLine: number,
     newBlockMarkdown: string
   ) => {
+    if (focusedBlockId) {
+      setEditedCode(focusedBlockId, undefined);
+    }
     if (!onContentChange) {
       setFocusedBlockId(null);
       return;
@@ -510,6 +522,49 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       onContentChange(newFullContent);
     }
     setFocusedBlockId(null);
+  };
+
+  // 将图表/公式块内联“代码”视图中的修改持久化回写至 Markdown 源码
+  const handleCommitDiagramCode = (block: RenderedBlock, newCode: string) => {
+    if (!onContentChange || typeof block.startLine !== 'number' || block.externalFile) {
+      return;
+    }
+    const cleanNewCode = newCode.replace(/\r\n/g, '\n').replace(/\n+$/, '');
+    if (cleanNewCode === block.raw.replace(/\r\n/g, '\n').replace(/\n+$/, '')) {
+      return;
+    }
+    const sliceInfo = extractBlockRawMarkdown(
+      content,
+      block.startLine,
+      block.endLine,
+      block.raw
+    );
+    const sliceLines = sliceInfo.rawSlice.split('\n');
+    const firstLine = sliceLines[0] || '';
+    const lastLine = sliceLines[sliceLines.length - 1] || '';
+
+    let updatedBlockMd: string | null = null;
+    if (/^ {0,3}(?:`{3,}|~{3,})/.test(firstLine) && /^ {0,3}(?:`{3,}|~{3,})\s*$/.test(lastLine) && sliceLines.length >= 2) {
+      updatedBlockMd = `${firstLine}\n${cleanNewCode}\n${lastLine}`;
+    } else if (firstLine.trim().startsWith('$$') && lastLine.trim().endsWith('$$')) {
+      if (sliceLines.length === 1) {
+        updatedBlockMd = cleanNewCode.includes('\n') ? `$$\n${cleanNewCode}\n$$` : `$$${cleanNewCode}$$`;
+      } else {
+        updatedBlockMd = `$$\n${cleanNewCode}\n$$`;
+      }
+    }
+
+    if (updatedBlockMd) {
+      const { newFullContent } = replaceBlockRawMarkdown(
+        content,
+        sliceInfo.actualStartLine,
+        sliceInfo.actualEndLine,
+        updatedBlockMd
+      );
+      if (newFullContent !== content) {
+        onContentChange(newFullContent);
+      }
+    }
   };
 
   // 删除指定块并记录一键撤销快照
@@ -611,8 +666,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     }
     const { newFullContent } = moveBlockRawMarkdown(
       content,
-      { startLine: currentBlock.startLine, endLine: currentBlock.endLine },
-      { startLine: adjacentBlock.startLine, endLine: adjacentBlock.endLine }
+      { startLine: currentBlock.startLine, endLine: currentBlock.endLine, raw: currentBlock.raw },
+      { startLine: adjacentBlock.startLine, endLine: adjacentBlock.endLine, raw: adjacentBlock.raw }
     );
     if (newFullContent !== content) {
       onContentChange(newFullContent);
@@ -886,6 +941,27 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   isDarkTheme={isDarkTheme}
                   locale={locale}
                   onOpenSourceAtLine={onOpenSourceAtLine}
+                  onUpdateTableMarkdown={
+                    onContentChange && typeof block.startLine === 'number'
+                      ? newTableMd => {
+                          const sliceInfo = extractBlockRawMarkdown(
+                            content,
+                            block.startLine,
+                            block.endLine,
+                            block.raw
+                          );
+                          const { newFullContent } = replaceBlockRawMarkdown(
+                            content,
+                            sliceInfo.actualStartLine,
+                            sliceInfo.actualEndLine,
+                            newTableMd
+                          );
+                          if (newFullContent !== content) {
+                            onContentChange(newFullContent);
+                          }
+                        }
+                      : undefined
+                  }
                 />
               </RenderErrorBoundary>
             </LazyViewportBlock>
@@ -920,13 +996,19 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={svg =>
                     setLightboxItem({ title: t('mermaidTitle', locale), content: svg || block.svgContent })
                   }
                   onReRender={async () => {
+                    handleCommitDiagramCode(block, currentCode);
                     const res = await handleReRenderMermaid(block.id, currentCode);
                     if (res.success && res.svg) {
                       block.svgContent = res.svg;
@@ -973,7 +1055,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={() => {
@@ -983,7 +1070,10 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                     } catch {}
                     setLightboxItem({ title: t('mathFormula', locale), content: html || `<pre>${currentCode}</pre>` });
                   }}
-                  onReRender={() => setEditedCode(block.id, currentCode)}
+                  onReRender={() => {
+                    handleCommitDiagramCode(block, currentCode);
+                    setEditedCode(block.id, currentCode);
+                  }}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   locale={locale}
@@ -1022,11 +1112,16 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={() => setLightboxItem({ title: t('plantUmlTitle', locale), url: svgUrl })}
-                  onReRender={() => {}}
+                  onReRender={() => handleCommitDiagramCode(block, currentCode)}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   externalFile={block.externalFile}
@@ -1067,12 +1162,17 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onSetBgMode={mode => setSvgBgMode(block.id, mode)}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={() => setLightboxItem({ title: block.title || 'SVG', content: block.svgContent || block.raw })}
-                  onReRender={() => {}}
+                  onReRender={() => handleCommitDiagramCode(block, currentCode)}
                   onDownloadSvg={() => handleDownloadSvg(block.svgContent || block.raw, block.fileName ? block.fileName.replace(/\.svg$/i, '') : 'vector-graphic')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   externalFile={block.externalFile}
@@ -1109,11 +1209,16 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={liveSvg => setLightboxItem({ title: t('graphvizTitle', locale), content: liveSvg || block.svgContent || block.raw })}
-                  onReRender={() => {}}
+                  onReRender={() => handleCommitDiagramCode(block, currentCode)}
                   onDownloadSvg={liveSvg => handleDownloadSvg(liveSvg || block.svgContent || block.raw, 'graphviz-topology')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
@@ -1153,7 +1258,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={svg =>
@@ -1197,7 +1307,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   isDarkTheme={isDarkTheme}
                   theme={theme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={content =>
@@ -1238,7 +1353,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
-                  onSetViewMode={mode => setDiagramViewMode(block.id, mode)}
+                  onSetViewMode={mode => {
+                    if (mode === 'visual' && editedCodes[block.id] !== undefined) {
+                      handleCommitDiagramCode(block, editedCodes[block.id]);
+                    }
+                    setDiagramViewMode(block.id, mode);
+                  }}
                   onOpenLightbox={content =>
                     setLightboxItem({ title: 'Excalidraw Whiteboard', content: content || block.raw })
                   }

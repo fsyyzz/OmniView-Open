@@ -66,11 +66,18 @@ function restoreCodeSegments(text: string, slots: string[]): string {
 /**
  * 从正文提取 `[^id]:` 定义段，并以等量空行占位，尽量保持行号对齐
  */
-function extractDefinitions(text: string): { body: string; definitions: Map<string, string> } {
+function extractDefinitions(text: string): {
+  body: string;
+  definitions: Map<string, string>;
+  firstDefLine?: number;
+  lastDefLine?: number;
+} {
   const lines = text.split('\n');
   const definitions = new Map<string, string>();
   const output: string[] = [];
   const defStart = /^ {0,3}\[\^([^\]\n]+)\]:[ \t]*(.*)$/;
+  let firstDefLine: number | undefined;
+  let lastDefLine: number | undefined;
 
   let i = 0;
   while (i < lines.length) {
@@ -81,6 +88,7 @@ function extractDefinitions(text: string): { body: string; definitions: Map<stri
       continue;
     }
 
+    const defStartLine = i + 1;
     const id = match[1].trim();
     const bodyLines: string[] = [match[2] ?? ''];
     let lineCount = 1;
@@ -114,13 +122,15 @@ function extractDefinitions(text: string): { body: string; definitions: Map<stri
     const body = bodyLines.join('\n').replace(/[ \t]+$/gm, '').trimEnd();
     if (id && !definitions.has(id)) {
       definitions.set(id, body);
+      if (firstDefLine === undefined) firstDefLine = defStartLine;
+      lastDefLine = defStartLine + lineCount - 1;
     }
     for (let n = 0; n < lineCount; n += 1) {
       output.push('');
     }
   }
 
-  return { body: output.join('\n'), definitions };
+  return { body: output.join('\n'), definitions, firstDefLine, lastDefLine };
 }
 
 function buildFootnoteRefHtml(num: number, refOrdinal: number): string {
@@ -136,12 +146,14 @@ function buildFootnotesSection(
   ordered: Array<{ id: string; num: number; body: string; refCount: number }>,
   sectionTitle: string,
   renderBody: (markdown: string) => string,
+  firstDefLine?: number,
+  lastDefLine?: number,
 ): string {
   if (ordered.length === 0) return '';
 
   const items = ordered
     .map((fn) => {
-      const bodyHtml = renderBody(fn.body);
+      const bodyHtml = renderBody(fn.body).replace(/\r?\n/g, ' ');
       const backrefs = Array.from({ length: fn.refCount }, (_, idx) => {
         const ordinal = idx + 1;
         const href = ordinal === 1 ? `#fnref-${fn.num}` : `#fnref-${fn.num}-${ordinal}`;
@@ -159,12 +171,17 @@ function buildFootnotesSection(
         `</li>`
       );
     })
-    .join('\n');
+    .join('');
+
+  const lineAttrs =
+    typeof firstDefLine === 'number' && typeof lastDefLine === 'number'
+      ? ` data-footnote-start-line="${firstDefLine}" data-footnote-end-line="${lastDefLine}"`
+      : '';
 
   return (
-    `\n\n<section class="ov-footnotes" data-footnotes role="doc-endnotes">\n` +
-    `<h2 class="ov-footnotes-title">${escapeHtml(sectionTitle)}</h2>\n` +
-    `<ol class="ov-footnotes-list">\n${items}\n</ol>\n` +
+    `\n\n<section class="ov-footnotes" data-footnotes${lineAttrs} role="doc-endnotes">` +
+    `<h2 class="ov-footnotes-title">${escapeHtml(sectionTitle)}</h2>` +
+    `<ol class="ov-footnotes-list">${items}</ol>` +
     `</section>\n`
   );
 }
@@ -183,7 +200,7 @@ export function processMarkdownFootnotes(
   const sectionTitle = options.sectionTitle || 'Footnotes';
   const renderBody = options.renderBody || defaultRenderBody;
   const { text: protectedText, slots } = protectCodeSegments(source);
-  const { body, definitions } = extractDefinitions(protectedText);
+  const { body, definitions, firstDefLine, lastDefLine } = extractDefinitions(protectedText);
 
   if (definitions.size === 0) {
     return { markdown: restoreCodeSegments(body, slots), footnoteCount: 0 };
@@ -215,7 +232,7 @@ export function processMarkdownFootnotes(
   }));
 
   const restored = restoreCodeSegments(withRefs, slots);
-  const section = buildFootnotesSection(ordered, sectionTitle, renderBody);
+  const section = buildFootnotesSection(ordered, sectionTitle, renderBody, firstDefLine, lastDefLine);
   return {
     markdown: restored + section,
     footnoteCount: ordered.length,
