@@ -72,6 +72,7 @@ export interface MarkdownViewerProps {
   enableOkf?: boolean;
   onToggleOkf?: () => void;
   onContentChange?: (content: string) => void;
+  onAcceptAiDiff?: (content: string) => void;
   /** 搜索 / 打印 / 导出时强制挂载全部重块 */
   eagerMount?: boolean;
 }
@@ -92,6 +93,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   enableOkf = true,
   onToggleOkf,
   onContentChange,
+  onAcceptAiDiff,
   eagerMount = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -885,29 +887,32 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               </button>
             </div>
 
-            {aiDiffResult.hasInBufferBeforeLines && onContentChange && (
+            {(onAcceptAiDiff || onContentChange) && (
               <button
                 type="button"
                 onClick={() => {
-                  const cleanAfter = detectAndAnnotateMarkdownAiDiff({
-                    content,
-                    baseContent,
-                    diskContent,
-                    mode: 'after',
-                  }).markdown;
-                  if (cleanAfter && cleanAfter !== content) {
+                  const cleanAfter =
+                    detectAndAnnotateMarkdownAiDiff({
+                      content,
+                      baseContent,
+                      diskContent,
+                      mode: 'after',
+                    }).markdown || content;
+                  setAiDiffMode('after');
+                  if (onAcceptAiDiff) {
+                    onAcceptAiDiff(cleanAfter);
+                  } else if (onContentChange) {
                     onContentChange(cleanAfter);
-                    setAiDiffMode('diff');
                   }
                 }}
                 className="ov-ai-diff-accept-btn"
                 title={
                   locale === 'zh-CN'
-                    ? '移除文档中残留的改前段落，仅保留改后内容'
-                    : 'Keep only After content and remove Before blocks'
+                    ? '全部确认：移除改前内容，保留并保存改后内容'
+                    : 'Accept All: Keep After content and save'
                 }
               >
-                {locale === 'zh-CN' ? '采纳改后' : 'Keep After'}
+                {locale === 'zh-CN' ? '全部确认 (采纳改后)' : 'Accept All (Keep After)'}
               </button>
             )}
           </div>

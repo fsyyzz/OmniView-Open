@@ -8,7 +8,21 @@
 
 ---
 
-## [1.4.7] - 2026-10-29 (当前最新发布)
+## [1.4.8] - 2026-10-30 (当前最新发布)
+
+> [!TIP] v1.4.8 核心升级亮点
+> **修复 Markdown AI 修改「全部确认」后再次打开仍重复显示改前与改后内容的持久化与基线判定缺陷 (`editorProvider.ts` / `MarkdownViewer.tsx` / `PluginDocumentView.tsx` / `ViewerRenderer.tsx` / `App.tsx`)**：
+> 1. **根治无活跃 AI 会话时误将 Git HEAD / 旧缓存当作未决差异导致的反复渲染问题 (`editorProvider.ts`)**：
+>    - 彻底移除 `resolveDocumentBaseline` 中对 `git show HEAD` 的无条件保底对比以及旧快照常驻逻辑；明确 AI 对比基线仅在宿主存在活跃影子模型（如 `chat-editing-snapshot-text-model:` / `cursor:` / `copilot:`）或存在未落盘内存拼接态时生效；
+>    - 增加 `acceptedDiffPaths` 与 `sessionBaselineCache` 即时自愈机制，当 AI 会话关闭或用户点击「全部确认」后，基线安全置空 (`undefined`)，杜绝将常规未提交工作区改动误判为未决 AI 差异；
+> 2. **打通 Webview 到宿主的 `accept-ai-diff` 即时持久化与全链路状态同步 (`editorProvider.ts` / `PluginDocumentView.tsx` / `MarkdownViewer.tsx`)**：
+>    - 工具栏按钮语义与交互升级为 **「全部确认 (采纳改后)」**，无论差异来源于内存拼接还是影子快照均支持一键全量确认；
+>    - 点击确认后立即提炼干净的「改后」正文，绕过防抖直接向 Host 派发 `accept-ai-diff` 协议消息，立即通过 `vscode.WorkspaceEdit` 回写文档并持久化落盘，同时清除基线状态并向 Webview 广播最新纯净正文；
+>    - `App.tsx` 针对 `document-update` 补充 `baseContent` 与 `diskContent` 变更比对，确保已打开或重新打开文档时 100% 正确渲染确认后的纯净内容。
+
+---
+
+## [1.4.7] - 2026-10-29
 
 > [!TIP] v1.4.7 核心升级亮点
 > **新增 Antigravity / Cursor AI 无标记内联修改「改前 vs 改后」自动识别、视觉区分与一键视图切换 (`markdownDiffEngine.ts` / `editorProvider.ts` / `useMarkdownAstPipeline.ts` / `MarkdownViewer.tsx`)**：

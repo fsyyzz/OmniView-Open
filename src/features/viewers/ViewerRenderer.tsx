@@ -30,6 +30,7 @@ export interface ViewerRendererProps {
   zoom?: number;
   locale?: Locale;
   onContentChange: (content: string) => void;
+  onAcceptAiDiff?: (content: string) => void;
   onRenderComplete?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
   onOpenInEditor?: () => void;
@@ -52,6 +53,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   zoom = 1.0,
   locale = 'zh-CN',
   onContentChange,
+  onAcceptAiDiff,
   onRenderComplete,
   onOpenSourceAtLine,
   onOpenInEditor,
@@ -84,6 +86,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
           zoom={zoom}
           locale={locale}
           onContentChange={onContentChange}
+          onAcceptAiDiff={onAcceptAiDiff}
           onRenderComplete={onRenderComplete}
           onOpenSourceAtLine={onOpenSourceAtLine}
           onOpenInEditor={onOpenInEditor}

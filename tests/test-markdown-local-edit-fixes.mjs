@@ -647,6 +647,28 @@ console.log('🧪 Running Markdown Local Editing Regression Tests...');
       resConflict.markdown.includes('[!AI_AFTER:5-5]'),
     'Conflict markers must be converted into [!AI_BEFORE] and [!AI_AFTER] blocks'
   );
+  // 场景 D：用户「全部确认 (采纳改后)」后再次打开文件，确保改前改后不再重复渲染
+  const acceptedContent = detectAndAnnotateMarkdownAiDiff({
+    content: splicedInMemoryDoc,
+    diskContent: originalDoc,
+    mode: 'after',
+  }).markdown;
+
+  // 确认采纳后的文档自身不再含有改前段落与冲突标记
+  assert.ok(!acceptedContent.includes('拓展性受限'), 'Accepted content must not contain Before text');
+  assert.ok(acceptedContent.includes('高可用容灾'), 'Accepted content must contain After text');
+
+  // 当文件被再次打开（无活跃影子模型基线，磁盘与当前内容一致）
+  const reopenResult = detectAndAnnotateMarkdownAiDiff({
+    content: acceptedContent,
+    diskContent: acceptedContent,
+    mode: 'diff',
+  });
+  assert.equal(reopenResult.hasDiff, false, 'Reopened document after accept must have hasDiff=false');
+  assert.equal(reopenResult.diffSource, 'none');
+  assert.ok(!reopenResult.markdown.includes('[!AI_BEFORE'), 'Must not render [!AI_BEFORE] on reopened clean doc');
+  assert.ok(!reopenResult.markdown.includes('[!AI_AFTER'), 'Must not render [!AI_AFTER] on reopened clean doc');
+  assert.equal(reopenResult.markdown, acceptedContent, 'Markdown must match accepted clean content exactly');
 }
 
 console.log('✅ All Markdown local editing, dynamic font-size, responsive toolbar & AI diff regression tests passed!');

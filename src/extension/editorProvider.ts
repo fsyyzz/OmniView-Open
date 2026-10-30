@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
@@ -13,12 +12,15 @@ import { getWebviewHtml } from './webviewHtml';
 /** 会话级文档初始基线缓存：用于在未纳入 Git 的文件中仍能识别 AI 修改前 (Before) 与修改后 (After) */
 const sessionBaselineCache = new Map<string, string>();
 
+/** 已确认采纳 AI 变更的文件路径集合：防止确认后重新打开时再次错误生成对比基线 */
+const acceptedDiffPaths = new Set<string>();
+
 /**
  * 解析文档的「改前 (Before)」对比基线：
- * 1. 优先扫描 VS Code / Cursor / Antigravity 在内存中挂载的 AI 会话快照模型
- *    (如 `chat-editing-snapshot-text-model:`, `chat-editing-text-model:`, `git:`, `ai-diff:` 等)
- * 2. 其次尝试从 Git `HEAD` 读取该文件的最新提交基线 (`git -C <dir> show HEAD:./<name>`)
- * 3. 最后回退至当前会话首次打开文件时的初始干净快照 (`sessionBaselineCache`)
+ * 1. 优先扫描 VS Code / Cursor / Antigravity 在内存中挂载的活跃 AI 会话快照模型
+ *    (如 `chat-editing-snapshot-text-model:`, `chat-editing-text-model:`, `cursor:`, `copilot:`, `ai-diff:` 等)
+ * 2. 当 AI 会话已关闭、用户已全部确认或无活跃影子模型时，返回 undefined；
+ *    杜绝将未提交的常规 Git 工作区改动或已确认内容错误判定为未决 AI 差异。
  */
 async function resolveDocumentBaseline(
   targetUri: vscode.Uri,
@@ -34,11 +36,24 @@ async function resolveDocumentBaseline(
     for (const doc of vscode.workspace.textDocuments) {
       if (doc.isClosed || isSameDocumentUri(doc.uri, targetUri)) continue;
       if (doc.uri.scheme === 'file') continue;
+
+      // 仅匹配 AI 编辑/快照/diff 相关的影子文档 scheme，防止普通 output 或设置面板误判
+      const scheme = doc.uri.scheme.toLowerCase();
+      const isAiSnapshotScheme =
+        scheme.includes('chat-editing') ||
+        scheme.includes('copilot') ||
+        scheme.includes('cursor') ||
+        scheme.includes('ai-diff') ||
+        scheme.includes('snapshot');
+      if (!isAiSnapshotScheme) continue;
+
       const docBase = basename(doc.uri.fsPath || doc.uri.path || '');
       const queryMatches = typeof doc.uri.query === 'string' && doc.uri.query.includes(targetName);
       if (docBase === targetName || queryMatches) {
         const shadowText = doc.getText();
         if (shadowText && shadowText.trim().length > 0 && shadowText !== currentContent) {
+          // 发现了活跃的 AI 会话快照，清除此前的已采纳标记
+          if (fsPath) acceptedDiffPaths.delete(fsPath);
           log(`Resolved AI diff baseline from shadow document (${doc.uri.scheme}): ${doc.uri.toString()}`);
           return shadowText;
         }
@@ -46,45 +61,9 @@ async function resolveDocumentBaseline(
     }
   }
 
-  // 2. 尝试读取 Git HEAD 基线
-  if (targetUri.scheme === 'file' && fsPath && targetName) {
-    const dir = dirname(fsPath);
-    if (dir && dir !== '.') {
-      const gitHead = await new Promise<string | undefined>((resolveGit) => {
-        execFile(
-          'git',
-          ['-C', dir, 'show', `HEAD:./${targetName}`],
-          { timeout: 1200, maxBuffer: 8 * 1024 * 1024, encoding: 'utf8' },
-          (err, stdout) => {
-            if (err || typeof stdout !== 'string' || stdout.length === 0) {
-              resolveGit(undefined);
-              return;
-            }
-            resolveGit(stdout);
-          }
-        );
-      });
-      if (gitHead && gitHead.trim().length > 0) {
-        if (!sessionBaselineCache.has(fsPath)) {
-          sessionBaselineCache.set(fsPath, gitHead);
-        }
-        if (gitHead !== currentContent) {
-          return gitHead;
-        }
-      }
-    }
-  }
-
-  // 3. 回退至会话级首次打开快照
-  if (fsPath) {
-    if (!sessionBaselineCache.has(fsPath)) {
-      // 若磁盘内容与当前内存内容不同，优先以磁盘初始内容作为基线
-      sessionBaselineCache.set(fsPath, diskContent || currentContent);
-    }
-    const cached = sessionBaselineCache.get(fsPath);
-    if (cached && cached !== currentContent) {
-      return cached;
-    }
+  // 2. 若用户已显式全部确认 / 采纳改后，或者无活跃的 AI 会话影子模型，禁止自动将 Git HEAD 或旧缓存当作 AI 差异
+  if (fsPath && acceptedDiffPaths.has(fsPath)) {
+    return undefined;
   }
 
   return undefined;
@@ -281,10 +260,15 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
           await vscode.workspace.fs.writeFile(document.uri, bytes);
         }
 
-        if (document.uri.fsPath && reason === 'accept-ai-diff') {
-          sessionBaselineCache.set(document.uri.fsPath, content);
+        if (document.uri.fsPath) {
+          sessionBaselineCache.delete(document.uri.fsPath);
+          if (reason === 'accept-ai-diff') {
+            acceptedDiffPaths.add(document.uri.fsPath);
+          }
         }
-        const baseContent = await resolveDocumentBaseline(document.uri, content, content, log);
+        const baseContent = reason === 'accept-ai-diff'
+          ? undefined
+          : await resolveDocumentBaseline(document.uri, content, content, log);
 
         const referencedFiles =
           (extension === '.md' || extension === '.markdown') && document.uri.fsPath
@@ -299,6 +283,7 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
           referencedFiles,
         };
         log(`Persisted webview content (${reason}): ${document.uri.fsPath} (${bytes.byteLength} bytes)`);
+        await postDocument(true);
         await webview.postMessage({
           type: 'content-saved',
           path: document.uri.fsPath,
@@ -339,6 +324,13 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
       if (message?.type === 'reload-document') {
         log(`Manual reload requested from webview: ${document.uri.fsPath}`);
         await reloadAndPost(true);
+        return;
+      }
+      if (message?.type === 'accept-ai-diff') {
+        const content = typeof message.content === 'string' ? message.content : '';
+        clearTimeout(writeDebounceTimer);
+        log(`Webview confirmed and accepted AI diff: ${document.uri.fsPath}`);
+        await persistWebviewContent(content, 'accept-ai-diff');
         return;
       }
       if (message?.type === 'document-change' || message?.type === 'save-content') {

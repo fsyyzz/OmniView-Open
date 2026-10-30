@@ -287,6 +287,25 @@ const MarkdownPluginView: React.FC<{
     [file.path, onContentChange, vscode]
   );
 
+  const handleAcceptAiDiff = useCallback(
+    (newContent: string) => {
+      setDocumentContent(newContent);
+      if (file) {
+        file.baseContent = undefined;
+        file.diskContent = undefined;
+      }
+      onContentChange?.(newContent);
+      if (vscode) {
+        vscode.postMessage({
+          type: 'accept-ai-diff',
+          path: file.path,
+          content: newContent,
+        });
+      }
+    },
+    [file, onContentChange, vscode]
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLElement>(null);
 
@@ -767,6 +786,7 @@ const MarkdownPluginView: React.FC<{
             fontSize={fontSize}
             locale={locale}
             onContentChange={handleContentUpdate}
+            onAcceptAiDiff={handleAcceptAiDiff}
             onRenderComplete={handleRenderComplete}
             onOpenSourceAtLine={handleOpenSourceAtLine}
             onOpenInEditor={handleOpenInEditor}
@@ -919,6 +939,7 @@ const MarkdownPluginView: React.FC<{
               fontSize={fontSize}
               locale={locale}
               onContentChange={handleContentUpdate}
+              onAcceptAiDiff={handleAcceptAiDiff}
               onRenderComplete={handleRenderComplete}
               onOpenSourceAtLine={handleOpenSourceAtLine}
               onOpenInEditor={handleOpenInEditor}
@@ -940,6 +961,7 @@ const MarkdownPluginView: React.FC<{
               fontSize={fontSize}
               locale={locale}
               onContentChange={handleContentUpdate}
+              onAcceptAiDiff={handleAcceptAiDiff}
               onRenderComplete={handleRenderComplete}
               onOpenSourceAtLine={handleOpenSourceAtLine}
               onOpenInEditor={handleOpenInEditor}
@@ -968,6 +990,7 @@ const MarkdownPluginView: React.FC<{
                 fontSize={fontSize}
                 locale={locale}
                 onContentChange={handleContentUpdate}
+                onAcceptAiDiff={handleAcceptAiDiff}
                 onRenderComplete={handleRenderComplete}
                 onOpenSourceAtLine={handleOpenSourceAtLine}
                 onOpenInEditor={handleOpenInEditor}

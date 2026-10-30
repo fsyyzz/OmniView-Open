@@ -268,6 +268,8 @@ export default function App() {
           prev &&
           prev.id === incomingFile.id &&
           prev.content === incomingFile.content &&
+          prev.baseContent === incomingFile.baseContent &&
+          prev.diskContent === incomingFile.diskContent &&
           prev.lastModified === incomingFile.lastModified &&
           prev.binaryUrl === incomingFile.binaryUrl
         ) {
@@ -280,6 +282,8 @@ export default function App() {
         if (
           existing &&
           existing.content === incomingFile.content &&
+          existing.baseContent === incomingFile.baseContent &&
+          existing.diskContent === incomingFile.diskContent &&
           existing.lastModified === incomingFile.lastModified &&
           existing.binaryUrl === incomingFile.binaryUrl
         ) {

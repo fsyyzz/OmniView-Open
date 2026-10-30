@@ -25,6 +25,7 @@ export interface DriverProps {
   zoom?: number;
   locale?: Locale;
   onContentChange?: (content: string) => void;
+  onAcceptAiDiff?: (content: string) => void;
   onRenderComplete?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
   onOpenInEditor?: () => void;
@@ -48,6 +49,7 @@ export interface ViewerRenderContext {
   zoom: number;
   locale: Locale;
   onContentChange: (content: string) => void;
+  onAcceptAiDiff?: (content: string) => void;
   onRenderComplete?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
   onOpenInEditor?: () => void;
@@ -132,6 +134,7 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
     zoom,
     locale,
     onContentChange,
+    onAcceptAiDiff,
     onRenderComplete,
     onOpenSourceAtLine,
     onOpenInEditor,
@@ -292,6 +295,7 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
                   contentWidth={contentWidth}
                   locale={locale}
                   onContentChange={onContentChange}
+                  onAcceptAiDiff={onAcceptAiDiff}
                   onRenderComplete={onRenderComplete}
                   onOpenSourceAtLine={onOpenSourceAtLine}
                   onSelectFile={onSelectFile}
@@ -338,6 +342,7 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
           contentWidth={contentWidth}
           locale={locale}
           onContentChange={onContentChange}
+          onAcceptAiDiff={onAcceptAiDiff}
           onRenderComplete={onRenderComplete}
           onOpenSourceAtLine={onOpenSourceAtLine}
           onSelectFile={onSelectFile}

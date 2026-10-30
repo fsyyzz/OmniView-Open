@@ -1072,7 +1072,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const order: DensityMode[] = ['compact', 'comfortable', 'spacious'];
+                        const order: DensityMode[] = ['compact', 'standard', 'comfortable'];
                         const nextIdx = (order.indexOf(density) + 1) % order.length;
                         onDensityChange(order[nextIdx]);
                       }}
