@@ -24,6 +24,7 @@ import { processMarkdownDefinitionLists } from '../src/features/viewers/lib/mark
 import { processMarkdownFootnotes } from '../src/features/viewers/lib/markdownFootnotes.ts';
 import { processMarkdownMath } from '../src/features/viewers/lib/markdownMath.ts';
 import { parseOkfFrontmatter } from '../src/features/viewers/lib/okfParser.ts';
+import { detectAndAnnotateMarkdownAiDiff } from '../src/features/viewers/lib/markdownDiffEngine.ts';
 
 const rootDir = process.cwd();
 
@@ -532,7 +533,124 @@ console.log('🧪 Running Markdown Local Editing Regression Tests...');
   );
 }
 
-console.log('✅ All Markdown local editing, dynamic font-size & responsive toolbar regression tests passed!');
+// 9. 验证 Antigravity / Cursor 无标记内联 Diff 拼接态、Git/快照基线对比与冲突标记的「改前 vs 改后」识别
+{
+  const originalDoc = [
+    '# 系统架构设计',
+    '',
+    '当前系统采用单体架构部署在单台服务器上，拓展性受限。',
+    '',
+    '## 数据存储层',
+    '',
+    '使用本地 SQLite 存储核心业务数据。',
+  ].join('\n');
+
+  // 场景 A：Antigravity / Cursor 内联 Diff 拼接态（无 <<<<<<< 标记，内存中同时拼接了改前与改后段落，而磁盘/基线为改前）
+  const splicedInMemoryDoc = [
+    '# 系统架构设计',
+    '',
+    '当前系统采用单体架构部署在单台服务器上，拓展性受限。',
+    '当前系统已升级为云原生微服务架构，支持弹性水平扩展与高可用容灾。',
+    '',
+    '## 数据存储层',
+    '',
+    '使用本地 SQLite 存储核心业务数据。',
+  ].join('\n');
+
+  const resSpliced = detectAndAnnotateMarkdownAiDiff({
+    content: splicedInMemoryDoc,
+    diskContent: originalDoc,
+    mode: 'diff',
+  });
+  assert.equal(resSpliced.hasDiff, true, 'Should detect Antigravity/Cursor spliced inline diff without markers');
+  assert.equal(resSpliced.diffSource, 'spliced-buffer');
+  assert.equal(resSpliced.removedCount, 1, 'Should identify 1 Before (改前) block in spliced buffer');
+  assert.equal(resSpliced.addedCount, 1, 'Should identify 1 After (改后) block in spliced buffer');
+  assert.ok(
+    resSpliced.markdown.includes('[!AI_BEFORE:3-3]') &&
+      resSpliced.markdown.includes('> 当前系统采用单体架构部署在单台服务器上，拓展性受限。'),
+    'Should annotate the old paragraph as [!AI_BEFORE:3-3]'
+  );
+  assert.ok(
+    resSpliced.markdown.includes('[!AI_AFTER:4-4]') &&
+      resSpliced.markdown.includes('> 当前系统已升级为云原生微服务架构，支持弹性水平扩展与高可用容灾。'),
+    'Should annotate the new paragraph as [!AI_AFTER:4-4]'
+  );
+
+  // 验证「仅看改后 (after)」模式可彻底剥离拼接态中的改前段落
+  const resAfterOnly = detectAndAnnotateMarkdownAiDiff({
+    content: splicedInMemoryDoc,
+    diskContent: originalDoc,
+    mode: 'after',
+  });
+  assert.ok(
+    !resAfterOnly.markdown.includes('当前系统采用单体架构部署在单台服务器上') &&
+      resAfterOnly.markdown.includes('当前系统已升级为云原生微服务架构'),
+    'After-only mode must strip spliced Before lines and keep After lines'
+  );
+
+  // 验证「仅看改前 (before)」模式可还原修改前内容
+  const resBeforeOnly = detectAndAnnotateMarkdownAiDiff({
+    content: splicedInMemoryDoc,
+    diskContent: originalDoc,
+    mode: 'before',
+  });
+  assert.ok(
+    resBeforeOnly.markdown.includes('当前系统采用单体架构部署在单台服务器上') &&
+      !resBeforeOnly.markdown.includes('当前系统已升级为云原生微服务架构'),
+    'Before-only mode must strip After lines and keep original Before lines'
+  );
+
+  // 场景 B：Agent 已将纯「改后 (New)」写入磁盘，同时编辑器内存为「改前 + 改后」拼接态，且拥有 baseContent (Old)
+  const cleanAfterDoc = [
+    '# 系统架构设计',
+    '',
+    '当前系统已升级为云原生微服务架构，支持弹性水平扩展与高可用容灾。',
+    '',
+    '## 数据存储层',
+    '',
+    '使用本地 SQLite 存储核心业务数据。',
+  ].join('\n');
+
+  const resThreeWay = detectAndAnnotateMarkdownAiDiff({
+    content: splicedInMemoryDoc,
+    baseContent: originalDoc,
+    diskContent: cleanAfterDoc,
+    mode: 'diff',
+  });
+  assert.equal(resThreeWay.hasDiff, true);
+  assert.equal(resThreeWay.diffSource, 'spliced-buffer');
+  assert.ok(
+    resThreeWay.markdown.includes('[!AI_BEFORE:3-3]') &&
+      resThreeWay.markdown.includes('[!AI_AFTER:4-4]'),
+    'Three-way diff (baseContent + diskContent + spliced content) must pinpoint Before and After blocks'
+  );
+
+  // 场景 C：显式冲突标记 (<<<<<<< ... ======= ... >>>>>>>)
+  const conflictDoc = [
+    '# 接口规范',
+    '<<<<<<< HEAD',
+    '请求超时时间为 3000ms。',
+    '=======',
+    '请求超时时间调整为 10000ms，并支持指数退避重试。',
+    '>>>>>>> ai-update',
+  ].join('\n');
+
+  const resConflict = detectAndAnnotateMarkdownAiDiff({
+    content: conflictDoc,
+    mode: 'diff',
+  });
+  assert.equal(resConflict.hasDiff, true);
+  assert.equal(resConflict.diffSource, 'conflict-markers');
+  assert.ok(
+    resConflict.markdown.includes('[!AI_BEFORE:3-3]') &&
+      resConflict.markdown.includes('[!AI_AFTER:5-5]'),
+    'Conflict markers must be converted into [!AI_BEFORE] and [!AI_AFTER] blocks'
+  );
+}
+
+console.log('✅ All Markdown local editing, dynamic font-size, responsive toolbar & AI diff regression tests passed!');
+
 
 
 

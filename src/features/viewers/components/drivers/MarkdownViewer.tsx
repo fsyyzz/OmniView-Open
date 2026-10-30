@@ -43,8 +43,9 @@ import {
 } from '../../lib/markdownBlockEditor';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
-import { ContentWidthMode, ThemeId } from '../../../../shared/types';
+import { AiDiffViewMode, ContentWidthMode, ThemeId } from '../../../../shared/types';
 import { useMarkdownAstPipeline, type RenderedBlock } from '../../hooks/useMarkdownAstPipeline';
+import { detectAndAnnotateMarkdownAiDiff } from '../../lib/markdownDiffEngine';
 import { useMarkdownScrollSync } from '../../hooks/useMarkdownScrollSync';
 import { useDiagramBlockStates } from '../../hooks/useDiagramBlockStates';
 import { getMermaidConfig } from '../../../../shared/lib/mermaidConfig';
@@ -57,6 +58,8 @@ export type { RenderedBlock };
 
 export interface MarkdownViewerProps {
   content: string;
+  baseContent?: string;
+  diskContent?: string;
   theme?: ThemeId;
   isDarkTheme?: boolean;
   density?: 'compact' | 'standard' | 'comfortable';
@@ -75,6 +78,8 @@ export interface MarkdownViewerProps {
 
 export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   content,
+  baseContent,
+  diskContent,
   theme,
   isDarkTheme = true,
   density = 'compact',
@@ -93,10 +98,14 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   const contentRef = useRef(content);
   contentRef.current = content;
   const isCtrlASelectAllRef = useRef(false);
+  const [aiDiffMode, setAiDiffMode] = React.useState<AiDiffViewMode>('diff');
 
-  // 1. AST 解析与格式预处理流水线 Hook
-  const { blocks, okfData, isRendering } = useMarkdownAstPipeline({
+  // 1. AST 解析与格式预处理流水线 Hook (集成 AI 改前/改后自动识别与标注)
+  const { blocks, okfData, aiDiffResult, isRendering } = useMarkdownAstPipeline({
     content,
+    baseContent,
+    diskContent,
+    aiDiffMode,
     files,
     locale,
     isDarkTheme,
@@ -685,12 +694,13 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     }
   };
 
-  // 预先计算可编辑块列表（严格剔除空 HTML / 空白块，确保上下移动精准命中真实相邻可见块）
+  // 预先计算可编辑块列表（严格剔除空 HTML / 空白块 / 虚拟已删除块，确保上下移动精准命中真实相邻可见块）
   const editableBlocks = useMemo(
     () =>
       blocks.filter(
         b =>
           b.type !== 'pagebreak' &&
+          !b.isVirtualDiffDeleted &&
           typeof b.startLine === 'number' &&
           (b.type !== 'html' || Boolean(b.renderedHtml && b.renderedHtml.trim())) &&
           Boolean(b.raw && b.raw.trim())
@@ -809,6 +819,101 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         </div>
       )}
 
+      {aiDiffResult?.hasDiff && (
+        <div
+          id="ov-ai-diff-toolbar"
+          className="ov-ai-diff-toolbar no-print"
+          role="region"
+          aria-label={locale === 'zh-CN' ? 'AI 改前与改后对比视图控制栏' : 'AI Before & After Diff View Bar'}
+        >
+          <div className="ov-ai-diff-toolbar-left">
+            <span className="ov-ai-diff-toolbar-indicator" />
+            <span className="ov-ai-diff-toolbar-title">
+              {locale === 'zh-CN' ? 'AI 修改对比' : 'AI Diff Detected'}
+            </span>
+            <span className="ov-ai-diff-stat ov-ai-diff-stat-after">
+              +{aiDiffResult.addedCount} {locale === 'zh-CN' ? '改后' : 'After'}
+            </span>
+            <span className="ov-ai-diff-stat ov-ai-diff-stat-before">
+              -{aiDiffResult.removedCount} {locale === 'zh-CN' ? '改前' : 'Before'}
+            </span>
+            <span className="ov-ai-diff-source-tag">
+              {aiDiffResult.diffSource === 'spliced-buffer'
+                ? locale === 'zh-CN'
+                  ? 'Antigravity / Cursor 内联拼接识别'
+                  : 'Inline Diff Splice'
+                : aiDiffResult.diffSource === 'conflict-markers'
+                ? locale === 'zh-CN'
+                  ? '冲突标记识别'
+                  : 'Conflict Markers'
+                : aiDiffResult.diffSource === 'critic-markup'
+                ? 'CriticMarkup'
+                : locale === 'zh-CN'
+                ? '基线版本对比'
+                : 'Baseline Diff'}
+            </span>
+          </div>
+
+          <div className="ov-ai-diff-toolbar-actions">
+            <div className="ov-ai-diff-segmented" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aiDiffMode === 'diff'}
+                onClick={() => setAiDiffMode('diff')}
+                className={`ov-ai-diff-seg-btn ${aiDiffMode === 'diff' ? 'active' : ''}`}
+              >
+                {locale === 'zh-CN' ? '区分改前/改后' : 'Diff View'}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aiDiffMode === 'after'}
+                onClick={() => setAiDiffMode('after')}
+                className={`ov-ai-diff-seg-btn ${aiDiffMode === 'after' ? 'active' : ''}`}
+              >
+                {locale === 'zh-CN' ? '仅看改后' : 'After Only'}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aiDiffMode === 'before'}
+                onClick={() => setAiDiffMode('before')}
+                className={`ov-ai-diff-seg-btn ${aiDiffMode === 'before' ? 'active' : ''}`}
+              >
+                {locale === 'zh-CN' ? '仅看改前' : 'Before Only'}
+              </button>
+            </div>
+
+            {aiDiffResult.hasInBufferBeforeLines && onContentChange && (
+              <button
+                type="button"
+                onClick={() => {
+                  const cleanAfter = detectAndAnnotateMarkdownAiDiff({
+                    content,
+                    baseContent,
+                    diskContent,
+                    mode: 'after',
+                  }).markdown;
+                  if (cleanAfter && cleanAfter !== content) {
+                    onContentChange(cleanAfter);
+                    setAiDiffMode('diff');
+                  }
+                }}
+                className="ov-ai-diff-accept-btn"
+                title={
+                  locale === 'zh-CN'
+                    ? '移除文档中残留的改前段落，仅保留改后内容'
+                    : 'Keep only After content and remove Before blocks'
+                }
+              >
+                {locale === 'zh-CN' ? '采纳改后' : 'Keep After'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {blocks.map(block => {
         if (block.type === 'pagebreak') {
           return (
@@ -832,7 +937,10 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           );
         }
 
-        const canEditBlock = Boolean(onContentChange) && typeof block.startLine === 'number';
+        const canEditBlock =
+          Boolean(onContentChange) &&
+          typeof block.startLine === 'number' &&
+          !block.isVirtualDiffDeleted;
 
         // 方案 A：若当前块处于原地专注编辑态，直接原地渲染 MarkdownFocusedBlockEditor
         if (canEditBlock && focusedBlockId === block.id) {

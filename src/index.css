@@ -6536,3 +6536,237 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   animation: docxHeadingFlash 1.6s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 4px;
 }
+
+/* =========================================================
+   OmniView AI Change Detection & Before/After Diff Rendering
+   (Antigravity / Cursor Inline Diff, Baseline Diff, Conflict Markers & CriticMarkup)
+   ========================================================= */
+:root {
+  --ov-diff-before-accent: var(--vscode-editorGutter-deletedBackground, #f43f5e);
+  --ov-diff-before-bg: var(--vscode-diffEditor-removedLineBackground, rgba(244, 63, 94, 0.08));
+  --ov-diff-before-header-bg: var(--vscode-diffEditor-removedTextBackground, rgba(244, 63, 94, 0.14));
+  --ov-diff-before-border: rgba(244, 63, 94, 0.35);
+  --ov-diff-after-accent: var(--vscode-editorGutter-addedBackground, #10b981);
+  --ov-diff-after-bg: var(--vscode-diffEditor-insertedLineBackground, rgba(16, 185, 129, 0.08));
+  --ov-diff-after-header-bg: var(--vscode-diffEditor-insertedTextBackground, rgba(16, 185, 129, 0.14));
+  --ov-diff-after-border: rgba(16, 185, 129, 0.35);
+}
+
+.ov-ai-diff-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  background: var(--ov-surface-header, var(--ov-bg-elevated));
+  border: 1px solid var(--ov-border);
+  color: var(--ov-text);
+  font-size: 12px;
+  box-shadow: var(--ov-shadow);
+}
+
+.ov-ai-diff-toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-ai-diff-toolbar-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ov-diff-after-accent);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.ov-ai-diff-toolbar-title {
+  font-weight: 600;
+  color: var(--ov-text);
+}
+
+.ov-ai-diff-stat {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ov-ai-diff-stat-after {
+  background: var(--ov-diff-after-header-bg);
+  color: var(--ov-diff-after-accent);
+  border: 1px solid var(--ov-diff-after-border);
+}
+
+.ov-ai-diff-stat-before {
+  background: var(--ov-diff-before-header-bg);
+  color: var(--ov-diff-before-accent);
+  border: 1px solid var(--ov-diff-before-border);
+}
+
+.ov-ai-diff-source-tag {
+  font-size: 11px;
+  color: var(--ov-text-muted);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--ov-surface);
+  border: 1px solid var(--ov-border-subtle);
+}
+
+.ov-ai-diff-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-ai-diff-segmented {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--ov-surface);
+  border: 1px solid var(--ov-border);
+}
+
+.ov-ai-diff-seg-btn {
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ov-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ov-ai-diff-seg-btn:hover {
+  color: var(--ov-text);
+  background: var(--ov-surface-hover);
+}
+
+.ov-ai-diff-seg-btn.active {
+  background: var(--ov-accent);
+  color: var(--ov-text-on-accent, #ffffff);
+  font-weight: 600;
+}
+
+.ov-ai-diff-accept-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--ov-diff-after-accent);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.ov-ai-diff-accept-btn:hover {
+  opacity: 0.9;
+}
+
+.ov-ai-diff-block {
+  position: relative;
+  margin: 10px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--ov-border);
+  border-left-width: 4px;
+}
+
+.ov-ai-diff-before {
+  background: var(--ov-diff-before-bg);
+  border-color: var(--ov-diff-before-border);
+  border-left-color: var(--ov-diff-before-accent);
+}
+
+.ov-ai-diff-after {
+  background: var(--ov-diff-after-bg);
+  border-color: var(--ov-diff-after-border);
+  border-left-color: var(--ov-diff-after-accent);
+}
+
+.ov-ai-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 11px;
+  border-bottom: 1px dashed var(--ov-border-subtle);
+}
+
+.ov-ai-diff-before .ov-ai-diff-header {
+  background: var(--ov-diff-before-header-bg);
+}
+
+.ov-ai-diff-after .ov-ai-diff-header {
+  background: var(--ov-diff-after-header-bg);
+}
+
+.ov-ai-diff-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ov-ai-diff-badge-before {
+  color: var(--ov-diff-before-accent);
+}
+
+.ov-ai-diff-badge-after {
+  color: var(--ov-diff-after-accent);
+}
+
+.ov-ai-diff-meta {
+  font-size: 10.5px;
+  color: var(--ov-text-muted);
+}
+
+.ov-ai-diff-body {
+  padding: 8px 14px;
+}
+
+.ov-ai-diff-before .ov-ai-diff-body {
+  opacity: 0.82;
+  text-decoration: line-through;
+  text-decoration-color: rgba(244, 63, 94, 0.55);
+}
+
+.ov-ai-diff-body > *:first-child {
+  margin-top: 0 !important;
+}
+
+.ov-ai-diff-body > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+del.ov-critic-del {
+  background: var(--ov-diff-before-header-bg);
+  color: var(--ov-diff-before-accent);
+  text-decoration: line-through;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin: 0 1px;
+}
+
+ins.ov-critic-ins {
+  background: var(--ov-diff-after-header-bg);
+  color: var(--ov-diff-after-accent);
+  text-decoration: none;
+  border-bottom: 1.5px solid var(--ov-diff-after-accent);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin: 0 1px;
+}
+

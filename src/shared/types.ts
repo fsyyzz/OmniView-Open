@@ -30,6 +30,8 @@ export interface CloudNativeDiagnostic {
   suggestion?: string;
 }
 
+export type AiDiffViewMode = 'diff' | 'after' | 'before';
+
 export interface FileItem {
   id: string;
   name: string;
@@ -42,6 +44,10 @@ export interface FileItem {
   isCustomUploaded?: boolean;
   binaryUrl?: string; // For uploaded PDF or binary assets
   relatedFiles?: FileItem[]; // Local assets referenced by a document, such as SVG images
+  /** AI 修改前 / Git HEAD / 快照基线内容，用于自动识别并区分「改前」与「改后」 */
+  baseContent?: string;
+  /** 磁盘当前物理文件内容（当编辑器内存态为 Antigravity/Cursor 内联 Diff 拼接态时与 content 存在差异） */
+  diskContent?: string;
 }
 
 export interface ViewerDriver {

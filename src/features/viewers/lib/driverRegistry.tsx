@@ -283,6 +283,8 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
               <div style={zoomStyle} data-font-size={effectiveFontSize}>
                 <MarkdownViewer
                   content={file.content}
+                  baseContent={file.baseContent}
+                  diskContent={file.diskContent}
                   files={files}
                   theme={theme}
                   isDarkTheme={isDarkTheme}
@@ -327,6 +329,8 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
       <div style={zoomStyle} data-font-size={effectiveFontSize}>
         <MarkdownViewer
           content={file.content}
+          baseContent={file.baseContent}
+          diskContent={file.diskContent}
           files={files}
           theme={theme}
           isDarkTheme={isDarkTheme}

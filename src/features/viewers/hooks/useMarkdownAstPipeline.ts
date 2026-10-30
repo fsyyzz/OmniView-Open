@@ -17,6 +17,8 @@ import { type Locale, t } from '../../../shared/lib/i18n';
 import { sanitizeDiagramSvg, sanitizeDiagramHtml } from '../lib/diagramSanitizer';
 import { fastFnv1a } from '../lib/diagramCache';
 import { renderTimeBudgetRegistry } from '../lib/renderTimeBudget';
+import { detectAndAnnotateMarkdownAiDiff, type MarkdownAiDiffResult } from '../lib/markdownDiffEngine';
+import type { AiDiffViewMode } from '../../../shared/types';
 
 export interface RenderedBlock {
   id: string;
@@ -35,6 +37,8 @@ export interface RenderedBlock {
   error?: string;
   /** 内容快速 Hash 指纹，用于增量 Diff 与 Fiber 引用复用 */
   contentHash?: string;
+  /** 是否为从基线恢复的虚拟已删除块（不可原地编辑） */
+  isVirtualDiffDeleted?: boolean;
   tableData?: {
     header: any[];
     rows: Array<{ cells: any[] }>;
@@ -127,6 +131,9 @@ const getCalloutMeta = (typeStr: string, locale: Locale) => {
 
 export interface UseMarkdownAstPipelineOptions {
   content: string;
+  baseContent?: string;
+  diskContent?: string;
+  aiDiffMode?: AiDiffViewMode;
   files: Array<{ name: string; content: string; extension: string; path?: string; binaryUrl?: string }>;
   locale: Locale;
   isDarkTheme?: boolean;
@@ -354,6 +361,9 @@ function assignInnerTokenLines(token: any, startLine: number): void {
 
 export function useMarkdownAstPipeline({
   content,
+  baseContent,
+  diskContent,
+  aiDiffMode = 'diff',
   files,
   locale,
   isDarkTheme = true,
@@ -361,6 +371,29 @@ export function useMarkdownAstPipeline({
   const [blocks, setBlocks] = useState<RenderedBlock[]>([]);
   const [isRendering, setIsRendering] = useState(false);
   const okfData: OkfParseResult = useMemo(() => parseOkfFrontmatter(content), [content]);
+
+  const cleanBody = okfData.hasFrontmatter ? okfData.markdownBody : content;
+  const cleanBaseBody = useMemo(() => {
+    if (!baseContent) return undefined;
+    const parsedBase = parseOkfFrontmatter(baseContent);
+    return parsedBase.hasFrontmatter ? parsedBase.markdownBody : baseContent;
+  }, [baseContent]);
+  const cleanDiskBody = useMemo(() => {
+    if (!diskContent) return undefined;
+    const parsedDisk = parseOkfFrontmatter(diskContent);
+    return parsedDisk.hasFrontmatter ? parsedDisk.markdownBody : diskContent;
+  }, [diskContent]);
+
+  const aiDiffResult: MarkdownAiDiffResult = useMemo(
+    () =>
+      detectAndAnnotateMarkdownAiDiff({
+        content: cleanBody,
+        baseContent: cleanBaseBody,
+        diskContent: cleanDiskBody,
+        mode: aiDiffMode,
+      }),
+    [cleanBody, cleanBaseBody, cleanDiskBody, aiDiffMode]
+  );
 
   const filesRef = useRef(files);
   filesRef.current = files;
@@ -374,13 +407,14 @@ export function useMarkdownAstPipeline({
 
     const parseAndRender = async () => {
       setIsRendering(true);
-      const cleanBody = okfData.hasFrontmatter ? okfData.markdownBody : content;
       const frontmatterLines = okfData.hasFrontmatter
         ? (content.slice(0, content.length - cleanBody.length).match(/\n/g) || []).length
         : 0;
 
+      const sourceBody = aiDiffResult.hasDiff ? aiDiffResult.markdown : cleanBody;
+
       // 流水线处理：emoji -> wiki -> def-lists -> footnotes -> inline-svg -> math
-      const { markdown: bodyWithEmoji } = processEmojiShortcodes(cleanBody);
+      const { markdown: bodyWithEmoji } = processEmojiShortcodes(sourceBody);
       const { markdown: bodyWithWiki } = processMarkdownWikiLinks(bodyWithEmoji, {
         files: filesRef.current || [],
         unresolvedLabel: t('wikiLinkUnresolved', locale),
@@ -397,8 +431,8 @@ export function useMarkdownAstPipeline({
       const tokens = marked.lexer(bodyWithMath);
       const parsedBlocks: RenderedBlock[] = [];
       let counter = 0;
-      let runningLine = frontmatterLines + 1;
-      let currentTokenStartLine = runningLine;
+      let rawRunningLine = 1;
+      let currentTokenStartLine = frontmatterLines + 1;
 
       const customRenderer = new marked.Renderer();
       const origCode = customRenderer.code.bind(customRenderer);
@@ -500,7 +534,7 @@ export function useMarkdownAstPipeline({
           if (firstToken && (firstToken.type === 'paragraph' || firstToken.type === 'text')) {
             const firstRaw = (firstToken.raw || firstToken.text || '').trimStart();
             const calloutMatch = firstRaw.match(
-              /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]|right|left))?(?:[ \t]+cols=([1-6])|[ \t]+([^\]\n]+))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i
+              /^\[!([a-zA-Z0-9_\-]+)(?::[ \t]*([1-6]|right|left|\d+-\d+(?::virtual)?))?(?:[ \t]+cols=([1-6])|[ \t]+([^\]\n]+))?\]([+-]?)(?:[ \t]+([^\n]*))?(?:\n([\s\S]*))?$/i
             );
             if (calloutMatch) {
               const typeRaw = calloutMatch[1];
@@ -509,11 +543,12 @@ export function useMarkdownAstPipeline({
               const customTitle = (calloutMatch[6] || calloutMatch[4] || '').trim();
               const remainingText = (calloutMatch[7] || '');
               const upperType = typeRaw.toUpperCase();
+              const isAiDiffCallout = upperType === 'AI_BEFORE' || upperType === 'AI_AFTER';
 
               const restTokens = [...tokenOrQuote.tokens];
               if (remainingText.trim()) {
                 const innerTokens = marked.lexer(remainingText);
-                let innerLine = (firstToken._startLine || quoteStartLine) + 1;
+                let innerLine = (firstToken._startLine || quoteStartLine) + (isAiDiffCallout ? 0 : 1);
                 for (const it of innerTokens) {
                   assignInnerTokenLines(it, innerLine);
                   innerLine += (it.raw?.match(/\n/g) || []).length;
@@ -527,6 +562,37 @@ export function useMarkdownAstPipeline({
               const isCollapsible = fold === '+' || fold === '-';
               const isOpen = fold !== '-';
               const chevronSvg = `<svg class="ov-callout-fold-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+              // 0. AI 改前 / 改后 差异对比卡片 ([!AI_BEFORE], [!AI_AFTER])
+              if (isAiDiffCallout) {
+                const isBefore = upperType === 'AI_BEFORE';
+                const roleAttr = isBefore ? 'before' : 'after';
+                const blockClass = isBefore
+                  ? 'ov-ai-diff-block ov-ai-diff-before'
+                  : 'ov-ai-diff-block ov-ai-diff-after';
+                const badgeClass = isBefore
+                  ? 'ov-ai-diff-badge ov-ai-diff-badge-before'
+                  : 'ov-ai-diff-badge ov-ai-diff-badge-after';
+                const badgeLabel = isBefore
+                  ? locale === 'zh-CN'
+                    ? '改前 · 修改前'
+                    : 'Before · Original'
+                  : locale === 'zh-CN'
+                  ? '改后 · AI 修改后'
+                  : 'After · AI Modified';
+                const metaLabel = isBefore
+                  ? locale === 'zh-CN'
+                    ? '原内容 / 待替换'
+                    : 'Original / Replaced'
+                  : locale === 'zh-CN'
+                  ? '新内容 / 已调整'
+                  : 'Updated / Added';
+                const diffIcon = isBefore
+                  ? `<svg class="ov-ai-diff-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>`
+                  : `<svg class="ov-ai-diff-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>`;
+
+                return `<div class="${blockClass}" data-diff-role="${roleAttr}" data-source-line="${quoteStartLine}"><div class="ov-ai-diff-header"><span class="${badgeClass}">${diffIcon}<span>${badgeLabel}</span></span><span class="ov-ai-diff-meta">${metaLabel}</span></div><div class="ov-ai-diff-body">${bodyHtml}</div></div>\n`;
+              }
 
               // 1. 多标签页组 (Tabs): [!TABS], [!TAB]
               if (upperType === 'TABS' || upperType === 'TAB') {
@@ -810,7 +876,12 @@ export function useMarkdownAstPipeline({
         return origListitem(itemOrText, task, checked);
       };
 
-      const renderHtmlToken = (token: any, startLine: number, endLine: number) => {
+      const renderHtmlToken = (
+        token: any,
+        startLine: number,
+        endLine: number,
+        isVirtualDiffDeleted = false
+      ) => {
         if (token.type === 'space') return;
         currentTokenStartLine = startLine;
         const startTime = typeof performance !== 'undefined' ? performance.now() : 0;
@@ -821,12 +892,22 @@ export function useMarkdownAstPipeline({
         const blockId = `block-html-${counter++}`;
         renderTimeBudgetRegistry.recordTime(blockId, 'html', duration, startLine, endLine);
 
+        let cleanRaw = token.raw;
+        if (typeof cleanRaw === 'string' && /^>[ \t]*\[!AI_(?:BEFORE|AFTER):/i.test(cleanRaw)) {
+          cleanRaw = cleanRaw
+            .replace(/^>[ \t]*\[!AI_(?:BEFORE|AFTER):[^\n]*\]\n?/i, '')
+            .split('\n')
+            .map((l: string) => l.replace(/^>[ \t]?/, ''))
+            .join('\n');
+        }
+
         parsedBlocks.push({
           id: blockId,
           type: 'html',
-          raw: token.raw,
+          raw: cleanRaw,
           startLine,
           endLine,
+          isVirtualDiffDeleted,
           renderedHtml: sanitizeDiagramHtml(htmlWithMath),
         });
       };
@@ -839,14 +920,38 @@ export function useMarkdownAstPipeline({
             : null;
         const addedLines = addedLinesMatch ? parseInt(addedLinesMatch[1], 10) : 0;
         const effectiveNewlines = Math.max(0, tokenNewlines - addedLines);
-        let tokenStartLine = runningLine;
-        let tokenEndLine =
+        const rawStartLine = rawRunningLine;
+        const rawEndLine =
           addedLines > 0
-            ? tokenStartLine + Math.max(0, effectiveNewlines - (token.raw.endsWith('\n') ? 1 : 0))
+            ? rawStartLine + Math.max(0, effectiveNewlines - (token.raw.endsWith('\n') ? 1 : 0))
             : token.raw.endsWith('\n')
-            ? tokenStartLine + Math.max(0, effectiveNewlines - 1)
-            : tokenStartLine + effectiveNewlines;
-        runningLine += effectiveNewlines;
+            ? rawStartLine + Math.max(0, effectiveNewlines - 1)
+            : rawStartLine + effectiveNewlines;
+        rawRunningLine += effectiveNewlines;
+
+        let tokenStartLine = frontmatterLines + rawStartLine;
+        let tokenEndLine = frontmatterLines + rawEndLine;
+        let isVirtualDiffDeleted = false;
+
+        if (aiDiffResult.hasDiff && aiDiffResult.lineMap.length > 0) {
+          const startIdx = Math.max(0, Math.min(aiDiffResult.lineMap.length - 1, rawStartLine - 1));
+          const endIdx = Math.max(0, Math.min(aiDiffResult.lineMap.length - 1, rawEndLine - 1));
+          const mappedStart = aiDiffResult.lineMap[startIdx] ?? rawStartLine;
+          const mappedEnd = aiDiffResult.lineMap[endIdx] ?? rawEndLine;
+          tokenStartLine = frontmatterLines + mappedStart;
+          tokenEndLine = frontmatterLines + Math.max(mappedStart, mappedEnd);
+        }
+
+        if (token.type === 'blockquote' && typeof token.raw === 'string') {
+          const aiDiffMetaMatch = token.raw.match(
+            /^>[ \t]*\[!AI_(?:BEFORE|AFTER):(\d+)-(\d+)(:virtual)?\]/i
+          );
+          if (aiDiffMetaMatch) {
+            tokenStartLine = frontmatterLines + parseInt(aiDiffMetaMatch[1], 10);
+            tokenEndLine = frontmatterLines + parseInt(aiDiffMetaMatch[2], 10);
+            isVirtualDiffDeleted = Boolean(aiDiffMetaMatch[3]);
+          }
+        }
 
         if (token.type === 'html' && typeof token.raw === 'string') {
           const deflistMatch = token.raw.match(/\bdata-deflist-lines="(\d+)"/);
@@ -1058,7 +1163,7 @@ export function useMarkdownAstPipeline({
               endLine: tokenEndLine,
             });
           } else {
-            renderHtmlToken(token, tokenStartLine, tokenEndLine);
+            renderHtmlToken(token, tokenStartLine, tokenEndLine, isVirtualDiffDeleted);
           }
         } else if (token.type === 'table') {
           const tableToken = token as any;
@@ -1087,9 +1192,10 @@ export function useMarkdownAstPipeline({
             },
             startLine: tokenStartLine,
             endLine: tokenEndLine,
+            isVirtualDiffDeleted,
           });
         } else {
-          renderHtmlToken(token, tokenStartLine, tokenEndLine);
+          renderHtmlToken(token, tokenStartLine, tokenEndLine, isVirtualDiffDeleted);
         }
       }
 
@@ -1140,11 +1246,12 @@ export function useMarkdownAstPipeline({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [content, okfData, locale, isDarkTheme]);
+  }, [content, okfData, aiDiffResult, locale, isDarkTheme]);
 
   return {
     blocks,
     okfData,
+    aiDiffResult,
     isRendering,
   };
 }

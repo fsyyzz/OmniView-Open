@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
@@ -8,6 +9,86 @@ import { getHostConfiguration } from './configSync';
 import { loadReferencedMediaFiles } from './fileBridge';
 import { openPrintableHtmlInBrowser } from './printBridge';
 import { getWebviewHtml } from './webviewHtml';
+
+/** 会话级文档初始基线缓存：用于在未纳入 Git 的文件中仍能识别 AI 修改前 (Before) 与修改后 (After) */
+const sessionBaselineCache = new Map<string, string>();
+
+/**
+ * 解析文档的「改前 (Before)」对比基线：
+ * 1. 优先扫描 VS Code / Cursor / Antigravity 在内存中挂载的 AI 会话快照模型
+ *    (如 `chat-editing-snapshot-text-model:`, `chat-editing-text-model:`, `git:`, `ai-diff:` 等)
+ * 2. 其次尝试从 Git `HEAD` 读取该文件的最新提交基线 (`git -C <dir> show HEAD:./<name>`)
+ * 3. 最后回退至当前会话首次打开文件时的初始干净快照 (`sessionBaselineCache`)
+ */
+async function resolveDocumentBaseline(
+  targetUri: vscode.Uri,
+  currentContent: string,
+  diskContent: string,
+  log: (message: string, details?: unknown) => void
+): Promise<string | undefined> {
+  const fsPath = targetUri.fsPath || targetUri.path || '';
+  const targetName = basename(fsPath);
+
+  // 1. 扫描宿主内存中的非 file:// 影子快照文档 (Antigravity / Cursor Chat Editing Snapshot)
+  if (targetName) {
+    for (const doc of vscode.workspace.textDocuments) {
+      if (doc.isClosed || isSameDocumentUri(doc.uri, targetUri)) continue;
+      if (doc.uri.scheme === 'file') continue;
+      const docBase = basename(doc.uri.fsPath || doc.uri.path || '');
+      const queryMatches = typeof doc.uri.query === 'string' && doc.uri.query.includes(targetName);
+      if (docBase === targetName || queryMatches) {
+        const shadowText = doc.getText();
+        if (shadowText && shadowText.trim().length > 0 && shadowText !== currentContent) {
+          log(`Resolved AI diff baseline from shadow document (${doc.uri.scheme}): ${doc.uri.toString()}`);
+          return shadowText;
+        }
+      }
+    }
+  }
+
+  // 2. 尝试读取 Git HEAD 基线
+  if (targetUri.scheme === 'file' && fsPath && targetName) {
+    const dir = dirname(fsPath);
+    if (dir && dir !== '.') {
+      const gitHead = await new Promise<string | undefined>((resolveGit) => {
+        execFile(
+          'git',
+          ['-C', dir, 'show', `HEAD:./${targetName}`],
+          { timeout: 1200, maxBuffer: 8 * 1024 * 1024, encoding: 'utf8' },
+          (err, stdout) => {
+            if (err || typeof stdout !== 'string' || stdout.length === 0) {
+              resolveGit(undefined);
+              return;
+            }
+            resolveGit(stdout);
+          }
+        );
+      });
+      if (gitHead && gitHead.trim().length > 0) {
+        if (!sessionBaselineCache.has(fsPath)) {
+          sessionBaselineCache.set(fsPath, gitHead);
+        }
+        if (gitHead !== currentContent) {
+          return gitHead;
+        }
+      }
+    }
+  }
+
+  // 3. 回退至会话级首次打开快照
+  if (fsPath) {
+    if (!sessionBaselineCache.has(fsPath)) {
+      // 若磁盘内容与当前内存内容不同，优先以磁盘初始内容作为基线
+      sessionBaselineCache.set(fsPath, diskContent || currentContent);
+    }
+    const cached = sessionBaselineCache.get(fsPath);
+    if (cached && cached !== currentContent) {
+      return cached;
+    }
+  }
+
+  return undefined;
+}
 
 export class OmniViewerDocument implements vscode.CustomDocument {
   constructor(public readonly uri: vscode.Uri) {}
@@ -83,26 +164,57 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
     let writeFromWebviewTimeout: NodeJS.Timeout | undefined;
     let writeDebounceTimer: NodeJS.Timeout | undefined;
 
-    const loadDocData = async () => {
-      let buffer: Buffer;
+    const loadDocData = async (preferMemoryBuffer = true) => {
+      let diskBuffer: Buffer;
       if (document.uri.scheme === 'file' && document.uri.fsPath) {
-        buffer = await readFile(document.uri.fsPath);
+        diskBuffer = await readFile(document.uri.fsPath);
       } else {
         const raw = await vscode.workspace.fs.readFile(document.uri);
-        buffer = Buffer.from(raw);
+        diskBuffer = Buffer.from(raw);
       }
       const mime = getMimeType(extension);
-      const binaryUrl = isBinary ? `data:${mime};base64,${buffer.toString('base64')}` : undefined;
-      const content = isBinary ? (binaryUrl || '') : buffer.toString('utf8');
+      const binaryUrl = isBinary ? `data:${mime};base64,${diskBuffer.toString('base64')}` : undefined;
+      const diskContent = isBinary ? (binaryUrl || '') : diskBuffer.toString('utf8');
+
+      const openDoc = !isBinary
+        ? vscode.workspace.textDocuments.find(
+            (doc) => isSameDocumentUri(doc.uri, document.uri) && !doc.isClosed
+          )
+        : undefined;
+      const memoryContent = openDoc ? openDoc.getText() : undefined;
+      const content =
+        !isBinary && memoryContent !== undefined && (preferMemoryBuffer || openDoc?.isDirty)
+          ? memoryContent
+          : diskContent;
+      const buffer = !isBinary && content !== diskContent ? Buffer.from(content, 'utf8') : diskBuffer;
+
+      const baseContent = !isBinary
+        ? await resolveDocumentBaseline(document.uri, content, diskContent, log)
+        : undefined;
+
       const referencedFiles = (extension === '.md' || extension === '.markdown') && document.uri.fsPath
         ? await loadReferencedMediaFiles(document.uri.fsPath, content, webview, log)
         : [];
-      return { buffer, content, binaryUrl, referencedFiles };
+      return {
+        buffer,
+        content,
+        diskContent: !isBinary && diskContent !== content ? diskContent : undefined,
+        baseContent,
+        binaryUrl,
+        referencedFiles,
+      };
     };
 
-    let docData: { buffer: Buffer; content: string; binaryUrl?: string; referencedFiles: Array<Record<string, unknown>> };
+    let docData: {
+      buffer: Buffer;
+      content: string;
+      diskContent?: string;
+      baseContent?: string;
+      binaryUrl?: string;
+      referencedFiles: Array<Record<string, unknown>>;
+    };
     try {
-      docData = await loadDocData();
+      docData = await loadDocData(true);
       log(`Document loaded: ${filePath} (${docData.buffer.byteLength} bytes, ${extension})`);
     } catch (loadErr) {
       log(`Document load failed: ${filePath}`, loadErr);
@@ -122,6 +234,8 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
           path: document.uri.fsPath,
           extension: extension.replace(/^\./, ''),
           content: docData.content,
+          diskContent: docData.diskContent,
+          baseContent: docData.baseContent,
           size: docData.buffer.byteLength,
           lastModified: Date.now(),
           binaryUrl: docData.binaryUrl,
@@ -167,6 +281,11 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
           await vscode.workspace.fs.writeFile(document.uri, bytes);
         }
 
+        if (document.uri.fsPath && reason === 'accept-ai-diff') {
+          sessionBaselineCache.set(document.uri.fsPath, content);
+        }
+        const baseContent = await resolveDocumentBaseline(document.uri, content, content, log);
+
         const referencedFiles =
           (extension === '.md' || extension === '.markdown') && document.uri.fsPath
             ? await loadReferencedMediaFiles(document.uri.fsPath, content, webview, log)
@@ -174,6 +293,8 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
         docData = {
           buffer: bytes,
           content,
+          diskContent: undefined,
+          baseContent: reason === 'accept-ai-diff' ? undefined : baseContent,
           binaryUrl: undefined,
           referencedFiles,
         };
@@ -539,7 +660,7 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
     });
     disposables.push(messageListener);
 
-    // 1. 实时编辑监听 (onDidChangeTextDocument): 边打字边实时热刷新 Webview
+    // 1. 实时编辑监听 (onDidChangeTextDocument): 边打字边实时热刷新 Webview，同时比对磁盘态与基线态以识别 AI 改前/改后
     let editDebounceTimer: NodeJS.Timeout | undefined;
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
       if (isWritingFromWebview) return;
@@ -548,16 +669,7 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
         editDebounceTimer = setTimeout(async () => {
           if (isWritingFromWebview) return;
           try {
-            const content = event.document.getText();
-            const referencedFiles = extension === '.md' || extension === '.markdown'
-              ? await loadReferencedMediaFiles(document.uri.fsPath, content, webview, log)
-              : [];
-            docData = {
-              buffer: Buffer.from(content, 'utf8'),
-              content,
-              binaryUrl: undefined,
-              referencedFiles,
-            };
+            docData = await loadDocData(true);
             await postDocument(true);
             log(`Live edit update pushed to Webview for: ${document.uri.fsPath}`);
           } catch (err) {
@@ -575,25 +687,7 @@ export class OmniViewerEditorProvider implements vscode.CustomReadonlyEditorProv
         return;
       }
       try {
-        const openDoc = vscode.workspace.textDocuments.find(
-          (doc) => isSameDocumentUri(doc.uri, document.uri) && !doc.isClosed
-        );
-        if (openDoc && !isBinary && !forceFromDisk) {
-          const content = openDoc.getText();
-          const bytes = Buffer.from(content, 'utf8');
-          const referencedFiles =
-            (extension === '.md' || extension === '.markdown') && document.uri.fsPath
-              ? await loadReferencedMediaFiles(document.uri.fsPath, content, webview, log)
-              : [];
-          docData = {
-            buffer: bytes,
-            content,
-            binaryUrl: undefined,
-            referencedFiles,
-          };
-        } else {
-          docData = await loadDocData();
-        }
+        docData = await loadDocData(!forceFromDisk);
         await postDocument(true);
         log(`Auto reloaded document from memory/disk: ${document.uri.fsPath}`);
       } catch (err) {

@@ -8,7 +8,21 @@
 
 ---
 
-## [1.4.6] - 2026-10-29 (当前最新发布)
+## [1.4.7] - 2026-10-29 (当前最新发布)
+
+> [!TIP] v1.4.7 核心升级亮点
+> **新增 Antigravity / Cursor AI 无标记内联修改「改前 vs 改后」自动识别、视觉区分与一键视图切换 (`markdownDiffEngine.ts` / `editorProvider.ts` / `useMarkdownAstPipeline.ts` / `MarkdownViewer.tsx`)**：
+> 1. **解析 Antigravity / Cursor 无 `<<<<<<<` 标记却同时出现「改前」与「改后」的底层机制并实现三路协同识别 (`editorProvider.ts` / `markdownDiffEngine.ts`)**：
+>    - Antigravity 与 Cursor 在执行 AI 内联修改等待用户 Accept / Reject 时，不会写入 `<<<<<<<` 冲突标记字符，而是将「改前（待删除行）」与「改后（新插入行）」直接拼接在同一个内存 `vscode.TextDocument` (`openDoc.getText()`) 中，依靠 Monaco Line Decoration 在代码编辑器内染为红底/绿底；
+>    - `editorProvider.ts` 新增 `resolveDocumentBaseline` 与双态采集：自动采集内存态 `content` (`openDoc.getText()`)、磁盘物理态 `diskContent` (`fs.readFile`)，以及宿主内存中的 AI 会话快照模型（如 `chat-editing-snapshot-text-model:` 等非 `file:` 影子文档）、`git show HEAD` 基线与会话初始快照 `baseContent`；
+>    - 新增纯函数引擎 `markdownDiffEngine.ts`：联合比对 `content`、`diskContent` 与 `baseContent`（同时兼容 `<<<<<<< ... ======= ... >>>>>>>` 冲突标记与 `{--...--}` / `{++...++}` / `{~~...~>...~~}` CriticMarkup），精准识别出无标记拼接态中的「改前 (`[!AI_BEFORE]`)」与「改后 (`[!AI_AFTER]`)」段落，并通过 `lineMap` 保持 100% 原始行号对齐；
+> 2. **Markdown 渲染「改前 / 改后」高辨识度语义卡片与三态视图切换栏 (`useMarkdownAstPipeline.ts` / `MarkdownViewer.tsx` / `src/index.css`)**：
+>    - 渲染层基于 `--ov-*` 与 `--vscode-diffEditor-*` 语义令牌，将「改前」渲染为玫瑰红左边框 + 删除线徽标卡片（`.ov-ai-diff-before`），将「改后」渲染为翡翠绿左边框 + 新增徽标卡片（`.ov-ai-diff-after`）；
+>    - 检测到 AI 修改时，顶部自动展示 `AI 修改对比` 控制栏，支持一键切换 **「区分改前/改后」**、**「仅看改后（自动剥离改前残留）」**、**「仅看改前」** 三种视图，并支持一键 **「采纳改后」** 清理文档中拼接的改前段落。
+
+---
+
+## [1.4.6] - 2026-10-29
 
 > [!TIP] v1.4.6 核心升级亮点
 > **新增 Vite 开发服务器跨 `?v=` 哈希 React 单例动态桥接中间件与挂载前缓存自愈 (`vite.config.ts` / `src/main.tsx` / `index.html`)**：
