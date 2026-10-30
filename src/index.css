@@ -492,9 +492,10 @@ body.vscode-high-contrast-light[data-theme="system"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   flex: 0 0 46px;
-  padding: 0 12px;
+  min-width: 0;
+  padding: 0 10px;
   border-bottom: 1px solid var(--ov-border);
   background: var(--ov-surface);
   transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -512,13 +513,13 @@ body.vscode-high-contrast-light[data-theme="system"] {
   white-space: nowrap;
 }
 
-@container md-toolbar (max-width: 899px) {
+@container md-toolbar (max-width: 1199px) {
   .markdown-toolbar-title {
     display: none !important;
   }
 }
 
-@container md-toolbar (min-width: 900px) {
+@container md-toolbar (min-width: 1200px) {
   .markdown-toolbar-title {
     display: flex !important;
   }
@@ -529,6 +530,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .markdown-toolbar-group {
@@ -539,6 +541,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   border-radius: 6px;
   background: var(--ov-bg-elevated);
   border: 1px solid var(--ov-border-subtle, var(--ov-border));
+  flex-shrink: 0;
 }
 
 .markdown-toolbar-divider {
@@ -574,6 +577,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   border-radius: 8px;
   padding: 2px;
   gap: 2px;
+  flex-shrink: 0;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
@@ -588,6 +592,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   user-select: none;
   cursor: pointer;
   border: none;
+  white-space: nowrap;
 }
 
 .markdown-view-mode-btn:hover {
@@ -606,15 +611,27 @@ body.vscode-high-contrast-light[data-theme="system"] {
   color: #ffffff !important;
 }
 
-/* 工具栏自适应阶梯策略：宽屏全显，中屏激活态展文字，窄屏纯精致图标 */
-@container md-toolbar (min-width: 860px) {
+/* =========================================================
+   工具栏多阶梯自适应与渐进式收纳策略 (Container-Query Driven)
+   解决 ~1080px 窗口（及含侧边栏的 ~820px 容器）工具过多覆盖问题
+   ========================================================= */
+
+/* Tier XL (>= 1240px): 超宽屏全显 */
+@container md-toolbar (min-width: 1240px) {
   .markdown-view-mode-btn {
     padding: 4px 10px;
     gap: 6px;
   }
 }
 
-@container md-toolbar (max-width: 859px) and (min-width: 520px) {
+/* Tier LG (<= 1239px, 覆盖 1080px 全屏窗口及带侧边栏的中大屏):
+   收纳低频辅助与次级文档按钮至“更多 (More)”菜单，视图切换器仅保留激活项文字 */
+@container md-toolbar (max-width: 1239px) {
+  .markdown-tool-collapse-xl,
+  .markdown-group-collapse-xl {
+    display: none !important;
+  }
+
   .markdown-view-mode-btn .markdown-view-mode-label {
     display: none;
   }
@@ -635,32 +652,60 @@ body.vscode-high-contrast-light[data-theme="system"] {
   }
 
   .markdown-search-box input {
-    width: 90px;
+    width: 96px;
   }
 }
 
-@container md-toolbar (max-width: 519px) {
-  .markdown-view-mode-btn .markdown-view-mode-label {
+/* Tier MD (<= 980px, 覆盖 1080px 窗口展开左侧资源管理器时的 ~824px 工具栏容器):
+   进一步将缩放组 (-/100%/+)、紧凑度、版面宽度收纳进“更多 (More)”菜单，视图切换器纯图标化 */
+@container md-toolbar (max-width: 980px) {
+  .markdown-tool-collapse-lg,
+  .markdown-group-collapse-lg {
     display: none !important;
   }
 
-  .markdown-view-mode-btn {
+  .markdown-view-mode-btn .markdown-view-mode-label,
+  .markdown-view-mode-btn.is-active .markdown-view-mode-label {
+    display: none !important;
+  }
+
+  .markdown-view-mode-btn,
+  .markdown-view-mode-btn.is-active {
+    padding: 4px 7px;
+    gap: 0;
+  }
+
+  .markdown-search-box input {
+    width: 82px;
+  }
+}
+
+/* Tier SM (<= 660px, 分屏/窄视口):
+   将字号、专注模式、复制按钮也收纳进“更多 (More)”菜单，保证核心搜索与模式切换零挤压 */
+@container md-toolbar (max-width: 660px) {
+  .markdown-tool-collapse-md,
+  .markdown-group-collapse-md {
+    display: none !important;
+  }
+
+  .markdown-view-mode-btn,
+  .markdown-view-mode-btn.is-active {
     padding: 4px 6px;
     gap: 0;
   }
 
   .markdown-search-box input {
-    width: 65px;
+    width: 62px;
   }
 }
 
-.markdown-search-box { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 5px 0 8px; border: 1px solid var(--ov-border); border-radius: 5px; background: var(--ov-bg-elevated); color: var(--ov-text-muted); }
-.markdown-search-box input { width: 120px; border: 0; outline: 0; background: transparent; color: var(--ov-text); font-size: 12px; transition: width 0.2s ease; }
+.markdown-search-box { display: flex; align-items: center; gap: 4px; height: 28px; padding: 0 5px 0 8px; border: 1px solid var(--ov-border); border-radius: 5px; background: var(--ov-bg-elevated); color: var(--ov-text-muted); min-width: 0; }
+.markdown-search-box input { width: 116px; min-width: 48px; border: 0; outline: 0; background: transparent; color: var(--ov-text); font-size: 12px; transition: width 0.2s ease; }
 .markdown-search-box input::placeholder { color: var(--ov-text-muted); }
-.markdown-search-box button { border: 0; background: transparent; color: var(--ov-text-muted); cursor: pointer; }
+.markdown-search-box button { border: 0; background: transparent; color: var(--ov-text-muted); cursor: pointer; flex-shrink: 0; }
 .markdown-search-box button:hover { color: var(--ov-text); }
-.markdown-more-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; width: 210px; padding: 5px; border: 1px solid var(--ov-border); border-radius: 6px; background: var(--ov-surface); box-shadow: 0 10px 28px rgba(0,0,0,.28); }
-.markdown-more-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ov-text-secondary); font-size: 12px; text-align: left; cursor: pointer; }
+.markdown-more-menu { position: absolute; z-index: 50; top: calc(100% + 5px); right: 0; width: 248px; max-height: min(82vh, 540px); overflow-y: auto; padding: 6px; border: 1px solid var(--ov-border); border-radius: 8px; background: var(--ov-surface); box-shadow: 0 12px 32px rgba(0,0,0,.32); }
+.markdown-more-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--ov-text-secondary); font-size: 12px; text-align: left; cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease; }
 .markdown-more-menu button:hover { background: var(--ov-surface-header); color: var(--ov-text); }
 .markdown-more-stat { padding: 8px; border-top: 1px solid var(--ov-border); color: var(--ov-text-muted); font-size: 10px; line-height: 1.5; }
 
@@ -1031,7 +1076,7 @@ body.vscode-high-contrast-light[data-theme="system"] {
   box-shadow: var(--ov-shadow);
   color: var(--ov-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  font-size: 15px;
+  font-size: var(--ov-font-size, 15px);
   line-height: 1.78;
   letter-spacing: -0.005em;
   overflow-wrap: anywhere;
@@ -1095,11 +1140,33 @@ body.vscode-high-contrast-light[data-theme="system"] {
   display: none;
 }
 
+[data-font-size="12"] { --ov-font-size: 12px; }
+[data-font-size="13"] { --ov-font-size: 13px; }
+[data-font-size="14"] { --ov-font-size: 14px; }
+[data-font-size="15"] { --ov-font-size: 15px; }
+[data-font-size="16"] { --ov-font-size: 16px; }
+[data-font-size="17"] { --ov-font-size: 17px; }
+[data-font-size="18"] { --ov-font-size: 18px; }
+[data-font-size="19"] { --ov-font-size: 19px; }
+[data-font-size="20"] { --ov-font-size: 20px; }
+[data-font-size="21"] { --ov-font-size: 21px; }
+[data-font-size="22"] { --ov-font-size: 22px; }
+
+[data-font-size="12"] .markdown-document { font-size: 12px !important; }
 [data-font-size="13"] .markdown-document { font-size: 13px !important; }
 [data-font-size="14"] .markdown-document { font-size: 14px !important; }
 [data-font-size="15"] .markdown-document { font-size: 15px !important; }
 [data-font-size="16"] .markdown-document { font-size: 16px !important; }
+[data-font-size="17"] .markdown-document { font-size: 17px !important; }
 [data-font-size="18"] .markdown-document { font-size: 18px !important; }
+[data-font-size="19"] .markdown-document { font-size: 19px !important; }
+[data-font-size="20"] .markdown-document { font-size: 20px !important; }
+[data-font-size="21"] .markdown-document { font-size: 21px !important; }
+[data-font-size="22"] .markdown-document { font-size: 22px !important; }
+[data-font-size] .markdown-document,
+.markdown-document[data-font-size] {
+  font-size: var(--ov-font-size, 15px) !important;
+}
 
 .markdown-document ::selection {
   background: var(--ov-accent);
@@ -1128,20 +1195,20 @@ body.vscode-high-contrast-light[data-theme="system"] {
 }
 
 .markdown-content h1 {
-  font-size: 28px;
+  font-size: 1.85em;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--ov-border);
   margin-top: 0.2em;
 }
 
 .markdown-content h2 {
-  font-size: 21px;
+  font-size: 1.42em;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--ov-border-subtle);
 }
 
-.markdown-content h3 { font-size: 17px; }
-.markdown-content h4, .markdown-content h5, .markdown-content h6 { font-size: 15px; }
+.markdown-content h3 { font-size: 1.16em; }
+.markdown-content h4, .markdown-content h5, .markdown-content h6 { font-size: 1.02em; }
 
 .markdown-content p { margin: 0 0 1em; }
 .markdown-content a { color: var(--ov-accent); text-decoration: none; font-weight: 500; }
@@ -1343,7 +1410,7 @@ ul.ov-task-list {
   border-radius: 6px;
   background: var(--ov-code-bg);
   color: var(--ov-text);
-  font-size: 13px;
+  font-size: 0.88em;
   line-height: 1.65;
 }
 
@@ -1362,7 +1429,7 @@ ul.ov-task-list {
   overflow-x: auto;
   border-collapse: collapse;
   margin: 1.35em 0;
-  font-size: 13.5px;
+  font-size: var(--ov-table-font-size, 0.93em);
 }
 
 .markdown-content th,
@@ -1607,7 +1674,7 @@ ul.ov-task-list {
 [data-density="compact"] .markdown-document,
 .density-compact.markdown-document {
   padding: 16px 24px 48px;
-  font-size: 13.5px;
+  font-size: var(--ov-font-size, 13.5px);
   line-height: 1.55;
 }
 
@@ -1622,21 +1689,21 @@ ul.ov-task-list {
 
 [data-density="compact"] .markdown-content h1,
 .density-compact .markdown-content h1 {
-  font-size: 22px;
+  font-size: 1.65em;
   margin: 1.2em 0 0.4em;
   padding-bottom: 6px;
 }
 
 [data-density="compact"] .markdown-content h2,
 .density-compact .markdown-content h2 {
-  font-size: 18px;
+  font-size: 1.35em;
   margin: 1.1em 0 0.35em;
   padding-bottom: 5px;
 }
 
 [data-density="compact"] .markdown-content h3,
 .density-compact .markdown-content h3 {
-  font-size: 15px;
+  font-size: 1.14em;
   margin: 0.9em 0 0.3em;
 }
 
@@ -1688,7 +1755,7 @@ ul.ov-task-list {
 [data-density="standard"] .markdown-document,
 .density-standard.markdown-document {
   padding: 32px 40px 64px;
-  font-size: 14.5px;
+  font-size: var(--ov-font-size, 14.5px);
   line-height: 1.7;
 }
 
@@ -1707,7 +1774,7 @@ ul.ov-task-list {
 [data-density="comfortable"] .markdown-document,
 .density-comfortable.markdown-document {
   padding: 48px 64px 96px;
-  font-size: 16px;
+  font-size: var(--ov-font-size, 16px);
   line-height: 1.85;
 }
 
@@ -1898,7 +1965,7 @@ ul.ov-task-list {
 }
 
 .markdown-code-block pre {
-  font-size: 13px;
+  font-size: 0.88em;
   line-height: 1.65;
 }
 
@@ -3065,6 +3132,7 @@ mark.ov-search-match.is-active-match {
   min-width: 500px;
   border-collapse: collapse;
   color: var(--ov-text);
+  font-size: var(--ov-table-font-size, 0.93em);
 }
 
 .ov-table-wrapper thead,
@@ -3650,7 +3718,7 @@ body.vscode-high-contrast[data-theme="vscode"] .ov-img-light-only {
   box-sizing: border-box;
   gap: 12px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.95em;
   color: var(--callout-color, #3b82f6);
   line-height: 1.45;
   user-select: none;
@@ -3716,7 +3784,7 @@ details.ov-callout[open] .ov-callout-fold-icon {
 
 .ov-callout-body {
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 0.95em;
   line-height: 1.65;
   color: var(--ov-text, inherit);
 }
@@ -3797,7 +3865,7 @@ details.ov-callout[open] .ov-callout-fold-icon {
 .markdown-content details:not([class*="ov-"]) > summary {
   cursor: pointer;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.95em;
   color: var(--ov-text, inherit);
   user-select: none;
   outline: none;
@@ -3835,7 +3903,7 @@ details.ov-callout[open] .ov-callout-fold-icon {
   justify-content: space-between;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 1em;
   color: var(--ov-text, #1e293b);
   margin-bottom: 14px;
   padding-bottom: 8px;
@@ -3980,7 +4048,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 .ov-card-grid-body > ol > li h4 {
   margin-top: 0;
   margin-bottom: 8px;
-  font-size: 1rem;
+  font-size: 1.02em;
   font-weight: 600;
   color: var(--ov-text, inherit);
   line-height: 1.4;
@@ -3991,7 +4059,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 .ov-card-grid-body > ul > li p,
 .ov-card-grid-body > ol > li p {
   margin: 6px 0;
-  font-size: 0.88rem;
+  font-size: 0.92em;
   line-height: 1.6;
   color: var(--ov-text-secondary, rgba(0, 0, 0, 0.7));
 }
@@ -4015,7 +4083,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   box-shadow: none !important;
   transform: none !important;
   display: list-item !important;
-  font-size: 0.84rem;
+  font-size: 0.9em;
 }
 
 .ov-card-grid-body > ul > li ul > li::before,
@@ -4041,7 +4109,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   box-shadow: none !important;
   transform: none !important;
   display: list-item !important;
-  font-size: 0.84rem;
+  font-size: 0.9em;
 }
 
 .ov-card-grid-body > ul > li ol > li::before,
@@ -4067,7 +4135,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 }
 
 .ov-card-single-body {
-  font-size: 0.92rem;
+  font-size: 0.95em;
   line-height: 1.65;
   color: var(--ov-text, inherit);
 }
@@ -4142,7 +4210,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 }
 
 .ov-tab-group-title {
-  font-size: 13.5px;
+  font-size: 0.92em;
   font-weight: 600;
   color: var(--ov-text-secondary, rgba(0, 0, 0, 0.6));
   padding: 4px 0;
@@ -4165,7 +4233,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   border: none;
   background: transparent;
   color: var(--ov-text-secondary, #64748b);
-  font-size: 13px;
+  font-size: 0.88em;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -4213,7 +4281,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   margin-bottom: 18px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
-  font-size: 15px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--ov-text, #1e293b);
 }
@@ -4280,7 +4348,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 0.88em;
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
 }
@@ -4309,7 +4377,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   margin-bottom: 18px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
-  font-size: 15px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--ov-text, #1e293b);
 }
@@ -4393,7 +4461,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   margin-bottom: 16px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
-  font-size: 15px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--ov-text, #1e293b);
 }
@@ -4463,7 +4531,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   margin-bottom: 16px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
-  font-size: 15px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--ov-text, #1e293b);
 }
@@ -4513,7 +4581,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 .ov-metrics-body > ul > li b,
 .ov-metrics-body > ol > li b {
   display: block;
-  font-size: 1.75rem;
+  font-size: 1.75em;
   font-weight: 800;
   font-family: var(--ov-font-mono, monospace);
   color: var(--ov-accent, #10b981);
@@ -4540,7 +4608,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   margin-bottom: 16px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
-  font-size: 15px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--ov-text, #1e293b);
 }
@@ -4585,7 +4653,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   cursor: pointer;
   user-select: none;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.95em;
   color: var(--ov-text, inherit);
   list-style: none;
   outline: none;
@@ -4620,7 +4688,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 .ov-faq-a {
   padding: 12px 16px;
   border-top: 1px solid var(--ov-border, rgba(0, 0, 0, 0.06));
-  font-size: 13.5px;
+  font-size: 0.92em;
   line-height: 1.6;
   color: var(--ov-text-secondary, rgba(0, 0, 0, 0.75));
   background: var(--ov-surface, #ffffff);
@@ -4642,7 +4710,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 }
 
 .ov-quotes-header {
-  font-size: 15px;
+  font-size: 1em;
   font-weight: 600;
   margin-bottom: 16px;
   padding-bottom: 10px;
@@ -4668,7 +4736,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   background: var(--ov-surface-secondary, rgba(0, 0, 0, 0.02));
   font-style: italic;
   position: relative;
-  font-size: 14px;
+  font-size: 0.95em;
   line-height: 1.65;
 }
 
@@ -4690,7 +4758,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 18px;
+  font-size: 1.2em;
   font-weight: 700;
   color: var(--ov-text, #0f172a);
   margin-bottom: 12px;
@@ -4708,7 +4776,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
 }
 
 .ov-banner-body {
-  font-size: 14.5px;
+  font-size: 0.97em;
   line-height: 1.7;
   color: var(--ov-text, inherit);
 }
@@ -4764,7 +4832,7 @@ details.ov-card-single[open] .ov-callout-fold-icon {
   justify-content: space-between;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 1em;
   color: var(--ov-text, #1e293b);
   margin-bottom: 16px;
   padding-bottom: 10px;
@@ -4878,7 +4946,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   gap: 8px;
   padding: 12px 18px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.95em;
   color: var(--ov-text, inherit);
   background: var(--ov-surface-header, rgba(128, 128, 128, 0.04));
   border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
@@ -4912,7 +4980,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 
 .ov-figure-stage p {
   margin: 6px 0 0 0;
-  font-size: 13px;
+  font-size: 0.88em;
   color: var(--ov-text-secondary, inherit);
   text-align: center;
 }
@@ -4925,7 +4993,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   padding: 10px 18px;
   background: var(--ov-surface, #ffffff);
   border-top: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
-  font-size: 13px;
+  font-size: 0.88em;
   font-weight: 500;
   color: var(--ov-text-secondary, #64748b);
   text-align: center;
@@ -4956,7 +5024,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   margin-bottom: 16px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--ov-border, rgba(0, 0, 0, 0.08));
-  font-size: 15px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--ov-text, inherit);
 }
@@ -5118,7 +5186,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 
 .ov-footnotes-title {
   margin: 0 0 0.75rem;
-  font-size: 1rem;
+  font-size: 1em;
   font-weight: 650;
   color: var(--vscode-editor-foreground, #e2e8f0);
   opacity: 0.9;
@@ -5232,7 +5300,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 }
 
 .ov-wiki-embed-badge {
-  font-size: 0.68rem;
+  font-size: 0.72em;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -5245,7 +5313,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 .ov-wiki-embed-title {
   flex: 1;
   min-width: 0;
-  font-size: 0.9rem;
+  font-size: 0.94em;
   font-weight: 600;
   color: var(--vscode-editor-foreground, #e2e8f0);
   border-bottom: none !important;
@@ -5255,7 +5323,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 }
 
 .ov-wiki-embed-open {
-  font-size: 0.75rem;
+  font-size: 0.8em;
   color: var(--vscode-textLink-foreground, #38bdf8);
   text-decoration: none;
   white-space: nowrap;
@@ -5267,7 +5335,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 
 .ov-wiki-embed-body {
   padding: 0.75rem;
-  font-size: 0.86rem;
+  font-size: 0.9em;
   line-height: 1.55;
 }
 
@@ -5276,7 +5344,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.86rem;
+  font-size: 0.9em;
   line-height: 1.55;
   color: color-mix(in srgb, var(--vscode-editor-foreground, #cbd5e1) 92%, transparent);
   background: transparent;
@@ -5290,7 +5358,7 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 
 .ov-wiki-embed-meta {
   color: var(--vscode-descriptionForeground, #94a3b8);
-  font-size: 0.8rem;
+  font-size: 0.84em;
 }
 
 .ov-wiki-embed--unresolved {

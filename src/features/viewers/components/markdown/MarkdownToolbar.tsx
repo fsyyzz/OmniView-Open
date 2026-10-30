@@ -182,6 +182,10 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
     align: 'left' | 'center' | 'right';
   } | null>(null);
 
+  const [toolbarWidth, setToolbarWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
+
   const headerRef = useRef<HTMLElement>(null);
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const densityMenuRef = useRef<HTMLDivElement>(null);
@@ -190,6 +194,32 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
   const langMenuRef = useRef<HTMLDivElement>(null);
 
   const isAnyMenuOpen = themeMenuOpen || densityMenuOpen || fontSizeMenuOpen || moreMenuOpen || langMenuOpen;
+
+  // 实时监测工具栏容器可用宽度（适配 ~1080px 窗口、侧边栏展开/收起及分屏宽度变化）
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0) {
+        setToolbarWidth(Math.round(rect.width));
+      }
+    };
+    updateWidth();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          if (entry.contentRect.width > 0) {
+            setToolbarWidth(Math.round(entry.contentRect.width));
+          }
+        }
+      });
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
 
   // Close menus on outside click
   useEffect(() => {
@@ -264,6 +294,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
     <header
       ref={headerRef}
       className={`markdown-toolbar ${isVisible || !focusMode ? 'is-visible' : ''}`}
+      data-toolbar-tier={toolbarWidth < 660 ? 'sm' : toolbarWidth < 980 ? 'md' : toolbarWidth < 1240 ? 'lg' : 'xl'}
       onMouseEnter={onMouseEnter}
       onMouseOver={handleHeaderMouseOver}
       onMouseLeave={handleHeaderMouseLeave}
@@ -408,7 +439,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                   borderColor: 'var(--ov-border)',
                   color: 'var(--ov-text)',
                 }}
-              />
+              >
+              </input>
               <button
                 type="button"
                 onClick={onReplaceSingle}
@@ -507,7 +539,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
         </div>
       </div>
 
-      {/* Right Group: 按认知语义分组组织的工具栏按钮群 */}
+      {/* Right Group: 按认知语义分组组织的工具栏按钮群 (支持容器查询自适应渐进式收纳) */}
       <div className="markdown-toolbar-actions">
         {/* 分组 1：外观与排版样式 (主题、字号、排版紧凑度、版面宽度) */}
         <div className="markdown-toolbar-group" role="group" aria-label={isZh ? '外观与排版' : 'Appearance & Typography'}>
@@ -564,8 +596,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             )}
           </div>
 
-          {/* Font Size Dropdown */}
-          <div className="relative" ref={fontSizeMenuRef}>
+          {/* Font Size Dropdown (窄视口 <=660px 收纳至更多菜单) */}
+          <div className="relative markdown-tool-collapse-md" ref={fontSizeMenuRef}>
             <button
               type="button"
               className="markdown-tool-button"
@@ -616,8 +648,8 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             )}
           </div>
 
-          {/* Density dropdown */}
-          <div className="relative" ref={densityMenuRef}>
+          {/* Density dropdown (中窄容器 <=980px 收纳至更多菜单) */}
+          <div className="relative markdown-tool-collapse-lg" ref={densityMenuRef}>
             <button
               type="button"
               className="markdown-tool-button"
@@ -670,10 +702,10 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             )}
           </div>
 
-          {/* Content Width Toggle */}
+          {/* Content Width Toggle (中窄容器 <=980px 收纳至更多菜单) */}
           <button
             type="button"
-            className="markdown-tool-button"
+            className="markdown-tool-button markdown-tool-collapse-lg"
             onClick={onCycleWidth}
             title={`${widthTitle} · ${t('widthTooltip', locale)}`}
             data-ov-tooltip={`${widthTitle} · ${t('widthTooltip', locale)}`}
@@ -694,10 +726,14 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           </button>
         </div>
 
-        <span className="markdown-toolbar-divider" aria-hidden="true" />
+        <span className="markdown-toolbar-divider markdown-group-collapse-lg" aria-hidden="true" />
 
-        {/* 分组 2：视口缩放控制 (缩小 / 百分比重置 / 放大 / 复位) */}
-        <div className="markdown-toolbar-group" role="group" aria-label={isZh ? '页面缩放' : 'Zoom Controls'}>
+        {/* 分组 2：视口缩放控制 (中窄容器 <=980px 收纳至更多菜单) */}
+        <div
+          className="markdown-toolbar-group markdown-group-collapse-lg"
+          role="group"
+          aria-label={isZh ? '页面缩放' : 'Zoom Controls'}
+        >
           <button
             type="button"
             className="markdown-tool-button"
@@ -742,14 +778,18 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           )}
         </div>
 
-        <span className="markdown-toolbar-divider" aria-hidden="true" />
+        <span className="markdown-toolbar-divider markdown-group-collapse-md" aria-hidden="true" />
 
-        {/* 分组 3：沉浸阅读与视图辅助 (专注模式、演示模式、自动滚屏、图表工具栏显隐) */}
-        <div className="markdown-toolbar-group" role="group" aria-label={isZh ? '沉浸阅读与辅助' : 'Reading & View Aids'}>
+        {/* 分组 3：沉浸阅读与视图辅助 (专注模式保留至中屏，其余 <=1240px 收纳进更多菜单) */}
+        <div
+          className="markdown-toolbar-group markdown-group-collapse-md"
+          role="group"
+          aria-label={isZh ? '沉浸阅读与辅助' : 'Reading & View Aids'}
+        >
           {/* Focus Mode */}
           <button
             type="button"
-            className={`markdown-tool-button ${focusMode ? 'is-active' : ''}`}
+            className={`markdown-tool-button markdown-tool-collapse-md ${focusMode ? 'is-active' : ''}`}
             onClick={onToggleFocusMode}
             title={t('focusModeTooltip', locale)}
             data-ov-tooltip={t('focusModeTooltip', locale)}
@@ -762,7 +802,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           {onTogglePresentationMode && (
             <button
               type="button"
-              className={`markdown-tool-button ${presentationMode ? 'is-active' : ''}`}
+              className={`markdown-tool-button markdown-tool-collapse-xl ${presentationMode ? 'is-active' : ''}`}
               onClick={onTogglePresentationMode}
               title={t('presentationModeTooltip', locale)}
               data-ov-tooltip={t('presentationModeTooltip', locale)}
@@ -775,7 +815,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           {/* Auto Scroll */}
           <button
             type="button"
-            className={`markdown-tool-button ${autoScrollSpeed > 0 ? 'is-active' : ''}`}
+            className={`markdown-tool-button markdown-tool-collapse-xl ${autoScrollSpeed > 0 ? 'is-active' : ''}`}
             onClick={onToggleAutoScroll}
             title={
               autoScrollSpeed > 0
@@ -804,7 +844,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             <button
               type="button"
               id="btn-markdown-toggle-diagram-toolbars"
-              className={`markdown-tool-button ${showDiagramToolbars ? 'is-active' : ''}`}
+              className={`markdown-tool-button markdown-tool-collapse-xl ${showDiagramToolbars ? 'is-active' : ''}`}
               onClick={onToggleDiagramToolbars}
               title={
                 showDiagramToolbars
@@ -826,7 +866,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           {onToggleOkf && (
             <button
               type="button"
-              className={`markdown-tool-button ${enableOkf ? 'is-active' : ''}`}
+              className={`markdown-tool-button markdown-tool-collapse-xl ${enableOkf ? 'is-active' : ''}`}
               onClick={onToggleOkf}
               title={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
               data-ov-tooltip={enableOkf ? t('disableOkf', locale) : t('enableOkf', locale)}
@@ -844,7 +884,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           {/* Copy markdown button */}
           <button
             type="button"
-            className="markdown-tool-button"
+            className="markdown-tool-button markdown-tool-collapse-md"
             onClick={onCopyRawMarkdown}
             title={copied ? t('copied', locale) : t('copyMarkdown', locale)}
             data-ov-tooltip={copied ? t('copied', locale) : t('copyMarkdown', locale)}
@@ -856,7 +896,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           {/* Export & Print */}
           <button
             type="button"
-            className="markdown-tool-button"
+            className="markdown-tool-button markdown-tool-collapse-xl"
             onClick={() => (onPrint ? onPrint() : window.print())}
             title={t('printPdfA4Tooltip', locale)}
             data-ov-tooltip={t('printPdfA4Tooltip', locale)}
@@ -870,7 +910,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             <button
               type="button"
               id="btn-markdown-open-native-editor"
-              className="markdown-tool-button text-[var(--ov-accent)]"
+              className="markdown-tool-button text-[var(--ov-accent)] markdown-tool-collapse-xl"
               onClick={onOpenInEditor}
               title={t('openInNativeEditorHint', locale)}
               data-ov-tooltip={t('openInNativeEditorHint', locale)}
@@ -885,7 +925,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             <button
               type="button"
               id="btn-markdown-reload-document"
-              className={`markdown-tool-button ${isReloading ? 'animate-spin text-[var(--ov-accent)]' : ''}`}
+              className={`markdown-tool-button markdown-tool-collapse-xl ${isReloading ? 'animate-spin text-[var(--ov-accent)]' : ''}`}
               onClick={onReloadDocument}
               title={`${t('reloadPreview', locale)} (Ctrl+R)`}
               data-ov-tooltip={`${t('reloadPreview', locale)} (Ctrl+R)`}
@@ -896,7 +936,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
           )}
 
           {/* Language dropdown */}
-          <div className="relative" ref={langMenuRef}>
+          <div className="relative markdown-tool-collapse-xl" ref={langMenuRef}>
             <button
               type="button"
               className="markdown-tool-button"
@@ -960,7 +1000,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             )}
           </div>
 
-          {/* More Actions Dropdown */}
+          {/* More Actions Dropdown (在 <=1240px / ~1080px 下自动聚合被收纳的工具) */}
           <div className="relative" ref={moreMenuRef}>
             <button
               type="button"
@@ -981,6 +1021,112 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
             </button>
             {moreMenuOpen && (
               <div className="markdown-more-menu">
+                {/* 窄/中屏 (<= 980px) 自适应收纳：快捷缩放与版面控制栏 */}
+                {toolbarWidth <= 980 && (
+                  <div
+                    className="mb-1.5 pb-1.5 border-b border-[var(--ov-border)] space-y-1.5"
+                    role="group"
+                    aria-label={isZh ? '快捷排版与缩放' : 'Quick Layout & Zoom'}
+                  >
+                    <div className="flex items-center justify-between px-2 py-1 rounded bg-[var(--ov-bg-elevated)]">
+                      <span className="text-[11px] text-[var(--ov-text-muted)] font-medium">
+                        {isZh ? '页面缩放' : 'Zoom'}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="!w-auto !p-1 rounded hover:bg-[var(--ov-surface-hover)]"
+                          onClick={() => onZoomChange(Math.max(0.6, Number((zoom - 0.1).toFixed(1))))}
+                          title={t('zoomOut', locale)}
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className="!w-auto !px-1.5 !py-0.5 font-mono text-[11px] text-[var(--ov-text)] rounded hover:bg-[var(--ov-surface-hover)]"
+                          onClick={() => onZoomChange(1)}
+                          title={t('zoomReset', locale)}
+                        >
+                          {Math.round(zoom * 100)}%
+                        </button>
+                        <button
+                          type="button"
+                          className="!w-auto !p-1 rounded hover:bg-[var(--ov-surface-hover)]"
+                          onClick={() => onZoomChange(Math.min(1.6, Number((zoom + 0.1).toFixed(1))))}
+                          title={t('zoomIn', locale)}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={onCycleWidth}
+                      title={`${widthTitle} · ${t('widthTooltip', locale)}`}
+                    >
+                      <Columns size={14} className="text-[var(--ov-accent)]" />
+                      <span className="flex-1">{widthTitle}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const order: DensityMode[] = ['compact', 'comfortable', 'spacious'];
+                        const nextIdx = (order.indexOf(density) + 1) % order.length;
+                        onDensityChange(order[nextIdx]);
+                      }}
+                      title={`${t('densityTooltip', locale)} (${activeDensity.name})`}
+                    >
+                      <AlignJustify size={14} className="text-[var(--ov-accent)]" />
+                      <span className="flex-1">
+                        {isZh ? `排版紧凑度: ${activeDensity.name}` : `Density: ${activeDensity.name}`}
+                      </span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 超窄视口 (<= 660px) 自适应收纳：字号、专注模式、复制全文 */}
+                {toolbarWidth <= 660 && (
+                  <div className="mb-1.5 pb-1.5 border-b border-[var(--ov-border)] space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sizes = [13, 14, 15, 16, 18];
+                        const idx = sizes.indexOf(fontSize);
+                        const next = sizes[(idx + 1) % sizes.length] || 15;
+                        onFontSizeChange(next);
+                      }}
+                      title={`${t('fontSizeTooltip', locale)}: ${fontSize}px`}
+                    >
+                      <span className="font-mono text-xs font-bold text-[var(--ov-accent)] w-3.5 text-center">A</span>
+                      <span>{isZh ? `字号大小: ${fontSize}px` : `Font Size: ${fontSize}px`}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onToggleFocusMode();
+                        setMoreMenuOpen(false);
+                      }}
+                      title={t('focusModeTooltip', locale)}
+                    >
+                      <Maximize2 size={14} />
+                      <span>{t('focusMode', locale)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCopyRawMarkdown();
+                        setMoreMenuOpen(false);
+                      }}
+                      title={t('copyMarkdown', locale)}
+                    >
+                      {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                      <span>{t('copyMarkdown', locale)}</span>
+                    </button>
+                  </div>
+                )}
+
                 {onOpenSettings && (
                   <button
                     type="button"
@@ -1020,6 +1166,68 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                     <span>{presentationMode ? t('exitPresentation', locale) : t('presentationMode', locale)}</span>
                   </button>
                 )}
+
+                {/* <= 1240px (如 1080px 窗口) 收纳进更多菜单的辅助与文档操作 */}
+                {toolbarWidth < 1240 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onToggleAutoScroll}
+                      title={t('autoScrollTooltip', locale)}
+                    >
+                      {autoScrollSpeed > 0 ? <Pause size={14} className="text-[var(--ov-accent)]" /> : <Play size={14} />}
+                      <span>
+                        {autoScrollSpeed > 0
+                          ? `${t('autoScrollRunning', locale)} (${autoScrollSpeed}x)`
+                          : t('autoScroll', locale)}
+                      </span>
+                    </button>
+                    {onToggleDiagramToolbars && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onToggleDiagramToolbars();
+                          setMoreMenuOpen(false);
+                        }}
+                        title={
+                          showDiagramToolbars
+                            ? t('toggleDiagramToolbarsOn', locale)
+                            : t('toggleDiagramToolbarsOff', locale)
+                        }
+                      >
+                        <PanelTop size={14} className={showDiagramToolbars ? 'text-[var(--ov-accent)]' : ''} />
+                        <span>{t('toggleDiagramToolbars', locale)}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onPrint) {
+                          onPrint();
+                        } else {
+                          window.print();
+                        }
+                        setMoreMenuOpen(false);
+                      }}
+                      title={t('printPdfA4Tooltip', locale)}
+                    >
+                      <Printer size={14} />
+                      <span>{t('exportPdf', locale)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onLocaleChange(locale === 'zh-CN' ? 'en-US' : 'zh-CN');
+                        setMoreMenuOpen(false);
+                      }}
+                      title={t('languageTooltip', locale)}
+                    >
+                      <Languages size={14} />
+                      <span>{locale === 'zh-CN' ? '语言: 简体中文 (切换 EN)' : 'Language: EN (Switch 中文)'}</span>
+                    </button>
+                  </>
+                )}
+
                 <button
                   type="button"
                   onClick={onCopyCurrentSection}

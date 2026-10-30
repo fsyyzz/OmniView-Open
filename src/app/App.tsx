@@ -53,17 +53,23 @@ export default function App() {
   const [zoom, setZoom] = useState<number>(initialSettings.zoom);
   const [viewMode, setViewMode] = useState<ViewMode>(initialSettings.viewMode);
 
+  const effectiveFontSize = settings.fontSize || 15;
+
   // 全局同步外观令牌到根 DOM 节点，保证第三方图表/Portal/弹窗 100% 捕获语义变量
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', theme);
       document.documentElement.setAttribute('data-density', density);
+      document.documentElement.setAttribute('data-font-size', String(effectiveFontSize));
+      document.documentElement.style.setProperty('--ov-font-size', `${effectiveFontSize}px`);
       if (document.body) {
         document.body.setAttribute('data-theme', theme);
         document.body.setAttribute('data-density', density);
+        document.body.setAttribute('data-font-size', String(effectiveFontSize));
+        document.body.style.setProperty('--ov-font-size', `${effectiveFontSize}px`);
       }
     }
-  }, [theme, density]);
+  }, [theme, density, effectiveFontSize]);
 
   // IndexedDB 异步水合与无感平滑迁移 (Stale-While-Revalidate)
   useEffect(() => {
@@ -165,6 +171,12 @@ export default function App() {
         document.documentElement.setAttribute('data-density', updatedSettings.density);
         document.body?.setAttribute('data-density', updatedSettings.density);
       }
+    }
+    if (updatedSettings.fontSize !== undefined && typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-font-size', String(updatedSettings.fontSize));
+      document.documentElement.style.setProperty('--ov-font-size', `${updatedSettings.fontSize}px`);
+      document.body?.setAttribute('data-font-size', String(updatedSettings.fontSize));
+      document.body?.style.setProperty('--ov-font-size', `${updatedSettings.fontSize}px`);
     }
     if (updatedSettings.zoom) setZoom(updatedSettings.zoom);
     if (updatedSettings.viewMode) setViewMode(updatedSettings.viewMode);
@@ -620,8 +632,9 @@ flowchart LR
       <div
         data-theme={theme}
         data-density={density}
+        data-font-size={effectiveFontSize}
         className="h-screen w-screen flex flex-col overflow-hidden font-sans transition-colors duration-200"
-        style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)' }}
+        style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)', '--ov-font-size': `${effectiveFontSize}px` } as React.CSSProperties}
       >
         {/* Top Application Bar */}
         <WorkbenchHeader
@@ -699,6 +712,7 @@ flowchart LR
                 theme={theme}
                 density={density}
                 contentWidth={settings.contentWidth}
+                fontSize={effectiveFontSize}
                 zoom={zoom}
                 onSelectTab={(id) => {
                   setActiveFileId(id);

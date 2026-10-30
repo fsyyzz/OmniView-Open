@@ -305,14 +305,17 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
         {/* Code Body or Structured Preview Body */}
         {!isCollapsed &&
           (viewMode === 'structured' && structuredPreview ? (
-            <div className="code-structured-preview overflow-x-auto bg-[var(--ov-surface)] text-xs p-3 border-t border-[var(--ov-border)]/40">
+            <div
+              className="code-structured-preview overflow-x-auto bg-[var(--ov-surface)] p-3 border-t border-[var(--ov-border)]/40"
+              style={{ fontSize: '0.88em' }}
+            >
               {structuredPreview.kind === 'error' ? (
                 <div className="px-3 py-2 rounded border border-[var(--ov-border)] bg-[var(--ov-surface-header)] text-[var(--ov-text-secondary)] font-mono">
                   {structuredPreview.message}
                 </div>
               ) : structuredPreview.kind === 'table' ? (
                 <div className="overflow-x-auto rounded-lg border border-[var(--ov-border)]">
-                  <table className="w-full border-collapse text-left text-xs">
+                  <table className="w-full border-collapse text-left" style={{ fontSize: 'inherit' }}>
                     <thead>
                       <tr className="bg-[var(--ov-surface-header)] border-b border-[var(--ov-border)]">
                         <th className="px-2.5 py-1.5 font-mono text-[10px] text-[var(--ov-text-muted)] w-10 text-center border-r border-[var(--ov-border)]">
@@ -369,11 +372,12 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(({
             </div>
           ) : (
             <div
-              className="code-block-body overflow-x-auto flex text-xs leading-relaxed"
+              className="code-block-body overflow-x-auto flex leading-relaxed"
               data-lang={lang}
               style={{
                 backgroundColor: 'var(--ov-code-bg)',
                 color: 'var(--ov-code-color, var(--ov-text))',
+                fontSize: '0.88em',
               }}
             >
               <div

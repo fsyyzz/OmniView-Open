@@ -22,6 +22,7 @@ interface EditorWorkspaceProps {
   theme?: ThemeId;
   density?: 'compact' | 'standard' | 'comfortable';
   contentWidth?: ContentWidthMode;
+  fontSize?: number;
   zoom?: number;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string, event?: React.MouseEvent) => void;
@@ -47,6 +48,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   theme = 'dark',
   density = 'compact',
   contentWidth = 'standard',
+  fontSize = 15,
   zoom = 1.0,
   onSelectTab,
   onCloseTab,
@@ -158,6 +160,8 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       data-theme={theme}
       data-density={density}
       data-width={contentWidth}
+      data-font-size={fontSize}
+      style={{ '--ov-font-size': `${fontSize}px` } as React.CSSProperties}
     >
       <div className="editor-tab-bar-container h-9 border-b border-[var(--ov-border)] bg-[var(--ov-surface-header,var(--ov-surface))] flex items-center justify-between px-1 select-none shrink-0">
         <div className="flex items-center h-full overflow-x-auto no-scrollbar min-w-0 flex-1">
@@ -374,6 +378,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             theme={theme}
             density={density}
             contentWidth={contentWidth}
+            fontSize={fontSize}
             zoom={zoom}
             onContentChange={onContentChange}
             onSelectFile={f => onSelectTab(f.id)}

@@ -79,6 +79,24 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
     );
   }
 
+  return <PlainCodeViewer {...props} />;
+};
+
+const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
+  const {
+    content,
+    extension = 'txt',
+    fileName = 'file.txt',
+    locale = 'zh-CN',
+    theme,
+    isDarkTheme,
+    density,
+    onContentChange,
+    onOpenInEditor,
+    onOpenSettings,
+    onOpenShortcuts,
+  } = props;
+
   const [copied, setCopied] = useState(false);
   // If onContentChange is provided, allow direct editing
   const [isEditing, setIsEditing] = useState(() => Boolean(onContentChange));
@@ -1296,12 +1314,16 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
 
       {/* Editor / Readonly View Body */}
       {isEditing ? (
-        <div id="code-viewer-canvas" className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
+        <div
+          id="code-viewer-canvas"
+          className="flex-1 min-h-0 flex flex-col overflow-hidden relative"
+          style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
+        >
           <div className="flex-1 min-h-0 flex overflow-hidden relative">
             {/* Synchronized Line Numbers Gutter */}
             <div
               ref={lineGutterRef}
-              className="py-3 pl-2 pr-3 text-right select-none border-r font-mono text-xs leading-relaxed shrink-0 min-w-[44px] overflow-hidden"
+              className="py-3 pl-2 pr-3 text-right select-none border-r font-mono leading-relaxed shrink-0 min-w-[44px] overflow-hidden"
               style={{
                 background: 'var(--ov-code-bg)',
                 borderColor: 'var(--ov-border)',
@@ -1328,20 +1350,26 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
               onKeyDown={handleKeyDown}
               spellCheck={false}
               autoFocus
-              className="flex-1 w-full p-3 font-mono text-xs leading-relaxed resize-none outline-none border-0 overflow-y-auto selection:bg-blue-600 selection:text-white"
+              className="flex-1 w-full p-3 font-mono leading-relaxed resize-none outline-none border-0 overflow-y-auto selection:bg-blue-600 selection:text-white"
               style={{
                 background: 'var(--ov-bg)',
                 color: 'var(--ov-text)',
+                fontSize: 'inherit',
               }}
               placeholder="在此输入或编辑内容..."
             />
           </div>
         </div>
       ) : (
-        <div id="code-viewer-canvas" ref={codeBodyRef} className="flex-1 min-h-0 overflow-auto flex">
+        <div
+          id="code-viewer-canvas"
+          ref={codeBodyRef}
+          className="flex-1 min-h-0 overflow-auto flex"
+          style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
+        >
           {/* Readonly Line Numbers */}
           <div
-            className="py-3 pl-2 pr-3 text-right select-none border-r font-mono text-xs leading-relaxed shrink-0 min-w-[44px]"
+            className="py-3 pl-2 pr-3 text-right select-none border-r font-mono leading-relaxed shrink-0 min-w-[44px]"
             style={{
               background: 'var(--ov-code-bg)',
               borderColor: 'var(--ov-border)',
@@ -1358,11 +1386,11 @@ export const CodeViewer: React.FC<CodeViewerProps> = (props) => {
           {/* Readonly Code Body */}
           <div className="flex-1 p-3 overflow-x-auto selection:bg-blue-600 selection:text-white">
             {highlightedCode ? (
-              <pre className="leading-relaxed font-mono m-0 p-0 bg-transparent">
+              <pre className="leading-relaxed font-mono m-0 p-0 bg-transparent" style={{ fontSize: 'inherit' }}>
                 <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
               </pre>
             ) : (
-              <pre className="leading-relaxed font-mono m-0 p-0 bg-transparent" style={{ color: 'var(--ov-text)' }}>
+              <pre className="leading-relaxed font-mono m-0 p-0 bg-transparent" style={{ color: 'var(--ov-text)', fontSize: 'inherit' }}>
                 <code>{activeContent}</code>
               </pre>
             )}

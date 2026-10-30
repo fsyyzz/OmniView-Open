@@ -549,7 +549,10 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
 
         {/* 3. 数据表格下钻 (Table) */}
         {viewMode === 'table' && tableData && (
-          <div className="h-full w-full overflow-auto p-4 bg-slate-950">
+          <div
+            className="h-full w-full overflow-auto p-4 bg-slate-950"
+            style={{ fontSize: 'var(--ov-font-size, 15px)' }}
+          >
             <div className="mb-3 flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-800">
               <div className="flex items-center gap-2">
                 <TableIcon className="w-4 h-4 text-emerald-400" />
@@ -649,7 +652,8 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
                 onChange={(e) => handleCodeChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={`请输入合法的 ${extension.toUpperCase()} 数据...`}
-                className="flex-1 h-full w-full p-4 bg-transparent resize-none outline-none font-mono text-xs leading-relaxed text-slate-200 selection:bg-indigo-600/40"
+                className="flex-1 h-full w-full p-4 bg-transparent resize-none outline-none font-mono leading-relaxed text-slate-200 selection:bg-indigo-600/40"
+                style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
                 spellCheck={false}
               />
             </div>

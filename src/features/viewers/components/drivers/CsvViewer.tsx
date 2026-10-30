@@ -534,8 +534,9 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
             spellCheck={false}
             style={{
               color: 'var(--ov-text)',
+              fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)',
             }}
-            className="flex-1 w-full p-4 bg-transparent font-mono text-xs resize-none outline-none leading-relaxed selection:bg-emerald-600 selection:text-white"
+            className="flex-1 w-full p-4 bg-transparent font-mono resize-none outline-none leading-relaxed selection:bg-emerald-600 selection:text-white"
             placeholder="Header1,Header2,Header3..."
           />
         </div>
@@ -544,7 +545,10 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({
         <div id="csv-table-canvas" className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Table Container */}
           <div className="flex-1 overflow-auto relative">
-            <table className="w-full text-left border-collapse text-xs font-sans">
+            <table
+              className="w-full text-left border-collapse font-sans"
+              style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
+            >
               {/* Sticky Table Header */}
               <thead
                 style={{

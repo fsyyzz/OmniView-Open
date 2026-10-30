@@ -139,7 +139,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   }, [value, isObject, isArray, path]);
 
   return (
-    <div className="font-mono text-[12px] leading-relaxed select-text">
+    <div
+      className="font-mono leading-relaxed select-text"
+      style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
+    >
       <div
         className={`group flex items-center gap-1.5 py-0.5 px-2 rounded-sm transition cursor-pointer hover:bg-slate-800/60 ${
           isMatch ? 'bg-amber-950/50 text-amber-200 border-l-2 border-amber-500 pl-1.5' : ''

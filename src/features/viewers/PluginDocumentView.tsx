@@ -752,8 +752,9 @@ const MarkdownPluginView: React.FC<{
         ref={shellRef as React.RefObject<HTMLElement>}
         data-theme={theme}
         data-density={density}
+        data-font-size={fontSize}
         className="omniview-driver-shell flex-1 min-h-0 w-full h-full flex flex-col overflow-hidden select-none"
-        style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)' }}
+        style={{ background: 'var(--ov-bg)', color: 'var(--ov-text)', '--ov-font-size': `${fontSize}px` } as React.CSSProperties}
       >
         <div className="flex-1 min-h-0 w-full h-full flex flex-col overflow-hidden">
           <ViewerRenderer
@@ -763,6 +764,7 @@ const MarkdownPluginView: React.FC<{
             theme={theme}
             density={density}
             contentWidth={contentWidth}
+            fontSize={fontSize}
             locale={locale}
             onContentChange={handleContentUpdate}
             onRenderComplete={handleRenderComplete}
@@ -798,6 +800,7 @@ const MarkdownPluginView: React.FC<{
       data-width={contentWidth}
       data-font-size={fontSize}
       data-diagram-toolbars={showDiagramToolbars ? 'visible' : 'compact'}
+      style={{ '--ov-font-size': `${fontSize}px` } as React.CSSProperties}
       onMouseMove={event => {
         const nextVisible = event.clientY <= 56;
         setToolbarVisible(prev => (prev === nextVisible ? prev : nextVisible));
@@ -913,6 +916,7 @@ const MarkdownPluginView: React.FC<{
               theme={theme}
               density={density}
               contentWidth={contentWidth}
+              fontSize={fontSize}
               locale={locale}
               onContentChange={handleContentUpdate}
               onRenderComplete={handleRenderComplete}
@@ -933,6 +937,7 @@ const MarkdownPluginView: React.FC<{
               theme={theme}
               density={density}
               contentWidth={contentWidth}
+              fontSize={fontSize}
               locale={locale}
               onContentChange={handleContentUpdate}
               onRenderComplete={handleRenderComplete}
@@ -950,6 +955,7 @@ const MarkdownPluginView: React.FC<{
             className="markdown-plugin-scroll"
             data-width={contentWidth}
             data-font-size={fontSize}
+            style={{ '--ov-font-size': `${fontSize}px` } as React.CSSProperties}
           >
             <div style={{ zoom }} data-width={contentWidth} data-font-size={fontSize}>
               <ViewerRenderer
@@ -959,6 +965,7 @@ const MarkdownPluginView: React.FC<{
                 theme={theme}
                 density={density}
                 contentWidth={contentWidth}
+                fontSize={fontSize}
                 locale={locale}
                 onContentChange={handleContentUpdate}
                 onRenderComplete={handleRenderComplete}

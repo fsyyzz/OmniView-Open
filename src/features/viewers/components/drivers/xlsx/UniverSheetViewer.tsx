@@ -707,7 +707,7 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
           if (showFreezeMenu) setShowFreezeMenu(false);
         }}
         className="flex-1 overflow-auto relative custom-scrollbar bg-[var(--ov-bg)] focus:outline-none"
-        style={{ fontSize: `${Math.round(zoom * 12)}px` }}
+        style={{ fontSize: `calc(var(--ov-font-size, 15px) * ${Number((zoom * 0.85).toFixed(3))})` }}
       >
         <table className="border-collapse table-fixed w-max min-w-full">
           <thead>

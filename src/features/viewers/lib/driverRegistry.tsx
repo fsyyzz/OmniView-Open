@@ -21,6 +21,7 @@ export interface DriverProps {
   theme?: ThemeId;
   density?: DensityMode;
   contentWidth?: ContentWidthMode;
+  fontSize?: number;
   zoom?: number;
   locale?: Locale;
   onContentChange?: (content: string) => void;
@@ -43,6 +44,7 @@ export interface ViewerRenderContext {
   theme: ThemeId;
   density: DensityMode;
   contentWidth: ContentWidthMode;
+  fontSize?: number;
   zoom: number;
   locale: Locale;
   onContentChange: (content: string) => void;
@@ -126,6 +128,7 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
     theme,
     density,
     contentWidth,
+    fontSize,
     zoom,
     locale,
     onContentChange,
@@ -158,11 +161,20 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
     return s.splitRightMode || 'preview';
   });
 
+  const effectiveFontSize = fontSize || loadStoredSettings().fontSize || 15;
   const zoomStyle = zoom !== 1.0 ? { zoom } : undefined;
+  const fontVarsStyle: React.CSSProperties = {
+    '--ov-font-size': `${effectiveFontSize}px`,
+  } as React.CSSProperties;
 
   if (mode === 'mindmap') {
     return (
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden" data-theme={theme} style={zoomStyle}>
+      <div
+        className="flex-1 min-h-0 flex flex-col overflow-hidden"
+        data-theme={theme}
+        data-font-size={effectiveFontSize}
+        style={{ ...fontVarsStyle, ...(zoomStyle || {}) }}
+      >
         <MarkmapViewer
           content={file.content}
           fileName={file.name}
@@ -178,7 +190,11 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
 
   if (mode === 'source') {
     return (
-      <div className="flex-1 min-h-0 flex flex-col" style={zoomStyle}>
+      <div
+        className="flex-1 min-h-0 flex flex-col"
+        data-font-size={effectiveFontSize}
+        style={{ ...fontVarsStyle, ...(zoomStyle || {}) }}
+      >
         <CodeViewer
           content={file.content}
           fileName={file.name}
@@ -193,7 +209,12 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
 
   if (mode === 'split') {
     return (
-      <div className="flex min-h-0 flex-1 overflow-hidden" data-theme={theme}>
+      <div
+        className="flex min-h-0 flex-1 overflow-hidden"
+        data-theme={theme}
+        data-font-size={effectiveFontSize}
+        style={fontVarsStyle}
+      >
         {/* Left: Source Code Editor */}
         <div className="flex min-h-0 w-1/2 flex-col border-r" style={{ ...zoomStyle, borderColor: 'var(--ov-border)' }}>
           <CodeViewer
@@ -254,8 +275,12 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
           </div>
 
           {splitRightMode === 'preview' ? (
-            <div className="markdown-plugin-scroll ov-split-preview-scroll flex-1 overflow-y-auto" style={{ background: 'var(--ov-bg)' }}>
-              <div style={zoomStyle}>
+            <div
+              className="markdown-plugin-scroll ov-split-preview-scroll flex-1 overflow-y-auto"
+              data-font-size={effectiveFontSize}
+              style={{ background: 'var(--ov-bg)', ...fontVarsStyle }}
+            >
+              <div style={zoomStyle} data-font-size={effectiveFontSize}>
                 <MarkdownViewer
                   content={file.content}
                   files={files}
@@ -293,8 +318,13 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
   }
 
   return (
-    <div className="w-full flex-1 min-h-0" data-theme={theme} style={{ background: 'var(--ov-bg)' }}>
-      <div style={zoomStyle}>
+    <div
+      className="w-full flex-1 min-h-0"
+      data-theme={theme}
+      data-font-size={effectiveFontSize}
+      style={{ background: 'var(--ov-bg)', ...fontVarsStyle }}
+    >
+      <div style={zoomStyle} data-font-size={effectiveFontSize}>
         <MarkdownViewer
           content={file.content}
           files={files}

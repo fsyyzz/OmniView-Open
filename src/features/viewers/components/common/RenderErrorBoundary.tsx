@@ -43,6 +43,29 @@ export function isStaleModuleOrDispatcherError(error: Error | null | undefined):
   );
 }
 
+/**
+ * 清理浏览器 CacheStorage 与旧版 Service Worker 后执行强制刷新
+ */
+async function purgeBrowserCachesAndReload(): Promise<void> {
+  try {
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      const keys = await window.caches.keys();
+      await Promise.all(keys.map((k) => window.caches.delete(k)));
+    }
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch {
+    // ignore cleanup errors
+  }
+  try {
+    window.location.reload();
+  } catch {
+    // ignore reload restrictions
+  }
+}
+
 // 继承自 React.Component
 export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProps, RenderErrorBoundaryState> {
   constructor(props: RenderErrorBoundaryProps) {
@@ -64,7 +87,7 @@ export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProp
     this.setState({ errorInfo });
     this.props.onCatch?.(error, errorInfo);
 
-    // 若捕获动态模块载入错误或 Vite 依赖哈希更新导致的 React 双实例异常，主动清空缓存并尝试无感自愈刷新
+    // 若捕获动态模块载入错误或 Vite 依赖哈希更新导致的 React 双实例异常，主动清空缓存（含 SW CacheStorage）并尝试无感自愈刷新
     if (isStaleModuleOrDispatcherError(error)) {
       clearAllDriverCaches();
       try {
@@ -74,7 +97,7 @@ export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProp
           const now = Date.now();
           if (now - lastReload > 10000) {
             window.sessionStorage.setItem(reloadKey, String(now));
-            window.location.reload();
+            void purgeBrowserCachesAndReload();
             return;
           }
         }
@@ -102,12 +125,8 @@ export class RenderErrorBoundary extends React.Component<RenderErrorBoundaryProp
     // 强制清理驱动缓存，使 React 重新挂载时能够重新发起 dynamic import
     clearAllDriverCaches();
     if (isStaleModuleOrDispatcherError(error) && typeof window !== 'undefined' && !this.props.vscode) {
-      try {
-        window.location.reload();
-        return;
-      } catch {
-        // fallback to normal state reset
-      }
+      void purgeBrowserCachesAndReload();
+      return;
     }
     this.setState({
       hasError: false,

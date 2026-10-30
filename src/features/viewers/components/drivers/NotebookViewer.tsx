@@ -367,17 +367,26 @@ export const NotebookViewer: React.FC<NotebookViewerProps> = ({
                   <div>
                     {/* 代码/源码区 */}
                     {isCode ? (
-                      <div className="p-3.5 bg-slate-950 font-mono text-xs text-slate-100 overflow-x-auto leading-relaxed border-b border-slate-850">
+                      <div
+                        className="p-3.5 bg-slate-950 font-mono text-slate-100 overflow-x-auto leading-relaxed border-b border-slate-850"
+                        style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
+                      >
                         <pre className="m-0 whitespace-pre-wrap word-break-break-all">
                           <code>{cell.source}</code>
                         </pre>
                       </div>
                     ) : isMarkdown ? (
-                      <div className="p-4 bg-slate-950/40 text-slate-200">
+                      <div
+                        className="p-4 bg-slate-950/40 text-slate-200"
+                        style={{ fontSize: 'var(--ov-font-size, 15px)' }}
+                      >
                         {renderMarkdownContent(cell.source)}
                       </div>
                     ) : (
-                      <div className="p-3.5 bg-slate-950 font-mono text-xs text-slate-400 whitespace-pre-wrap">
+                      <div
+                        className="p-3.5 bg-slate-950 font-mono text-slate-400 whitespace-pre-wrap"
+                        style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
+                      >
                         {cell.source}
                       </div>
                     )}
@@ -393,9 +402,10 @@ export const NotebookViewer: React.FC<NotebookViewerProps> = ({
                             return (
                               <div
                                 key={outIdx}
-                                className={`font-mono text-xs p-2.5 rounded-lg overflow-x-auto leading-relaxed ${
+                                className={`font-mono p-2.5 rounded-lg overflow-x-auto leading-relaxed ${
                                   isStderr ? 'bg-rose-950/30 text-rose-300 border border-rose-900/30' : 'bg-slate-950 text-slate-300'
                                 }`}
+                                style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
                               >
                                 <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">
                                   {out.name || 'stream'}
@@ -444,7 +454,8 @@ export const NotebookViewer: React.FC<NotebookViewerProps> = ({
                                 {/* HTML 渲染 */}
                                 {data['text/html'] && !data['image/png'] && (
                                   <div
-                                    className="p-3 bg-slate-950 rounded-lg overflow-x-auto text-xs text-slate-200"
+                                    className="p-3 bg-slate-950 rounded-lg overflow-x-auto text-slate-200"
+                                    style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
                                     dangerouslySetInnerHTML={{
                                       __html: DOMPurify.sanitize(
                                         Array.isArray(data['text/html'])
@@ -457,7 +468,10 @@ export const NotebookViewer: React.FC<NotebookViewerProps> = ({
 
                                 {/* Plain Text 回退 */}
                                 {data['text/plain'] && !data['image/png'] && !data['text/html'] && (
-                                  <pre className="font-mono text-xs p-2.5 bg-slate-950 text-slate-200 rounded-lg overflow-x-auto whitespace-pre-wrap m-0">
+                                  <pre
+                                    className="font-mono p-2.5 bg-slate-950 text-slate-200 rounded-lg overflow-x-auto whitespace-pre-wrap m-0"
+                                    style={{ fontSize: 'calc(var(--ov-font-size, 15px) * 0.88)' }}
+                                  >
                                     {Array.isArray(data['text/plain']) ? data['text/plain'].join('') : data['text/plain']}
                                   </pre>
                                 )}

@@ -1,61 +1,108 @@
-/* OmniView PWA Service Worker — 离线缓存策略 */
-/* 缓存应用外壳（HTML/JS/CSS）+ 静态资源，API 请求走网络 */
-const CACHE_NAME = 'omniview-v1';
+/* OmniView PWA Service Worker — 离线缓存与防陈旧模块污染策略 */
+/* 仅对应用外壳静态资源启用 Network-First 离线兜底，绝不缓存 /src/* 与 /node_modules/.vite/* 动态模块 */
+const CACHE_NAME = 'omniview-v2';
 const SHELL_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/icon.svg',
 ];
 
-/** 安装：预缓存应用外壳 */
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS))
+/**
+ * 判断请求是否为 Vite 开发模块或源码/依赖预构建产物（此类请求严禁走 SW 缓存，防止 ?v= 哈希不一致引发双份 React 实例）
+ */
+function isViteDevOrModuleRequest(url) {
+  const p = url.pathname;
+  return (
+    p === '/sw.js' ||
+    p.startsWith('/src/') ||
+    p.startsWith('/node_modules/') ||
+    p.startsWith('/@') ||
+    p.endsWith('.ts') ||
+    p.endsWith('.tsx') ||
+    url.searchParams.has('v') ||
+    url.searchParams.has('t')
   );
+}
+
+let purgedLegacyCacheDuringInstall = false;
+
+/** 安装：立即接管等待态并第一时间清除旧版缓存 */
+self.addEventListener('install', (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    (async () => {
+      try {
+        const keys = await caches.keys();
+        const staleKeys = keys.filter((k) => k !== CACHE_NAME);
+        if (staleKeys.length > 0) {
+          purgedLegacyCacheDuringInstall = true;
+          await Promise.all(staleKeys.map((k) => caches.delete(k)));
+        }
+        const cache = await caches.open(CACHE_NAME);
+        await cache.addAll(SHELL_ASSETS);
+      } catch {
+        // ignore cache errors
+      }
+    })()
+  );
 });
 
-/** 激活：清理旧版本缓存 */
+/** 激活：彻底清理 omniview-v1 等旧版本缓存，并在检测到旧缓存污染时通知/刷新受控客户端 */
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    (async () => {
+      const keys = await caches.keys();
+      const staleKeys = keys.filter((k) => k !== CACHE_NAME);
+      const hadLegacyCache = purgedLegacyCacheDuringInstall || staleKeys.length > 0;
+
+      if (staleKeys.length > 0) {
+        await Promise.all(staleKeys.map((k) => caches.delete(k)));
+      }
+      await self.clients.claim();
+
+      if (hadLegacyCache) {
+        const windowClients = await self.clients.matchAll({ type: 'window' });
+        for (const client of windowClients) {
+          try {
+            client.postMessage({ type: 'OMNIVIEW_SW_PURGED' });
+            if ('navigate' in client && client.url) {
+              await client.navigate(client.url);
+            }
+          } catch {
+            // 忽略跨域或导航受限异常
+          }
+        }
+      }
+    })()
   );
-  self.clients.claim();
 });
 
-/** 拦截 fetch：静态资源 cache-first，API 请求 network-first */
+/** 拦截 fetch：Vite 模块直接放行；同域外壳资源采用 Network-First + 离线回退 */
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  // 仅拦截 GET 请求
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
 
-  // 同域静态资源 → cache-first
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request)
-          .then((response) => {
-            // 缓存成功的 GET 响应
-            const clone = response.clone();
-            if (response.ok) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            }
-            return response;
-          })
-          .catch(() => {
-            // 网络失败 → 回退到缓存的 index.html（SPA 兜底）
-            return caches.match('/index.html');
-          });
-      })
-    );
+  // 严禁缓存 Vite 源码模块与 .vite/deps 预构建依赖
+  if (isViteDevOrModuleRequest(url)) {
     return;
   }
 
-  // 跨域资源（WASM 等）→ 直接走网络
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response && response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        return caches.match('/index.html');
+      })
+  );
 });
+

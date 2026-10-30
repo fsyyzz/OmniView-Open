@@ -8,7 +8,69 @@
 
 ---
 
-## [1.4.1] - 2026-10-29 (当前最新发布)
+## [1.4.6] - 2026-10-29 (当前最新发布)
+
+> [!TIP] v1.4.6 核心升级亮点
+> **新增 Vite 开发服务器跨 `?v=` 哈希 React 单例动态桥接中间件与挂载前缓存自愈 (`vite.config.ts` / `src/main.tsx` / `index.html`)**：
+> 1. **注入跨 `?v=` 预构建哈希的 React 单例动态桥接中间件，彻底消除未刷新标签页下懒加载组件（如 `StructuredDataViewer` / `GraphvizStudioCanvas`）的 `Invalid hook call` 异常 (`vite.config.ts`)**：
+>    - 当已打开的浏览器会话仍驻留旧版 `react-dom_client.js?v=<rootHash>`（如 `?v=45dd2f19`）而按需懒加载新模块请求当前 Vite 服务（如 `?v=133c5026`）时，中间件在不改动 `configHash` / `browserHash` 的前提下，自动在 `/src/*` 模块响应中注入基于 `performance.getEntriesByType('resource')` 的根部 React 单例对齐逻辑，动态复用当前已挂载的 `react.js?v=<rootHash>` 与 `react_jsx-dev-runtime.js?v=<rootHash>` 内存实例，确保 `useState` 等 Hook 100% 指向同一 `ReactSharedInternals` Dispatcher；
+>    - 同时剥离开发态 `/src/*`、`/sw.js`、`/index.html` 请求的 `If-None-Match` 304 协商缓存头并对齐旧版 `.vite/deps` 请求哈希，防止浏览器 HTTP 缓存与 `omniview-v1` 返回陈旧模块；
+> 2. **前置 `bootstrapOmniView` 缓存清理至 `createRoot` 挂载之前 (`src/main.tsx` / `index.html`)**：
+>    - 在 `index.html` 首屏内联脚本与 `src/main.tsx` 挂载 `<App />` 之前立即清空 `omniview-v1` 等 `CacheStorage` 并注销旧版 Service Worker，确保懒加载驱动请求前旧缓存已 100% 销毁。
+
+---
+
+## [1.4.5] - 2026-10-29
+
+> [!TIP] v1.4.5 核心升级亮点
+> **根治 PWA Service Worker (`public/sw.js`) Cache-First 缓存锁死旧版 Vite 模块哈希导致的 `GraphvizStudioCanvas` React 双实例异常 (`public/sw.js` / `src/main.tsx` / `RenderErrorBoundary.tsx`)**：
+> 1. **修复 `public/sw.js` 对同域 `/src/*` 与 `/node_modules/.vite/deps/*` 采用 Cache-First 拦截导致的跨版本哈希锁死问题**：
+>    - 原 `omniview-v1` Service Worker 对所有同域 GET 请求采用 `cache-first` 策略，导致早期缓存的 `/src/main.tsx` (`?v=45dd2f19`) 与懒加载缓存的 `GraphvizStudioCanvas.tsx` (`?v=b125d612`) 永久驻留浏览器 `CacheStorage`，即使重启服务端或刷新页面也持续返回两份不同哈希的 React 实例；
+>    - 升级 `public/sw.js` 至 `omniview-v2`：在 `install` 与 `activate` 阶段立即清空 `omniview-v1` 等遗留缓存并自动导航刷新受控客户端；对 `/src/*`、`/@*`、`/node_modules/*` 及带 `?v=`/`?t=` 的模块请求直接放行绝不缓存，对外壳资源改为 `Network-First` 策略；
+> 2. **增强开发环境与 `RenderErrorBoundary` 的缓存自愈清理 (`src/main.tsx` / `RenderErrorBoundary.tsx`)**：
+>    - 在开发模式下启动时自动清理残留 `CacheStorage` 与旧版 Service Worker 注册；当 `RenderErrorBoundary` 捕获到 React Dispatcher 空指针异常时，先彻底清除 `window.caches` 与 Service Worker 注册再执行刷新自愈。
+
+---
+
+## [1.4.4] - 2026-10-29
+
+> [!TIP] v1.4.4 核心升级亮点
+> **修复懒加载驱动引发的 Vite 依赖重优化 React 双实例冲突与 Hook 边界隔离 (`vite.config.ts` / `ViewerRenderer.tsx` / `CodeViewer.tsx`)**：
+> 1. **消除 `GraphvizStudioCanvas` 等懒加载组件触发 Vite 运行时重优化导致的 React 双实例 `Invalid hook call` 异常 (`vite.config.ts`)**：
+>    - 将 `@hpcc-js/wasm-graphviz`、`@myriaddreamin/typst.ts` 及全量 `prismjs/components/prism-*` 语言高亮子模块纳入 `optimizeDeps.include` 与 `entries: ['index.html', 'src/**/*.{ts,tsx}']` 启动预构建范围，并强化 `resolve.dedupe` 与 `resolve.alias` 锁定唯一 React / ReactDOM 单例，彻底杜绝运行期动态加载新依赖触发 `.vite/deps` 哈希漂移（`?v=` 不一致导致 `useState` 读取 `null` Dispatcher）；
+> 2. **加固 `ViewerRenderer` 与 `CodeViewer` 的 React Hook Fiber 边界 (`ViewerRenderer.tsx` / `CodeViewer.tsx`)**：
+>    - 将 `ViewerRenderer` 中的 `plugin.renderMode` 从普通函数内联调用升级为独立 React 组件节点 `<PluginModeComponent />`，并将 `CodeViewer` 拆分为无状态路由分发器与 `PlainCodeViewer` 状态组件，确保跨格式切换时 100% 遵循 React Rules of Hooks。
+
+---
+
+## [1.4.3] - 2026-10-29
+
+> [!TIP] v1.4.3 核心升级亮点
+> **顶部工具栏 `~1080px` 中等视口多阶梯自适应收纳与防覆盖重构 (`MarkdownToolbar.tsx` / `WorkbenchHeader.tsx` / `index.css`)**：
+> 1. **重构 `MarkdownToolbar` 容器查询多阶梯渐进收纳机制 (`index.css` / `MarkdownToolbar.tsx`)**：
+>    - 针对 `1080px` 左右窗口宽度（全屏 `~1080px` 及展开左侧资源管理器后的 `~824px` 容器宽度），引入 `@container md-toolbar` 四级阶梯 (`xl >= 1240px`、`lg <= 1239px`、`md <= 980px`、`sm <= 660px`) 与 `ResizeObserver` 实时容器宽度联动；
+>    - 在 `<= 1239px` 时自动将低频辅助按钮（演示模式、自动滚屏、图表工具栏开关、OKF 概念卡）与次级文档按钮（打印、原生编辑器打开、重载、语言切换）收纳进「更多 (`MoreHorizontal`)」下拉菜单，视图切换器仅保留激活项文字；
+>    - 在 `<= 980px`（如 `1080px` 窗口带左侧文件树）时进一步将页面缩放组 (`-/100%/+`)、排版紧凑度与版面宽度切换收纳至「更多」菜单顶部的快捷控制栏，视图模式切换器转为纯图标模式，彻底消除中屏工具过多导致的挤压与覆盖；
+> 2. **优化独立工作台顶栏与电子表格顶栏在 `~1080px` 下的空间分配 (`WorkbenchHeader.tsx` / `XlsxViewer.tsx`)**：
+>    - 在 `< 1280px` (`xl`) 与 `< 1536px` (`2xl`) 下自动精简工作台顶栏冗余文字标签、缩放组与次级按钮，确保左、中、右三区在 `1080px` 窗口下拥有充裕留白。
+
+---
+
+## [1.4.2] - 2026-10-29
+
+> [!TIP] v1.4.2 核心升级亮点
+> **Markdown 表格与全量驱动字号动态跟随设置修复 (`TableBlock.tsx` / `index.css` / 多格式驱动引擎)**：
+> 1. **修复 Markdown 表格字号未随设置调整的缺陷 (`TableBlock.tsx` / `TableLightboxModal.tsx` / `index.css`)**：
+>    - 移除 `TableBlock.tsx` 与 `TableLightboxModal.tsx` 中 `<table>` 及单元格内联编辑框硬编码的 `text-xs` (`12px`) / `text-sm` 类名，并将 `.markdown-content table` 与 `.ov-table-block table` 统一改为基于 `var(--ov-table-font-size, 0.93em)` 的比例字号，使表格表头、数据行、行号与双击编辑输入框实时跟随字号设置缩放；
+> 2. **打通 `12px–22px` 全档位 `--ov-font-size` 语义变量链路 (`App.tsx` / `EditorWorkspace.tsx` / `PluginDocumentView.tsx` / `ViewerRenderer.tsx` / `driverRegistry.tsx`)**：
+>    - 补齐 `index.css` 中 `[data-font-size="12"]` 至 `[data-font-size="22"]` 全量档位与 `--ov-font-size` 映射，修复紧凑/标准/舒适密度模式覆盖自定义字号的问题，并将 `fontSize` 从独立工作台与插件外壳全链路透传至所有预览、分屏、源码与非 Markdown 驱动容器；
+> 3. **全面排查并修复 Markdown 子块与其他渲染驱动的固定字号问题**：
+>    - 将 Markdown 标题 (`h1–h6`)、代码块 (`CodeBlock.tsx`)、GitHub Alert (`[!NOTE]` 等)、卡片网格 (`[!CARDS]`)、标签页 (`[!TABS]`)、步骤条 (`[!STEPS]`)、对比卡 (`[!COMPARE]`)、FAQ、题注图框 (`[!FIGURE]`)、脚注与 Wiki 嵌入的固定 `px`/`rem` 字号全面升级为相对 `em` 比例单位；
+>    - 同步修复 `CodeViewer`、`CsvViewer`、`StructuredDataViewer` / `JsonTreeView`、`NotebookViewer` 及 `UniverSheetViewer` 电子表格网格的硬编码字号，使其全面响应全局字号设置。
+
+---
+
+## [1.4.1] - 2026-10-29
 
 > [!TIP] v1.4.1 核心升级亮点
 > **Markdown 段落悬浮动作胶囊二段式极简渐进披露优化 (`MarkdownBlockActionBar.tsx`)**：

@@ -406,9 +406,10 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
   const renderTableContent = () => (
     <div className="w-full overflow-x-auto relative">
       <table
-        className={`w-full border-collapse text-xs select-text ${
+        className={`w-full border-collapse select-text ${
           hasCustomWidths ? 'table-fixed' : ''
         }`}
+        style={{ fontSize: 'var(--ov-table-font-size, 0.93em)' }}
       >
         {/* 列宽定义 */}
         <colgroup>
@@ -434,11 +435,12 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
             {/* 可选行号列 */}
             {showRowNumbers && (
               <th
-                className="w-11 px-2 py-2 text-center font-mono text-[11px] border-r select-none"
+                className="w-11 px-2 py-2 text-center font-mono border-r select-none"
                 style={{
                   color: 'var(--ov-text-muted)',
                   borderColor: 'var(--ov-border)',
                   width: '44px',
+                  fontSize: '0.88em',
                 }}
               >
                 #
@@ -603,10 +605,11 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                   {/* 行号 */}
                   {showRowNumbers && (
                     <td
-                      className="px-2 py-2 text-center font-mono text-[11px] border-r select-none"
+                      className="px-2 py-2 text-center font-mono border-r select-none"
                       style={{
                         color: 'var(--ov-text-muted)',
                         borderColor: 'var(--ov-border)',
+                        fontSize: '0.88em',
                       }}
                     >
                       {rowIdx + 1}
@@ -689,7 +692,8 @@ export const TableBlock: React.FC<TableBlockProps> = React.memo(({
                                 editValue
                               )
                             }
-                            className="w-full px-1.5 py-0.5 rounded text-xs border border-cyan-500 bg-[var(--ov-surface)] text-[var(--ov-text)] shadow-sm focus:outline-none"
+                            className="w-full px-1.5 py-0.5 rounded border border-cyan-500 bg-[var(--ov-surface)] text-[var(--ov-text)] shadow-sm focus:outline-none"
+                            style={{ fontSize: 'inherit' }}
                           />
                         ) : (
                           <div dangerouslySetInnerHTML={{ __html: formattedHtml }} />

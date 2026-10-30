@@ -315,7 +315,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
                 </span>
               )}
               <span
-                className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border"
+                className="hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border"
                 style={{
                   backgroundColor: 'var(--ov-surface)',
                   borderColor: 'var(--ov-border)',
@@ -427,7 +427,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
             ) : (
               <Copy className="w-3.5 h-3.5" />
             )}
-            <span className="hidden sm:inline">{copiedSheet ? '已复制' : '复制表'}</span>
+            <span className="hidden xl:inline">{copiedSheet ? '已复制' : '复制表'}</span>
           </button>
 
           {/* 导出下拉菜单 */}
@@ -443,7 +443,7 @@ export const XlsxViewer: React.FC<XlsxViewerProps> = ({
               title="导出当前工作表（包含已编辑内容）"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">导出</span>
+              <span className="hidden xl:inline">导出</span>
             </button>
 
             {showExportMenu && (

@@ -26,6 +26,7 @@ export interface ViewerRendererProps {
   theme?: ThemeId;
   density?: 'compact' | 'standard' | 'comfortable';
   contentWidth?: ContentWidthMode;
+  fontSize?: number;
   zoom?: number;
   locale?: Locale;
   onContentChange: (content: string) => void;
@@ -47,6 +48,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
   theme = 'dark',
   density = 'compact',
   contentWidth = 'standard',
+  fontSize = 15,
   zoom = 1.0,
   locale = 'zh-CN',
   onContentChange,
@@ -68,27 +70,31 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
 
   const renderDriverContent = () => {
     if (plugin.renderMode) {
-      return plugin.renderMode({
-        file,
-        files,
-        mode,
-        isDarkTheme,
-        theme,
-        density,
-        contentWidth,
-        zoom,
-        locale,
-        onContentChange,
-        onRenderComplete,
-        onOpenSourceAtLine,
-        onOpenInEditor,
-        onOpenSettings,
-        onOpenShortcuts,
-        onSelectFile,
-        enableOkf,
-        onToggleOkf,
-        eagerMount,
-      });
+      const PluginModeComponent = plugin.renderMode as React.FC<any>;
+      return (
+        <PluginModeComponent
+          file={file}
+          files={files}
+          mode={mode}
+          isDarkTheme={isDarkTheme}
+          theme={theme}
+          density={density}
+          contentWidth={contentWidth}
+          fontSize={fontSize}
+          zoom={zoom}
+          locale={locale}
+          onContentChange={onContentChange}
+          onRenderComplete={onRenderComplete}
+          onOpenSourceAtLine={onOpenSourceAtLine}
+          onOpenInEditor={onOpenInEditor}
+          onOpenSettings={onOpenSettings}
+          onOpenShortcuts={onOpenShortcuts}
+          onSelectFile={onSelectFile}
+          enableOkf={enableOkf}
+          onToggleOkf={onToggleOkf}
+          eagerMount={eagerMount}
+        />
+      );
     }
 
     // 动态分发非 Markdown 驱动插件组件
@@ -108,6 +114,7 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
       isDarkTheme,
       theme,
       density,
+      fontSize,
       locale,
       onContentChange,
       onOpenSourceAtLine,
@@ -118,8 +125,18 @@ export const ViewerRenderer: React.FC<ViewerRendererProps> = ({
       files,
     };
 
+    const containerStyle: React.CSSProperties = {
+      ...(zoomStyle || {}),
+      '--ov-font-size': `${fontSize}px`,
+    } as React.CSSProperties;
+
     return (
-      <div className="h-full w-full flex-1 min-h-0 flex flex-col overflow-hidden" data-theme={theme} style={zoomStyle}>
+      <div
+        className="h-full w-full flex-1 min-h-0 flex flex-col overflow-hidden"
+        data-theme={theme}
+        data-font-size={fontSize}
+        style={containerStyle}
+      >
         <TargetDriverComponent key={file.path || file.name || file.id} {...universalDriverProps} />
       </div>
     );

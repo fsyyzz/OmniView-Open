@@ -248,12 +248,12 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
     <header
       ref={headerRef}
       id="workbench-header"
-      className="h-12 bg-slate-900/95 backdrop-blur border-b border-slate-800 flex items-center justify-between px-3 text-xs select-none shrink-0 z-30"
+      className="h-12 bg-slate-900/95 backdrop-blur border-b border-slate-800 flex items-center justify-between gap-2 px-3 text-xs select-none shrink-0 z-30 min-w-0"
       onMouseOver={handleHeaderMouseOver}
       onMouseLeave={handleHeaderMouseLeave}
     >
       {/* Left: Branding & View Switcher */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 xl:gap-3 min-w-0 shrink-0">
         <div
           className="flex items-center gap-2 font-bold text-slate-100 shrink-0"
           title="OmniView 多格式渲染与架构检视工作台"
@@ -283,13 +283,13 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               backgroundColor: currentView === 'editor' ? 'var(--ov-accent)' : 'transparent',
               color: currentView === 'editor' ? '#ffffff' : 'var(--ov-text-secondary)',
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
+            className="flex items-center gap-1.5 px-2 xl:px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
             title="渲染工作台：多格式文档与交互式图表预览"
             data-ov-tooltip="渲染工作台：多格式文档与交互式图表预览"
             aria-label="渲染工作台"
           >
-            <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">渲染工作台</span>
+            <Eye className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden xl:inline">渲染工作台</span>
           </button>
           {showScaffoldView && (
           <button
@@ -299,20 +299,20 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               backgroundColor: currentView === 'scaffold' ? 'var(--ov-accent)' : 'transparent',
               color: currentView === 'scaffold' ? '#ffffff' : 'var(--ov-text-secondary)',
             }}
-            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
+            className="hidden lg:flex items-center gap-1.5 px-2 xl:px-2.5 py-1 rounded text-xs transition font-medium hover:opacity-90"
             title="VS Code 插件生产源码脚手架"
             data-ov-tooltip="VS Code 插件生产源码脚手架"
             aria-label="扩展脚手架"
           >
-            <Terminal className="w-3.5 h-3.5" />
-            <span>扩展脚手架</span>
+            <Terminal className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden 2xl:inline">扩展脚手架</span>
           </button>
           )}
         </nav>
       </div>
 
       {/* Center: View Modes (when in editor view) & Zoom Controls */}
-      <div className="hidden md:flex items-center gap-2 shrink-0">
+      <div className="hidden lg:flex items-center gap-2 shrink-0">
         {currentView === 'editor' && (!activeFile || ['md', 'markdown', 'okf'].includes(activeFile.extension.toLowerCase())) && (
           <div
             style={{
@@ -330,13 +330,13 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                 backgroundColor: viewMode === 'preview' ? 'var(--ov-accent)' : 'transparent',
                 color: viewMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
               }}
-              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 2xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
               title="预览模式：查看富文本与即时渲染图表"
               data-ov-tooltip="预览模式：查看富文本与即时渲染图表"
               aria-label="预览模式"
             >
               <Eye className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden xl:inline">预览</span>
+              <span className="hidden 2xl:inline">预览</span>
             </button>
             <button
               type="button"
@@ -345,13 +345,13 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                 backgroundColor: viewMode === 'split' ? 'var(--ov-accent)' : 'transparent',
                 color: viewMode === 'split' ? '#ffffff' : 'var(--ov-text-secondary)',
               }}
-              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 2xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
               title="分屏模式：左侧源码编辑，右侧同步渲染"
               data-ov-tooltip="分屏模式：左侧源码编辑，右侧同步渲染"
               aria-label="分屏模式"
             >
               <Split className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden xl:inline">分屏</span>
+              <span className="hidden 2xl:inline">分屏</span>
             </button>
             <button
               type="button"
@@ -360,13 +360,13 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                 backgroundColor: viewMode === 'source' ? 'var(--ov-accent)' : 'transparent',
                 color: viewMode === 'source' ? '#ffffff' : 'var(--ov-text-secondary)',
               }}
-              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 2xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
               title="源码模式：查看与编辑原始文件"
               data-ov-tooltip="源码模式：查看与编辑原始文件"
               aria-label="源码模式"
             >
               <Code className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden xl:inline">源码</span>
+              <span className="hidden 2xl:inline">源码</span>
             </button>
             <button
               type="button"
@@ -375,25 +375,25 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                 backgroundColor: viewMode === 'mindmap' ? 'var(--ov-accent)' : 'transparent',
                 color: viewMode === 'mindmap' ? '#ffffff' : 'var(--ov-text-secondary)',
               }}
-              className="flex items-center gap-1 px-2 py-1 xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 2xl:px-2.5 rounded text-xs transition font-medium select-none hover:opacity-90 cursor-pointer"
               title="思维导图模式：整篇文档大纲全景树图与动态交互 (Markmap)"
               data-ov-tooltip="思维导图模式：整篇文档大纲全景树图与动态交互 (Markmap)"
               aria-label="思维导图模式"
             >
               <Network className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden xl:inline">思维导图</span>
+              <span className="hidden 2xl:inline">思维导图</span>
             </button>
           </div>
         )}
 
-        {/* Zoom Control Group */}
+        {/* Zoom Control Group (超宽屏 >=1536px 显示，中屏由下方专属文档工具栏与状态栏承载，避免 ~1080px 顶栏拥挤) */}
         <div
           style={{
             backgroundColor: 'var(--ov-bg-elevated)',
             borderColor: 'var(--ov-border)',
             color: 'var(--ov-text-secondary)',
           }}
-          className="hidden lg:flex items-center rounded-lg border px-1 py-0.5"
+          className="hidden 2xl:flex items-center rounded-lg border px-1 py-0.5"
           role="group"
           aria-label="视口缩放控制"
         >
@@ -442,7 +442,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
       </div>
 
       {/* Right: Grouped Appearance, Document Actions, File IO & Preferences */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1 xl:gap-1.5 shrink-0">
         {/* Group 1: 外观与排版 (主题 + 紧凑度) */}
         <div
           style={{
@@ -533,8 +533,8 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             )}
           </div>
 
-          {/* Density Selector Dropdown */}
-          <div className="relative" ref={densityDropdownRef}>
+          {/* Density Selector Dropdown (<1280px 隐藏，避免 ~1080px 顶栏挤压) */}
+          <div className="relative hidden xl:block" ref={densityDropdownRef}>
             <button
               type="button"
               onClick={() => {
@@ -644,11 +644,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             <Download className="w-3.5 h-3.5" />
           </button>
 
-          {/* Print / Export PDF */}
+          {/* Print / Export PDF (<1280px 隐藏，避免 ~1080px 顶栏挤压) */}
           <button
             type="button"
             onClick={handlePrint}
-            className="p-1 sm:p-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
+            className="hidden xl:flex p-1 sm:p-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
             title="打印或另存为 PDF"
             data-ov-tooltip="打印或另存为 PDF"
             aria-label="打印或导出 PDF"
@@ -660,7 +660,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           <button
             type="button"
             onClick={handleToggleFullscreen}
-            className="p-1 sm:p-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
+            className="hidden xl:flex p-1 sm:p-1.5 rounded transition hover:bg-[var(--ov-surface-hover)]"
             title={isFullscreen ? '退出全屏模式 (Esc)' : '全屏沉浸式预览'}
             data-ov-tooltip={isFullscreen ? '退出全屏模式 (Esc)' : '全屏沉浸式预览'}
             aria-label="全屏预览"
@@ -692,7 +692,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
           aria-label="打开本地文件"
         >
           <Upload className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <span className="hidden xl:inline">导入</span>
+          <span className="hidden 2xl:inline">导入</span>
         </button>
 
         {/* 目录级批量导入（仅独立 Web 应用模式） */}
@@ -722,7 +722,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               aria-label="导入目录"
             >
               <FolderOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="hidden xl:inline">导入目录</span>
+              <span className="hidden 2xl:inline">导入目录</span>
             </button>
           </>
         )}
@@ -738,7 +738,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             aria-label="新建文件"
           >
             <Plus className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden xl:inline">新建</span>
+            <span className="hidden 2xl:inline">新建</span>
           </button>
           <button
             type="button"

@@ -328,4 +328,212 @@ console.log('🧪 Running Markdown Local Editing Regression Tests...');
   assert.match(viewerCode, /onUpdateTableMarkdown=/);
 }
 
-console.log('✅ All Markdown local editing regression tests passed!');
+// 6. 验证 Markdown 表格、代码块、富容器与全驱动字号随设置 (--ov-font-size / data-font-size) 动态缩放
+{
+  const cssCode = fs.readFileSync(path.join(rootDir, 'src/index.css'), 'utf8');
+  for (let size = 12; size <= 22; size++) {
+    assert.ok(
+      cssCode.includes(`[data-font-size="${size}"] { --ov-font-size: ${size}px; }`),
+      `index.css should map [data-font-size="${size}"] to --ov-font-size: ${size}px`
+    );
+  }
+  assert.match(
+    cssCode,
+    /\.markdown-content table[\s\S]*?font-size:\s*var\(--ov-table-font-size,\s*0\.93em\)/,
+    '.markdown-content table must scale relatively with --ov-table-font-size / em instead of fixed px'
+  );
+  assert.match(
+    cssCode,
+    /\.ov-table-block table[\s\S]*?font-size:\s*var\(--ov-table-font-size,\s*0\.93em\)/,
+    '.ov-table-block table must scale relatively with --ov-table-font-size / em'
+  );
+
+  const tableBlockCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/markdown/TableBlock.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    tableBlockCode.includes("fontSize: 'var(--ov-table-font-size, 0.93em)'"),
+    'TableBlock <table> should bind fontSize to var(--ov-table-font-size, 0.93em)'
+  );
+  assert.ok(
+    !tableBlockCode.includes('border-collapse text-xs select-text'),
+    'TableBlock <table> must not hardcode text-xs class'
+  );
+
+  const lightboxTableCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/markdown/TableLightboxModal.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    lightboxTableCode.includes("fontSize: 'var(--ov-font-size, 15px)'"),
+    'TableLightboxModal <table> should bind fontSize to var(--ov-font-size, 15px)'
+  );
+
+  const codeBlockCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/markdown/CodeBlock.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    codeBlockCode.includes("fontSize: '0.88em'"),
+    'CodeBlock should use relative 0.88em font size instead of fixed text-xs'
+  );
+
+  const codeViewerCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/CodeViewer.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    codeViewerCode.includes("calc(var(--ov-font-size, 15px) * 0.88)"),
+    'CodeViewer should dynamically scale with --ov-font-size'
+  );
+
+  const csvViewerCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/CsvViewer.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    csvViewerCode.includes("calc(var(--ov-font-size, 15px) * 0.88)"),
+    'CsvViewer should dynamically scale with --ov-font-size'
+  );
+
+  const jsonTreeCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/data/JsonTreeView.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    jsonTreeCode.includes("calc(var(--ov-font-size, 15px) * 0.88)"),
+    'JsonTreeView should dynamically scale with --ov-font-size'
+  );
+
+  const notebookViewerCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/NotebookViewer.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    notebookViewerCode.includes("var(--ov-font-size, 15px)"),
+    'NotebookViewer should dynamically scale with --ov-font-size'
+  );
+
+  const univerSheetCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/xlsx/UniverSheetViewer.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    univerSheetCode.includes('calc(var(--ov-font-size, 15px) *'),
+    'UniverSheetViewer grid viewport should scale with --ov-font-size and zoom'
+  );
+}
+
+// 7. 验证顶部工具栏在 ~1080px 中等视口及带侧边栏容器下的多阶梯自适应收纳防覆盖契约
+{
+  const cssCode = fs.readFileSync(path.join(rootDir, 'src/index.css'), 'utf8');
+  assert.ok(
+    cssCode.includes('@container md-toolbar (max-width: 1239px)') &&
+      cssCode.includes('.markdown-tool-collapse-xl'),
+    'index.css must define @container md-toolbar (max-width: 1239px) collapsing .markdown-tool-collapse-xl'
+  );
+  assert.ok(
+    cssCode.includes('@container md-toolbar (max-width: 980px)') &&
+      cssCode.includes('.markdown-tool-collapse-lg') &&
+      cssCode.includes('.markdown-group-collapse-lg'),
+    'index.css must define @container md-toolbar (max-width: 980px) collapsing zoom, density, and width controls'
+  );
+  assert.ok(
+    cssCode.includes('@container md-toolbar (max-width: 660px)') &&
+      cssCode.includes('.markdown-tool-collapse-md'),
+    'index.css must define @container md-toolbar (max-width: 660px) collapsing secondary controls on narrow viewports'
+  );
+
+  const mdToolbarCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/markdown/MarkdownToolbar.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    mdToolbarCode.includes('ResizeObserver') && mdToolbarCode.includes('data-toolbar-tier='),
+    'MarkdownToolbar must observe container width via ResizeObserver and expose data-toolbar-tier'
+  );
+  assert.ok(
+    mdToolbarCode.includes('markdown-tool-collapse-xl') &&
+      mdToolbarCode.includes('markdown-group-collapse-lg') &&
+      mdToolbarCode.includes('toolbarWidth <= 980') &&
+      mdToolbarCode.includes('toolbarWidth < 1240'),
+    'MarkdownToolbar must progressively collapse low-frequency controls into the More menu around 1080px'
+  );
+
+  const workbenchHeaderCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/workbench/components/WorkbenchHeader.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    workbenchHeaderCode.includes('hidden 2xl:flex') &&
+      workbenchHeaderCode.includes('hidden xl:block'),
+    'WorkbenchHeader must hide duplicate zoom and density groups below xl/2xl so 1080px viewports never overlap'
+  );
+}
+
+// 8. 验证 Vite 依赖预构建完整性与 ViewerRenderer / CodeViewer React Hook 调用边界合规性
+{
+  const viteConfigCode = fs.readFileSync(path.join(rootDir, 'vite.config.ts'), 'utf8');
+  assert.ok(
+    viteConfigCode.includes("'@hpcc-js/wasm-graphviz'") &&
+      viteConfigCode.includes("'@myriaddreamin/typst.ts'") &&
+      viteConfigCode.includes("'prismjs/components/prism-typescript'"),
+    'vite.config.ts must pre-bundle @hpcc-js/wasm-graphviz, @myriaddreamin/typst.ts, and prismjs language components to prevent mid-session Vite dep re-optimization hash mismatches'
+  );
+
+  const viewerRendererCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/ViewerRenderer.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    viewerRendererCode.includes('<PluginModeComponent'),
+    'ViewerRenderer must mount plugin.renderMode as a React component (<PluginModeComponent />) so hooks inside renderMarkdownMode have an isolated Fiber'
+  );
+
+  const codeViewerCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/CodeViewer.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    codeViewerCode.includes('const PlainCodeViewer: React.FC<CodeViewerProps>') &&
+      codeViewerCode.includes('return <PlainCodeViewer {...props} />;'),
+    'CodeViewer must delegate stateful hooks to PlainCodeViewer after STRUCTURED_EXTENSIONS branching'
+  );
+
+  const swCode = fs.readFileSync(path.join(rootDir, 'public/sw.js'), 'utf8');
+  assert.ok(
+    swCode.includes("const CACHE_NAME = 'omniview-v2'") &&
+      swCode.includes('isViteDevOrModuleRequest') &&
+      swCode.includes("p.startsWith('/src/')") &&
+      swCode.includes("p.startsWith('/node_modules/')"),
+    'public/sw.js must bypass Vite /src/* and /node_modules/* requests and purge legacy omniview-v1 cache'
+  );
+
+  const errorBoundaryCode = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/common/RenderErrorBoundary.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    errorBoundaryCode.includes('purgeBrowserCachesAndReload'),
+    'RenderErrorBoundary must purge CacheStorage and Service Worker registrations before reloading on stale dispatcher errors'
+  );
+
+  assert.ok(
+    viteConfigCode.includes('performance.getEntriesByType("resource")') &&
+      viteConfigCode.includes('react-dom_client'),
+    'vite.config.ts dev middleware must bridge React imports to the mounted react-dom_client ?v= hash to prevent duplicate React instances in open tabs'
+  );
+
+  const mainCode = fs.readFileSync(path.join(rootDir, 'src/main.tsx'), 'utf8');
+  assert.ok(
+    mainCode.includes('bootstrapOmniView') && mainCode.includes('window.caches.keys()'),
+    'src/main.tsx must purge legacy CacheStorage before mounting React root in dev mode'
+  );
+}
+
+console.log('✅ All Markdown local editing, dynamic font-size & responsive toolbar regression tests passed!');
+
+
+
+

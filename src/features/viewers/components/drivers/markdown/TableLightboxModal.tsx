@@ -618,9 +618,10 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
         ) : (
           <div className="w-full overflow-x-auto relative rounded-xl border border-slate-800 shadow-2xl bg-slate-900/60">
             <table
-              className={`w-full border-collapse text-xs select-text ${
+              className={`w-full border-collapse select-text ${
                 hasCustomWidths ? 'table-fixed' : ''
               }`}
+              style={{ fontSize: 'var(--ov-font-size, 15px)' }}
             >
               {/* 列宽定义 */}
               <colgroup>
@@ -703,7 +704,7 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
                           }`}
                         >
                           <span
-                            className={colWidth ? 'truncate text-sm' : 'text-sm'}
+                            className={colWidth ? 'truncate' : ''}
                             dangerouslySetInnerHTML={{
                               __html: formatRichCellContent(h.text, searchQuery),
                             }}
@@ -898,7 +899,8 @@ export const TableLightboxModal: React.FC<TableLightboxModalProps> = ({
                                       editValue
                                     )
                                   }
-                                  className="w-full px-2 py-0.5 rounded text-xs border border-cyan-500 bg-slate-900 text-slate-100 shadow-sm focus:outline-none"
+                                  className="w-full px-2 py-0.5 rounded border border-cyan-500 bg-slate-900 text-slate-100 shadow-sm focus:outline-none"
+                                  style={{ fontSize: 'inherit' }}
                                 />
                               ) : (
                                 <div dangerouslySetInnerHTML={{ __html: formattedHtml }} />
