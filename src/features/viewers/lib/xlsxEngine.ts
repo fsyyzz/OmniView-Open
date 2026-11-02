@@ -25,6 +25,7 @@ export interface XlsxWorksheet {
   cells: Record<string, XlsxCell>;
   dimension?: string;
   mergedRanges?: string[];
+  colWidths?: Record<number, number>;
 }
 
 export interface XlsxMetadata {
@@ -167,6 +168,29 @@ export function parseWorksheetXml(
     mergedRanges.push(mergeMatch[1]);
   }
 
+  // 2.1 提取列宽定义（例如 <col min="1" max="1" width="15.5" customWidth="1"/>）
+  const parsedColWidths: Record<number, number> = {};
+  const colTagRegex = /<col\b([^>]*)\/?>/gi;
+  let colTagMatch: RegExpExecArray | null;
+  while ((colTagMatch = colTagRegex.exec(sheetXml)) !== null) {
+    const attrs = colTagMatch[1];
+    const minMatch = attrs.match(/\bmin="(\d+)"/i);
+    const maxMatch = attrs.match(/\bmax="(\d+)"/i);
+    const widthMatch = attrs.match(/\bwidth="([\d.]+)"/i);
+    if (minMatch && maxMatch && widthMatch) {
+      const min = parseInt(minMatch[1], 10) - 1;
+      const max = parseInt(maxMatch[1], 10) - 1;
+      const wVal = parseFloat(widthMatch[1]);
+      if (!isNaN(wVal) && wVal > 0) {
+        // Excel 字符宽度转换为像素 (标准字符宽度基准: 1 字符 ≈ 8px, 限制 48px ~ 800px)
+        const px = Math.round(Math.max(48, Math.min(800, wVal * 8 + 5)));
+        for (let c = min; c <= max; c++) {
+          parsedColWidths[c] = px;
+        }
+      }
+    }
+  }
+
   // 3. 提取每行与每个单元格
   const rowRegex = /<row\b([^>]*)>([\s\S]*?)<\/row>/gi;
   let rowMatch: RegExpExecArray | null;
@@ -296,6 +320,7 @@ export function parseWorksheetXml(
     cells,
     dimension,
     mergedRanges,
+    colWidths: Object.keys(parsedColWidths).length > 0 ? parsedColWidths : undefined,
   };
 }
 

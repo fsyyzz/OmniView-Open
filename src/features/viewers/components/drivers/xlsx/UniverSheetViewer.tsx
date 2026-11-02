@@ -13,6 +13,7 @@ import type { ColumnProfile } from '../csv/csvProfiling';
 import {
   convertOmniWorkbookToUniver,
   applyWorkbookCellEdit,
+  applyWorkbookColumnWidth,
   getColumnDistinctValues,
   filterAndSortWorksheetRows,
   calculateFrozenColumnLeftOffset,
@@ -55,7 +56,7 @@ export interface UniverSheetViewerProps {
 }
 
 const ROW_HEADER_WIDTH = 48;
-const COL_WIDTH = 128;
+const DEFAULT_COL_WIDTH = 128;
 
 export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
   workbook,
@@ -150,6 +151,124 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
 
   const rowCount = Math.max(currentSheet.rowCount || 0, currentSheet.rows?.length || 0, 30) + extraRows;
   const colCount = Math.max(currentSheet.colCount || 0, currentSheet.headers?.length || 0, 14) + extraCols;
+
+  // 维护多工作表的自定义列宽状态
+  const [sheetColWidths, setSheetColWidths] = useState<Record<number, Record<number, number>>>({});
+
+  const getColWidth = useCallback(
+    (cIdx: number): number => {
+      const fromState = sheetColWidths[activeSheetIndex]?.[cIdx];
+      if (fromState !== undefined) return fromState;
+      if (currentSheet.colWidths?.[cIdx] !== undefined) {
+        return currentSheet.colWidths[cIdx];
+      }
+      return DEFAULT_COL_WIDTH;
+    },
+    [sheetColWidths, activeSheetIndex, currentSheet.colWidths]
+  );
+
+  const resizingRef = useRef<{
+    colIdx: number;
+    startX: number;
+    startWidth: number;
+    sheetIdx: number;
+  } | null>(null);
+
+  // 组件卸载时恢复全局指针与选区状态
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
+  // 列宽自由拖拽调整
+  const handleResizeStart = useCallback(
+    (colIdx: number, e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const currentW = getColWidth(colIdx);
+      resizingRef.current = {
+        colIdx,
+        startX: e.clientX,
+        startWidth: currentW,
+        sheetIdx: activeSheetIndex,
+      };
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!resizingRef.current) return;
+        const delta = ev.clientX - resizingRef.current.startX;
+        const newWidth = Math.max(48, Math.min(800, Math.round(resizingRef.current.startWidth + delta)));
+        const targetSheet = resizingRef.current.sheetIdx;
+        const targetCol = resizingRef.current.colIdx;
+
+        setSheetColWidths(prev => ({
+          ...prev,
+          [targetSheet]: {
+            ...(prev[targetSheet] || {}),
+            [targetCol]: newWidth,
+          },
+        }));
+      };
+
+      const handleMouseUp = () => {
+        const session = resizingRef.current;
+        resizingRef.current = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+
+        if (session) {
+          setSheetColWidths(latest => {
+            const finalW = latest[session.sheetIdx]?.[session.colIdx];
+            if (finalW !== undefined && finalW !== session.startWidth) {
+              const updatedWorkbook = applyWorkbookColumnWidth(
+                internalWorkbookRef.current,
+                session.sheetIdx,
+                session.colIdx,
+                finalW
+              );
+              internalWorkbookRef.current = updatedWorkbook;
+              setInternalWorkbook(updatedWorkbook);
+              onWorkbookChange?.(updatedWorkbook);
+            }
+            return latest;
+          });
+        }
+      };
+
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    },
+    [getColWidth, activeSheetIndex, onWorkbookChange]
+  );
+
+  // 双击列宽拖拽手柄恢复默认宽度
+  const handleResetColWidth = useCallback(
+    (colIdx: number) => {
+      setSheetColWidths(prev => {
+        const nextSheetMap = { ...(prev[activeSheetIndex] || {}) };
+        delete nextSheetMap[colIdx];
+        return {
+          ...prev,
+          [activeSheetIndex]: nextSheetMap,
+        };
+      });
+      const updatedWorkbook = applyWorkbookColumnWidth(
+        internalWorkbookRef.current,
+        activeSheetIndex,
+        colIdx,
+        null
+      );
+      internalWorkbookRef.current = updatedWorkbook;
+      setInternalWorkbook(updatedWorkbook);
+      onWorkbookChange?.(updatedWorkbook);
+    },
+    [activeSheetIndex, onWorkbookChange]
+  );
 
   // 获取指定单元格的值与公式
   const getCellValue = useCallback(
@@ -710,6 +829,23 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
         style={{ fontSize: `calc(var(--ov-font-size, 15px) * ${Number((zoom * 0.85).toFixed(3))})` }}
       >
         <table className="border-collapse table-fixed w-max min-w-full">
+          <colgroup>
+            <col
+              style={{
+                width: `${ROW_HEADER_WIDTH}px`,
+                minWidth: `${ROW_HEADER_WIDTH}px`,
+              }}
+            />
+            {Array.from({ length: colCount }).map((_, cIdx) => (
+              <col
+                key={cIdx}
+                style={{
+                  width: `${getColWidth(cIdx)}px`,
+                  minWidth: `${getColWidth(cIdx)}px`,
+                }}
+              />
+            ))}
+          </colgroup>
           <thead>
             <tr className="sticky top-0 z-20 bg-[var(--ov-surface-header)] border-b border-[var(--ov-border)] shadow-xs">
               {/* 左上角固定行号表头 */}
@@ -731,11 +867,12 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
                 const isSorted = sortCol === cIdx;
                 const isFiltered = isColumnFiltered(cIdx);
                 const isFilterOpen = openFilterCol === cIdx;
+                const colW = getColWidth(cIdx);
                 const frozenLeft = calculateFrozenColumnLeftOffset(
                   cIdx,
                   frozenColCount,
                   ROW_HEADER_WIDTH,
-                  COL_WIDTH
+                  getColWidth
                 );
                 const isFrozen = frozenLeft !== null;
                 const isLastFrozen = cIdx === frozenColCount - 1;
@@ -745,9 +882,9 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
                   <th
                     key={cIdx}
                     style={{
-                      width: `${COL_WIDTH}px`,
-                      minWidth: `${COL_WIDTH}px`,
-                      maxWidth: `${COL_WIDTH}px`,
+                      width: `${colW}px`,
+                      minWidth: `${colW}px`,
+                      maxWidth: `${colW}px`,
                       position: 'sticky',
                       top: 0,
                       left: isFrozen ? `${frozenLeft}px` : undefined,
@@ -765,7 +902,7 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
                         : 'text-[var(--ov-text-secondary)] hover:bg-[var(--ov-surface-hover)]'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-1 w-full">
+                    <div className="flex items-center justify-between gap-1 w-full pr-1.5">
                       <span
                         className="flex-1 text-left cursor-pointer select-none truncate"
                         onClick={() => onSortColumn?.(cIdx)}
@@ -870,6 +1007,26 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
                           </button>
                         )}
                       </div>
+                    </div>
+
+                    {/* 列宽自由拖拽 handle */}
+                    <div
+                      data-clipboard-ignore="true"
+                      className="ov-col-resizer ov-clipboard-ignore absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-30 flex items-center justify-center transition-opacity opacity-0 group-hover:opacity-100 hover:opacity-100"
+                      onMouseDown={e => handleResizeStart(cIdx, e)}
+                      onDoubleClick={e => {
+                        e.stopPropagation();
+                        handleResetColWidth(cIdx);
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      title="拖拽调整列宽，双击恢复默认"
+                    >
+                      <div
+                        className="w-[1.5px] h-3.5 rounded-full"
+                        style={{
+                          backgroundColor: 'var(--ov-border-strong, rgba(148, 163, 184, 0.6))',
+                        }}
+                      />
                     </div>
 
                     {/* 列头过滤浮层菜单 (Column Filter Popover) */}
@@ -1065,11 +1222,12 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
                       (value.toLowerCase().includes(normalizedQuery) ||
                         (formula ? formula.toLowerCase().includes(normalizedQuery) : false));
 
+                    const colW = getColWidth(cIdx);
                     const frozenLeft = calculateFrozenColumnLeftOffset(
                       cIdx,
                       frozenColCount,
                       ROW_HEADER_WIDTH,
-                      COL_WIDTH
+                      getColWidth
                     );
                     const isFrozen = frozenLeft !== null;
                     const isLastFrozen = cIdx === frozenColCount - 1;
@@ -1095,9 +1253,9 @@ export const UniverSheetViewer: React.FC<UniverSheetViewerProps> = ({
                           startCellEditing(rIdx, cIdx, undefined, 'cell');
                         }}
                         style={{
-                          width: `${COL_WIDTH}px`,
-                          minWidth: `${COL_WIDTH}px`,
-                          maxWidth: `${COL_WIDTH}px`,
+                          width: `${colW}px`,
+                          minWidth: `${colW}px`,
+                          maxWidth: `${colW}px`,
                           position: isFrozen ? 'sticky' : 'relative',
                           left: isFrozen ? `${frozenLeft}px` : undefined,
                           zIndex: isCellEditing ? 30 : isFrozen ? 15 : undefined,

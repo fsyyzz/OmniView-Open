@@ -192,6 +192,7 @@ import {
   evaluateUniverFormula,
   updateWorksheetCell,
   applyWorkbookCellEdit,
+  applyWorkbookColumnWidth,
   getColumnDistinctValues,
   filterAndSortWorksheetRows,
   calculateFrozenColumnLeftOffset,
@@ -302,7 +303,68 @@ async function testColumnHeaderFilteringAndFreezing() {
   assert.equal(calculateFrozenColumnLeftOffset(0, 2, 48, 128), 48, '第 0 列冻结偏移应为 48px');
   assert.equal(calculateFrozenColumnLeftOffset(1, 2, 48, 128), 176, '第 1 列冻结偏移应为 48+128=176px');
   assert.equal(calculateFrozenColumnLeftOffset(2, 2, 48, 128), null, '超出冻结列数的列应返回 null');
+  // 验证动态列宽函数与字典下的冻结偏移量计算
+  assert.equal(
+    calculateFrozenColumnLeftOffset(1, 2, 48, idx => (idx === 0 ? 200 : 128)),
+    248,
+    '动态列宽函数下第 1 列冻结偏移应为 48 + 200 = 248px'
+  );
+  assert.equal(
+    calculateFrozenColumnLeftOffset(1, 2, 48, { 0: 160 }),
+    208,
+    '字典列宽下第 1 列冻结偏移应为 48 + 160 = 208px'
+  );
   console.log('  ✓ Univer 列头过滤与列冻结逻辑测试通过');
+}
+
+async function testColumnResizingAndPersistence() {
+  console.log('  [test] Excel 列宽调整、XML 列宽解析与工作簿持久化测试...');
+  const sampleWorkbook = {
+    sheets: [
+      {
+        id: 's1',
+        name: 'Sheet1',
+        sheetId: 1,
+        rowCount: 10,
+        colCount: 5,
+        headers: ['A', 'B', 'C', 'D', 'E'],
+        rows: [['1', '2', '3', '4', '5']],
+        cells: {},
+      },
+    ],
+    metadata: { totalSheets: 1 },
+  };
+
+  // 1. 修改指定列宽
+  const updatedWb = applyWorkbookColumnWidth(sampleWorkbook, 0, 1, 220);
+  assert.equal(updatedWb.sheets[0].colWidths?.[1], 220, '第 1 列宽度应成功更新为 220px');
+  assert.equal(sampleWorkbook.sheets[0].colWidths, undefined, '原始工作簿应保持纯函数不可变性');
+
+  // 2. 恢复默认列宽 (width = null)
+  const resetWb = applyWorkbookColumnWidth(updatedWb, 0, 1, null);
+  assert.equal(resetWb.sheets[0].colWidths?.[1], undefined, '重置后指定列应被移除自定义宽度');
+
+  // 3. convertOmniWorkbookToUniver 映射 columnData
+  const univerData = convertOmniWorkbookToUniver(updatedWb, 'TestWB');
+  assert.equal(univerData.sheets['s1'].columnData?.[1]?.w, 220, 'Univer columnData 应包含列宽 220px');
+
+  // 4. 解析 XML <col min="1" max="1" width="18.5"/> 标签提取列宽
+  const sampleSheetXml = `<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <cols>
+    <col min="1" max="1" width="20" customWidth="1"/>
+    <col min="2" max="3" width="15" customWidth="1"/>
+  </cols>
+  <sheetData>
+    <row r="1"><c r="A1" t="s"><v>0</v></c></row>
+  </sheetData>
+</worksheet>`;
+  const parsedWs = parseWorksheetXml(sampleSheetXml, { id: 's1', name: 'Sheet1', sheetId: 1 }, ['Header']);
+  assert.ok(parsedWs.colWidths, '解析的 worksheet 应当包含 colWidths');
+  assert.ok(parsedWs.colWidths[0] > 0, '第 0 列 (A 列) 应当解析出正数像素宽度');
+  assert.ok(parsedWs.colWidths[1] > 0, '第 1 列 (B 列) 应当解析出正数像素宽度');
+  assert.ok(parsedWs.colWidths[2] > 0, '第 2 列 (C 列) 应当解析出正数像素宽度');
+  console.log('  ✓ Excel 列宽调整、XML 列宽解析与工作簿持久化测试通过');
 }
 
 async function testUniverExclusiveModeAndEditableUIContract() {
@@ -318,14 +380,18 @@ async function testUniverExclusiveModeAndEditableUIContract() {
   assert.ok(xlsxViewerSrc.includes('onWorkbookChange={handleWorkbookChange}'), 'XlsxViewer 必须监听 Univer 工作簿编辑变更');
   assert.ok(xlsxViewerSrc.includes('lastEmittedContentRef'), 'XlsxViewer 必须包含 lastEmittedContentRef 防止编辑回写触发重解包覆盖');
 
-  // 验证 UniverSheetViewer 具备同步编辑事务锁、列头过滤与列冻结能力
+  // 验证 UniverSheetViewer 具备同步编辑事务锁、列头过滤、列冻结与列宽拖拽改变能力
   assert.ok(univerViewerSrc.includes('editingSessionRef'), 'UniverSheetViewer 必须使用 editingSessionRef 保证双击/回车/失焦提交不丢数据');
   assert.ok(univerViewerSrc.includes('onDoubleClick'), 'UniverSheetViewer 单元格必须支持双击进入编辑');
   assert.ok(univerViewerSrc.includes('commitCellEdit'), 'UniverSheetViewer 必须包含 commitCellEdit 提交逻辑');
   assert.ok(univerViewerSrc.includes('applyWorkbookCellEdit'), 'UniverSheetViewer 必须调用 applyWorkbookCellEdit 更新工作簿');
   assert.ok(univerViewerSrc.includes('columnFilters'), 'UniverSheetViewer 必须支持列头过滤状态');
   assert.ok(univerViewerSrc.includes('frozenColCount'), 'UniverSheetViewer 必须支持列冻结状态');
-  console.log('  ✓ Excel 预览仅保留 Univer 工作台且开启可编辑/列过滤/列冻结契约通过');
+  assert.ok(univerViewerSrc.includes('ov-col-resizer'), 'UniverSheetViewer 必须包含列宽拖拽手柄 .ov-col-resizer');
+  assert.ok(univerViewerSrc.includes('handleResizeStart'), 'UniverSheetViewer 必须包含 handleResizeStart 列宽拖拽调整函数');
+  assert.ok(univerViewerSrc.includes('handleResetColWidth'), 'UniverSheetViewer 必须包含 handleResetColWidth 双击恢复默认列宽');
+  assert.ok(univerViewerSrc.includes('applyWorkbookColumnWidth'), 'UniverSheetViewer 必须调用 applyWorkbookColumnWidth 持久化列宽变更');
+  console.log('  ✓ Excel 预览仅保留 Univer 工作台且开启可编辑/列过滤/列冻结/列宽拖拽契约通过');
 }
 
 async function runAll() {
@@ -340,8 +406,9 @@ async function runAll() {
   await testStaleModuleOrDispatcherDetection();
   await testUniverCellEditingAndFormulaRecalculation();
   await testColumnHeaderFilteringAndFreezing();
+  await testColumnResizingAndPersistence();
   await testUniverExclusiveModeAndEditableUIContract();
-  console.log('=== XLSX 渲染引擎 11 项测试全部 PASSED ===\n');
+  console.log('=== XLSX 渲染引擎 12 项测试全部 PASSED ===\n');
 }
 
 runAll().catch(err => {

@@ -8,7 +8,18 @@
 
 ---
 
-## [1.4.8] - 2026-10-30 (当前最新发布)
+## [1.4.9] - 2026-11-02 (当前最新发布)
+
+> [!TIP] v1.4.9 核心升级亮点
+> **新增 Excel (.xlsx / .xls) 工作簿列宽鼠标自由拖拽调整、双击重置与列冻结自适应 (`UniverSheetViewer.tsx` / `xlsxToUniverAdapter.ts` / `xlsxEngine.ts`)**：
+> 1. **支持列头右侧悬浮手柄自由拖动调整列宽**：在各列头注入 `.ov-col-resizer` 悬浮手柄，支持 60 FPS 顺滑拖拽调整（范围 48px ~ 800px），并支持双击手柄快速恢复默认列宽；
+> 2. **列冻结 sticky 偏移量动态累加自适应**：升级 `calculateFrozenColumnLeftOffset` 算法，在存在可变自定义列宽时自动精确计算前置冻结列的宽度总和，杜绝列宽变更后的视觉遮挡或错位；
+> 3. **工作簿状态不可变写回与持久化**：新增 `applyWorkbookColumnWidth` 事务函数，列宽调整在鼠标释放后自动随工作簿持久化保存；
+> 4. **原生 OOXML `<cols>` 标签列宽解析**：在 `parseWorksheetXml` 中自动解析 Excel 文件原生的 `<col width="..."/>` 自定义列宽并转换为像素宽度展示。
+
+---
+
+## [1.4.8] - 2026-10-30
 
 > [!TIP] v1.4.8 核心升级亮点
 > **修复 Markdown AI 修改「全部确认」后再次打开仍重复显示改前与改后内容的持久化与基线判定缺陷 (`editorProvider.ts` / `MarkdownViewer.tsx` / `PluginDocumentView.tsx` / `ViewerRenderer.tsx` / `App.tsx`)**：

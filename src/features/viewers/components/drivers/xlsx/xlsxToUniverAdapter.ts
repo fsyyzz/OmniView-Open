@@ -400,6 +400,34 @@ export function applyWorkbookCellEdit(
   };
 }
 
+/**
+ * 更新指定工作表的列宽，并返回不可变更新后的工作簿对象
+ */
+export function applyWorkbookColumnWidth(
+  workbook: ParsedXlsxWorkbook,
+  sheetIndex: number,
+  col: number,
+  width: number | null
+): ParsedXlsxWorkbook {
+  const sheets = workbook.sheets.map((sheet, idx) => {
+    if (idx !== sheetIndex) return sheet;
+    const nextColWidths = { ...(sheet.colWidths || {}) };
+    if (width === null) {
+      delete nextColWidths[col];
+    } else {
+      nextColWidths[col] = width;
+    }
+    return {
+      ...sheet,
+      colWidths: nextColWidths,
+    };
+  });
+  return {
+    ...workbook,
+    sheets,
+  };
+}
+
 export interface ColumnFilterRule {
   keyword?: string;
   selectedValues?: string[] | null;
@@ -540,18 +568,33 @@ export function filterAndSortWorksheetRows(options: {
 
 /**
  * 计算冻结列在 sticky 定位下的左侧偏移量 (px)
- * 行号列固定宽度为 rowHeaderWidth (默认 48px)，每列宽度为 colWidth (默认 128px)
+ * 行号列固定宽度为 rowHeaderWidth (默认 48px)，支持统一数值宽度或按列函数/字典
  */
 export function calculateFrozenColumnLeftOffset(
   colIdx: number,
   frozenColCount: number,
   rowHeaderWidth = 48,
-  colWidth = 128
+  colWidth: number | Record<number, number> | ((idx: number) => number) = 128
 ): number | null {
   if (frozenColCount <= 0 || colIdx < 0 || colIdx >= frozenColCount) {
     return null;
   }
-  return rowHeaderWidth + colIdx * colWidth;
+  if (typeof colWidth === 'function') {
+    let offset = rowHeaderWidth;
+    for (let i = 0; i < colIdx; i++) {
+      offset += colWidth(i);
+    }
+    return offset;
+  }
+  if (typeof colWidth === 'object' && colWidth !== null) {
+    let offset = rowHeaderWidth;
+    for (let i = 0; i < colIdx; i++) {
+      offset += colWidth[i] ?? 128;
+    }
+    return offset;
+  }
+  const numericColWidth = typeof colWidth === 'number' ? colWidth : 128;
+  return rowHeaderWidth + colIdx * numericColWidth;
 }
 
 export function convertOmniWorkbookToUniver(
@@ -657,6 +700,13 @@ export function convertOmniWorkbookToUniver(
       });
     }
 
+    const columnData: Record<number, any> = {};
+    if (sheet.colWidths) {
+      for (const [colIdxStr, w] of Object.entries(sheet.colWidths)) {
+        columnData[Number(colIdxStr)] = { w };
+      }
+    }
+
     sheets[sheetId] = {
       id: sheetId,
       name: sheet.name || `Sheet${index + 1}`,
@@ -671,7 +721,7 @@ export function convertOmniWorkbookToUniver(
       defaultRowHeight: 24,
       cellData,
       rowData: {},
-      columnData: {},
+      columnData,
       showGridlines: 1,
       mergeData,
       rowHeader: {
