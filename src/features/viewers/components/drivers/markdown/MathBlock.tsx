@@ -27,6 +27,8 @@ import { sanitizeMathFormula, getKatexOptions } from '../../../lib/markdownMath'
 interface MathBlockProps {
   id: string;
   code: string;
+  equationNumber?: string;
+  equationId?: string;
   startLine?: number;
   endLine?: number;
   isCopied: boolean;
@@ -47,6 +49,8 @@ interface MathBlockProps {
 export const MathBlock: React.FC<MathBlockProps> = ({
   id,
   code,
+  equationNumber,
+  equationId,
   startLine,
   endLine,
   isCopied,
@@ -385,8 +389,35 @@ export const MathBlock: React.FC<MathBlockProps> = ({
                 onToggleCodeView={() => onSetViewMode('code')}
                 onReRender={onReRender}
               />
+            ) : equationNumber ? (
+              <div
+                id={equationId ? `ref-${encodeURIComponent(equationId)}` : undefined}
+                className="ov-equation-row flex items-center justify-between w-full max-w-full px-4"
+              >
+                <div className="w-12 shrink-0 hidden sm:block" />
+                <div
+                  ref={formulaRef}
+                  style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                  className="diagram-canvas-inner transition-transform duration-150 flex justify-center max-w-full cursor-zoom-in py-2"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onOpenLightbox();
+                  }}
+                  title={t('fullScreen', locale)}
+                  dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                />
+                <div className="shrink-0 flex justify-end min-w-[3rem]">
+                  <span
+                    className="ov-equation-number font-mono text-xs px-2 py-0.5 rounded text-[var(--ov-text-muted)] bg-[var(--ov-surface,rgba(100,100,100,0.1))] select-none border border-[var(--ov-border)]"
+                    title={equationId ? `\\label{${equationId}}` : undefined}
+                  >
+                    {equationNumber}
+                  </span>
+                </div>
+              </div>
             ) : (
               <div
+                id={equationId ? `ref-${encodeURIComponent(equationId)}` : undefined}
                 ref={formulaRef}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                 className="diagram-canvas-inner transition-transform duration-150 flex justify-center max-w-full cursor-zoom-in py-2"

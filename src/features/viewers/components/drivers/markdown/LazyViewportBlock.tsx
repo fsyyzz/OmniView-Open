@@ -4,12 +4,12 @@
  * 用于 Markdown 重块（图表 / 代码 / 表格），降低长文首屏 DOM 与引擎开销。
  */
 import React, { useEffect, useRef, useState } from 'react';
-
-// 全局内存高度缓存池 (按 block id 索引，确保卸载时零抖动)
-const blockHeightCache = new Map<string, number>();
+import { globalBlockHeightCache, type BlockType } from '../../../lib/blockHeightCache';
 
 export interface LazyViewportBlockProps {
   children: React.ReactNode;
+  /** 块类型 (用于智能启发式初次高度预估) */
+  blockType?: BlockType;
   /** 未挂载或卸载时的占位高度，减轻滚动跳动 */
   minHeight?: number;
   /** IntersectionObserver 进入视口的提前量 (默认提前 1500px 开始挂载渲染) */
@@ -31,6 +31,7 @@ export interface LazyViewportBlockProps {
 export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
   ({
     children,
+    blockType = 'default',
     minHeight = 140,
     rootMargin = '1500px 0px 1500px 0px',
     unmountRootMargin = '2500px 0px 2500px 0px',
@@ -44,8 +45,7 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
     'data-source-end-line': dataSourceEndLine,
   }) => {
     const ref = useRef<HTMLDivElement>(null);
-    const cachedHeight = id ? blockHeightCache.get(id) : undefined;
-    const effectiveMinHeight = cachedHeight && cachedHeight > 20 ? cachedHeight : minHeight;
+    const effectiveMinHeight = globalBlockHeightCache.get(id, blockType, minHeight);
 
     const [mounted, setMounted] = useState(eager);
 
@@ -93,13 +93,13 @@ export const LazyViewportBlock: React.FC<LazyViewportBlockProps> = React.memo(
         for (const entry of entries) {
           const h = Math.round(entry.contentRect.height || el.offsetHeight);
           if (h > 20) {
-            blockHeightCache.set(id, h);
+            globalBlockHeightCache.set(id, h, blockType);
           }
         }
       });
       ro.observe(el);
       return () => ro.disconnect();
-    }, [mounted, id]);
+    }, [mounted, id, blockType]);
 
     return (
       <div

@@ -54,6 +54,8 @@ export interface SvgV2InspectorProps {
   readonly document: Document;
   readonly selection: { primaryId: NodeId | null; nodeIds: ReadonlyArray<NodeId> };
   readonly execute: (id: CommandId, params: CommandParams) => void;
+  readonly isCollapsed?: boolean;
+  readonly onToggleCollapse?: () => void;
 }
 
 export interface StyleBuffer {
@@ -128,7 +130,20 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
   document: doc,
   selection,
   execute,
+  isCollapsed: isCollapsedProp,
+  onToggleCollapse,
 }) => {
+  const [internalPanelCollapsed, setInternalPanelCollapsed] = useState(false);
+  const isInspectorCollapsed = isCollapsedProp !== undefined ? isCollapsedProp : internalPanelCollapsed;
+
+  const toggleInspectorCollapse = useCallback(() => {
+    if (onToggleCollapse) {
+      onToggleCollapse();
+    } else {
+      setInternalPanelCollapsed((prev) => !prev);
+    }
+  }, [onToggleCollapse]);
+
   const [relative, setRelative] = useState<'selection' | 'canvas'>('selection');
   const [hasStyleBuffer, setHasStyleBuffer] = useState(() => globalStyleBuffer !== null);
   const [hasSizeBuffer, setHasSizeBuffer] = useState(() => globalSizeBuffer !== null);
@@ -435,18 +450,54 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
   const canvasH = Math.max(16, Math.round((doc.canvas?.height || doc.canvas?.viewBox?.height || 600) * 10) / 10);
   const canvasAspect = canvasW / Math.max(canvasH, 1);
 
+  if (isInspectorCollapsed) {
+    const isNoSelection = ids.length === 0;
+    const title = isNoSelection ? 'SVG 图形尺寸' : '属性';
+    const subTitle = isNoSelection
+      ? `${Math.round(canvasW)} × ${Math.round(canvasH)} px`
+      : `${ids.length} 选中`;
+    return (
+      <div className="border-t border-[var(--ov-border)]" data-inspector-panel="true">
+        <button
+          type="button"
+          onClick={toggleInspectorCollapse}
+          className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-semibold uppercase text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors select-none"
+          title="展开属性检视器"
+          aria-expanded={false}
+        >
+          <div className="flex items-center gap-1.5">
+            <ChevronRight size={13} />
+            <span>{title}</span>
+          </div>
+          <span className="rounded bg-[var(--ov-hover)] px-1.5 py-0.2 text-[10px] font-mono text-[var(--ov-fg-muted)]">
+            {subTitle}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   if (ids.length === 0) {
     return (
       <div
         className="border-t border-[var(--ov-border)] p-2 text-sm overflow-y-auto max-h-[calc(100vh-280px)] space-y-2"
         data-inspector-panel="true"
       >
-        <div className="flex items-center justify-between text-xs font-semibold uppercase text-[var(--ov-fg-muted)]">
-          <span>SVG 图形尺寸</span>
+        <button
+          type="button"
+          onClick={toggleInspectorCollapse}
+          className="flex w-full items-center justify-between -mx-1 px-1 py-0.5 rounded text-xs font-semibold uppercase text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors select-none"
+          title="收起属性面板"
+          aria-expanded={true}
+        >
+          <div className="flex items-center gap-1.5">
+            <ChevronDown size={13} />
+            <span>SVG 图形尺寸</span>
+          </div>
           <span className="font-mono text-[10px] text-[var(--ov-accent)]">
             {Math.round(canvasW)} × {Math.round(canvasH)} px
           </span>
-        </div>
+        </button>
 
         {feedbackMsg && (
           <div className="flex items-center justify-between rounded bg-[var(--ov-accent-soft)] px-2 py-1 text-xs text-[var(--ov-accent)] font-medium">
@@ -852,10 +903,21 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
       className="border-t border-[var(--ov-border)] p-2 text-sm overflow-y-auto max-h-[calc(100vh-280px)]"
       data-inspector-panel="true"
     >
-      <div className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase text-[var(--ov-fg-muted)]">
-        <span>属性</span>
-        <span>{ids.length > 1 ? `${ids.length} 个对象` : '1 个对象'}</span>
-      </div>
+      <button
+        type="button"
+        onClick={toggleInspectorCollapse}
+        className="mb-1.5 flex w-full items-center justify-between -mx-1 px-1 py-0.5 rounded text-xs font-semibold uppercase text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors select-none"
+        title="收起属性面板"
+        aria-expanded={true}
+      >
+        <div className="flex items-center gap-1.5">
+          <ChevronDown size={13} />
+          <span>属性</span>
+        </div>
+        <span className="rounded bg-[var(--ov-hover)] px-1.5 py-0.2 text-[10px] font-mono text-[var(--ov-fg-muted)]">
+          {ids.length > 1 ? `${ids.length} 个对象` : '1 个对象'}
+        </span>
+      </button>
 
       {/* 提示消息横幅 */}
       {feedbackMsg && (

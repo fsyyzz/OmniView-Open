@@ -43,6 +43,7 @@ import {
 } from '../../lib/markdownBlockEditor';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { OkfHeaderCard } from './markdown/OkfHeaderCard';
+import { MarkdownHealthHudModal } from './markdown/MarkdownHealthHudModal';
 import { AiDiffViewMode, ContentWidthMode, ThemeId } from '../../../../shared/types';
 import { useMarkdownAstPipeline, type RenderedBlock } from '../../hooks/useMarkdownAstPipeline';
 import { detectAndAnnotateMarkdownAiDiff } from '../../lib/markdownDiffEngine';
@@ -102,8 +103,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   const isCtrlASelectAllRef = useRef(false);
   const [aiDiffMode, setAiDiffMode] = React.useState<AiDiffViewMode>('diff');
 
-  // 1. AST 解析与格式预处理流水线 Hook (集成 AI 改前/改后自动识别与标注)
-  const { blocks, okfData, aiDiffResult, isRendering } = useMarkdownAstPipeline({
+  // 1. AST 解析与格式预处理流水线 Hook (集成 AI 改前/改后自动识别、交叉引用与健康体检)
+  const { blocks, okfData, aiDiffResult, isRendering, healthReport } = useMarkdownAstPipeline({
     content,
     baseContent,
     diskContent,
@@ -112,6 +113,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     locale,
     isDarkTheme,
   });
+  const [isHealthModalOpen, setIsHealthModalOpen] = React.useState(false);
 
   // 2. 块状态管理（缩放、视图模式、折叠、暂存代码、灯箱）Hook
   const {
@@ -748,6 +750,30 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     const target = e.target as HTMLElement | null;
     if (!target) return;
 
+    // 交叉引用点击平滑滚动并辉光脉冲高亮 (RFC-0001)
+    const crossRefLink = target.closest('.ov-cross-ref') as HTMLAnchorElement | null;
+    if (crossRefLink) {
+      const refId = crossRefLink.getAttribute('data-ref-id');
+      if (refId) {
+        e.preventDefault();
+        const escaped = encodeURIComponent(refId);
+        const targetEl =
+          containerRef.current?.querySelector(`#ref-${CSS.escape(escaped)}`) ||
+          containerRef.current?.querySelector(`#ref-${CSS.escape(refId)}`) ||
+          containerRef.current?.querySelector(`[id*="${refId}"]`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          targetEl.classList.remove('ov-pulse-highlight');
+          void (targetEl as HTMLElement).offsetWidth;
+          targetEl.classList.add('ov-pulse-highlight');
+          setTimeout(() => {
+            targetEl.classList.remove('ov-pulse-highlight');
+          }, 1600);
+        }
+        return;
+      }
+    }
+
     const tabBtn = target.closest('.ov-tab-btn') as HTMLElement | null;
     if (tabBtn) {
       const tabIndex = tabBtn.getAttribute('data-tab-index');
@@ -819,6 +845,52 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             </button>
           )}
         </div>
+      )}
+
+      {/* 文档健康度体检入口 (RFC-0001) */}
+      {healthReport && healthReport.total > 0 && (
+        <div
+          id="ov-markdown-health-banner"
+          className="mb-4 flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs no-print transition select-none"
+          style={{
+            backgroundColor: healthReport.isHealthy ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+            borderColor: healthReport.isHealthy ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)',
+            color: 'var(--ov-text)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                healthReport.isHealthy ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
+              }`}
+            />
+            <span className="font-medium">
+              {locale === 'zh-CN' ? '文档健康体检' : 'Health Inspector'}:
+            </span>
+            <span className="text-[var(--ov-text-secondary)]">
+              {locale === 'zh-CN'
+                ? `得分 ${healthReport.score} 分 (${healthReport.errors} 错误, ${healthReport.warnings} 警告, ${healthReport.infos} 提示)`
+                : `Score ${healthReport.score} (${healthReport.errors} errors, ${healthReport.warnings} warnings)`}
+            </span>
+          </div>
+          <button
+            onClick={() => setIsHealthModalOpen(true)}
+            className="px-2 py-0.5 rounded text-xs text-[var(--ov-accent)] hover:underline font-medium cursor-pointer"
+          >
+            {locale === 'zh-CN' ? '查看体检详情' : 'View Details'}
+          </button>
+        </div>
+      )}
+
+      {/* 文档健康度 HUD 模态浮窗 */}
+      {healthReport && (
+        <MarkdownHealthHudModal
+          isOpen={isHealthModalOpen}
+          report={healthReport}
+          onClose={() => setIsHealthModalOpen(false)}
+          onJumpToLine={onOpenSourceAtLine}
+          locale={locale}
+        />
       )}
 
       {aiDiffResult?.hasDiff && (
@@ -1036,6 +1108,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             <LazyViewportBlock
               key={block.id}
               id={block.id}
+              blockType="table"
               eager={effectiveEagerMount}
               minHeight={160}
               data-source-line={block.startLine}
@@ -1151,6 +1224,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             <LazyViewportBlock
               key={block.id}
               id={block.id}
+              blockType="math"
               eager={effectiveEagerMount}
               minHeight={100}
               data-source-line={block.startLine}
@@ -1161,6 +1235,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                 <MathBlock
                   id={block.id}
                   code={block.raw}
+                  equationNumber={block.equationNumber}
+                  equationId={block.equationId}
                   startLine={block.startLine}
                   endLine={block.endLine}
                   isCopied={copiedId === block.id}
@@ -1255,6 +1331,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             <LazyViewportBlock
               key={block.id}
               id={block.id}
+              blockType="diagram"
               eager={effectiveEagerMount}
               minHeight={180}
               data-source-line={block.startLine}

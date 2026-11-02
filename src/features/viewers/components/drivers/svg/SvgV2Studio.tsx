@@ -11,7 +11,7 @@
  *
  * @see docs/adr/0001-svg-edit-engine-v2-document-model.md
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Undo2,
   Redo2,
@@ -37,6 +37,10 @@ import {
   FileCode,
   FileImage,
   Check,
+  Layers,
+  SlidersHorizontal,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import {
   decideBackup,
@@ -80,6 +84,21 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
 
   const [copiedJsx, setCopiedJsx] = useState(false);
   const [exportingPng, setExportingPng] = useState(false);
+
+  // ---- 右侧面板单选状态：'layers' | 'properties' | null (默认收缩，点击每次显示一个) ----
+  const [activeRightTab, setActiveRightTab] = useState<'layers' | 'properties' | null>(null);
+
+  const handleToggleLayers = useCallback(() => {
+    setActiveRightTab((prev) => (prev === 'layers' ? null : 'layers'));
+  }, []);
+
+  const handleToggleProperties = useCallback(() => {
+    setActiveRightTab((prev) => (prev === 'properties' ? null : 'properties'));
+  }, []);
+
+  const handleToggleRightPanel = useCallback(() => {
+    setActiveRightTab((prev) => (prev ? null : 'properties'));
+  }, []);
 
   // ---- 加载状态（P0 数据安全关键）----
   /** 加载状态 + 最近导出（或加载基线）的 Document 引用。 */
@@ -337,6 +356,57 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
               <FileImage size={13} className="text-[var(--ov-fg-muted)]" />
               <span>{exportingPng ? '导出中...' : '导出 PNG'}</span>
             </button>
+
+            <div className="h-3.5 w-px bg-[var(--ov-border)] mx-0.5" />
+
+            {/* 图层面板单选切换 */}
+            <button
+              type="button"
+              onClick={handleToggleLayers}
+              title={activeRightTab === 'layers' ? '收起图层面板' : '展示图层面板'}
+              aria-label="图层面板"
+              aria-pressed={activeRightTab === 'layers'}
+              className={`flex items-center space-x-1 rounded border px-2 py-0.5 text-[11px] transition-colors ${
+                activeRightTab === 'layers'
+                  ? 'border-[var(--ov-accent)] bg-[var(--ov-hover)] text-[var(--ov-fg)] font-medium shadow-inner'
+                  : 'border-[var(--ov-border)] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)]'
+              }`}
+            >
+              <Layers size={13} className={activeRightTab === 'layers' ? 'text-[var(--ov-accent)]' : undefined} />
+              <span>图层</span>
+            </button>
+
+            {/* 属性面板单选切换 */}
+            <button
+              type="button"
+              onClick={handleToggleProperties}
+              title={activeRightTab === 'properties' ? '收起属性面板' : '展示属性面板'}
+              aria-label="属性面板"
+              aria-pressed={activeRightTab === 'properties'}
+              className={`flex items-center space-x-1 rounded border px-2 py-0.5 text-[11px] transition-colors ${
+                activeRightTab === 'properties'
+                  ? 'border-[var(--ov-accent)] bg-[var(--ov-hover)] text-[var(--ov-fg)] font-medium shadow-inner'
+                  : 'border-[var(--ov-border)] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)]'
+              }`}
+            >
+              <SlidersHorizontal size={13} className={activeRightTab === 'properties' ? 'text-[var(--ov-accent)]' : undefined} />
+              <span>属性</span>
+            </button>
+
+            {/* 右侧面板整体切换 */}
+            <button
+              type="button"
+              onClick={handleToggleRightPanel}
+              title={activeRightTab ? '收起侧边面板' : '展开侧边面板'}
+              aria-label={activeRightTab ? '收起侧边面板' : '展开侧边面板'}
+              className={`flex items-center justify-center rounded border p-1 text-[11px] transition-colors ${
+                activeRightTab
+                  ? 'border-[var(--ov-accent)] bg-[var(--ov-hover)] text-[var(--ov-accent)]'
+                  : 'border-[var(--ov-border)] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)]'
+              }`}
+            >
+              {activeRightTab ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
+            </button>
           </div>
         </header>
 
@@ -351,10 +421,80 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
         </div>
       </main>
 
-      {/* 右侧面板 */}
-      <aside className="flex w-72 flex-col border-l border-[var(--ov-border)] bg-[var(--ov-panel)]">
-        <SvgV2LayersPanel document={document} selection={selection} execute={execute} />
-        <SvgV2Inspector document={document} selection={selection} execute={execute} />
+      {/* 右侧抽屉面板（根据右侧工具条单选状态显示：图层 或 属性，每次显示一个） */}
+      {activeRightTab && (
+        <aside
+          className="flex w-72 flex-col border-l border-[var(--ov-border)] bg-[var(--ov-panel)] shrink-0 select-none overflow-hidden"
+          data-inspector-panel="true"
+        >
+          {/* 顶栏标题与收起按钮 */}
+          <div className="flex items-center justify-between border-b border-[var(--ov-border)] bg-[var(--ov-surface)]/50 px-2.5 py-1.5 text-[11px] text-[var(--ov-fg-muted)]">
+            <span className="font-semibold text-[var(--ov-fg)]">
+              {activeRightTab === 'layers' ? '图层树 (Layers)' : '属性检视器 (Inspector)'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActiveRightTab(null)}
+              title="收起右侧面板"
+              aria-label="收起右侧面板"
+              className="rounded p-0.5 text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors"
+            >
+              <PanelRightClose size={13} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {activeRightTab === 'layers' && (
+              <SvgV2LayersPanel
+                document={document}
+                selection={selection}
+                execute={execute}
+                isCollapsed={false}
+              />
+            )}
+            {activeRightTab === 'properties' && (
+              <SvgV2Inspector
+                document={document}
+                selection={selection}
+                execute={execute}
+                isCollapsed={false}
+              />
+            )}
+          </div>
+        </aside>
+      )}
+
+      {/* 右侧垂直工具条（像左侧一样的工具条，竖向排列图层与属性，点击每次显示一个） */}
+      <aside
+        className="flex w-12 flex-col items-center border-l border-[var(--ov-border)] bg-[var(--ov-panel)] py-2 select-none shrink-0"
+        data-testid="svg-v2-right-rail"
+      >
+        <ToolButton
+          icon={<Layers size={17} />}
+          active={activeRightTab === 'layers'}
+          label="图层面板"
+          tooltipPlacement="left"
+          onClick={handleToggleLayers}
+        />
+        <ToolButton
+          icon={<SlidersHorizontal size={17} />}
+          active={activeRightTab === 'properties'}
+          label="属性面板"
+          tooltipPlacement="left"
+          onClick={handleToggleProperties}
+        />
+        {activeRightTab && (
+          <>
+            <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
+            <ToolButton
+              icon={<PanelRightClose size={17} />}
+              active={false}
+              label="收起面板"
+              tooltipPlacement="left"
+              onClick={() => setActiveRightTab(null)}
+            />
+          </>
+        )}
       </aside>
     </div>
   );
@@ -369,10 +509,18 @@ interface ToolButtonProps {
   readonly active: boolean;
   readonly label: string;
   readonly disabled?: boolean;
+  readonly tooltipPlacement?: 'left' | 'right';
   readonly onClick: () => void;
 }
 
-const ToolButton: React.FC<ToolButtonProps> = ({ icon, active, label, disabled, onClick }) => (
+const ToolButton: React.FC<ToolButtonProps> = ({
+  icon,
+  active,
+  label,
+  disabled,
+  tooltipPlacement = 'right',
+  onClick,
+}) => (
   <button
     type="button"
     className={`group relative m-1 flex h-8 w-8 items-center justify-center rounded transition-colors ${active ? 'bg-[var(--ov-accent)] text-white' : 'hover:bg-[var(--ov-hover)]'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
@@ -383,7 +531,9 @@ const ToolButton: React.FC<ToolButtonProps> = ({ icon, active, label, disabled, 
     {icon}
     <span
       role="tooltip"
-      className="pointer-events-none invisible absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded border border-[var(--ov-border)] bg-[var(--ov-panel)] px-2 py-1 text-left text-[11px] font-normal text-[var(--ov-fg)] opacity-0 shadow-md transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100"
+      className={`pointer-events-none invisible absolute top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded border border-[var(--ov-border)] bg-[var(--ov-panel)] px-2 py-1 text-left text-[11px] font-normal text-[var(--ov-fg)] opacity-0 shadow-md transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${
+        tooltipPlacement === 'left' ? 'right-full mr-2' : 'left-full ml-2'
+      }`}
     >
       {label}
     </span>

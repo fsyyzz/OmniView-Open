@@ -5366,6 +5366,76 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 }
 
 /* =========================================================
+   OmniView 学术交叉引用与公式编号样式 (RFC-0001)
+   ========================================================= */
+
+.ov-cross-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--vscode-textLink-foreground, #38bdf8);
+  background: color-mix(in srgb, var(--vscode-textLink-foreground, #38bdf8) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vscode-textLink-foreground, #38bdf8) 25%, transparent);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 0.88em;
+  font-family: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+  vertical-align: baseline;
+}
+
+.ov-cross-ref:hover {
+  background: color-mix(in srgb, var(--vscode-textLink-foreground, #38bdf8) 20%, transparent);
+  border-color: var(--vscode-textLink-foreground, #38bdf8);
+  text-decoration: none;
+}
+
+.ov-cross-ref-eq {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ov-cross-ref-unresolved {
+  color: var(--vscode-errorForeground, #f87171);
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f87171) 10%, transparent);
+  border-color: color-mix(in srgb, var(--vscode-errorForeground, #f87171) 30%, transparent);
+  border-style: dashed;
+}
+
+.ov-equation-row {
+  position: relative;
+}
+
+.ov-equation-number {
+  user-select: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* 交叉引用锚点高亮辉光波纹动效 */
+@keyframes ov-pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    background-color: rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    background-color: rgba(16, 185, 129, 0.12);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    background-color: transparent;
+  }
+}
+
+.ov-pulse-highlight {
+  animation: ov-pulse-glow 1.5s cubic-bezier(0, 0, 0.2, 1) forwards;
+  border-radius: 6px;
+}
+
+/* =========================================================
    Pandoc Definition Lists
    ========================================================= */
 

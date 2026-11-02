@@ -18,6 +18,13 @@ import { sanitizeDiagramSvg, sanitizeDiagramHtml } from '../lib/diagramSanitizer
 import { fastFnv1a } from '../lib/diagramCache';
 import { renderTimeBudgetRegistry } from '../lib/renderTimeBudget';
 import { detectAndAnnotateMarkdownAiDiff, type MarkdownAiDiffResult } from '../lib/markdownDiffEngine';
+import {
+  buildCrossReferenceRegistry,
+  resolveCrossReferenceLinks,
+  extractLabelFromFormula,
+  CrossReferenceRegistry,
+} from '../lib/markdownCrossReferenceEngine';
+import { lintMarkdownHealth, type MarkdownHealthReport } from '../lib/markdownHealthLinter';
 import type { AiDiffViewMode } from '../../../shared/types';
 
 export interface RenderedBlock {
@@ -27,6 +34,8 @@ export interface RenderedBlock {
   lang?: string;
   langSuffix?: string;
   raw: string;
+  equationNumber?: string;
+  equationId?: string;
   startLine?: number;
   endLine?: number;
   renderedHtml?: string;
@@ -370,7 +379,12 @@ export function useMarkdownAstPipeline({
 }: UseMarkdownAstPipelineOptions) {
   const [blocks, setBlocks] = useState<RenderedBlock[]>([]);
   const [isRendering, setIsRendering] = useState(false);
+  const [crossRefRegistry, setCrossRefRegistry] = useState<CrossReferenceRegistry>(() => new CrossReferenceRegistry(locale));
   const okfData: OkfParseResult = useMemo(() => parseOkfFrontmatter(content), [content]);
+
+  const healthReport = useMemo(() => {
+    return lintMarkdownHealth(content, { files, registry: crossRefRegistry, locale });
+  }, [content, files, crossRefRegistry, locale]);
 
   const cleanBody = okfData.hasFrontmatter ? okfData.markdownBody : content;
   const cleanBaseBody = useMemo(() => {
@@ -421,11 +435,14 @@ export function useMarkdownAstPipeline({
         openLabel: t('wikiEmbedOpen', locale),
         embedLabel: t('wikiEmbedBadge', locale),
       });
+      const registry = buildCrossReferenceRegistry(sourceBody, locale);
+      setCrossRefRegistry(registry);
       const { markdown: bodyWithDefLists } = processMarkdownDefinitionLists(bodyWithWiki);
       const { markdown: bodyWithFootnotes } = processMarkdownFootnotes(bodyWithDefLists, {
         sectionTitle: t('footnotes', locale),
       });
-      const bodyWithSvg = processInlineSvgImages(bodyWithFootnotes);
+      const bodyWithCrossRefs = resolveCrossReferenceLinks(bodyWithFootnotes, registry, locale);
+      const bodyWithSvg = processInlineSvgImages(bodyWithCrossRefs);
       const { markdown: bodyWithMath, mathSlots } = processMarkdownMath(bodyWithSvg);
 
       const tokens = marked.lexer(bodyWithMath);
@@ -1042,10 +1059,14 @@ export function useMarkdownAstPipeline({
               endLine: tokenEndLine,
             });
           } else if (['math', 'katex', 'latex'].includes(primaryLang)) {
+            const { label } = extractLabelFromFormula(token.text);
+            const refItem = label ? registry.get(label) : undefined;
             parsedBlocks.push({
               id: `block-math-${counter++}`,
               type: 'math',
               raw: token.text,
+              equationNumber: refItem?.label,
+              equationId: refItem?.id,
               externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
@@ -1112,20 +1133,30 @@ export function useMarkdownAstPipeline({
               const slot = mathSlots[Number(m[1])];
               const subNewlines = slot?.newlines ?? 0;
               const subEndLine = subStartLine + subNewlines;
+              const rawFormula = slot?.formula || '';
+              const { label } = extractLabelFromFormula(rawFormula);
+              const refItem = label ? registry.get(label) : undefined;
               parsedBlocks.push({
                 id: `block-math-${counter++}`,
                 type: 'math',
-                raw: slot?.formula || '',
+                raw: rawFormula,
+                equationNumber: refItem?.label,
+                equationId: refItem?.id,
                 startLine: subStartLine,
                 endLine: Math.min(tokenEndLine, subEndLine),
               });
               subStartLine = subEndLine + 1;
             }
           } else {
+            const rawMath = token.text.trim().slice(2, -2).trim();
+            const { label } = extractLabelFromFormula(rawMath);
+            const refItem = label ? registry.get(label) : undefined;
             parsedBlocks.push({
               id: `block-math-${counter++}`,
               type: 'math',
-              raw: token.text.trim().slice(2, -2).trim(),
+              raw: rawMath,
+              equationNumber: refItem?.label,
+              equationId: refItem?.id,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
@@ -1253,5 +1284,7 @@ export function useMarkdownAstPipeline({
     okfData,
     aiDiffResult,
     isRendering,
+    crossRefRegistry,
+    healthReport,
   };
 }

@@ -37,6 +37,8 @@ export interface SvgV2LayersPanelProps {
   readonly document: Document;
   readonly selection: { nodeIds: ReadonlyArray<NodeId> };
   readonly execute: (id: CommandId, params: CommandParams) => void;
+  readonly isCollapsed?: boolean;
+  readonly onToggleCollapse?: () => void;
 }
 
 interface DragState {
@@ -62,7 +64,20 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
   document: doc,
   selection,
   execute,
+  isCollapsed: isCollapsedProp,
+  onToggleCollapse,
 }) => {
+  const [internalPanelCollapsed, setInternalPanelCollapsed] = useState(false);
+  const isPanelCollapsed = isCollapsedProp !== undefined ? isCollapsedProp : internalPanelCollapsed;
+
+  const togglePanelCollapse = useCallback(() => {
+    if (onToggleCollapse) {
+      onToggleCollapse();
+    } else {
+      setInternalPanelCollapsed((prev) => !prev);
+    }
+  }, [onToggleCollapse]);
+
   const [collapsed, setCollapsed] = useState<ReadonlySet<NodeId>>(() => new Set<NodeId>());
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropHint, setDropHint] = useState<DropHint | null>(null);
@@ -137,11 +152,23 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
 
   return (
     <div className="border-b border-[var(--ov-border)]" data-inspector-panel="true">
-      <div className="flex items-center justify-between px-2 py-1.5 text-xs font-semibold uppercase text-[var(--ov-fg-muted)]">
-        <span>图层</span>
-        <span>{rows.length}</span>
-      </div>
-      <ul className="max-h-48 overflow-y-auto pb-1 text-sm" role="tree" aria-label="图层树">
+      <button
+        type="button"
+        onClick={togglePanelCollapse}
+        className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-semibold uppercase text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors select-none"
+        title={isPanelCollapsed ? '展开图层面板' : '收起图层面板'}
+        aria-expanded={!isPanelCollapsed}
+      >
+        <div className="flex items-center gap-1.5">
+          {isPanelCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+          <span>图层</span>
+        </div>
+        <span className="rounded bg-[var(--ov-hover)] px-1.5 py-0.2 text-[10px] font-mono text-[var(--ov-fg-muted)]">
+          {rows.length}
+        </span>
+      </button>
+      {!isPanelCollapsed && (
+        <ul className="max-h-48 overflow-y-auto pb-1 text-sm" role="tree" aria-label="图层树">
         {rows.map((row) => {
           const isSelected = selection.nodeIds.includes(row.id);
           const isDragSource = dragState?.id === row.id;
@@ -255,6 +282,7 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
           );
         })}
       </ul>
+      )}
     </div>
   );
 };

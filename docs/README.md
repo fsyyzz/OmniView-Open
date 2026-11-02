@@ -58,6 +58,7 @@ flowchart LR
 | [design/persistence-storage.md](./design/persistence-storage.md) | **持久化与存储子系统规范**：配置 Schema v2、跨版本迁移、安全钳位与容量度量 |
 | [marketing/github-launch-guide.md](./marketing/github-launch-guide.md) | **GitHub 曝光与开源推广实战指南**：多渠道宣发文案（阮一峰周刊/HelloGitHub/V2EX）、SEO 标签与运营清单 |
 | [adr/0001-svg-edit-engine-v2-document-model.md](./adr/0001-svg-edit-engine-v2-document-model.md) | **ADR-0001**：SVG 编辑引擎 v2 — 引入文档模型与命令管线（已交付落地） |
+| [rfc/README.md](./rfc/README.md) | **技术与产品 RFC 提案库**：重大特性演进、底层渲染协议变更与架构方案论证 (RFC-0001) |
 
 ## 后续规划扩展
 
