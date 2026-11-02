@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { INITIAL_FILES } from '../shared/data/sampleFiles';
 import { FileItem, WorkbenchView, ViewMode, ThemeId, DensityMode, WorkbenchSettings } from '../shared/types';
 import { WorkbenchHeader } from '../features/workbench/components/WorkbenchHeader';
@@ -94,6 +94,16 @@ export default function App() {
   });
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(initialSettings.sidebarOpen ?? true);
   const [explorerOpen, setExplorerOpen] = useState<boolean>(initialSettings.explorerOpen ?? true);
+  // 工作区文件面板宽度（拖拽可调，防抖持久化）
+  const [sidebarWidth, setSidebarWidth] = useState<number>(initialSettings.sidebarWidth ?? 240);
+  const sidebarWidthSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSidebarWidthChange = useCallback((width: number) => {
+    setSidebarWidth(width);
+    if (sidebarWidthSaveTimer.current) clearTimeout(sidebarWidthSaveTimer.current);
+    sidebarWidthSaveTimer.current = setTimeout(() => {
+      saveStoredSettings({ sidebarWidth: width });
+    }, 200);
+  }, []);
 
   // 3. 活动文件与标签页状态（双向持久化）
   const [activeFileId, setActiveFileId] = useState<string>(() => {
@@ -680,6 +690,8 @@ flowchart LR
             onDropFiles={handleDropFiles}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={handleToggleSidebar}
+            sidebarWidth={sidebarWidth}
+            onSidebarWidthChange={handleSidebarWidthChange}
             explorerOpen={explorerOpen}
             onToggleExplorer={handleToggleExplorer}
             onOpenSettings={() => setIsSettingsModalOpen(true)}

@@ -5481,33 +5481,6 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   border-bottom-color: var(--ov-border) !important;
 }
 
-/* SVG Vector Studio Theme Harmonization */
-#svg-studio-root {
-  background-color: var(--ov-bg) !important;
-  color: var(--ov-text) !important;
-}
-
-#svg-studio-toolbar {
-  background-color: var(--ov-surface-header) !important;
-  border-bottom-color: var(--ov-border) !important;
-  color: var(--ov-text) !important;
-}
-
-#svg-code-editor-pane {
-  background-color: var(--ov-bg) !important;
-  border-right-color: var(--ov-border) !important;
-  color: var(--ov-text) !important;
-}
-
-#svg-code-editor-pane > div:first-child {
-  background-color: var(--ov-surface-header) !important;
-  border-bottom-color: var(--ov-border) !important;
-}
-
-#svg-code-editor-pane textarea {
-  color: var(--ov-text) !important;
-}
-
 /* PlantUML Architecture Studio Theme Harmonization */
 #plantuml-studio-container {
   background-color: var(--ov-bg) !important;
@@ -5528,7 +5501,6 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 .markdown-toolbar .absolute,
 .csv-dropdown-menu,
 #workbench-header .absolute,
-#svg-studio-toolbar .absolute,
 #excalidraw-viewer-container .absolute {
   background-color: var(--ov-surface) !important;
   border-color: var(--ov-border) !important;
@@ -5549,7 +5521,6 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
 .csv-dropdown-menu button:hover,
 #workbench-header .absolute button:hover,
 #plantuml-studio-container .absolute:not(.ov-drag-overlay) button:hover,
-#svg-studio-toolbar .absolute button:hover,
 #diagram-studio-shell .absolute:not(.ov-drag-overlay) button:hover,
 #mindmap-studio-container .absolute:not(.ov-drag-overlay) button:hover,
 #excalidraw-viewer-container .absolute button:hover {

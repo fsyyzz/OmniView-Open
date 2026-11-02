@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: WorkbenchSettings = {
   // 3. 布局与侧边栏
   sidebarOpen: true,
   explorerOpen: true,
+  sidebarWidth: 240,
   activeFileId: 'sample-markdown',
   openTabIds: ['sample-markdown', 'sample-mindmap', 'sample-plantuml'],
 
@@ -111,6 +112,10 @@ export function loadStoredSettings(): WorkbenchSettings {
       ? parsed.explorerOpen
       : (DEFAULT_SETTINGS.explorerOpen ?? true);
 
+    const sidebarWidth: number = typeof parsed.sidebarWidth === 'number'
+      ? Math.min(500, Math.max(160, Math.round(parsed.sidebarWidth)))
+      : (DEFAULT_SETTINGS.sidebarWidth ?? 240);
+
     const activeFileId: string | undefined = typeof parsed.activeFileId === 'string' && parsed.activeFileId.trim()
       ? parsed.activeFileId.trim()
       : DEFAULT_SETTINGS.activeFileId;
@@ -172,6 +177,7 @@ export function loadStoredSettings(): WorkbenchSettings {
       fontSize,
       sidebarOpen,
       explorerOpen,
+      sidebarWidth,
       activeFileId,
       openTabIds,
       splitRatio,

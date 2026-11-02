@@ -572,8 +572,7 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
               className="px-1.5 py-0.5 rounded transition text-xs font-mono font-medium hover:text-[var(--ov-text)] hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))]"
               title={t('mindmapFit', locale)}
             >
-              <Maximize2 className="w-3.5 h-3.5 inline mr-1" />
-              <span className="hidden sm:inline">{t('mindmapFit', locale)}</span>
+              <Maximize2 className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleZoomIn}
@@ -597,7 +596,6 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
               title="导出思维导图"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">导出</span>
               <ChevronDown className="w-3 h-3 opacity-80" />
             </button>
 

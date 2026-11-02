@@ -39,7 +39,7 @@ const SUITE_CONFIG_OVERRIDES = {
   'test-svg-v2-advanced-interactions.mjs': { mode: 'node', category: 'headless' },
   'test-svg-global-styles.mjs': { mode: 'node', category: 'svg' },
   'test-pdf-search-controller.mjs': { mode: 'node', category: 'unit' },
-  'test-echarts-block.mjs': { mode: 'node', category: 'diagram' },
+  'test-echarts-block.mjs': { mode: 'esbuild', packagesExternal: true, category: 'diagram' },
   'test-doc-image-export.mjs': { mode: 'node', category: 'office' },
 
   // 带外部包或特殊打包策略的配置

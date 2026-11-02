@@ -1,6 +1,6 @@
 # 安全策略 (Security Policy)
 
-OmniView 作为在 VS Code Webview 沙箱中渲染不可信文件内容的工具，将 XSS、恶意 SVG/HTML、以及意外外联视为一等公民风险。
+OmniView 在 VS Code Webview 沙箱中渲染不可信文件内容，XSS、恶意 SVG/HTML 与意外外联是主要的安全风险。
 
 ## 支持的版本
 

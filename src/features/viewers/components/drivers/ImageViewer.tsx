@@ -628,7 +628,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             title="开启 16x 像素放大镜与十字取色器 (点击复制颜色)"
           >
             <Crosshair className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">取色器</span>
           </button>
         </div>
 
@@ -647,7 +646,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
               title="导出与复制"
             >
               <Download className="w-3.5 h-3.5" style={{ color: 'var(--ov-accent)' }} />
-              <span className="hidden sm:inline">导出</span>
             </button>
 
             {showExportMenu && (

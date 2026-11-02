@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FileItem, WorkbenchView, ViewMode } from '../../../shared/types';
 import {
   Files,
@@ -27,7 +27,47 @@ import {
   MoreHorizontal,
   Check,
   Eye,
+  Folder,
+  FolderOpen,
 } from 'lucide-react';
+
+/** 根据文件路径提取一级目录作为分类名，无路径或根目录文件归入「根目录」 */
+function getCategory(path?: string): string {
+  const clean = (path ?? '').replace(/^\/workspace\//, '');
+  const segments = clean.split('/').filter(Boolean);
+  return segments.length > 1 ? segments[0] : '根目录';
+}
+
+/** 分类名称的中文显示映射 */
+const CATEGORY_LABELS: Record<string, string> = {
+  code: '代码',
+  csv: '数据表',
+  docker: '容器',
+  domainstory: '领域故事',
+  excalidraw: '白板',
+  graphviz: 'Graphviz',
+  html: '网页',
+  json: 'JSON',
+  k8s: 'K8s',
+  markdown: 'Markdown',
+  markmap: '思维导图',
+  mermaid: 'Mermaid',
+  notebook: 'Notebook',
+  okf: 'OKF',
+  plantuml: 'PlantUML',
+  pdf: 'PDF',
+  svg: 'SVG',
+  toml: 'TOML',
+  tsv: 'TSV',
+  typst: 'Typst',
+  xml: 'XML',
+  yaml: 'YAML',
+  image: '图片',
+  docx: 'Word',
+  pptx: 'PPT',
+  xlsx: 'Excel',
+  '根目录': '根目录',
+};
 
 interface SidebarProps {
   files: FileItem[];
@@ -46,6 +86,10 @@ interface SidebarProps {
   onDuplicateFile?: (file: FileItem) => void;
   /** 是否显示扩展脚手架按钮（仅 VS Code 宿主模式下启用，独立 Web 应用不显示） */
   showScaffoldView?: boolean;
+  /** 当前面板宽度（px） */
+  sidebarWidth?: number;
+  /** 拖拽调整宽度回调 */
+  onSidebarWidthChange?: (width: number) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -64,6 +108,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenFileInMode,
   onDuplicateFile,
   showScaffoldView = true,
+  sidebarWidth = 240,
+  onSidebarWidthChange,
 }) => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [copiedWikiId, setCopiedWikiId] = useState<string | null>(null);
@@ -73,6 +119,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     y: number;
   } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  /** 折叠/展开的分类组（key: 分类名, value: 是否展开） */
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
+  /** Resize handle 拖拽状态 */
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(0);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -91,6 +145,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [contextMenu]);
+
+  /** Resize handle 指针事件处理 */
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartX.current;
+      const newWidth = Math.min(500, Math.max(160, resizeStartWidth.current + delta));
+      onSidebarWidthChange?.(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, onSidebarWidthChange]);
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = sidebarWidth;
+    setIsResizing(true);
+  }, [sidebarWidth]);
+
+  /** 按一级目录分类文件，保持路径排序 */
+  const fileGroups = useMemo(() => {
+    const groups = new Map<string, FileItem[]>();
+    for (const file of files) {
+      const cat = getCategory(file.path);
+      const list = groups.get(cat) ?? [];
+      list.push(file);
+      groups.set(cat, list);
+    }
+    // 按分类名排序
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [files]);
+
+  const toggleCategory = (cat: string) => {
+    setCollapsedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+  };
 
   const isMarkdownFile = (ext: string) =>
     ['md', 'markdown', 'okf'].includes(ext.toLowerCase());
@@ -115,7 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     try {
       await navigator.clipboard.writeText(`[${file.name}](${file.path || file.name})`);
     } catch {
-      // ignore clipboard error
+      // ignore
     }
     setContextMenu(null);
   };
@@ -132,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      // ignore download error
+      // ignore
     }
     setContextMenu(null);
   };
@@ -197,6 +304,104 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  /** 渲染单个文件行 */
+  const renderFileRow = (file: FileItem) => {
+    const isActive = activeFileId === file.id;
+    const isMd = isMarkdownFile(file.extension);
+    return (
+      <div
+        key={file.id}
+        onClick={() => {
+          onSelectFile(file.id);
+          if (currentView !== 'editor') onViewChange('editor');
+        }}
+        onContextMenu={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenu({
+            file,
+            x: Math.min(e.clientX, window.innerWidth - 220),
+            y: Math.min(e.clientY, window.innerHeight - 260),
+          });
+        }}
+        className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition explorer-file-item ${
+          isActive ? 'active' : ''
+        }`}
+      >
+        <div className="flex items-center gap-2 truncate min-w-0">
+          {getFileIcon(file.extension)}
+          <span className="truncate">{file.name}</span>
+          {file.isModified && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition">
+          {isMd && onOpenFileInMode && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                onOpenFileInMode(file.id, 'split');
+              }}
+              className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition cursor-pointer"
+              title="分屏对照编辑 (.md)"
+              aria-label="分屏对照编辑"
+            >
+              <Columns className="w-3 h-3" />
+            </button>
+          )}
+          {isMd && (
+            <button
+              type="button"
+              onClick={e => handleCopyWikiLink(file, e)}
+              className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition cursor-pointer"
+              title="复制 [[WikiLink]] 双链引用"
+              aria-label="复制 WikiLink"
+            >
+              {copiedWikiId === file.id ? (
+                <Check className="w-3 h-3 text-emerald-500" />
+              ) : (
+                <Link2 className="w-3 h-3" />
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setContextMenu({
+                file,
+                x: Math.min(rect.right + 4, window.innerWidth - 220),
+                y: Math.min(rect.bottom + 2, window.innerHeight - 260),
+              });
+            }}
+            className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] transition cursor-pointer"
+            title="更多文件操作 (右键菜单)"
+            aria-label="更多文件操作"
+          >
+            <MoreHorizontal className="w-3 h-3" />
+          </button>
+          <span className="explorer-file-size text-[10px] font-mono">
+            {Math.round((file.size / 1024) * 10) / 10}K
+          </span>
+          {file.isCustomUploaded && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                onDeleteFile(file.id);
+              }}
+              className="p-0.5 hover:text-rose-400 text-[var(--ov-text-muted)] rounded cursor-pointer"
+              title="删除该文件"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div id="workbench-sidebar" className="relative flex h-full select-none shrink-0 z-10">
       {/* Activity Bar (VS Code left column) */}
@@ -225,16 +430,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           {showScaffoldView && (
-          <button
-            onClick={() => onViewChange('scaffold')}
-            className={`p-2 rounded-xl transition activity-bar-btn ${
-              currentView === 'scaffold' ? 'active' : ''
-            }`}
-            title="VS Code 插件生产源码脚手架 (Scaffold)"
-            aria-label="扩展脚手架"
-          >
-            <Terminal className="w-5 h-5" />
-          </button>
+            <button
+              onClick={() => onViewChange('scaffold')}
+              className={`p-2 rounded-xl transition activity-bar-btn ${
+                currentView === 'scaffold' ? 'active' : ''
+              }`}
+              title="VS Code 插件生产源码脚手架 (Scaffold)"
+              aria-label="扩展脚手架"
+            >
+              <Terminal className="w-5 h-5" />
+            </button>
           )}
         </div>
 
@@ -281,7 +486,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {sidebarOpen && (
         <div
           id="workbench-explorer-pane"
-          className="relative w-60 flex flex-col overflow-hidden transition-all duration-200"
+          className={`relative flex flex-col overflow-hidden ${isResizing ? '' : 'transition-all duration-200'}`}
+          style={{ width: `${sidebarWidth}px` }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -316,102 +522,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* File List */}
+          {/* File List (Grouped by Category) */}
           {explorerOpen ? (
-            <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-              {files.map(file => {
-                const isActive = activeFileId === file.id;
-                const isMd = isMarkdownFile(file.extension);
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {fileGroups.map(([category, categoryFiles]) => {
+                const isCollapsed = collapsedCategories[category] === true;
+                const label = CATEGORY_LABELS[category] ?? category;
                 return (
-                  <div
-                    key={file.id}
-                    onClick={() => {
-                      onSelectFile(file.id);
-                      if (currentView !== 'editor') onViewChange('editor');
-                    }}
-                    onContextMenu={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setContextMenu({
-                        file,
-                        x: Math.min(e.clientX, window.innerWidth - 220),
-                        y: Math.min(e.clientY, window.innerHeight - 260),
-                      });
-                    }}
-                    className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition explorer-file-item ${
-                      isActive ? 'active' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate min-w-0">
-                      {getFileIcon(file.extension)}
-                      <span className="truncate">{file.name}</span>
-                      {file.isModified && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>}
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition">
-                      {isMd && onOpenFileInMode && (
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            onOpenFileInMode(file.id, 'split');
-                          }}
-                          className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition cursor-pointer"
-                          title="分屏对照编辑 (.md)"
-                          aria-label="分屏对照编辑"
-                        >
-                          <Columns className="w-3 h-3" />
-                        </button>
+                  <div key={category}>
+                    {/* Category Header */}
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-[var(--ov-text-secondary)] hover:bg-[var(--ov-surface-hover)] transition cursor-pointer group/cat"
+                      title={isCollapsed ? '展开该分类' : '折叠该分类'}
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="w-3 h-3 text-[var(--ov-text-muted)]" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3 text-[var(--ov-text-muted)]" />
                       )}
-                      {isMd && (
-                        <button
-                          type="button"
-                          onClick={e => handleCopyWikiLink(file, e)}
-                          className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-accent)] transition cursor-pointer"
-                          title="复制 [[WikiLink]] 双链引用"
-                          aria-label="复制 WikiLink"
-                        >
-                          {copiedWikiId === file.id ? (
-                            <Check className="w-3 h-3 text-emerald-500" />
-                          ) : (
-                            <Link2 className="w-3 h-3" />
-                          )}
-                        </button>
+                      {isCollapsed ? (
+                        <Folder className="w-3 h-3 text-[var(--ov-text-muted)]" />
+                      ) : (
+                        <FolderOpen className="w-3 h-3 text-[var(--ov-accent)]" />
                       )}
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setContextMenu({
-                            file,
-                            x: Math.min(rect.right + 4, window.innerWidth - 220),
-                            y: Math.min(rect.bottom + 2, window.innerHeight - 260),
-                          });
-                        }}
-                        className="p-0.5 rounded hover:bg-[var(--ov-surface-hover)] text-[var(--ov-text-muted)] hover:text-[var(--ov-text)] transition cursor-pointer"
-                        title="更多文件操作 (右键菜单)"
-                        aria-label="更多文件操作"
-                      >
-                        <MoreHorizontal className="w-3 h-3" />
-                      </button>
-                      <span className="explorer-file-size text-[10px] font-mono">
-                        {Math.round((file.size / 1024) * 10) / 10}K
+                      <span className="uppercase tracking-wider">{label}</span>
+                      <span className="ml-auto text-[10px] font-mono text-[var(--ov-text-muted)]">
+                        {categoryFiles.length}
                       </span>
-                      {file.isCustomUploaded && (
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            onDeleteFile(file.id);
-                          }}
-                          className="p-0.5 hover:text-rose-400 text-[var(--ov-text-muted)] rounded cursor-pointer"
-                          title="删除该文件"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
+                    </button>
+
+                    {/* Category Files */}
+                    {!isCollapsed && (
+                      <div className="space-y-0.5 pl-2.5">
+                        {categoryFiles.map(renderFileRow)}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -451,6 +598,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="footer-val-emerald font-semibold">100% Free MIT</span>
             </div>
           </div>
+
+          {/* Resize Handle */}
+          {onSidebarWidthChange && (
+            <div
+              className="group absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-30 flex items-center justify-center"
+              onMouseDown={startResize}
+              title="拖拽调整面板宽度"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="调整工作区文件面板宽度"
+            >
+              <div className={`w-px h-full transition-colors ${isResizing ? 'bg-[var(--ov-accent)]' : 'bg-[var(--ov-border)] group-hover:bg-[var(--ov-accent)]'}`} />
+            </div>
+          )}
         </div>
       )}
 
@@ -584,4 +745,3 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 };
-

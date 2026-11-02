@@ -315,6 +315,8 @@ export interface WorkbenchSettings {
   // 3. 布局与侧边栏
   sidebarOpen?: boolean;
   explorerOpen?: boolean;
+  /** 工作区文件面板宽度（px），默认 240，可拖拽调整 */
+  sidebarWidth?: number;
   activeFileId?: string;
   openTabIds?: string[];
 
