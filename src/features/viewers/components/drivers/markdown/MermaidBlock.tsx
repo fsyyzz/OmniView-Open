@@ -53,6 +53,7 @@ interface MermaidBlockProps {
   onDownloadSvg?: () => void;
   onCopy?: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  onFocusTextForNode?: (label: string, line?: number) => void;
   externalFile?: string;
   locale?: Locale;
   isDarkTheme?: boolean;
@@ -78,6 +79,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   onDownloadSvg,
   onCopy,
   onOpenSourceAtLine,
+  onFocusTextForNode,
   externalFile,
   locale = 'zh-CN',
   isDarkTheme = true,
@@ -249,15 +251,19 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
     setHoveredNodeInfo(null);
   };
 
-  // 图文联动：点击节点即刻跳转并聚焦高亮 Markdown 源码行
+  // 图文联动：点击节点即刻联动聚焦正文说明与高亮
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as Element;
     const nodeEl = target.closest(
       'g.node, g.actor, g.messageText, g.statediagram-state, g.task, g.classGroup, .cluster'
     );
-    if (nodeEl && hoveredNodeInfo && onOpenSourceAtLine) {
+    if (nodeEl && hoveredNodeInfo) {
       e.stopPropagation();
-      onOpenSourceAtLine(hoveredNodeInfo.line);
+      if (onFocusTextForNode) {
+        onFocusTextForNode(hoveredNodeInfo.label, hoveredNodeInfo.line);
+      } else if (onOpenSourceAtLine) {
+        onOpenSourceAtLine(hoveredNodeInfo.line);
+      }
     }
   };
 
@@ -286,6 +292,13 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
               L{startLine}
             </button>
           )}
+          <span
+            className="hidden sm:inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-700/40 text-cyan-300 font-sans select-none"
+            title={t('diagramFocusText', locale)}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span>{t('diagramTextLinkActive', locale)}</span>
+          </span>
           {viewMode === 'visual' && (
             <span className="text-slate-400 text-[11px]">({Math.round(zoom * 100)}%)</span>
           )}
@@ -456,12 +469,16 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
           className="p-2.5 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px] items-center relative group/canvas cursor-zoom-in"
           title={displaySvg ? t('fullScreen', locale) : undefined}
         >
-          {/* 图文联动提示徽章：显示当前悬浮节点与其在 Markdown 源码中的精准行号 */}
+          {/* 图文联动提示徽章：显示当前悬浮节点与正文联动入口 */}
           {hoveredNodeInfo && (
             <div
               onClick={(e) => {
                 e.stopPropagation();
-                onOpenSourceAtLine?.(hoveredNodeInfo.line);
+                if (onFocusTextForNode) {
+                  onFocusTextForNode(hoveredNodeInfo.label, hoveredNodeInfo.line);
+                } else {
+                  onOpenSourceAtLine?.(hoveredNodeInfo.line);
+                }
               }}
               className="diagram-node-link-badge absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 bg-[var(--ov-surface-header,var(--ov-surface))] border border-[var(--ov-accent)] rounded-full text-[var(--ov-text)] text-xs shadow-lg backdrop-blur-md cursor-pointer hover:bg-[var(--ov-surface-hover)] transition-all select-none"
               style={{
@@ -470,13 +487,13 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
                 color: 'var(--ov-text)',
                 boxShadow: 'var(--ov-shadow, 0 4px 14px rgba(0, 0, 0, 0.22))',
               }}
-              title={t('diagramClickToLocate', locale)}
+              title={t('diagramFocusText', locale)}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--ov-accent)] animate-ping" />
               <span className="font-semibold max-w-[140px] truncate">{hoveredNodeInfo.label}</span>
-              <span className="text-[var(--ov-accent)] font-mono font-semibold">→ L{hoveredNodeInfo.line}</span>
+              <span className="text-[var(--ov-accent)] font-mono font-semibold">🔗 {t('diagramFocusText', locale)}</span>
               <span className="text-[10px] text-[var(--ov-text-muted)] hidden sm:inline">
-                ({t('diagramClickToLocate', locale)})
+                (L{hoveredNodeInfo.line})
               </span>
             </div>
           )}

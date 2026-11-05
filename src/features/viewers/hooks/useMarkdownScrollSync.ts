@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { slugifyHeading } from '../lib/markdownWikiLinks';
+import { toggleMarkdownTaskLine } from '../lib/markdownTaskToggle';
 import { loadStoredSettings } from '../../../shared/lib/settingsStorage';
 import {
   PANE_SYNC_EVENT,
@@ -62,44 +63,34 @@ export function useMarkdownScrollSync({
         target.classList.contains('ov-task-checkbox')
       ) {
         const lineAttr = target.getAttribute('data-task-line');
+        const itemEl = target.closest('.ov-task-list-item') as HTMLElement | null;
+        const isChecked = (target as HTMLInputElement).checked;
+
+        // 1. 瞬时乐观更新 DOM 状态：毫秒级切换类名与弹跳动效，彻底杜绝等待与闪烁
+        if (itemEl) {
+          itemEl.classList.toggle('ov-task-done', isChecked);
+          itemEl.setAttribute('data-checked', isChecked ? 'true' : 'false');
+          target.classList.remove('ov-task-pop');
+          void target.offsetWidth;
+          target.classList.add('ov-task-pop');
+        }
+
         if (lineAttr && onContentChange) {
           const lineNum = parseInt(lineAttr, 10);
           if (!isNaN(lineNum) && lineNum > 0) {
-            const lines = content.split('\n');
-            const isChecked = (target as HTMLInputElement).checked;
-            const taskPrefixRe = /^((\s*(?:>\s*)*)(?:[-*+]|\d+[.)])\s+\[)[ xX](\])/;
-            const clampedIdx = Math.min(lines.length - 1, Math.max(0, lineNum - 1));
+            const labelText = itemEl?.querySelector('.ov-task-text')?.textContent?.trim() || '';
+            const scrollContainer = findMarkdownScrollViewport(container) || container;
+            const prevScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
 
-            let matchedIdx = -1;
-            if (taskPrefixRe.test(lines[clampedIdx])) {
-              matchedIdx = clampedIdx;
-            } else {
-              const labelText =
-                target.closest('li')?.querySelector('.ov-task-text')?.textContent?.trim() || '';
-              for (let delta = 1; delta <= lines.length; delta++) {
-                const candidates = [clampedIdx - delta, clampedIdx + delta];
-                for (const idx of candidates) {
-                  if (idx >= 0 && idx < lines.length && taskPrefixRe.test(lines[idx])) {
-                    if (!labelText || lines[idx].includes(labelText.slice(0, 12))) {
-                      matchedIdx = idx;
-                      break;
-                    }
-                  }
+            const res = toggleMarkdownTaskLine(content, lineNum, isChecked, labelText);
+            if (res.changed) {
+              onContentChange(res.newContent);
+              // 保证源码回写与 React 重渲染后绝对零视口跳动 (Zero CLS)
+              requestAnimationFrame(() => {
+                if (scrollContainer && Math.abs(scrollContainer.scrollTop - prevScrollTop) > 1) {
+                  scrollContainer.scrollTop = prevScrollTop;
                 }
-                if (matchedIdx !== -1) break;
-              }
-            }
-
-            if (matchedIdx !== -1) {
-              const currentLine = lines[matchedIdx];
-              const updatedLine = currentLine.replace(
-                taskPrefixRe,
-                isChecked ? '$1x$3' : '$1 $3'
-              );
-              if (updatedLine !== currentLine) {
-                lines[matchedIdx] = updatedLine;
-                onContentChange(lines.join('\n'));
-              }
+              });
             }
           }
         }

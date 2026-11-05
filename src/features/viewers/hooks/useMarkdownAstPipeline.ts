@@ -25,6 +25,7 @@ import {
   CrossReferenceRegistry,
 } from '../lib/markdownCrossReferenceEngine';
 import { lintMarkdownHealth, type MarkdownHealthReport } from '../lib/markdownHealthLinter';
+import { normalizeMarkdownTabs } from '../lib/markdownTabsNormalizer';
 import type { AiDiffViewMode } from '../../../shared/types';
 
 export interface RenderedBlock {
@@ -426,9 +427,10 @@ export function useMarkdownAstPipeline({
         : 0;
 
       const sourceBody = aiDiffResult.hasDiff ? aiDiffResult.markdown : cleanBody;
+      const normalizedBody = normalizeMarkdownTabs(sourceBody);
 
-      // 流水线处理：emoji -> wiki -> def-lists -> footnotes -> inline-svg -> math
-      const { markdown: bodyWithEmoji } = processEmojiShortcodes(sourceBody);
+      // 流水线处理：tabs -> emoji -> wiki -> def-lists -> footnotes -> inline-svg -> math
+      const { markdown: bodyWithEmoji } = processEmojiShortcodes(normalizedBody);
       const { markdown: bodyWithWiki } = processMarkdownWikiLinks(bodyWithEmoji, {
         files: filesRef.current || [],
         unresolvedLabel: t('wikiLinkUnresolved', locale),
@@ -886,7 +888,7 @@ export function useMarkdownAstPipeline({
           if (isTask) {
             body = body.replace(/<input[^>]*type=["']checkbox["'][^>]*>/gi, '').trim();
             const checkboxHtml = `<input type="checkbox" class="ov-task-checkbox" data-task-line="${itemLine}" ${isChecked ? 'checked' : ''} aria-label="${isChecked ? 'Mark incomplete' : 'Mark complete'}" title="${t('taskToggleTooltip', locale)}" />`;
-            return `<li class="ov-task-list-item ${isChecked ? 'ov-task-done' : ''}" data-task-line="${itemLine}" data-source-line="${itemLine}" data-checked="${isChecked ? 'true' : 'false'}"><label class="ov-task-label">${checkboxHtml}<span class="ov-task-text">${body}</span></label></li>\n`;
+            return `<li class="ov-task-list-item ${isChecked ? 'ov-task-done' : ''}" data-task-line="${itemLine}" data-source-line="${itemLine}" data-checked="${isChecked ? 'true' : 'false'}"><div class="ov-task-label">${checkboxHtml}<span class="ov-task-text">${body}</span></div></li>\n`;
           }
           return `<li data-source-line="${itemLine}">${body}</li>\n`;
         }

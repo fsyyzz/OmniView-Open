@@ -8,7 +8,24 @@
 
 ---
 
-## [1.4.13] - 2026-11-02 (当前最新发布)
+## [1.4.14] - 2026-11-04 (当前最新发布)
+
+> [!TIP] v1.4.14 核心升级亮点
+> **Markdown 渲染视窗高频交互演进：任务清单原地平滑即时回写、图文双向聚焦高亮与 Tabbed 多标签容器全面兼容**：
+> 1. **任务清单复选框原地即时勾选与平滑回写 (`markdownTaskToggle.ts` / `useMarkdownScrollSync.ts`)**：
+>    - **瞬时乐观 DOM 更新**：点击复选框即刻切换完成态样式并触发微回弹动画 (`.ov-task-pop`)，彻底消除 AST 重新解析期间的等待感；
+>    - **零视口抖动 (Zero CLS)**：源码局部行精准替换，自动保持滚动容器 `scrollTop`，勾选任务时页面毫无跳动；
+>    - **划选防误触隔离**：分离复选框交互与文本选区，划选/复制任务项文本内容时绝不误触发勾选状态。
+> 2. **图文双向聚焦高亮 (Diagram-to-Text & Text-to-Diagram Reactive Focus)**：
+>    - **图 -> 文聚焦 (`diagramReactiveFocus.ts`)**：在 Mermaid 与 Graphviz DOT 画布中悬浮任意节点即显示联动入口与提示徽章，点击节点自动平滑滚动至正文对应标题/关键词，并触发双色脉冲光晕 (`.ov-diagram-reactive-highlight`)；
+>    - **文 -> 图辉光**：支持反查图表节点并为 SVG 图元注入辉光特效 (`.ov-diagram-node-glow`)；
+>    - **工具栏与状态反馈**：图表顶部提供「图文联动已就绪」指示，点击节点弹出无障碍吐司反馈。
+> 3. **Tabbed 多标签页容器多语法无缝兼容 (`markdownTabsNormalizer.ts`)**：
+>    - 确认并强化原生 `> [!TABS]` 语法，新增对 VitePress / Docusaurus 风格 `::: tabs` 及 MkDocs Material 风格 `=== "Tab"` 语法的自动规范化映射，实现开源技术文档零门槛无缝渲染。
+
+---
+
+## [1.4.13] - 2026-11-02
 
 > [!TIP] v1.4.13 核心升级亮点
 > **SVG Studio 矢量工作台右侧垂直工具条与单选互斥抽屉正式交付发版**：

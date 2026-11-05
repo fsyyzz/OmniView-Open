@@ -43,6 +43,7 @@ interface GraphvizBlockProps {
   onDownloadSvg: (svgContent?: string) => void;
   onCopy: () => void;
   onOpenSourceAtLine?: (line: number) => void;
+  onFocusTextForNode?: (label: string, line?: number) => void;
   externalFile?: string;
   locale?: Locale;
 }
@@ -66,6 +67,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   onDownloadSvg,
   onCopy,
   onOpenSourceAtLine,
+  onFocusTextForNode,
   externalFile,
   locale = 'zh-CN',
 }) => {
@@ -76,6 +78,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   const [isCopiedImage, setIsCopiedImage] = useState<boolean>(false);
   const [isCopyingImage, setIsCopyingImage] = useState<boolean>(false);
   const [isToolbarExpanded, setIsToolbarExpanded] = useState<boolean>(false);
+  const [hoveredNodeInfo, setHoveredNodeInfo] = useState<{ label: string; line: number } | null>(null);
   const renderCountRef = useRef(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
@@ -143,6 +146,54 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
     }
   };
 
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as Element;
+    const nodeEl = target.closest('g.node, g.cluster');
+    if (!nodeEl) {
+      if (hoveredNodeInfo) setHoveredNodeInfo(null);
+      return;
+    }
+    const text = (
+      nodeEl.querySelector('text')?.textContent ||
+      nodeEl.querySelector('title')?.textContent ||
+      nodeEl.textContent ||
+      ''
+    ).trim();
+    if (!text) {
+      if (hoveredNodeInfo) setHoveredNodeInfo(null);
+      return;
+    }
+    const lines = activeCode.split('\n');
+    let matchIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(text)) {
+        matchIdx = i;
+        break;
+      }
+    }
+    const calculatedLine = (startLine || 1) + (matchIdx !== -1 ? matchIdx + 1 : 1);
+    if (!hoveredNodeInfo || hoveredNodeInfo.label !== text) {
+      setHoveredNodeInfo({ label: text, line: calculatedLine });
+    }
+  };
+
+  const handleCanvasMouseLeave = () => {
+    setHoveredNodeInfo(null);
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as Element;
+    const nodeEl = target.closest('g.node, g.cluster');
+    if (nodeEl && hoveredNodeInfo) {
+      e.stopPropagation();
+      if (onFocusTextForNode) {
+        onFocusTextForNode(hoveredNodeInfo.label, hoveredNodeInfo.line);
+      } else if (onOpenSourceAtLine) {
+        onOpenSourceAtLine(hoveredNodeInfo.line);
+      }
+    }
+  };
+
   return (
     <div id={id} className={`markdown-diagram markdown-diagram-graphviz group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
       {/* 默认折叠微型展开胶囊 */}
@@ -161,6 +212,13 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
           <span className="font-semibold">{t('graphvizTitle', locale)}</span>
           <span className="text-slate-400 text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 uppercase">
             {engine}
+          </span>
+          <span
+            className="hidden sm:inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950/60 border border-amber-700/40 text-amber-300 font-sans select-none"
+            title={t('diagramFocusText', locale)}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span>{t('diagramTextLinkActive', locale)}</span>
           </span>
           {viewMode === 'visual' && (
             <span className="text-slate-400 text-[11px]">({Math.round(zoom * 100)}%)</span>
@@ -292,7 +350,10 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
       {/* Body Content */}
       {viewMode === 'visual' ? (
         <div
-          className="p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[160px] items-center cursor-zoom-in"
+          className="p-6 overflow-x-auto flex justify-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[160px] items-center cursor-zoom-in relative group/canvas"
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
+          onClick={handleCanvasClick}
           onDoubleClick={(e) => {
             if (svgContent) {
               e.stopPropagation();
@@ -301,6 +362,33 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
           }}
           title={svgContent ? t('fullScreen', locale) : undefined}
         >
+          {hoveredNodeInfo && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onFocusTextForNode) {
+                  onFocusTextForNode(hoveredNodeInfo.label, hoveredNodeInfo.line);
+                } else {
+                  onOpenSourceAtLine?.(hoveredNodeInfo.line);
+                }
+              }}
+              className="diagram-node-link-badge absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 bg-[var(--ov-surface-header,var(--ov-surface))] border border-amber-500 rounded-full text-[var(--ov-text)] text-xs shadow-lg backdrop-blur-md cursor-pointer hover:bg-[var(--ov-surface-hover)] transition-all select-none"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--ov-surface-header, var(--ov-surface)) 94%, transparent)',
+                borderColor: '#f59e0b',
+                color: 'var(--ov-text)',
+                boxShadow: 'var(--ov-shadow, 0 4px 14px rgba(0, 0, 0, 0.22))',
+              }}
+              title={t('diagramFocusText', locale)}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+              <span className="font-semibold max-w-[140px] truncate">{hoveredNodeInfo.label}</span>
+              <span className="text-amber-400 font-mono font-semibold">🔗 {t('diagramFocusText', locale)}</span>
+              <span className="text-[10px] text-[var(--ov-text-muted)] hidden sm:inline">
+                (L{hoveredNodeInfo.line})
+              </span>
+            </div>
+          )}
           {isLoading ? (
             <div className="flex items-center gap-2 text-slate-400 text-xs py-8">
               <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />

@@ -54,6 +54,7 @@ import { loadStoredSettings } from '../../../../shared/lib/settingsStorage';
 import { cleanAndFormatDomForWordSync, cleanAndFormatDomForWord, isFullContainerSelection, sanitizePlainTextClipboard } from '../../lib/wordClipboardHelper';
 import { mermaidRenderCache, graphvizRenderCache } from '../../lib/diagramCache';
 import { graphvizRenderer } from '../../lib/graphvizRenderer';
+import { triggerDiagramToTextFocus } from '../../lib/diagramReactiveFocus';
 
 export type { RenderedBlock };
 
@@ -745,6 +746,18 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     }
   }, [isRendering, blocks.length, onRenderComplete]);
 
+  // 图文双向聚焦高亮：根据节点标签智能检索并滚动定位正文说明
+  const handleFocusTextForNode = (nodeLabel: string, sourceLine?: number) => {
+    if (!containerRef.current) return;
+    triggerDiagramToTextFocus(
+      containerRef.current,
+      nodeLabel,
+      null,
+      sourceLine,
+      onOpenSourceAtLine
+    );
+  };
+
   // 点击事件委托：支持 Tab 切换等交互
   const handleViewerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
@@ -1206,6 +1219,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onDownloadSvg={() => handleDownloadSvg(block.svgContent!, 'mermaid-diagram')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
+                  onFocusTextForNode={handleFocusTextForNode}
                   externalFile={block.externalFile}
                   locale={locale}
                   isDarkTheme={isDarkTheme}
@@ -1412,6 +1426,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onDownloadSvg={liveSvg => handleDownloadSvg(liveSvg || block.svgContent || block.raw, 'graphviz-topology')}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}
+                  onFocusTextForNode={handleFocusTextForNode}
                   externalFile={block.externalFile}
                   locale={locale}
                 />

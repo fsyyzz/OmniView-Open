@@ -324,6 +324,9 @@ export const TRANSLATIONS = {
     diagramNodeLinked: '已定位关联图表节点',
     diagramLinkSource: '反查正文关联引用',
     diagramClickToLocate: '点击定位到源码行',
+    diagramFocusText: '点击联动聚焦正文说明',
+    diagramTextLinkActive: '图文双向联动已就绪',
+    taskCheckboxToggled: '任务状态已更新',
 
     // Graphviz
     graphvizTitle: 'Graphviz 结构图',
@@ -762,6 +765,9 @@ export const TRANSLATIONS = {
     diagramNodeLinked: 'Diagram node located',
     diagramLinkSource: 'Trace text references',
     diagramClickToLocate: 'Click to locate source line',
+    diagramFocusText: 'Click to link & focus text explanation',
+    diagramTextLinkActive: 'Diagram-text reactive link active',
+    taskCheckboxToggled: 'Task status updated',
 
     // Graphviz
     graphvizTitle: 'Graphviz Diagram',

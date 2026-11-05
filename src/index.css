@@ -5136,11 +5136,21 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   accent-color: #3b82f6;
   border-radius: 4px;
   flex-shrink: 0;
-  transition: transform 0.1s ease;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .ov-task-checkbox:hover {
-  transform: scale(1.15);
+  transform: scale(1.18);
+}
+
+.ov-task-checkbox.ov-task-pop {
+  animation: ov-checkbox-pop 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ov-checkbox-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+  100% { transform: scale(1); }
 }
 
 .ov-task-text {
@@ -5148,12 +5158,70 @@ details.ov-gallery-container[open] .ov-callout-fold-icon {
   min-width: 0;
   cursor: text;
   user-select: text;
-  transition: opacity 0.2s ease, color 0.2s ease;
+  transition: opacity 0.22s ease, color 0.22s ease, text-decoration-color 0.22s ease;
 }
 
 .ov-task-done .ov-task-text {
   text-decoration: line-through;
-  opacity: 0.55;
+  text-decoration-thickness: 1.5px;
+  opacity: 0.52;
+}
+
+/* 图文双向联动：正文脉冲高亮与 SVG 节点辉光 */
+.ov-diagram-reactive-highlight {
+  animation: ov-diagram-reactive-glow 2.2s cubic-bezier(0, 0, 0.2, 1) forwards;
+  border-radius: 6px;
+  outline: 2px solid rgba(6, 182, 212, 0.7);
+  outline-offset: 4px;
+}
+
+@keyframes ov-diagram-reactive-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.75), inset 0 0 12px rgba(6, 182, 212, 0.2);
+    background-color: rgba(6, 182, 212, 0.22);
+  }
+  60% {
+    box-shadow: 0 0 0 12px rgba(6, 182, 212, 0);
+    background-color: rgba(6, 182, 212, 0.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+    background-color: transparent;
+    outline-color: transparent;
+  }
+}
+
+/* 图文双向联动：SVG 节点脉冲辉光 */
+.ov-diagram-node-glow {
+  filter: drop-shadow(0 0 8px #06b6d4) drop-shadow(0 0 16px rgba(6, 182, 212, 0.7)) !important;
+  stroke: #06b6d4 !important;
+  stroke-width: 2.5px !important;
+  animation: ov-node-pulse 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes ov-node-pulse {
+  0% {
+    filter: drop-shadow(0 0 4px #06b6d4) drop-shadow(0 0 8px rgba(6, 182, 212, 0.5));
+  }
+  100% {
+    filter: drop-shadow(0 0 12px #38bdf8) drop-shadow(0 0 20px rgba(56, 189, 248, 0.85));
+  }
+}
+
+/* 图表 SVG 节点交互悬浮光效 */
+.markdown-diagram-svg-canvas g.node,
+.markdown-diagram-svg-canvas g.actor,
+.markdown-diagram-svg-canvas g.statediagram-state,
+.markdown-diagram-svg-canvas g.classGroup {
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.markdown-diagram-svg-canvas g.node:hover,
+.markdown-diagram-svg-canvas g.actor:hover,
+.markdown-diagram-svg-canvas g.statediagram-state:hover,
+.markdown-diagram-svg-canvas g.classGroup:hover {
+  filter: drop-shadow(0 0 7px rgba(6, 182, 212, 0.85)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
 }
 
 /* =========================================================
