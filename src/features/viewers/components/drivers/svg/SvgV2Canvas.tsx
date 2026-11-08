@@ -11,11 +11,12 @@
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
-import { ZoomIn, ZoomOut, Maximize2, Move, Scaling, Frame } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Move, Scaling, Frame, Grid3x3, Magnet } from 'lucide-react';
 import {
   RAW_DEFS_METADATA_KEY,
   clientToCanvasPoint,
   getSelectionBBox,
+  getActiveTransformFeedback,
   hitTestAllAtPoint,
   nodeBBox,
   nodeWorldBBox,
@@ -24,9 +25,11 @@ import {
   type Document as SvgDocument,
   type Fill,
   type Node,
+  type NodeId,
   type OverlayElement,
   type Runtime,
   type Selection,
+  type TextNode,
   type ToolId,
   getTool,
   isTwoPointLineNode,
@@ -36,6 +39,7 @@ import { useSvgV2PointerInput } from './useSvgV2PointerInput';
 import { useSvgV2Viewport } from './useSvgV2Viewport';
 import { SvgV2ContextMenu } from './SvgV2ContextMenu';
 import { SvgV2FloatingHud } from './SvgV2FloatingHud';
+import { SvgV2InlineTextEditor } from './SvgV2InlineTextEditor';
 
 export interface SvgV2CanvasProps {
   readonly document: SvgDocument;
@@ -116,6 +120,10 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
     };
   }, [doc?.canvas?.viewBox, doc?.canvas?.width, doc?.canvas?.height]);
 
+  const [editingTextNodeId, setEditingTextNodeId] = useState<NodeId | null>(null);
+  const [showGrid, setShowGrid] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+
   const {
     svgRef,
     handlePointerDown,
@@ -130,6 +138,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
     undo: () => runtime.undo(),
     redo: () => runtime.redo(),
     selectAll: () => runtime.execute('select.all', {}),
+    onEditTextNode: (nodeId) => setEditingTextNodeId(nodeId),
   });
 
   const {
@@ -159,6 +168,14 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
     startH: number;
     scale: number;
   } | null>(null);
+
+  const handleToggleSnapToGrid = useCallback(() => {
+    setSnapToGrid((prev) => {
+      const next = !prev;
+      runtime.execute('tool.setOption', { option: 'snapToGrid', value: next });
+      return next;
+    });
+  }, [runtime]);
 
   const handleCanvasResizeDown = useCallback(
     (handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w', e: React.PointerEvent<HTMLDivElement>) => {
@@ -285,6 +302,25 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
     return { left: centerX, top: adjustedTop };
   }, [selBBox, view, viewport]);
 
+  // SVG-01: 计算原地文本编辑器的浮层坐标
+  const editingTextOverlay = useMemo(() => {
+    if (!editingTextNodeId) return null;
+    const n = doc.nodes.get(editingTextNodeId);
+    if (!n || n.kind !== 'Text') return null;
+    const bb = nodeWorldBBox(doc, n.id);
+    if (!svgRef.current || !containerRef.current || view.width === 0) {
+      return { node: n as TextNode, left: 40, top: 40, scale: viewport.scale };
+    }
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const scale = svgRect.width > 0 ? svgRect.width / view.width : viewport.scale;
+    const wx = bb ? bb.x : (n.x ?? 0);
+    const wy = bb ? bb.y : (n.y ?? 0) - (n.fontSize ?? 16);
+    const left = svgRect.left - containerRect.left + (wx - view.x) * scale;
+    const top = svgRect.top - containerRect.top + (wy - view.y) * scale;
+    return { node: n as TextNode, left, top, scale };
+  }, [editingTextNodeId, doc, view, viewport]);
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -342,6 +378,7 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
   const defsHtml = useMemo(() => sanitizeDefsFragment(rawDefs), [rawDefs]);
 
   const overlays = runtime.overlay();
+  const transformFeedback = getActiveTransformFeedback();
   const activeMarquee = useMemo(() => {
     const found = overlays.find(
       (o) => o.kind === 'rect' && (o.stroke === '#10b981' || o.stroke === '#2563eb'),
@@ -513,7 +550,27 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
               <marker id="ov-marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                 <circle cx="5" cy="5" r="4" fill="context-stroke" />
               </marker>
+              {showGrid && (
+                <pattern id="__ov_canvas_grid__" width="16" height="16" patternUnits="userSpaceOnUse">
+                  <path
+                    d="M 16 0 L 0 0 0 16"
+                    fill="none"
+                    stroke="rgba(148, 163, 184, 0.28)"
+                    strokeWidth="0.75"
+                  />
+                </pattern>
+              )}
             </defs>
+            {showGrid && (
+              <rect
+                x={view.x}
+                y={view.y}
+                width={view.width}
+                height={view.height}
+                fill="url(#__ov_canvas_grid__)"
+                pointerEvents="none"
+              />
+            )}
             {elements}
             {selectionBoxes}
             <g pointerEvents="none">{overlays.map(renderOverlay)}</g>
@@ -548,8 +605,20 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
         </div>
       </div>
 
+      {/* SVG-01: 画布内双击原地文本编辑器 */}
+      {editingTextOverlay && (
+        <SvgV2InlineTextEditor
+          node={editingTextOverlay.node}
+          left={editingTextOverlay.left}
+          top={editingTextOverlay.top}
+          scale={editingTextOverlay.scale}
+          execute={(cmd, params) => runtime.execute(cmd, params)}
+          onClose={() => setEditingTextNodeId(null)}
+        />
+      )}
+
       {/* 悬浮 HUD 快捷工具条 (Floating HUD) */}
-      {hudPosition && selBBox && activeToolId === 'select' && !runtime.isInteracting && (
+      {hudPosition && selBBox && activeToolId === 'select' && !runtime.isInteracting && !editingTextOverlay && (
         <SvgV2FloatingHud
           left={hudPosition.left}
           top={hudPosition.top}
@@ -570,6 +639,19 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
           onClose={() => setContextMenu(null)}
           execute={(cmd, params) => runtime.execute(cmd, params)}
         />
+      )}
+
+      {/* SVG-03: 旋转角度 / 缩放尺寸实时 HUD 气泡 */}
+      {transformFeedback && (
+        <div
+          data-canvas-ui="true"
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none flex items-center gap-2 rounded-full border border-[var(--ov-accent)] bg-[var(--ov-surface)]/95 px-3 py-1 font-mono text-xs font-semibold text-[var(--ov-accent)] shadow-xl backdrop-blur-md"
+        >
+          <span>{transformFeedback.kind === 'rotate' ? '旋转角度' : '缩放尺寸'}</span>
+          <span className="rounded bg-[var(--ov-accent-soft)] px-1.5 py-0.5 text-[var(--ov-fg)]">
+            {transformFeedback.text}
+          </span>
+        </div>
       )}
 
       {/* CAD 框选模式提示徽章 (参考 AutoCAD 窗选与交叉选实时反馈) */}
@@ -638,6 +720,34 @@ export const SvgV2Canvas: React.FC<SvgV2CanvasProps> = ({
         >
           <Maximize2 size={12} />
           <span>适应</span>
+        </button>
+        <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+        {/* SVG-02: 网格背景与磁吸对齐开关 */}
+        <button
+          type="button"
+          title={showGrid ? '隐藏 16px 画布背景网格' : '显示 16px 画布背景网格'}
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] transition-colors ${
+            showGrid
+              ? 'bg-[var(--ov-accent-soft)] text-[var(--ov-accent)] font-medium'
+              : 'text-[var(--ov-text)] hover:bg-[var(--ov-hover)]'
+          }`}
+          onClick={() => setShowGrid((v) => !v)}
+        >
+          <Grid3x3 size={12} />
+          <span className="hidden sm:inline">网格</span>
+        </button>
+        <button
+          type="button"
+          title={snapToGrid ? '已开启 16px 网格磁吸对齐（点击关闭）' : '开启 16px 网格磁吸对齐（智能参考线始终开启）'}
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] transition-colors ${
+            snapToGrid
+              ? 'bg-[var(--ov-accent-soft)] text-[var(--ov-accent)] font-medium'
+              : 'text-[var(--ov-text)] hover:bg-[var(--ov-hover)]'
+          }`}
+          onClick={handleToggleSnapToGrid}
+        >
+          <Magnet size={12} />
+          <span className="hidden sm:inline">磁吸</span>
         </button>
         <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
         <span

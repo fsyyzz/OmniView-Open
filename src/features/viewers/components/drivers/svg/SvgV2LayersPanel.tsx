@@ -151,11 +151,11 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
   }, []);
 
   return (
-    <div className="border-b border-[var(--ov-border)]" data-inspector-panel="true">
+    <div className="flex h-full min-h-0 flex-col" data-inspector-panel="true">
       <button
         type="button"
         onClick={togglePanelCollapse}
-        className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-semibold uppercase text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors select-none"
+        className="flex w-full shrink-0 items-center justify-between border-b border-[var(--ov-border)] px-2 py-1.5 text-xs font-semibold uppercase text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)] transition-colors select-none"
         title={isPanelCollapsed ? '展开图层面板' : '收起图层面板'}
         aria-expanded={!isPanelCollapsed}
       >
@@ -168,7 +168,7 @@ export const SvgV2LayersPanel: React.FC<SvgV2LayersPanelProps> = ({
         </span>
       </button>
       {!isPanelCollapsed && (
-        <ul className="max-h-48 overflow-y-auto pb-1 text-sm" role="tree" aria-label="图层树">
+        <ul className="flex-1 min-h-0 overflow-y-auto pb-2 text-sm" role="tree" aria-label="图层树">
         {rows.map((row) => {
           const isSelected = selection.nodeIds.includes(row.id);
           const isDragSource = dragState?.id === row.id;

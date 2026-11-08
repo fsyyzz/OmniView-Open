@@ -27,12 +27,20 @@ import {
   AlignEndVertical,
   AlignHorizontalDistributeCenter,
   AlignVerticalDistributeCenter,
+  FlipHorizontal,
+  FlipVertical,
+  RotateCw,
+  Combine,
+  Minus as Subtract,
+  CircleDot as Intersect,
+  Layers as Exclude,
 } from 'lucide-react';
-import type {
-  CommandId,
-  CommandParams,
-  Document,
-  Selection,
+import {
+  getSelectionBBox,
+  type CommandId,
+  type CommandParams,
+  type Document,
+  type Selection,
 } from './core';
 
 export interface SvgV2ContextMenuProps {
@@ -308,6 +316,111 @@ export const SvgV2ContextMenu: React.FC<SvgV2ContextMenuProps> = ({
                 </div>
               </div>
             )}
+
+            {/* SVG-07: 路径布尔运算 */}
+            <div className="flex items-center justify-between pt-0.5">
+              <span>布尔运算</span>
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  title="布尔联集 (Union)"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-accent)]"
+                  onClick={() => handleAction(() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'union' }))}
+                >
+                  <Combine size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="布尔差集 (Subtract)"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-accent)]"
+                  onClick={() => handleAction(() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'subtract' }))}
+                >
+                  <Subtract size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="布尔交集 (Intersect)"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-accent)]"
+                  onClick={() => handleAction(() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'intersect' }))}
+                >
+                  <Intersect size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="布尔异或 (Exclude)"
+                  className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-accent)]"
+                  onClick={() => handleAction(() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'exclude' }))}
+                >
+                  <Exclude size={12} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* SVG-03: 翻转与顺时针旋转 90° */}
+      {hasSelection && (
+        <>
+          <div className="my-1 h-px bg-[var(--ov-border)]" />
+          <div className="flex items-center justify-between px-2 py-1 text-[11px] text-[var(--ov-fg-muted)]">
+            <span>变换</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="水平镜像翻转"
+                className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                onClick={() =>
+                  handleAction(() => {
+                    const bb = getSelectionBBox(doc, selection.nodeIds);
+                    if (!bb) return;
+                    execute('object.scale', {
+                      ids: [...selection.nodeIds],
+                      origin: { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 },
+                      factor: { x: -1, y: 1 },
+                    });
+                  })
+                }
+              >
+                <FlipHorizontal size={12} />
+              </button>
+              <button
+                type="button"
+                title="垂直镜像翻转"
+                className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                onClick={() =>
+                  handleAction(() => {
+                    const bb = getSelectionBBox(doc, selection.nodeIds);
+                    if (!bb) return;
+                    execute('object.scale', {
+                      ids: [...selection.nodeIds],
+                      origin: { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 },
+                      factor: { x: 1, y: -1 },
+                    });
+                  })
+                }
+              >
+                <FlipVertical size={12} />
+              </button>
+              <button
+                type="button"
+                title="顺时针旋转 90°"
+                className="p-1 rounded hover:bg-[var(--ov-hover)] hover:text-[var(--ov-text)]"
+                onClick={() =>
+                  handleAction(() => {
+                    const bb = getSelectionBBox(doc, selection.nodeIds);
+                    if (!bb) return;
+                    execute('object.rotate', {
+                      ids: [...selection.nodeIds],
+                      origin: { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 },
+                      angleDeg: 90,
+                    });
+                  })
+                }
+              >
+                <RotateCw size={12} />
+              </button>
+            </div>
           </div>
         </>
       )}

@@ -183,6 +183,9 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
     stageEl.addEventListener('wheel', handleNativeWheel, { passive: false });
     return () => {
       stageEl.removeEventListener('wheel', handleNativeWheel);
+      if (wheelTimeoutRef.current) {
+        clearTimeout(wheelTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -244,7 +247,7 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
       svgHeight = svgEl.viewBox.baseVal.height;
     } else {
       const bbox = svgEl.getBoundingClientRect();
-      const currentScale = contentWrapperRef.current ? 1 : 1;
+      const currentScale = zoomRef.current || 1;
       svgWidth = bbox.width / currentScale;
       svgHeight = bbox.height / currentScale;
     }
@@ -295,10 +298,12 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
             const maxX = Math.max(100, entry.contentRect.width * 0.8);
             const maxY = Math.max(100, entry.contentRect.height * 0.8);
             if (Math.abs(currentPan.x) > maxX || Math.abs(currentPan.y) > maxY) {
-              return {
+              const clampedPan = {
                 x: Math.max(-maxX, Math.min(maxX, currentPan.x)),
                 y: Math.max(-maxY, Math.min(maxY, currentPan.y)),
               };
+              panRef.current = clampedPan;
+              return clampedPan;
             }
             return currentPan;
           });

@@ -42,6 +42,7 @@ import {
   isRectNode,
 } from '../model/path';
 import { findAncestors, findOutermostGroup, findParent } from '../model/tree';
+import { getShapeWorldPorts, type ConnectorBinding } from '../model/booleanOps';
 
 // ============================================================================
 // Select Tool
@@ -76,6 +77,12 @@ interface PolylineVertexState {
 let activeTransformState: TransformHandleState | null = null;
 let activePolylineVertexState: PolylineVertexState | null = null;
 let activeSnapGuides: SnapGuideLine[] = [];
+let activeTransformFeedback: { readonly kind: 'rotate' | 'scale'; readonly text: string } | null = null;
+
+/** 获取当前进行中的旋转角度或缩放尺寸实时 HUD 反馈（SVG-03）。 */
+export function getActiveTransformFeedback(): { readonly kind: 'rotate' | 'scale'; readonly text: string } | null {
+  return activeTransformFeedback;
+}
 
 export { isRectNode };
 
@@ -203,16 +210,17 @@ export function constrainLineAngle15Deg(p1: Vec2, p2: Vec2): Vec2 {
   };
 }
 
-/** 吸附端点到画布其他可见图元的边界连接点（四边中点、四角点、中心或直线端点）。 */
+/** 吸附端点到画布其他可见图元的边界连接点（四边中点、四角点、中心或直线端点，SVG-08 返回端口绑定）。 */
 function snapPointToShapePorts(
   doc: Document,
   pt: Vec2,
   zoom: number,
   excludeIds: ReadonlyArray<NodeId> = [],
-): { point: Vec2; snapped: boolean; guides: SnapGuideLine[] } {
-  const tol = 8 / Math.max(zoom, 1e-4);
+): { point: Vec2; snapped: boolean; guides: SnapGuideLine[]; binding: ConnectorBinding | null } {
+  const tol = 10 / Math.max(zoom, 1e-4);
   let bestDist = tol;
   let bestPt: Vec2 | null = null;
+  let bestBinding: ConnectorBinding | null = null;
   const guides: SnapGuideLine[] = [];
 
   for (const [otherId, n] of doc.nodes) {
@@ -224,30 +232,18 @@ function snapPointToShapePorts(
         if (d <= bestDist) {
           bestDist = d;
           bestPt = candidate;
+          bestBinding = null;
         }
       }
       continue;
     }
-    const ob = nodeWorldBBox(doc, otherId);
-    if (!ob || (ob.width <= 0 && ob.height <= 0)) continue;
-    const cx = ob.x + ob.width / 2;
-    const cy = ob.y + ob.height / 2;
-    const ports: Vec2[] = [
-      { x: cx, y: ob.y },
-      { x: ob.x + ob.width, y: cy },
-      { x: cx, y: ob.y + ob.height },
-      { x: ob.x, y: cy },
-      { x: cx, y: cy },
-      { x: ob.x, y: ob.y },
-      { x: ob.x + ob.width, y: ob.y },
-      { x: ob.x + ob.width, y: ob.y + ob.height },
-      { x: ob.x, y: ob.y + ob.height },
-    ];
-    for (const candidate of ports) {
-      const d = Math.hypot(pt.x - candidate.x, pt.y - candidate.y);
+    const shapePorts = getShapeWorldPorts(doc, otherId);
+    for (const candidate of shapePorts) {
+      const d = Math.hypot(pt.x - candidate.point.x, pt.y - candidate.point.y);
       if (d <= bestDist) {
         bestDist = d;
-        bestPt = candidate;
+        bestPt = candidate.point;
+        bestBinding = { nodeId: otherId, port: candidate.port };
       }
     }
   }
@@ -258,9 +254,9 @@ function snapPointToShapePorts(
       { orientation: 'vertical', position: bestPt.x, from: bestPt.y - span, to: bestPt.y + span },
       { orientation: 'horizontal', position: bestPt.y, from: bestPt.x - span, to: bestPt.x + span },
     );
-    return { point: bestPt, snapped: true, guides };
+    return { point: bestPt, snapped: true, guides, binding: bestBinding };
   }
-  return { point: pt, snapped: false, guides: [] };
+  return { point: pt, snapped: false, guides: [], binding: null };
 }
 
 function getTransformHandles(bbox: { x: number; y: number; width: number; height: number }, zoom: number) {
@@ -300,6 +296,22 @@ function hitTestHandles(
     const dy = pt.y - h.y;
     if (dx * dx + dy * dy <= tol2) {
       return { key: k, origin: h.opposite };
+    }
+  }
+  // SVG-03：四角外围热区旋转（当鼠标位于四角外侧 8px~18px 环带区域时自动激活旋转）
+  const outerRotMin = 8 / Math.max(zoom, 1e-4);
+  const outerRotMax = 18 / Math.max(zoom, 1e-4);
+  const corners = ['nw', 'ne', 'se', 'sw'] as const;
+  for (const ck of corners) {
+    const ch = handles[ck];
+    const dist = Math.hypot(pt.x - ch.x, pt.y - ch.y);
+    const isOutside =
+      (ck === 'nw' && pt.x <= bbox.x + tol && pt.y <= bbox.y + tol) ||
+      (ck === 'ne' && pt.x >= bbox.x + bbox.width - tol && pt.y <= bbox.y + tol) ||
+      (ck === 'se' && pt.x >= bbox.x + bbox.width - tol && pt.y >= bbox.y + bbox.height - tol) ||
+      (ck === 'sw' && pt.x <= bbox.x + tol && pt.y >= bbox.y + bbox.height - tol);
+    if (isOutside && dist > outerRotMin && dist <= outerRotMax) {
+      return { key: 'rot', origin: handles.rot.center };
     }
   }
   return null;
@@ -780,6 +792,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
       if (event.mods.shift && activePolylineVertexState.fixedWorldPoint) {
         targetWorld = constrainLineAngle15Deg(activePolylineVertexState.fixedWorldPoint, targetWorld);
       }
+      let snappedBinding: ConnectorBinding | null = null;
       if (
         !event.mods.alt &&
         activePolylineVertexState.handleKind !== 'handleIn' &&
@@ -795,6 +808,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         if (snapped.snapped) {
           targetWorld = snapped.point;
           activeSnapGuides = snapped.guides;
+          snappedBinding = snapped.binding;
         }
       }
       const worldT = nodeWorldTransform(ctx.doc, activePolylineVertexState.nodeId);
@@ -906,6 +920,10 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
           },
         ];
       }
+      const pathNode = ctx.doc.nodes.get(activePolylineVertexState.nodeId) as PathNode | undefined;
+      const totalAnchors = pathNode?.geometry.subPaths[0]?.anchors.length ?? 2;
+      const isStart = activePolylineVertexState.anchorIndex === 0;
+      const isEnd = activePolylineVertexState.anchorIndex === totalAnchors - 1;
       return [
         {
           kind: 'Preview',
@@ -915,6 +933,8 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
             subPathIndex: 0,
             anchorIndex: activePolylineVertexState.anchorIndex,
             point: localPt,
+            connStart: isStart ? snappedBinding : undefined,
+            connEnd: isEnd ? snappedBinding : undefined,
           },
         },
       ];
@@ -937,6 +957,9 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
           fx = Math.sign(fx || 1) * f;
           fy = Math.sign(fy || 1) * f;
         }
+        const newW = Math.round(Math.abs(activeTransformState.startBBox.width * fx));
+        const newH = Math.round(Math.abs(activeTransformState.startBBox.height * fy));
+        activeTransformFeedback = { kind: 'scale', text: `${newW} × ${newH} px` };
         return [
           {
             kind: 'Preview',
@@ -951,6 +974,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         if (event.mods.shift) {
           diffDeg = Math.round(diffDeg / 15) * 15;
         }
+        activeTransformFeedback = { kind: 'rotate', text: `${Math.round(diffDeg * 10) / 10}°` };
         return [
           {
             kind: 'Preview',
@@ -974,7 +998,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         }
         activeSnapGuides = [];
 
-        // 智能吸附 (Smart Guides)：未按 Alt 时计算与画布其他图元边缘/中心的磁吸对齐
+        // 智能吸附 (Smart Guides + 画布中心线 + 网格磁吸 SVG-02)：未按 Alt 时计算磁吸对齐
         if (!event.mods.alt) {
           const movingBBox = getSelectionBBox(ctx.doc, g.ids);
           if (movingBBox) {
@@ -991,7 +1015,24 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
             let bestSnapX: { diff: number; targetX: number; targetBox: { x: number; y: number; width: number; height: number } } | null = null;
             let bestSnapY: { diff: number; targetY: number; targetBox: { x: number; y: number; width: number; height: number } } | null = null;
 
-            // 收集其他可见非选中图元的包围盒
+            // 0. 画布水平与垂直中心线吸附 (SVG-02)
+            const canvasVb = ctx.doc.canvas.viewBox;
+            const canvasX = canvasVb?.x ?? 0;
+            const canvasY = canvasVb?.y ?? 0;
+            const canvasW = canvasVb?.width || ctx.doc.canvas.width || 800;
+            const canvasH = canvasVb?.height || ctx.doc.canvas.height || 600;
+            const canvasCenterX = canvasX + canvasW / 2;
+            const canvasCenterY = canvasY + canvasH / 2;
+            const dCanvasX = canvasCenterX - curCenterX;
+            if (Math.abs(dCanvasX) <= snapThreshold) {
+              bestSnapX = { diff: dCanvasX, targetX: canvasCenterX, targetBox: { x: canvasX, y: canvasY, width: canvasW, height: canvasH } };
+            }
+            const dCanvasY = canvasCenterY - curCenterY;
+            if (Math.abs(dCanvasY) <= snapThreshold) {
+              bestSnapY = { diff: dCanvasY, targetY: canvasCenterY, targetBox: { x: canvasX, y: canvasY, width: canvasW, height: canvasH } };
+            }
+
+            // 1. 收集其他可见非选中图元的包围盒
             for (const otherId of ctx.doc.nodes.keys()) {
               if (g.ids.includes(otherId) || ctx.selection.nodeIds.includes(otherId)) continue;
               const n = ctx.doc.nodes.get(otherId);
@@ -1033,6 +1074,10 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
               const y1 = Math.min(curTop + (bestSnapY ? bestSnapY.diff : 0), bestSnapX.targetBox.y) - 15 / zoom;
               const y2 = Math.max(curBottom + (bestSnapY ? bestSnapY.diff : 0), bestSnapX.targetBox.y + bestSnapX.targetBox.height) + 15 / zoom;
               activeSnapGuides.push({ orientation: 'vertical', position: bestSnapX.targetX, from: y1, to: y2 });
+            } else if (ctx.snapToGrid) {
+              const grid = Math.max(2, ctx.gridSize ?? 16);
+              const snappedLeft = Math.round(curLeft / grid) * grid;
+              dx += snappedLeft - curLeft;
             }
 
             if (bestSnapY) {
@@ -1040,6 +1085,10 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
               const x1 = Math.min(curLeft + (bestSnapX ? bestSnapX.diff : 0), bestSnapY.targetBox.x) - 15 / zoom;
               const x2 = Math.max(curRight + (bestSnapX ? bestSnapX.diff : 0), bestSnapY.targetBox.x + bestSnapY.targetBox.width) + 15 / zoom;
               activeSnapGuides.push({ orientation: 'horizontal', position: bestSnapY.targetY, from: x1, to: x2 });
+            } else if (ctx.snapToGrid) {
+              const grid = Math.max(2, ctx.gridSize ?? 16);
+              const snappedTop = Math.round(curTop / grid) * grid;
+              dy += snappedTop - curTop;
             }
           }
         }
@@ -1055,10 +1104,6 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
         pendingMarqueeClearOnUp = false;
       }
       const rect = normalizeRect(g.startPoint, event.point);
-      // CAD 标准修饰键语义：
-      // - 无修饰键：替换选区 (replace)
-      // - Shift + 框选：加选追加至现有选区 (add)
-      // - Ctrl / Cmd + 框选：从现有选区减选剔除命中项 (subtract)
       const operation: 'replace' | 'add' | 'subtract' =
         event.mods.ctrl || event.mods.meta
           ? 'subtract'
@@ -1066,9 +1111,6 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
             ? 'add'
             : 'replace';
       const additive = operation === 'add';
-      // CAD 标准方向语义：
-      // 1. 从左向右拉框 (currentPoint.x >= startPoint.x)：窗口选择 Window Selection (enclosed，严格 100% 包含 + 编组智能下钻)
-      // 2. 从右向左拉框 (currentPoint.x < startPoint.x) 或按住 Alt：交叉选择 Crossing Selection (intersect，真实几何相交 + 编组智能下钻)
       const isCrossing = event.point.x < g.startPoint.x;
       const mode = (event.mods.alt || isCrossing) ? 'intersect' : 'enclosed';
       return [{ kind: 'Preview', commandId: 'select.box', params: { rect, additive, operation, mode } }];
@@ -1077,6 +1119,7 @@ function handleSelectPointer(ctx: ToolContext, event: PointerEvent): ReadonlyArr
 
   if (event.kind === 'up' || event.kind === 'cancel') {
     activeSnapGuides = [];
+    activeTransformFeedback = null;
     if (activePolylineVertexState) {
       const isMid = activePolylineVertexState.isMidpoint;
       activePolylineVertexState = null;
@@ -1660,22 +1703,25 @@ function computeConstrainedShapeBox(
   return normalizeRect(startPoint, { x: startPoint.x + dx, y: startPoint.y + dy });
 }
 
-/** 计算直线/箭头起止端点（含端口磁吸与 Shift 15° 角度约束）。 */
+/** 计算直线/箭头起止端点（含端口磁吸、绑定信息与 Shift 15° 角度约束，SVG-08）。 */
 function computeLineEndpoints(
   ctx: ToolContext,
   rawStart: Vec2,
   rawEnd: Vec2,
   mods: { readonly shift: boolean; readonly alt: boolean },
-): { p1: Vec2; p2: Vec2; guides: SnapGuideLine[] } {
+): { p1: Vec2; p2: Vec2; guides: SnapGuideLine[]; connStart: ConnectorBinding | null; connEnd: ConnectorBinding | null } {
   const exclude = ctx.selection.nodeIds;
   let p1 = rawStart;
   let p2 = rawEnd;
+  let connStart: ConnectorBinding | null = null;
+  let connEnd: ConnectorBinding | null = null;
   const guides: SnapGuideLine[] = [];
 
   if (!mods.alt) {
     const snapStart = snapPointToShapePorts(ctx.doc, p1, ctx.zoom, exclude);
     if (snapStart.snapped) {
       p1 = snapStart.point;
+      connStart = snapStart.binding;
       guides.push(...snapStart.guides);
     }
   }
@@ -1686,10 +1732,44 @@ function computeLineEndpoints(
     const snapEnd = snapPointToShapePorts(ctx.doc, p2, ctx.zoom, exclude);
     if (snapEnd.snapped) {
       p2 = snapEnd.point;
+      connEnd = snapEnd.binding;
       guides.push(...snapEnd.guides);
     }
   }
-  return { p1, p2, guides };
+  return { p1, p2, guides, connStart, connEnd };
+}
+
+/** 渲染附近可见形状图元的磁吸端口圆圈指示器（SVG-08）。 */
+function buildNearbyPortOverlays(doc: Document, refPoints: ReadonlyArray<Vec2>, zoom: number, excludeIds: ReadonlyArray<NodeId>): OverlayElement[] {
+  const overlays: OverlayElement[] = [];
+  const z = Math.max(zoom, 1e-4);
+  const showDist = 64 / z;
+  for (const [id, n] of doc.nodes) {
+    if (excludeIds.includes(id) || n.kind === 'Layer' || !n.visible || n.locked) continue;
+    if (isOpenPolylineNode(n)) continue;
+    const ob = nodeWorldBBox(doc, id);
+    if (!ob) continue;
+    const isNear = refPoints.some(
+      (pt) =>
+        pt.x >= ob.x - showDist &&
+        pt.x <= ob.x + ob.width + showDist &&
+        pt.y >= ob.y - showDist &&
+        pt.y <= ob.y + ob.height + showDist,
+    );
+    if (!isNear) continue;
+    const ports = getShapeWorldPorts(doc, id);
+    for (const p of ports) {
+      overlays.push({
+        kind: 'circle',
+        center: p.point,
+        radius: 3.5 / z,
+        stroke: '#06b6d4',
+        fill: 'rgba(6, 182, 212, 0.25)',
+        lineWidth: 1.2 / z,
+      });
+    }
+  }
+  return overlays;
 }
 
 const rectTool: Tool = {
@@ -1904,13 +1984,14 @@ function makeLineOrArrowTool(id: 'line' | 'arrow', withArrowEnd: boolean): Tool 
   return {
     id,
     pointer(ctx, event) {
+      lastHoverPoint = event.point;
       lastShapeMods = { shift: event.mods.shift, alt: event.mods.alt };
       if (event.kind === 'down') {
         activeSnapGuides = [];
         return [{ kind: 'Begin', label, gestureMode: 'marquee' }];
       }
       if (event.kind === 'drag' && ctx.gesture && ctx.gesture.kind === 'marquee') {
-        const { p1, p2, guides } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, event.mods);
+        const { p1, p2, guides, connStart, connEnd } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, event.mods);
         activeSnapGuides = guides;
         if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 2) return [];
         const geometry = createLineGeometry(p1.x, p1.y, p2.x, p2.y);
@@ -1924,12 +2005,14 @@ function makeLineOrArrowTool(id: 'line' | 'arrow', withArrowEnd: boolean): Tool 
               hint: 'line',
               name: defaultName,
               markerEnd: withArrowEnd ? 'arrow' : undefined,
+              connStart,
+              connEnd,
             },
           },
         ];
       }
       if (event.kind === 'up' && ctx.gesture && ctx.gesture.kind === 'marquee') {
-        const { p1, p2 } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, event.mods);
+        const { p1, p2, connStart, connEnd } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, event.mods);
         activeSnapGuides = [];
         lastShapeMods = { shift: false, alt: false };
         if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 2) {
@@ -1946,6 +2029,8 @@ function makeLineOrArrowTool(id: 'line' | 'arrow', withArrowEnd: boolean): Tool 
               hint: 'line',
               name: defaultName,
               markerEnd: withArrowEnd ? 'arrow' : undefined,
+              connStart,
+              connEnd,
             },
           },
           { kind: 'Commit' },
@@ -1956,11 +2041,14 @@ function makeLineOrArrowTool(id: 'line' | 'arrow', withArrowEnd: boolean): Tool 
     },
     key(ctx, key, mods) { return handleCommonKeys(ctx, key, mods); },
     overlay(ctx) {
-      if (!ctx.gesture || ctx.gesture.kind !== 'marquee') return [];
       const zoom = Math.max(ctx.zoom, 1e-4);
+      if (!ctx.gesture || ctx.gesture.kind !== 'marquee') {
+        return lastHoverPoint ? buildNearbyPortOverlays(ctx.doc, [lastHoverPoint], zoom, ctx.selection.nodeIds) : [];
+      }
       const lw = 1.5 / zoom;
       const { p1, p2, guides } = computeLineEndpoints(ctx, ctx.gesture.startPoint, ctx.gesture.currentPoint, lastShapeMods);
       const overlays: OverlayElement[] = [
+        ...buildNearbyPortOverlays(ctx.doc, [p1, p2], zoom, ctx.selection.nodeIds),
         {
           kind: 'line',
           from: p1,
@@ -2019,13 +2107,14 @@ const arrowTool: Tool = makeLineOrArrowTool('arrow', true);
 const curveTool: Tool = {
   id: 'curve',
   pointer(ctx, event) {
+    lastHoverPoint = event.point;
     lastShapeMods = { shift: event.mods.shift, alt: event.mods.alt };
     if (event.kind === 'down') {
       activeSnapGuides = [];
       return [{ kind: 'Begin', label: '绘制曲线', gestureMode: 'marquee' }];
     }
     if (event.kind === 'drag' && ctx.gesture && ctx.gesture.kind === 'marquee') {
-      const { p1, p2, guides } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, {
+      const { p1, p2, guides, connStart, connEnd } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, {
         shift: false,
         alt: event.mods.alt,
       });
@@ -2042,12 +2131,14 @@ const curveTool: Tool = {
             appearance: LINE_DEFAULT_APPEARANCE,
             hint: 'path',
             name: '曲线',
+            connStart,
+            connEnd,
           },
         },
       ];
     }
     if (event.kind === 'up' && ctx.gesture && ctx.gesture.kind === 'marquee') {
-      const { p1, p2 } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, {
+      const { p1, p2, connStart, connEnd } = computeLineEndpoints(ctx, ctx.gesture.startPoint, event.point, {
         shift: false,
         alt: event.mods.alt,
       });
@@ -2067,6 +2158,8 @@ const curveTool: Tool = {
             appearance: LINE_DEFAULT_APPEARANCE,
             hint: 'path',
             name: '曲线',
+            connStart,
+            connEnd,
           },
         },
         { kind: 'Commit' },
@@ -2077,8 +2170,10 @@ const curveTool: Tool = {
   },
   key(ctx, key, mods) { return handleCommonKeys(ctx, key, mods); },
   overlay(ctx) {
-    if (!ctx.gesture || ctx.gesture.kind !== 'marquee') return [];
     const zoom = Math.max(ctx.zoom, 1e-4);
+    if (!ctx.gesture || ctx.gesture.kind !== 'marquee') {
+      return lastHoverPoint ? buildNearbyPortOverlays(ctx.doc, [lastHoverPoint], zoom, ctx.selection.nodeIds) : [];
+    }
     const lw = 1.5 / zoom;
     const { p1, p2, guides } = computeLineEndpoints(ctx, ctx.gesture.startPoint, ctx.gesture.currentPoint, {
       shift: false,
@@ -2104,6 +2199,7 @@ const curveTool: Tool = {
       });
     }
     const overlays: OverlayElement[] = [
+      ...buildNearbyPortOverlays(ctx.doc, [p1, p2], zoom, ctx.selection.nodeIds),
       {
         kind: 'polyline',
         points: samplePts,

@@ -150,4 +150,47 @@ assert.ok(
 );
 console.log('✅ 全量图片与图表查看器光标锚点缩放接入源码契约校验通过');
 
+console.log('--- 测试 8: Code Review 专项修复回归校验 (CR-01 ~ CR-05 & Webview 沙箱安全) ---');
+const imgViewerSrc = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/viewers/components/drivers/ImageViewer.tsx'),
+  'utf8'
+);
+assert.ok(
+  imgViewerSrc.includes('canvasHelperRef.current = null') &&
+    imgViewerSrc.includes('zoomRef.current = 1.0') &&
+    imgViewerSrc.includes("window.addEventListener('mouseup', handleGlobalMouseUp)"),
+  'ImageViewer 必须包含切图重置取色缓存、重置同步 zoomRef/panRef 与全局 mouseup 兜底清理'
+);
+
+const mermaidCanvasSrc = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/viewers/components/drivers/mermaid/MermaidStudioCanvas.tsx'),
+  'utf8'
+);
+assert.ok(
+  mermaidCanvasSrc.includes('const currentScale = zoomRef.current || 1;') &&
+    mermaidCanvasSrc.includes('panRef.current = clampedPan;'),
+  'MermaidStudioCanvas 必须在自适应与 ResizeObserver 中同步使用最新 zoomRef/panRef'
+);
+
+const graphvizCanvasSrc = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/viewers/components/drivers/graphviz/GraphvizStudioCanvas.tsx'),
+  'utf8'
+);
+assert.ok(
+  graphvizCanvasSrc.includes('const currentScale = zoomRef.current || 1;'),
+  'GraphvizStudioCanvas 必须在 handleFitToViewport 中读取 zoomRef.current'
+);
+
+const plantUmlSrc = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/viewers/components/drivers/PlantUmlViewer.tsx'),
+  'utf8'
+);
+assert.ok(
+  !plantUmlSrc.includes('window.open(') &&
+    plantUmlSrc.includes("window.addEventListener('mouseup', handleGlobalMouseUp)"),
+  'PlantUmlViewer 禁止调用 window.open 且必须注册全局 mouseup 拖拽释放监听'
+);
+console.log('✅ Code Review 专项修复回归校验通过');
+
 console.log('\n🎉 所有 Lightbox 与独立查看器光标锚点缩放 (Focal Point Zoom) 单元测试 100% 通过！');
+

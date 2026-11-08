@@ -250,6 +250,7 @@ export {
   getLineWorldEndpoints,
   getPolylineWorldAnchors,
   getPolylineWorldMidpoints,
+  getActiveTransformFeedback,
 } from './runtime/tools';
 export { useSvgRuntime } from './runtime/useSvgRuntime';
 export { shouldExport, shouldReloadFromHost, decideBackup } from './runtime/exportSync';
@@ -287,3 +288,45 @@ export type {
   CssClassRuleItem,
   GlobalStylesInfo,
 } from './model/globalStyles';
+
+// ---- 渐变、滤镜与文档色板 (SVG-04 / SVG-05 / SVG-06) ----
+export {
+  GRADIENT_PRESETS,
+  buildGradientXml,
+  parseGradientFromDefs,
+  upsertGradientInDefs,
+  applyGradientToNodes,
+  FILTER_PRESET_DEFAULTS,
+  buildFilterXml,
+  parseFilterFromDefs,
+  upsertFilterInDefs,
+  applyFilterToNodes,
+  extractDocumentColorPalette,
+} from './model/gradientsAndEffects';
+export type {
+  GradientStop,
+  GradientConfig,
+  GradientPreset,
+  FilterPresetId,
+  FilterEffectConfig,
+} from './model/gradientsAndEffects';
+
+// ---- 路径布尔运算与连接线磁吸锚点动态跟随 (SVG-07 / SVG-08) ----
+export {
+  computeBooleanGeometry,
+  executeBooleanOpOnDoc,
+  getShapeWorldPorts,
+  resolveConnectorBindingWorldPoint,
+  syncConnectedLines,
+} from './model/booleanOps';
+export type {
+  BooleanOpKind,
+  ConnectorPortId,
+  ConnectorBinding,
+} from './model/booleanOps';
+export type {
+  PathBooleanOpParams,
+  PaintSetGradientParams,
+  PaintSetFilterParams,
+} from './commands/types';
+

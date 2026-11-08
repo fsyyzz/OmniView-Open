@@ -164,6 +164,10 @@ export interface PathSetRectRadiusParams {
   readonly rx: number;
   readonly ry?: number;
 }
+export interface PathBooleanOpParams {
+  readonly ids?: ReadonlyArray<NodeId>;
+  readonly op: 'union' | 'subtract' | 'intersect' | 'exclude';
+}
 
 // --- object.* ---
 export interface ObjectMoveParams { readonly ids: ReadonlyArray<NodeId>; readonly delta: { readonly x: number; readonly y: number }; }
@@ -196,6 +200,28 @@ export interface PaintSetOpacityParams { readonly ids: ReadonlyArray<NodeId>; re
 export interface PaintSetBlendParams { readonly ids: ReadonlyArray<NodeId>; readonly blend: BlendMode; }
 export interface PaintSetAppearanceParams { readonly ids: ReadonlyArray<NodeId>; readonly appearance: Appearance; }
 export interface PaintSetColorParams { readonly ids: ReadonlyArray<NodeId>; readonly target: 'fill' | 'stroke'; readonly color: Color; readonly opacity: number }
+export interface PaintSetGradientParams {
+  readonly ids: ReadonlyArray<NodeId>;
+  readonly target: 'fill' | 'stroke';
+  readonly config: {
+    readonly id?: string;
+    readonly kind: 'linear' | 'radial';
+    readonly angleDeg: number;
+    readonly stops: ReadonlyArray<{ readonly offset: number; readonly color: string; readonly opacity?: number }>;
+  };
+}
+export interface PaintSetFilterParams {
+  readonly ids: ReadonlyArray<NodeId>;
+  readonly config: {
+    readonly id?: string;
+    readonly preset: 'none' | 'drop-shadow-sm' | 'drop-shadow-lg' | 'glow' | 'blur';
+    readonly dx: number;
+    readonly dy: number;
+    readonly stdDeviation: number;
+    readonly color: string;
+    readonly opacity: number;
+  };
+}
 
 // --- layer.* ---
 export interface LayerAddParams { readonly name?: string; readonly atIndex?: number; }
@@ -235,6 +261,8 @@ export interface ObjectCreatePathParams {
   readonly name?: string;
   readonly markerStart?: string;
   readonly markerEnd?: string;
+  readonly connStart?: { readonly nodeId: NodeId; readonly port: 'n' | 'e' | 's' | 'w' | 'c' | 'nw' | 'ne' | 'se' | 'sw' } | null;
+  readonly connEnd?: { readonly nodeId: NodeId; readonly port: 'n' | 'e' | 's' | 'w' | 'c' | 'nw' | 'ne' | 'se' | 'sw' } | null;
 }
 
 export interface ObjectCreateTextParams {
@@ -266,6 +294,8 @@ export interface PathUpdateAnchorParams {
   readonly point?: { readonly x: number; readonly y: number };
   readonly handleIn?: { readonly x: number; readonly y: number } | null;
   readonly handleOut?: { readonly x: number; readonly y: number } | null;
+  readonly connStart?: { readonly nodeId: NodeId; readonly port: 'n' | 'e' | 's' | 'w' | 'c' | 'nw' | 'ne' | 'se' | 'sw' } | null;
+  readonly connEnd?: { readonly nodeId: NodeId; readonly port: 'n' | 'e' | 's' | 'w' | 'c' | 'nw' | 'ne' | 'se' | 'sw' } | null;
 }
 
 export interface PathToggleAnchorKindParams {

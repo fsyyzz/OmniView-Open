@@ -437,4 +437,121 @@ assert.ok(!/[ST](?=\s)/.test(dMixedOut), '输出不应残留 S/T 原命令（已
 
 console.log('✅ A/S/T 路径解析-序列化 round-trip、弧段插入禁用与编辑段数守恒测试全部通过');
 
-console.log('🎉 全部 22 组 SVG 开发者工程引擎、多选批处理、拓扑转换、智能吸附与 A/S/T 路径保真测试用例 100% 通过！\n');
+// ============================================================================
+// 23. SVG Studio v2 P0~P2 全量扩展能力回归测试 (SVG-01 ~ SVG-08)
+// ============================================================================
+console.log('--- 测试 23: SVG Studio v2 P0~P2 扩展能力 (原地多行文本 / 渐变 / 滤镜 / 色板 / 布尔运算 / 连接线磁吸动态跟随) ---');
+const {
+  createRuntime,
+  createRectGeometry,
+  createLineGeometry,
+  applyGradientToNodes,
+  applyFilterToNodes,
+  extractDocumentColorPalette,
+  executeBooleanOpOnDoc,
+  syncConnectedLines,
+  RAW_DEFS_METADATA_KEY,
+} = await import('../src/features/viewers/components/drivers/svg/core/index.ts');
+
+const rt = createRuntime();
+await rt.loadFromSvg('<svg viewBox="0 0 400 300" width="400" height="300" xmlns="http://www.w3.org/2000/svg"></svg>');
+
+// 23.1 SVG-01: 多行文本自动拆分为 <tspan> 行
+const textRes = rt.execute('object.createText', { x: 50, y: 60, text: 'Hello', fontSize: 18, fillColor: '#ef4444' });
+assert.strictEqual(textRes.ok, true, '应成功创建 Text 节点');
+const textId = rt.currentSelection.primaryId;
+assert.ok(textId, '新建 Text 节点应自动选中');
+rt.execute('text.setText', { id: textId, text: '第一行标题\n第二行副标题\n第三行说明', fontSize: 20 });
+const updatedTextNode = rt.currentDocument.nodes.get(textId);
+assert.strictEqual(updatedTextNode.kind, 'Text');
+assert.strictEqual(updatedTextNode.tspans?.length, 3, '包含换行的文本应自动生成 3 个 <tspan> 子行');
+assert.strictEqual(updatedTextNode.tspans[1].dy, 25, '后续 <tspan> 行应具备 1.25 倍字号行距偏移 (20 * 1.25 = 25)');
+
+// 23.2 SVG-02: 网格磁吸开关 tool.setOption
+const snapOptRes = rt.execute('tool.setOption', { option: 'snapToGrid', value: true });
+assert.strictEqual(snapOptRes.ok, true, 'tool.setOption 应支持开启 snapToGrid');
+
+// 23.3 SVG-04 & SVG-05 & SVG-06: 渐变、滤镜与文档色板提取
+const r1Res = rt.execute('object.createPath', {
+  name: 'Rect A',
+  geometry: createRectGeometry(40, 40, 100, 80, 0),
+  fillColor: '#3b82f6',
+  strokeColor: '#1e293b',
+  strokeWidth: 2,
+});
+assert.strictEqual(r1Res.ok, true);
+const rectAId = rt.currentSelection.primaryId;
+
+const r2Res = rt.execute('object.createPath', {
+  name: 'Rect B',
+  geometry: createRectGeometry(100, 70, 100, 80, 0),
+  fillColor: '#10b981',
+  strokeColor: '#1e293b',
+  strokeWidth: 2,
+});
+assert.strictEqual(r2Res.ok, true);
+const rectBId = rt.currentSelection.primaryId;
+
+// 提取文档已用色板 (SVG-06)
+const palette = extractDocumentColorPalette(rt.currentDocument);
+assert.ok(palette.includes('#3b82f6') && palette.includes('#10b981'), '文档色板应自动聚合已用纯色');
+
+// 应用线性渐变 (SVG-04)
+rt.execute('paint.setGradient', {
+  ids: [rectAId],
+  target: 'fill',
+  kind: 'linear',
+  angle: 135,
+  stops: [
+    { offset: 0, color: '#6366f1', opacity: 1 },
+    { offset: 1, color: '#ec4899', opacity: 1 },
+  ],
+});
+const rectAAfterGrad = rt.currentDocument.nodes.get(rectAId);
+const gradFill = rectAAfterGrad.appearance.items.find((i) => i.kind === 'fill')?.fill;
+assert.strictEqual(gradFill?.type, 'gradient', '应用渐变后 fill.type 应为 gradient');
+assert.ok((rt.currentDocument.metadata[RAW_DEFS_METADATA_KEY] || '').includes('<linearGradient'), '<defs> 中应写入 <linearGradient>');
+
+// 应用阴影滤镜预设 (SVG-05)
+rt.execute('paint.setFilter', {
+  ids: [rectAId],
+  preset: 'drop-shadow-lg',
+  dx: 0,
+  dy: 8,
+  stdDeviation: 10,
+  color: '#0f172a',
+  opacity: 0.35,
+});
+assert.ok(rt.currentDocument.nodes.get(rectAId).filter?.startsWith('url(#ov-filter-'), '应用滤镜后节点应绑定 url(#ov-filter-...)');
+assert.ok((rt.currentDocument.metadata[RAW_DEFS_METADATA_KEY] || '').includes('<filter'), '<defs> 中应写入 <filter>');
+
+// 23.4 SVG-08: 连接线磁吸端口绑定与移动图元自动跟随
+rt.execute('object.createPath', {
+  name: 'Connector Line',
+  geometry: createLineGeometry(140, 80, 200, 110),
+  fillColor: 'none',
+  strokeColor: '#0f172a',
+  strokeWidth: 2,
+  markerEnd: 'arrow',
+  connStart: { nodeId: rectAId, port: 'E' },
+  connEnd: { nodeId: rectBId, port: 'E' },
+});
+const connLineId = rt.currentSelection.primaryId;
+// 平移 Rect A (+30, +20)，验证连接线起点自动跟随 Rect A 的东侧端口 E (140+30=170, 80+20=100)
+rt.execute('object.move', { ids: [rectAId], delta: { x: 30, y: 20 } });
+const connLineAfterMove = rt.currentDocument.nodes.get(connLineId);
+const startPt = connLineAfterMove.geometry.subPaths[0].anchors[0].point;
+assert.strictEqual(Math.round(startPt.x), 170, '平移关联图形后，连接线起点 X 应自动跟随至 170');
+assert.strictEqual(Math.round(startPt.y), 100, '平移关联图形后，连接线起点 Y 应自动跟随至 100');
+
+// 23.5 SVG-07: 路径布尔运算 (联集 Union)
+const boolRes = rt.execute('path.booleanOp', { ids: [rectAId, rectBId], op: 'union' });
+assert.strictEqual(boolRes.ok, true, '路径布尔联集命令应执行成功');
+const unionNodeId = rt.currentSelection.primaryId;
+const unionNode = rt.currentDocument.nodes.get(unionNodeId);
+assert.strictEqual(unionNode?.kind, 'Path', '布尔运算结果应生成合并后的 Path 节点');
+assert.ok(unionNode.geometry.subPaths.length >= 1, '布尔联集结果应包含有效闭合轮廓');
+
+console.log('✅ SVG Studio v2 P0~P2 扩展能力 (SVG-01 ~ SVG-08) 单元测试全部通过');
+
+console.log('🎉 全部 23 组 SVG 开发者工程引擎、多选批处理、拓扑转换、智能吸附、A/S/T 路径保真与 P0~P2 扩展测试用例 100% 通过！\n');

@@ -356,7 +356,11 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
       a.click();
       URL.revokeObjectURL(dlUrl);
     } catch {
-      window.open(svgUrl, '_blank');
+      const a = document.createElement('a');
+      a.href = svgUrl;
+      a.target = '_blank';
+      a.rel = 'noreferrer';
+      a.click();
     }
     setShowExportMenu(false);
   };
@@ -403,6 +407,13 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const handleCanvasMouseUp = () => {
     setIsPanning(false);
   };
+
+  useEffect(() => {
+    if (!isPanning) return;
+    const handleGlobalMouseUp = () => setIsPanning(false);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isPanning]);
 
   const applyFocalZoomStep = useCallback((calcTarget: (current: number) => number) => {
     const stageEl = stageRef.current;

@@ -8,7 +8,61 @@
 
 ---
 
-## [1.4.16] - 2026-11-07 (当前最新发布)
+## [1.4.20] - 2026-11-08 (当前最新发布)
+
+> [!TIP] v1.4.20 核心升级亮点
+> **修复 SVG Studio 右侧图层与属性抽屉面板高度未铺满问题 (`SvgV2LayersPanel.tsx` / `SvgV2Inspector.tsx` / `SvgV2Studio.tsx`)**：
+> 1. **移除图层列表遗留的 `max-h-48` (192px) 高度限制 (`SvgV2LayersPanel.tsx`)**：改为 `flex h-full min-h-0 flex-col` + `flex-1 min-h-0 overflow-y-auto`，使图层树完整铺满右侧抽屉纵向空间；
+> 2. **移除属性检视器遗留的 `max-h-[calc(100vh-280px)]` 限制 (`SvgV2Inspector.tsx`)**：与右侧单选抽屉容器 `flex-1 min-h-0` 对齐，实现 100% 纵向自适应铺满。
+
+---
+
+## [1.4.19] - 2026-11-08
+
+> [!TIP] v1.4.19 核心升级亮点
+> **精简 SVG Studio 顶部与右侧面板重复按钮 (`SvgV2Studio.tsx`)**：
+> 1. **移除顶部操作栏重复的「图层」「属性」与「侧边栏收起/展开」按钮**：统一收敛至右侧垂直工具条（`svg-v2-right-rail`），避免顶栏与右侧栏入口重复；
+> 2. **移除右侧垂直工具条底部冗余的「收起面板」按钮**：再次点击当前激活的「图层面板」或「属性面板」图标（或点击抽屉标题栏关闭按钮）即可收起面板，界面更加清爽紧凑。
+
+---
+
+## [1.4.18] - 2026-11-08
+
+> [!TIP] v1.4.18 核心升级亮点
+> **全量落地 SVG Studio v2 P0–P2 专业级矢量编辑扩展 (`SVG-01` ~ `SVG-08`)**：
+> 1. **P0 — 高频直觉交互闭环 (`SVG-01` ~ `SVG-03`)**：
+>    - **画布内双击原地文本编辑 (`SVG-01` · `SvgV2InlineTextEditor.tsx`)**：双击画布任意 `Text` 图元即在原位置弹出半透明富文本编辑浮层，支持字号/加粗/对齐即时调整与多行文本输入（自动拆分为 `<tspan dy="1.2em">` 多行结构），`Enter` / `Ctrl+Enter` 提交、`Esc` 取消；
+>    - **画布中心智能参考线与 16px 网格磁吸 (`SVG-02` · `tools.ts` / `SvgV2Canvas.tsx`)**：拖拽/缩放图元时自动吸附画布水平/垂直正中心与兄弟图元边缘/中心，并在底部视口 HUD 新增「网格」背景显示与「磁吸」对齐开关；
+>    - **包围盒四角外圈旋转热区、实时角度/尺寸 HUD 气泡与快捷翻转/旋转 (`SVG-03`)**：选中图元后光标移至四角控制点外圈即可直接旋转（无需寻找顶部旋转杆），拖拽期间顶部实时显示旋转角度 (`45.0°`) 与缩放尺寸 (`W × H px`) 气泡，并在顶部栏、悬浮 HUD 与右键菜单提供水平翻转、垂直翻转与顺时针旋转 90° 快捷操作。
+> 2. **P1 — 视觉表现力与质感升级 (`SVG-04` ~ `SVG-06`)**：
+>    - **可视化线性/径向渐变编辑器 (`SVG-04` · `gradientsAndEffects.ts` / `SvgV2AppearanceExtras.tsx`)**：支持线性渐变与径向渐变一键切换、0°–360° 角度滑块调节、多色标增删改以及 6 款精选渐变色卡预设，自动维护 `<defs>` 内渐变定义；
+>    - **一键阴影与高斯模糊滤镜预设 (`SVG-05` · `<filter>` Presets)**：内置「无滤镜 / 柔和阴影 / 深邃投影 / 霓虹发光 / 高斯模糊」5 档预设，支持实时微调 `dx`、`dy`、模糊半径 `stdDeviation`、阴影颜色与浓度；
+>    - **屏幕吸管取色器与文档已用色板自动聚合 (`SVG-06`)**：集成原生 `EyeDropper API` 屏幕像素取色，并自动扫描聚拢当前 SVG 文档全部已用纯色生成一键点选色板。
+> 3. **P2 — 复合造型与架构图连接器 (`SVG-07` ~ `SVG-08`)**：
+>    - **路径布尔运算 (`SVG-07` · `booleanOps.ts`)**：选中 2 个及以上路径图元时，支持一键执行**联集 (`Union`)、差集 (`Subtract`)、交集 (`Intersect`)、异或 (`Exclude`)** 复合路径造型；
+>    - **图元连接线磁吸锚点与动态跟随 (`SVG-08`)**：使用直线/箭头/曲线工具靠近图形四周与中心时自动浮现青色磁吸端口环，连接后持久化绑定端口关系（`data-omniview-conn-start` / `data-omniview-conn-end`），后续移动、缩放、旋转、对齐或分布图形时，所有关联连接线端点实时自动跟随重算。
+
+---
+
+## [1.4.17] - 2026-11-08
+
+> [!TIP] v1.4.17 核心升级亮点
+> **全量落地 Code Review 专项修复：查看器高频交互状态同步加固、VS Code Webview 沙箱弹窗/打印解耦与 SVG 核心模块拆分 (`CR-01` ~ `CR-05`)**：
+> 1. **查看器光标锚点缩放与画布交互状态一致性加固 (`ImageViewer` / `MermaidStudioCanvas` / `GraphvizStudioCanvas` / `PlantUmlViewer`)**：
+>    - **CR-01 (`ImageViewer.tsx`)**：切换图片资源时显式清空 `canvasHelperRef.current = null` 离屏取色缓存；`handleResetTransform` 同步复位 `zoomRef.current = 1.0` 与 `panRef.current = { x: 0, y: 0 }`；补充窗口级 `mouseup` 兜底监听与组件卸载 `wheelTimeoutRef` 定时器清理；
+>    - **CR-02 (`MermaidStudioCanvas.tsx`)**：修复 `handleFitToViewport` 误读旧 `zoom` 闭包导致的自适应比例偏差，统一改为读取 `zoomRef.current || 1`，并在卸载时清理 `wheelTimeoutRef`；
+>    - **CR-03 (`MermaidStudioCanvas.tsx`)**：在 `ResizeObserver` 容器尺寸收敛回调中同步更新 `panRef.current = clampedPan`，消除窗口分屏调整后滚轮缩放的跳变；
+>    - **CR-04 (`GraphvizStudioCanvas.tsx`)**：`handleFitToViewport` 改为读取实时 `zoomRef.current || 1` 并移除冗余 `zoom` 依赖，避免每次滚轮缩放重建回调；
+>    - **CR-05 (`PlantUmlViewer.tsx`)**：补充窗口级 `mouseup` 拖拽释放监听，并将外部打开操作切换为 `<a target="_blank" rel="noreferrer">` 安全触发。
+> 2. **VS Code Webview 与受限 iFrame 沙箱环境零阻断治理 (`vscode.ts` / `printBridge.ts` / 4 个 UI 组件)**：
+>    - 新增 `safeConfirm` 沙箱容错确认工具 (`src/shared/lib/vscode.ts`)，全面替换 `SvgV2Inspector`、`MindmapViewer`、`LogViewerModal`、`WorkbenchSettingsModal` 中的原生 `window.confirm`；
+>    - 重构 `printBridge.ts` 为隐藏离屏 `<iframe>` 打印桥接，彻底移除被沙箱拦截的 `window.open` 调用。
+> 3. **SVG 核心工具大文件解耦 (`svgUtils.ts` -> `svgPathAndBatchCore.ts`)**：
+>    - 将 Path 节点解析/序列化与批量几何运算核心函数抽离至独立零依赖模块 `svgPathAndBatchCore.ts`，将 `svgUtils.ts` 缩减至 2,900 行以内并保持对外导出 100% 向后兼容。
+
+---
+
+## [1.4.16] - 2026-11-07
 
 > [!TIP] v1.4.16 核心升级亮点
 > **修复 VSIX 打包结构门禁对 `@vscode/vsce` 规范化文件名的兼容校验并深度瘦身 `docs/**` 冗余子目录 (`.vscodeignore` / `check-vsix-contents.mjs`)**：

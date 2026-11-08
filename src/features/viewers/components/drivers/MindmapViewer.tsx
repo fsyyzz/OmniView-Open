@@ -30,6 +30,7 @@ import { Locale, t } from '../../../../shared/lib/i18n';
 import { loadStoredSettings, saveStoredSettings } from '../../../../shared/lib/settingsStorage';
 import { MarkmapViewer } from './MarkmapViewer';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
+import { safeConfirm } from '../../../../shared/lib/vscode';
 
 interface MindmapViewerProps {
   content: string;
@@ -335,7 +336,7 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   };
 
   const handleResetTemplate = () => {
-    if (window.confirm('确定要载入默认思维导图架构模板吗？当前编辑的内容将被替换。')) {
+    if (safeConfirm('确定要载入默认思维导图架构模板吗？当前编辑的内容将被替换。')) {
       handleCodeChange(DEFAULT_MINDMAP_TEMPLATE);
     }
   };

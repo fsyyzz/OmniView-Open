@@ -57,6 +57,9 @@ import type {
   PathSetMarkerParams,
   PathConvertLineStyleParams,
   PathSetRectRadiusParams,
+  PathBooleanOpParams,
+  PaintSetGradientParams,
+  PaintSetFilterParams,
   CanvasSetSizeParams,
   CanvasSetGlobalStylesParams,
   CanvasUpdateCssVariableParams,
@@ -68,6 +71,14 @@ import {
   updateDocumentCssVariable,
   extractNodeToGlobalClass,
 } from '../model/globalStyles';
+import {
+  applyGradientToNodes,
+  applyFilterToNodes,
+} from '../model/gradientsAndEffects';
+import {
+  executeBooleanOpOnDoc,
+  syncConnectedLines,
+} from '../model/booleanOps';
 import type {
   AffineTransform,
   Anchor,
@@ -360,10 +371,28 @@ const pathUpdateAnchor: CommandHandler = (doc, sel, params) => {
       });
       return { ...sp, anchors };
     });
-    const next = updateNode(doc, p.id, (node) => ({
-      ...(node as any),
-      geometry: { ...pathNode.geometry, subPaths },
-    }));
+    const next = updateNode(doc, p.id, (node) => {
+      const nextNode: any = {
+        ...node,
+        geometry: { ...pathNode.geometry, subPaths },
+      };
+      if (p.connStart !== undefined) {
+        nextNode.connStart = p.connStart;
+      } else if (p.subPathIndex === undefined || p.subPathIndex === 0) {
+        if (p.anchorIndex === 0 && (node as PathNode).connStart) {
+          nextNode.connStart = null;
+        }
+      }
+      if (p.connEnd !== undefined) {
+        nextNode.connEnd = p.connEnd;
+      } else if (p.subPathIndex === undefined || p.subPathIndex === 0) {
+        const lastIdx = (subPaths[0]?.anchors.length ?? 1) - 1;
+        if (p.anchorIndex === lastIdx && (node as PathNode).connEnd) {
+          nextNode.connEnd = null;
+        }
+      }
+      return nextNode;
+    });
     return ok(next, sel);
   }) as CommandResult;
 };
@@ -477,6 +506,20 @@ const pathSetRectRadius: CommandHandler = (doc, sel, params) => {
   return ok(next, sel);
 };
 
+const pathBooleanOp: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PathBooleanOpParams;
+  const ids = p.ids && p.ids.length >= 2 ? p.ids : sel.nodeIds;
+  if (!ids || ids.length < 2) {
+    return badParams('path.booleanOp', '布尔运算需要至少选中 2 个形状图元');
+  }
+  const op = p.op ?? 'union';
+  const res = executeBooleanOpOnDoc(doc, ids, op);
+  if (!res || !res.newId) {
+    return badParams('path.booleanOp', '无法对所选图元执行布尔运算');
+  }
+  return ok(res.doc, selectionWith(res.newId));
+};
+
 // ============================================================================
 // 4. object.* 命令（变换 / 编组 / 删除 / 重排）
 // ============================================================================
@@ -503,6 +546,7 @@ const objectMove: CommandHandler = (doc, sel, params) => {
       return { ...n, transform: { ...t, e: t.e + delta.x, f: t.f + delta.y } };
     });
   }
+  next = syncConnectedLines(next, cleanIds);
   return ok(next, sel);
 };
 
@@ -569,6 +613,7 @@ const objectScale: CommandHandler = (doc, sel, params) => {
     }));
   }
 
+  next = syncConnectedLines(next, cleanIds);
   return ok(next, sel);
 };
 
@@ -594,6 +639,7 @@ const objectRotate: CommandHandler = (doc, sel, params) => {
       return { ...n, transform: composeTransforms(localM, t) };
     });
   }
+  next = syncConnectedLines(next, cleanIds);
   return ok(next, sel);
 };
 
@@ -855,6 +901,7 @@ const objectAlign: CommandHandler = (doc, sel, params) => {
       transform: { ...n.transform, e: n.transform.e + localDx, f: n.transform.f + localDy },
     }));
   }
+  next = syncConnectedLines(next, cleanIds);
   return ok(next, sel);
 };
 
@@ -894,6 +941,7 @@ const objectDistribute: CommandHandler = (doc, sel, params) => {
       transform: { ...n.transform, e: n.transform.e + localDx, f: n.transform.f + localDy },
     }));
   }
+  next = syncConnectedLines(next, cleanIds);
   return ok(next, sel);
 };
 
@@ -909,10 +957,34 @@ const objectCreatePath: CommandHandler = (doc, _sel, params) => {
   if (!targetLayer || !workingDoc.nodes.has(targetLayer)) {
     return badParams('object.createPath', 'no layer available in document');
   }
+  let resolvedAppearance = p.appearance;
+  if (!resolvedAppearance && ((p as any).fillColor || (p as any).strokeColor)) {
+    const items: any[] = [];
+    const fc = (p as any).fillColor;
+    if (fc && fc !== 'none') {
+      items.push({ kind: 'fill', fill: { type: 'solid', color: fc, opacity: 1 }, blend: 'normal', opacity: 1 });
+    } else if (fc === 'none') {
+      items.push({ kind: 'fill', fill: { type: 'none' }, blend: 'normal', opacity: 1 });
+    }
+    const sc = (p as any).strokeColor;
+    if (sc && sc !== 'none') {
+      items.push({
+        kind: 'stroke',
+        stroke: {
+          ...defaultStroke(),
+          paint: { type: 'solid', color: sc, opacity: 1 },
+          width: (p as any).strokeWidth ?? 2,
+        },
+        blend: 'normal',
+        opacity: 1,
+      });
+    }
+    resolvedAppearance = { items };
+  }
   const pathNode = makePath(
     0 as NodeId,
     p.geometry,
-    p.appearance ?? emptyAppearance(),
+    resolvedAppearance ?? emptyAppearance(),
     p.hint ?? 'path'
   );
   if (p.name) (pathNode as any).name = p.name;
@@ -921,6 +993,8 @@ const objectCreatePath: CommandHandler = (doc, _sel, params) => {
   if ((p as any).rx !== undefined) (pathNode as any).rx = (p as any).rx;
   if ((p as any).ry !== undefined) (pathNode as any).ry = (p as any).ry;
   if ((p as any).cornerRadius !== undefined) (pathNode as any).cornerRadius = (p as any).cornerRadius;
+  if (p.connStart) (pathNode as any).connStart = p.connStart;
+  if (p.connEnd) (pathNode as any).connEnd = p.connEnd;
   const { doc: nextDoc, nodeId } = appendToLayer(workingDoc, targetLayer, pathNode);
   return ok(nextDoc, selectionWith(nodeId));
 };
@@ -975,15 +1049,27 @@ const textSetText: CommandHandler = (doc, sel, params) => {
     const next = updateNode(doc, p.id, (node) => {
       const tn = node as TextNode;
       const textChanged = p.text !== undefined && p.text !== tn.text;
+      const nextText = p.text !== undefined ? p.text : tn.text;
+      const nextFontSize = p.fontSize !== undefined ? p.fontSize : tn.fontSize;
+      let nextTspans = textChanged ? undefined : tn.tspans;
+      if (textChanged && nextText.includes('\n')) {
+        const lines = nextText.split('\n');
+        const lineStep = Math.round((nextFontSize ?? 16) * 1.25);
+        nextTspans = lines.map((line, idx) => ({
+          text: line,
+          x: tn.x ?? 0,
+          dy: idx === 0 ? 0 : lineStep,
+        }));
+      }
       return {
         ...tn,
-        text: p.text !== undefined ? p.text : tn.text,
-        fontSize: p.fontSize !== undefined ? p.fontSize : tn.fontSize,
+        text: nextText,
+        fontSize: nextFontSize,
         fontFamily: p.fontFamily !== undefined ? p.fontFamily : tn.fontFamily,
         fontWeight: p.fontWeight !== undefined ? p.fontWeight : tn.fontWeight,
         fontStyle: p.fontStyle !== undefined ? p.fontStyle : tn.fontStyle,
         textAnchor: p.textAnchor !== undefined ? p.textAnchor : tn.textAnchor,
-        tspans: textChanged ? undefined : tn.tspans,
+        tspans: nextTspans,
       };
     });
     return ok(next, sel);
@@ -1068,6 +1154,38 @@ const paintSetColor: CommandHandler = (doc, sel, params) => {
     });
   }
   return ok(next, sel);
+};
+
+const paintSetGradient: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PaintSetGradientParams & Record<string, any>;
+  const ids = p.ids && p.ids.length > 0 ? p.ids : sel.nodeIds;
+  if (!ids || ids.length === 0) return badParams('paint.setGradient', '缺少目标图元 ids');
+  const rawCfg = p.config ?? {
+    kind: p.kind ?? 'linear',
+    angleDeg: p.angleDeg ?? p.angle ?? 135,
+    stops: p.stops ?? [
+      { offset: 0, color: '#3b82f6', opacity: 1 },
+      { offset: 100, color: '#8b5cf6', opacity: 1 },
+    ],
+  };
+  const nextDoc = applyGradientToNodes(doc, ids, p.target ?? 'fill', rawCfg);
+  return ok(nextDoc, sel);
+};
+
+const paintSetFilter: CommandHandler = (doc, sel, params) => {
+  const p = params as unknown as PaintSetFilterParams & Record<string, any>;
+  const ids = p.ids && p.ids.length > 0 ? p.ids : sel.nodeIds;
+  if (!ids || ids.length === 0) return badParams('paint.setFilter', '缺少目标图元 ids');
+  const rawCfg = p.config ?? {
+    preset: p.preset ?? 'drop-shadow-sm',
+    dx: p.dx ?? 0,
+    dy: p.dy ?? 4,
+    stdDeviation: p.stdDeviation ?? 6,
+    color: p.color ?? '#0f172a',
+    opacity: p.opacity ?? 0.25,
+  };
+  const nextDoc = applyFilterToNodes(doc, ids, rawCfg);
+  return ok(nextDoc, sel);
 };
 
 // ============================================================================
@@ -1424,6 +1542,7 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'path.setMarker', title: '设置端点箭头', undoLabel: '设置箭头', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }], handler: pathSetMarker });
   reg({ id: 'path.convertLineStyle', title: '切换线型', undoLabel: '切换线型', params: [{ key: 'id', type: 'nodeId', required: true, description: '路径 ID' }, { key: 'style', type: 'string', required: true, description: '线型' }], handler: pathConvertLineStyle });
   reg({ id: 'path.setRectRadius', title: '设置矩形圆角', undoLabel: '圆角半径', params: [{ key: 'rx', type: 'number', required: true, min: 0, description: '圆角半径 X' }], handler: pathSetRectRadius });
+  reg({ id: 'path.booleanOp', title: '路径布尔运算', undoLabel: '布尔运算', params: [{ key: 'op', type: 'enum', required: true, values: ['union', 'subtract', 'intersect', 'exclude'], description: '布尔运算模式' }], handler: pathBooleanOp });
   reg({ id: 'path.close', title: '开闭路径', undoLabel: '开闭路径', params: pathParamsSpec('close'), handler: pathClose });
 
   // object.*
@@ -1450,6 +1569,8 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'paint.setStroke', title: '设置描边', undoLabel: '描边', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'stroke', type: 'stroke', required: true, description: '描边' }], handler: paintSetStroke });
   reg({ id: 'paint.setOpacity', title: '设置透明度', undoLabel: '透明度', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'opacity', type: 'number', required: true, min: 0, max: 1, description: '0..1' }], handler: paintSetOpacity });
   reg({ id: 'paint.setColor', title: '一键着色', undoLabel: '着色', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'target', type: 'enum', required: true, values: ['fill', 'stroke'], description: '目标' }, { key: 'color', type: 'color', required: true, description: '颜色' }, { key: 'opacity', type: 'number', required: true, min: 0, max: 1, description: '0..1' }], handler: paintSetColor });
+  reg({ id: 'paint.setGradient', title: '设置渐变', undoLabel: '应用渐变', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'target', type: 'enum', required: true, values: ['fill', 'stroke'], description: '目标' }, { key: 'config', type: 'object', required: true, description: '渐变配置' }], handler: paintSetGradient });
+  reg({ id: 'paint.setFilter', title: '设置滤镜与阴影', undoLabel: '应用滤镜', params: [{ key: 'ids', type: 'nodeIdArray', required: true, description: '图元 ID 列表' }, { key: 'config', type: 'object', required: true, description: '滤镜配置' }], handler: paintSetFilter });
 
   // layer.*
   reg({ id: 'layer.add', title: '新建图层', undoLabel: '新建图层', params: [{ key: 'name', type: 'string', required: false, description: '图层名' }], handler: layerAdd });
@@ -1469,6 +1590,7 @@ function createRegistry(): Map<CommandId, CommandSpec> {
   reg({ id: 'history.undo', title: '撤销', undoLabel: '撤销', params: [], handler: historyUndo });
   reg({ id: 'history.redo', title: '重做', undoLabel: '重做', params: [], handler: historyRedo });
   reg({ id: 'tool.setActive', title: '切换工具', undoLabel: '切换工具', params: [{ key: 'tool', type: 'enum', required: true, values: ['select', 'node', 'pen', 'rect', 'polygon', 'ellipse', 'line', 'curve', 'arrow', 'text'], description: '工具' }], handler: toolSetActive });
+  reg({ id: 'tool.setOption', title: '设置工具选项', undoLabel: '工具选项', params: [{ key: 'key', type: 'string', required: true, description: '选项名' }, { key: 'value', type: 'object', required: true, description: '选项值' }], handler: toolSetActive });
 
   return map;
 }

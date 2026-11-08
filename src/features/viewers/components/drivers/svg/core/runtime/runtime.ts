@@ -62,6 +62,8 @@ export class RuntimeImpl implements Runtime {
   /** P0：进行中的指针手势（Tool 纯函数经 ToolContext 只读访问）。 */
   private _gesture: PointerGesture | null = null;
   private _zoom: number = 1;
+  private _snapToGrid: boolean = false;
+  private _gridSize: number = 16;
 
   constructor(initial?: LoadResult) {
     this._doc = initial?.document ?? createEmptyDocument();
@@ -290,6 +292,16 @@ export class RuntimeImpl implements Runtime {
       this.setActiveTool(p.tool);
       return { ok: true, doc: this._doc, selection: this._selection };
     }
+    if (commandId === 'tool.setOption') {
+      const p = params as { key?: string; value?: unknown };
+      if (p.key === 'snapToGrid') {
+        this._snapToGrid = Boolean(p.value);
+      } else if (p.key === 'gridSize' && typeof p.value === 'number' && p.value >= 2) {
+        this._gridSize = p.value;
+      }
+      this.notify();
+      return { ok: true, doc: this._doc, selection: this._selection };
+    }
 
     const r = this.runCommand(this._doc, this._selection, commandId, params);
     if (r.ok) {
@@ -400,7 +412,8 @@ export class RuntimeImpl implements Runtime {
       zoom: this._zoom,
       fillActive: true,
       constrainAngle: 0,
-      snapToGrid: false,
+      snapToGrid: this._snapToGrid,
+      gridSize: this._gridSize,
       snapToPoint: false,
       snapTolerance: 4 / Math.max(this._zoom, 1e-4),
       gesture: this._gesture ?? undefined,

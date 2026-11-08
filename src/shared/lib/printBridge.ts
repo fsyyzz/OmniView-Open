@@ -96,16 +96,45 @@ export function requestPrintHtml(
     return true;
   }
 
-  const blob = new Blob([injectAutoPrintScript(html)], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
-  if (!win) {
-    URL.revokeObjectURL(url);
-    window.print();
-    return false;
+  if (typeof document !== 'undefined' && document.body) {
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(iframe);
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(injectAutoPrintScript(html));
+        doc.close();
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch {
+            window.print();
+          }
+          setTimeout(() => {
+            iframe.remove();
+          }, 10_000);
+        }, 250);
+        return true;
+      }
+      iframe.remove();
+    } catch {
+      // Fallback to native print
+    }
   }
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  return true;
+  if (typeof window !== 'undefined' && typeof window.print === 'function') {
+    window.print();
+    return true;
+  }
+  return false;
 }
 
 /** 请求打印位图页（PDF 当前页等） */

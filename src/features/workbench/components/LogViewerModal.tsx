@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { appLogger } from '../../../shared/lib/appLogger';
 import type { AppLogItem, LogLevel } from '../../../shared/lib/indexedDbStorage';
+import { safeConfirm } from '../../../shared/lib/vscode';
 
 interface LogViewerModalProps {
   isOpen: boolean;
@@ -140,7 +141,7 @@ export const LogViewerModal: React.FC<LogViewerModalProps> = ({
 
   // 清空日志
   const handleClear = async () => {
-    if (window.confirm('确定要清空全部运行与诊断日志吗？已持久化到 IndexedDB 的记录也将被清除。')) {
+    if (safeConfirm('确定要清空全部运行与诊断日志吗？已持久化到 IndexedDB 的记录也将被清除。')) {
       await appLogger.clearLogs();
       setLogs([]);
       onClearLogs?.();

@@ -49,6 +49,8 @@ import {
   type NodeId,
   type PathNode,
 } from './core';
+import { safeConfirm } from '../../../../../shared/lib/vscode';
+import { SvgV2AppearanceExtras } from './SvgV2AppearanceExtras';
 
 export interface SvgV2InspectorProps {
   readonly document: Document;
@@ -480,7 +482,7 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
   if (ids.length === 0) {
     return (
       <div
-        className="border-t border-[var(--ov-border)] p-2 text-sm overflow-y-auto max-h-[calc(100vh-280px)] space-y-2"
+        className="h-full p-2 text-sm overflow-y-auto space-y-2"
         data-inspector-panel="true"
       >
         <button
@@ -880,7 +882,7 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
                     type="button"
                     className="hover:text-rose-500"
                     onClick={() => {
-                      if (window.confirm('确定清空 SVG 内的所有全局样式吗？')) {
+                      if (safeConfirm('确定清空 SVG 内的所有全局样式吗？')) {
                         setCssDraft('');
                         execute('canvas.setGlobalStyles', { css: '' });
                         showFeedback('已清空全局样式表');
@@ -900,7 +902,7 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
 
   return (
     <div
-      className="border-t border-[var(--ov-border)] p-2 text-sm overflow-y-auto max-h-[calc(100vh-280px)]"
+      className="h-full p-2 text-sm overflow-y-auto"
       data-inspector-panel="true"
     >
       <button
@@ -1123,6 +1125,14 @@ export const SvgV2Inspector: React.FC<SvgV2InspectorProps> = ({
           />
         </label>
       </div>
+
+      {/* SVG-04 / SVG-05 / SVG-06 / SVG-07: 渐变、滤镜、吸管色板与路径布尔运算 */}
+      <SvgV2AppearanceExtras
+        document={doc}
+        selection={selection}
+        execute={execute}
+        onFeedback={showFeedback}
+      />
 
       {/* 矩形圆角调节（Point 3: 支持滑动条、数值输入、快捷预设与胶囊形态） */}
       {hasRect && (

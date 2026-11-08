@@ -77,7 +77,7 @@ import {
   THIRD_PARTY_THEMES,
   applySimulatedTheme,
 } from '../../../shared/lib/nativeTheme';
-import { getVsCodeApi } from '../../../shared/lib/vscode';
+import { getVsCodeApi, safeConfirm } from '../../../shared/lib/vscode';
 
 interface WorkbenchSettingsModalProps {
   isOpen: boolean;
@@ -238,7 +238,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   };
 
   const handleClearBlobs = async () => {
-    if (window.confirm('确定要清空所有离线媒体大对象（PDF/Office/图片本地缓存）吗？')) {
+    if (safeConfirm('确定要清空所有离线媒体大对象（PDF/Office/图片本地缓存）吗？')) {
       await idbClearBlobs();
       refreshStorageData();
       setStatusMessage({ type: 'success', text: '已清空二进制多媒体附件缓存' });
@@ -246,7 +246,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   };
 
   const handleClearViewerStates = async () => {
-    if (window.confirm('确定要重置所有文件的阅读进度、表格排序列宽与播放记忆吗？文档本身不受影响。')) {
+    if (safeConfirm('确定要重置所有文件的阅读进度、表格排序列宽与播放记忆吗？文档本身不受影响。')) {
       await idbClearViewerStates();
       refreshStorageData();
       setStatusMessage({ type: 'success', text: '已清空所有文件的交互偏好与历史阅读进度' });
@@ -254,7 +254,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   };
 
   const handleClearLogs = async () => {
-    if (window.confirm('确定要清空所有应用运行与诊断日志吗？已持久化到 IndexedDB 的记录也将被清除。')) {
+    if (safeConfirm('确定要清空所有应用运行与诊断日志吗？已持久化到 IndexedDB 的记录也将被清除。')) {
       await idbClearLogs();
       await appLogger.clearLogs();
       setTabLogs([]);
@@ -264,7 +264,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   };
 
   const handleResetFilesOnly = () => {
-    if (window.confirm('确定要重置当前工作区文档为初始官方示范集合吗？自定义上传与修改将被重置。')) {
+    if (safeConfirm('确定要重置当前工作区文档为初始官方示范集合吗？自定义上传与修改将被重置。')) {
       resetStoredFiles();
       refreshStorageData();
       onResetWorkspace?.();
@@ -349,7 +349,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
   };
 
   const handleResetAll = () => {
-    if (window.confirm('确定要重置所有配置项为初始默认值吗？演示文件也将被还原。')) {
+    if (safeConfirm('确定要重置所有配置项为初始默认值吗？演示文件也将被还原。')) {
       const defaultSettings = resetStoredSettings();
       resetStoredFiles();
       setLocalSettings(defaultSettings);

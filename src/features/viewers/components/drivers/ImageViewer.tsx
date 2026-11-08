@@ -149,6 +149,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       }
 
       setImageSrc(src);
+      canvasHelperRef.current = null;
 
       // 创建 Image 对象测量尺寸与 EXIF
       const img = new Image();
@@ -452,9 +453,26 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setRotation(0);
     setFlipH(false);
     setFlipV(false);
+    zoomRef.current = 1.0;
+    panRef.current = { x: 0, y: 0 };
     setZoom(1.0);
     setPan({ x: 0, y: 0 });
   };
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleGlobalMouseUp = () => setIsDragging(false);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isDragging]);
+
+  useEffect(() => {
+    return () => {
+      if (wheelTimeoutRef.current) {
+        clearTimeout(wheelTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 全屏切换
   const toggleFullscreen = () => {

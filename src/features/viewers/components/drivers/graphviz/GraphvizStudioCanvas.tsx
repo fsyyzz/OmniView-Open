@@ -163,6 +163,9 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
     stageEl.addEventListener('wheel', handleNativeWheel, { passive: false });
     return () => {
       stageEl.removeEventListener('wheel', handleNativeWheel);
+      if (wheelTimeoutRef.current) {
+        clearTimeout(wheelTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -230,8 +233,9 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
       svgHeight = svgEl.viewBox.baseVal.height;
     } else {
       const bbox = svgEl.getBoundingClientRect();
-      svgWidth = bbox.width / zoom;
-      svgHeight = bbox.height / zoom;
+      const currentScale = zoomRef.current || 1;
+      svgWidth = bbox.width / currentScale;
+      svgHeight = bbox.height / currentScale;
     }
 
     if (svgWidth > 0 && svgHeight > 0) {
@@ -251,7 +255,7 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
       setZoom(1);
       setPan({ x: 0, y: 0 });
     }
-  }, [zoom]);
+  }, []);
 
   // 初次渲染就绪时自动居中适应
   const hasAutoFitRef = useRef(false);

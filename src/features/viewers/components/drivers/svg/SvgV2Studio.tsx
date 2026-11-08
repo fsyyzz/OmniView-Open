@@ -40,10 +40,14 @@ import {
   Layers,
   SlidersHorizontal,
   PanelRightClose,
-  PanelRightOpen,
+  Combine,
+  RotateCw,
+  FlipHorizontal,
+  FlipVertical,
 } from 'lucide-react';
 import {
   decideBackup,
+  getSelectionBBox,
   shouldExport,
   shouldReloadFromHost,
   shouldWriteBackup,
@@ -94,10 +98,6 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
 
   const handleToggleProperties = useCallback(() => {
     setActiveRightTab((prev) => (prev === 'properties' ? null : 'properties'));
-  }, []);
-
-  const handleToggleRightPanel = useCallback(() => {
-    setActiveRightTab((prev) => (prev ? null : 'properties'));
   }, []);
 
   // ---- 加载状态（P0 数据安全关键）----
@@ -279,6 +279,80 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
               onClick={() => execute('object.distribute', { ids: selection.nodeIds, axis: 'vertical' })}
             />
 
+            <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+
+            {/* SVG-03: 水平翻转 / 垂直翻转 / 顺时针旋转 90° */}
+            <ActionButton
+              icon={<FlipHorizontal size={15} />}
+              label="水平镜像翻转"
+              disabled={selectedCount === 0}
+              onClick={() => {
+                const bb = getSelectionBBox(document, selection.nodeIds);
+                if (!bb) return;
+                execute('object.scale', {
+                  ids: [...selection.nodeIds],
+                  origin: { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 },
+                  factor: { x: -1, y: 1 },
+                });
+              }}
+            />
+            <ActionButton
+              icon={<FlipVertical size={15} />}
+              label="垂直镜像翻转"
+              disabled={selectedCount === 0}
+              onClick={() => {
+                const bb = getSelectionBBox(document, selection.nodeIds);
+                if (!bb) return;
+                execute('object.scale', {
+                  ids: [...selection.nodeIds],
+                  origin: { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 },
+                  factor: { x: 1, y: -1 },
+                });
+              }}
+            />
+            <ActionButton
+              icon={<RotateCw size={15} />}
+              label="顺时针旋转 90°"
+              disabled={selectedCount === 0}
+              onClick={() => {
+                const bb = getSelectionBBox(document, selection.nodeIds);
+                if (!bb) return;
+                execute('object.rotate', {
+                  ids: [...selection.nodeIds],
+                  origin: { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 },
+                  angleDeg: 90,
+                });
+              }}
+            />
+
+            <div className="mx-1 h-3.5 w-px bg-[var(--ov-border)]" />
+
+            {/* SVG-07: 路径布尔运算 (联集 / 差集 / 交集 / 异或) */}
+            <ActionButton
+              icon={<Combine size={15} />}
+              label="布尔联集 (Union — 合并选中路径)"
+              disabled={!canAlign}
+              onClick={() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'union' })}
+            />
+            <ActionButton
+              icon={<Minus size={15} />}
+              label="布尔差集 (Subtract — 底层路径减去顶层)"
+              disabled={!canAlign}
+              onClick={() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'subtract' })}
+            />
+            <ActionButton
+              icon={<CircleDot size={15} />}
+              label="布尔交集 (Intersect — 仅保留重叠区域)"
+              disabled={!canAlign}
+              onClick={() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'intersect' })}
+            />
+            <ActionButton
+              icon={<Square size={15} />}
+              label="布尔异或 (Exclude — 挖空重叠区域)"
+              disabled={!canAlign}
+              onClick={() => execute('path.booleanOp', { ids: [...selection.nodeIds], op: 'exclude' })}
+            />
+
             {selectedCount > 1 && (
               <span className="ml-2 rounded bg-[var(--ov-hover)] px-1.5 py-0.5 text-[10px] text-[var(--ov-fg-muted)]">
                 已选 {selectedCount} 项
@@ -356,57 +430,6 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
               <FileImage size={13} className="text-[var(--ov-fg-muted)]" />
               <span>{exportingPng ? '导出中...' : '导出 PNG'}</span>
             </button>
-
-            <div className="h-3.5 w-px bg-[var(--ov-border)] mx-0.5" />
-
-            {/* 图层面板单选切换 */}
-            <button
-              type="button"
-              onClick={handleToggleLayers}
-              title={activeRightTab === 'layers' ? '收起图层面板' : '展示图层面板'}
-              aria-label="图层面板"
-              aria-pressed={activeRightTab === 'layers'}
-              className={`flex items-center space-x-1 rounded border px-2 py-0.5 text-[11px] transition-colors ${
-                activeRightTab === 'layers'
-                  ? 'border-[var(--ov-accent)] bg-[var(--ov-hover)] text-[var(--ov-fg)] font-medium shadow-inner'
-                  : 'border-[var(--ov-border)] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)]'
-              }`}
-            >
-              <Layers size={13} className={activeRightTab === 'layers' ? 'text-[var(--ov-accent)]' : undefined} />
-              <span>图层</span>
-            </button>
-
-            {/* 属性面板单选切换 */}
-            <button
-              type="button"
-              onClick={handleToggleProperties}
-              title={activeRightTab === 'properties' ? '收起属性面板' : '展示属性面板'}
-              aria-label="属性面板"
-              aria-pressed={activeRightTab === 'properties'}
-              className={`flex items-center space-x-1 rounded border px-2 py-0.5 text-[11px] transition-colors ${
-                activeRightTab === 'properties'
-                  ? 'border-[var(--ov-accent)] bg-[var(--ov-hover)] text-[var(--ov-fg)] font-medium shadow-inner'
-                  : 'border-[var(--ov-border)] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)]'
-              }`}
-            >
-              <SlidersHorizontal size={13} className={activeRightTab === 'properties' ? 'text-[var(--ov-accent)]' : undefined} />
-              <span>属性</span>
-            </button>
-
-            {/* 右侧面板整体切换 */}
-            <button
-              type="button"
-              onClick={handleToggleRightPanel}
-              title={activeRightTab ? '收起侧边面板' : '展开侧边面板'}
-              aria-label={activeRightTab ? '收起侧边面板' : '展开侧边面板'}
-              className={`flex items-center justify-center rounded border p-1 text-[11px] transition-colors ${
-                activeRightTab
-                  ? 'border-[var(--ov-accent)] bg-[var(--ov-hover)] text-[var(--ov-accent)]'
-                  : 'border-[var(--ov-border)] text-[var(--ov-fg-muted)] hover:bg-[var(--ov-hover)] hover:text-[var(--ov-fg)]'
-              }`}
-            >
-              {activeRightTab ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
-            </button>
           </div>
         </header>
 
@@ -443,7 +466,7 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
             {activeRightTab === 'layers' && (
               <SvgV2LayersPanel
                 document={document}
@@ -483,18 +506,6 @@ export const SvgV2Studio: React.FC<SvgV2StudioProps> = ({
           tooltipPlacement="left"
           onClick={handleToggleProperties}
         />
-        {activeRightTab && (
-          <>
-            <div className="my-1.5 h-px w-8 bg-[var(--ov-border)]" />
-            <ToolButton
-              icon={<PanelRightClose size={17} />}
-              active={false}
-              label="收起面板"
-              tooltipPlacement="left"
-              onClick={() => setActiveRightTab(null)}
-            />
-          </>
-        )}
       </aside>
     </div>
   );

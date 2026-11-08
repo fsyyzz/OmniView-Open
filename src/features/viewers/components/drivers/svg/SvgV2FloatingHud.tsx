@@ -27,11 +27,17 @@ import {
   FolderOpen,
   ArrowUpToLine,
   ArrowDownToLine,
+  RotateCw,
+  Combine,
+  Minus as Subtract,
+  CircleDot as Intersect,
+  Layers as Exclude,
 } from 'lucide-react';
 import {
   defaultStroke,
   isTwoPointLineNode,
   isOpenPolylineNode,
+  type BooleanOpKind,
   type CommandId,
   type CommandParams,
   type Document,
@@ -390,7 +396,31 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
         </div>
       )}
 
-      {/* 水平 / 垂直镜像翻转 */}
+      {/* SVG-07: 多选路径布尔运算（联集 / 差集 / 交集 / 异或） */}
+      {isMulti && ids.filter((id) => doc.nodes.get(id)?.kind === 'Path').length >= 2 && (
+        <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">
+          {(
+            [
+              { op: 'union', title: '布尔联集 (Union)', icon: <Combine size={13} /> },
+              { op: 'subtract', title: '布尔差集 (Subtract)', icon: <Subtract size={13} /> },
+              { op: 'intersect', title: '布尔交集 (Intersect)', icon: <Intersect size={13} /> },
+              { op: 'exclude', title: '布尔异或 (Exclude)', icon: <Exclude size={13} /> },
+            ] as ReadonlyArray<{ op: BooleanOpKind; title: string; icon: React.ReactNode }>
+          ).map((b) => (
+            <button
+              key={b.op}
+              type="button"
+              title={b.title}
+              className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-accent)] transition-colors"
+              onClick={() => execute('path.booleanOp', { ids: [...ids], op: b.op })}
+            >
+              {b.icon}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 水平 / 垂直镜像翻转 + 顺时针旋转 90° (SVG-03) */}
       <div className="flex items-center gap-0.5 pr-1 border-r border-[var(--ov-border)]">
         <button
           type="button"
@@ -407,6 +437,20 @@ export const SvgV2FloatingHud: React.FC<SvgV2FloatingHudProps> = ({
           onClick={handleFlipV}
         >
           <FlipVertical size={13} />
+        </button>
+        <button
+          type="button"
+          title="顺时针旋转 90°"
+          className="flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--ov-hover)] text-[var(--ov-fg-muted)] hover:text-[var(--ov-text)] transition-colors"
+          onClick={() =>
+            execute('object.rotate', {
+              ids: [...ids],
+              origin: center,
+              angleDeg: 90,
+            })
+          }
+        >
+          <RotateCw size={13} />
         </button>
       </div>
 

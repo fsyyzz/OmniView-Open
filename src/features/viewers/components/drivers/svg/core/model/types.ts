@@ -208,6 +208,10 @@ export interface PathNode extends NodeBase {
   readonly rx?: number;
   readonly ry?: number;
   readonly cornerRadius?: number;
+  /** 连接线起点磁吸绑定（SVG-08：目标节点移动/缩放/旋转时动态跟随）。 */
+  readonly connStart?: { readonly nodeId: NodeId; readonly port: 'n' | 'e' | 's' | 'w' | 'c' | 'nw' | 'ne' | 'se' | 'sw' } | null;
+  /** 连接线终点磁吸绑定（SVG-08：目标节点移动/缩放/旋转时动态跟随）。 */
+  readonly connEnd?: { readonly nodeId: NodeId; readonly port: 'n' | 'e' | 's' | 'w' | 'c' | 'nw' | 'ne' | 'se' | 'sw' } | null;
 }
 
 export interface TextSpan {
@@ -396,6 +400,7 @@ export interface ToolContext {
   readonly fillActive: boolean;
   readonly constrainAngle: number;
   readonly snapToGrid: boolean;
+  readonly gridSize?: number;
   readonly snapToPoint: boolean;
   readonly snapTolerance: number;
   /** 进行中的指针手势（Runtime 持有；无手势为 undefined）。 */

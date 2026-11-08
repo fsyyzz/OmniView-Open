@@ -45,6 +45,7 @@ interface Options {
   readonly undo: () => void;
   readonly redo: () => void;
   readonly selectAll: () => void;
+  readonly onEditTextNode?: (nodeId: NodeId) => void;
 }
 
 export interface SvgV2PointerHandlers {
@@ -67,7 +68,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
-export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: Options): SvgV2PointerHandlers {
+export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll, onEditTextNode }: Options): SvgV2PointerHandlers {
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const toCanvas = useCallback(
@@ -196,8 +197,14 @@ export function useSvgV2PointerInput({ runtime, view, undo, redo, selectAll }: O
       // 双击穿透选择 (Deep Select / Drill-down)：直接深度下钻选中光标底部具体的原子叶子图元
       const leafHit = allHits[0]!;
       runtime.execute('select.set', { ids: [leafHit], additive: false });
+
+      // SVG-01: 双击 Text 节点直接弹出画布内原地文本编辑器
+      const hitNode = doc.nodes.get(leafHit);
+      if (hitNode && hitNode.kind === 'Text') {
+        onEditTextNode?.(leafHit);
+      }
     },
-    [runtime, toCanvas],
+    [runtime, toCanvas, onEditTextNode],
   );
 
   const handleKeyDown = useCallback(
