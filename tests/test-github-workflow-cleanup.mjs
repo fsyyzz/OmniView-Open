@@ -76,4 +76,20 @@ assert.ok(
 );
 console.log('✅ sync-to-oss.yml 双仓滚动清理与开源 Marketplace 元数据净化校验通过');
 
+// 5. 验证 .vscodeignore 与 check-vsix-contents.mjs 对 vsce 规范化文件名的兼容性
+console.log('--- 测试 5: .vscodeignore 瘦身规则与 check-vsix-contents.mjs (readme.md / changelog.md / LICENSE.txt) 校验 ---');
+const vscodeignore = fs.readFileSync(path.resolve(process.cwd(), '.vscodeignore'), 'utf-8');
+assert.ok(vscodeignore.includes('docs/**'), '.vscodeignore 必须使用 docs/** 递归排除 docs 子目录（如 docs/archify）');
+assert.ok(vscodeignore.includes('!docs/assets/omniview-showcase.png'), '.vscodeignore 必须保留 docs/assets/omniview-showcase.png 市场预览图');
+assert.ok(!/^README\.md$/m.test(vscodeignore), '.vscodeignore 严禁排除根目录 README.md');
+
+const checkVsixScript = fs.readFileSync(path.resolve(process.cwd(), 'scripts/check-vsix-contents.mjs'), 'utf-8');
+assert.ok(
+  checkVsixScript.includes('extension/readme.md') &&
+    checkVsixScript.includes('extension/changelog.md') &&
+    checkVsixScript.includes('extension/license.txt'),
+  'check-vsix-contents.mjs 必须兼容 vsce 打包自动规范化的 readme.md / changelog.md / LICENSE.txt 文件名'
+);
+console.log('✅ .vscodeignore 递归排除与 check-vsix-contents.mjs 规范化文件名校验通过');
+
 console.log('🎉 GitHub Actions 自动滚动清理与 Marketplace 发布流水线单元测试全部通过！');

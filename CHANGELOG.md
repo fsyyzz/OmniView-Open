@@ -8,7 +8,19 @@
 
 ---
 
-## [1.4.15] - 2026-11-07 (当前最新发布)
+## [1.4.16] - 2026-11-07 (当前最新发布)
+
+> [!TIP] v1.4.16 核心升级亮点
+> **修复 VSIX 打包结构门禁对 `@vscode/vsce` 规范化文件名的兼容校验并深度瘦身 `docs/**` 冗余子目录 (`.vscodeignore` / `check-vsix-contents.mjs`)**：
+> 1. **兼容 `@vscode/vsce` 归档文件名自动规范化机制 (`scripts/check-vsix-contents.mjs`)**：
+>    - `@vscode/vsce package` 在生成 `.vsix` 压缩包时会自动将根目录 `README.md`、`CHANGELOG.md` 与 `LICENSE` 重命名为 `extension/readme.md`、`extension/changelog.md` 与 `extension/LICENSE.txt`；
+>    - 升级 `check-vsix-contents.mjs` 为大小写不敏感与多候选名匹配（`extension/readme.md`、`extension/changelog.md`、`extension/license(.txt/.md)`），消除 CI 打包门禁误报缺失问题。
+> 2. **递归剔除 `docs/**` 内部设计/架构子目录，VSIX 包体积再减 ~3.3 MB (`.vscodeignore`)**：
+>    - 将 `.vscodeignore` 中的 `docs/*` 升级为 `docs/**` 配合 `!docs/assets/omniview-showcase.png`，彻底排除 `docs/archify/`（3.11 MB）、`docs/adr/`、`docs/design/`、`docs/ideation/` 等非运行时文档子目录，同时排除 `README.en.md`、`CONTRIBUTING.md` 与 `SECURITY.md`。
+
+---
+
+## [1.4.15] - 2026-11-07
 
 > [!TIP] v1.4.15 核心升级亮点
 > **全品类图片/图表光标锚点无级缩放统一、VS Code 插件市场自动化打包发布流水线与 Vite 预构建边界加固**：
@@ -143,17 +155,5 @@
 
 ---
 
-## [1.4.6] - 2026-10-29
-
-> [!TIP] v1.4.6 核心升级亮点
-> **新增 Vite 开发服务器跨 `?v=` 哈希 React 单例动态桥接中间件与挂载前缓存自愈 (`vite.config.ts` / `src/main.tsx` / `index.html`)**：
-> 1. **注入跨 `?v=` 预构建哈希的 React 单例动态桥接中间件，彻底消除未刷新标签页下懒加载组件（如 `StructuredDataViewer` / `GraphvizStudioCanvas`）的 `Invalid hook call` 异常 (`vite.config.ts`)**：
->    - 当已打开的浏览器会话仍驻留旧版 `react-dom_client.js?v=<rootHash>`（如 `?v=45dd2f19`）而按需懒加载新模块请求当前 Vite 服务（如 `?v=133c5026`）时，中间件在不改动 `configHash` / `browserHash` 的前提下，自动在 `/src/*` 模块响应中注入基于 `performance.getEntriesByType('resource')` 的根部 React 单例对齐逻辑，动态复用当前已挂载的 `react.js?v=<rootHash>` 与 `react_jsx-dev-runtime.js?v=<rootHash>` 内存实例，确保 `useState` 等 Hook 100% 指向同一 `ReactSharedInternals` Dispatcher；
->    - 同时剥离开发态 `/src/*`、`/sw.js`、`/index.html` 请求的 `If-None-Match` 304 协商缓存头并对齐旧版 `.vite/deps` 请求哈希，防止浏览器 HTTP 缓存与 `omniview-v1` 返回陈旧模块；
-> 2. **前置 `bootstrapOmniView` 缓存清理至 `createRoot` 挂载之前 (`src/main.tsx` / `index.html`)**：
->    - 在 `index.html` 首屏内联脚本与 `src/main.tsx` 挂载 `<App />` 之前立即清空 `omniview-v1` 等 `CacheStorage` 并注销旧版 Service Worker，确保懒加载驱动请求前旧缓存已 100% 销毁。
-
----
-
 > [!NOTE] 历史版本归档提示
-> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认收敛并保留最近 10 个核心版本的详细履历。`v1.4.5` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。
+> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认收敛并保留最近 10 个核心版本的详细履历。`v1.4.6` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。

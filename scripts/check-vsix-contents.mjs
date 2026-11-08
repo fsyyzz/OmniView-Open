@@ -39,18 +39,21 @@ async function main() {
     process.exit(1);
   }
 
-  const required = [
-    'extension/dist/extension.cjs',
-    'extension/dist/index.html',
-    'extension/README.md',
-    'extension/CHANGELOG.md',
-    'extension/LICENSE',
-    'extension/assets/icon.png',
-    'extension/docs/assets/omniview-showcase.png',
+  const lowerEntries = new Set(entries.map((e) => e.toLowerCase()));
+  const requiredGroups = [
+    { label: 'extension/dist/extension.cjs', candidates: ['extension/dist/extension.cjs'] },
+    { label: 'extension/dist/index.html', candidates: ['extension/dist/index.html'] },
+    { label: 'extension/readme.md', candidates: ['extension/readme.md'] },
+    { label: 'extension/changelog.md', candidates: ['extension/changelog.md'] },
+    { label: 'extension/license(.txt)', candidates: ['extension/license', 'extension/license.txt', 'extension/license.md'] },
+    { label: 'extension/assets/icon.png', candidates: ['extension/assets/icon.png'] },
+    { label: 'extension/docs/assets/omniview-showcase.png', candidates: ['extension/docs/assets/omniview-showcase.png'] },
   ];
-  const missing = required.filter((path) => !entries.includes(path));
+  const missing = requiredGroups
+    .filter((group) => !group.candidates.some((c) => lowerEntries.has(c)))
+    .map((group) => group.label);
   const hasAssets = entries.some((e) => e.startsWith('extension/dist/assets/') && /\.(js|css)$/i.test(e));
-  const forbiddenPrefixes = ['extension/examples/', 'extension/rust/', 'extension/docker/'];
+  const forbiddenPrefixes = ['extension/examples/', 'extension/rust/', 'extension/docker/', 'extension/docs/archify/'];
   const leaked = entries.filter((e) => forbiddenPrefixes.some((p) => e.startsWith(p)));
 
   console.log(`[check-vsix] 检查 ${basename(vsixPath)}（${entries.length} entries）`);

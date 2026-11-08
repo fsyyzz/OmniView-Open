@@ -6,9 +6,7 @@ node_modules
 .aistudio
 src
 scripts
-docs/*
-!docs/assets
-docs/assets/*
+docs/**
 !docs/assets/omniview-showcase.png
 public
 examples
@@ -29,6 +27,9 @@ metadata.json
 .env.example
 AGENTS.md
 PROJECT.md
+CONTRIBUTING.md
+SECURITY.md
+README.en.md
 .gitignore
 dist/extension.js
 !dist/extension.cjs
