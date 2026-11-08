@@ -39,18 +39,29 @@ async function main() {
     process.exit(1);
   }
 
-  const required = ['extension/dist/extension.cjs', 'extension/dist/index.html'];
+  const required = [
+    'extension/dist/extension.cjs',
+    'extension/dist/index.html',
+    'extension/README.md',
+    'extension/CHANGELOG.md',
+    'extension/LICENSE',
+    'extension/assets/icon.png',
+    'extension/docs/assets/omniview-showcase.png',
+  ];
   const missing = required.filter((path) => !entries.includes(path));
   const hasAssets = entries.some((e) => e.startsWith('extension/dist/assets/') && /\.(js|css)$/i.test(e));
+  const forbiddenPrefixes = ['extension/examples/', 'extension/rust/', 'extension/docker/'];
+  const leaked = entries.filter((e) => forbiddenPrefixes.some((p) => e.startsWith(p)));
 
   console.log(`[check-vsix] 检查 ${basename(vsixPath)}（${entries.length} entries）`);
-  if (missing.length || !hasAssets) {
+  if (missing.length || !hasAssets || leaked.length) {
     if (missing.length) console.error('[check-vsix] 缺失:', missing.join(', '));
     if (!hasAssets) console.error('[check-vsix] 缺失: extension/dist/assets/*.{js,css}');
-    console.error('[check-vsix] FAIL — .vscodeignore 可能误排除了 webview 产物');
+    if (leaked.length) console.error('[check-vsix] 冗余目录泄漏至 VSIX:', leaked.slice(0, 5).join(', '));
+    console.error('[check-vsix] FAIL — VSIX 包结构校验未通过，请检查 .vscodeignore');
     process.exit(1);
   }
-  console.log('[check-vsix] OK — extension.cjs + index.html + assets 已打入 VSIX');
+  console.log('[check-vsix] OK — extension.cjs + index.html + assets + Marketplace README/Icon/Banner 已完整打入 VSIX');
 }
 
 main();

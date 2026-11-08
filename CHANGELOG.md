@@ -8,7 +8,22 @@
 
 ---
 
-## [1.4.14] - 2026-11-04 (当前最新发布)
+## [1.4.15] - 2026-11-07 (当前最新发布)
+
+> [!TIP] v1.4.15 核心升级亮点
+> **全品类图片/图表光标锚点无级缩放统一、VS Code 插件市场自动化打包发布流水线与 Vite 预构建边界加固**：
+> 1. **全品类图片与图表光标锚点无级缩放统一 (`focalZoom.ts` / `LightboxModal.tsx` / 独立查看器)**：
+>    - **Markdown 全屏灯箱 (`LightboxModal.tsx` / `EChartsBlock.tsx` / `PlantUmlBlock.tsx` / `MarkdownViewer.tsx`)**：修复 ECharts 打开全屏灯箱时优先传入序列化矢量 `svgContent` 的渲染链路，支持多图画廊 (`item.items` / `initialIndex`) 缩略图自导航与基于光标焦点 (`calculateFocalZoom`) 的无级缩放；
+>    - **独立查看器全面对齐 (`ImageViewer` / `MermaidStudioCanvas` / `GraphvizStudioCanvas` / `PlantUmlViewer` / `DomainStoryViewer` / `ExcalidrawViewer` / `SvgV2Studio`)**：所有图片与图表单独打开后，滚轮缩放、双击放大与工具栏缩放按钮均以当前鼠标光标所在位置为锚点 (`calculateFocalZoom` + `calculateWheelFactor`) 进行平滑无漂移缩放，并将全屏预览统一收敛至交互式 `LightboxModal`。
+> 2. **VS Code 插件打包瘦身与开源市场自动发布流水线 (`.vscodeignore` / `release.yml` / `sync-to-oss.yml` / `check-vsix-contents.mjs`)**：
+>    - **VSIX 制品净化与市场主页保障**：移除 `.vscodeignore` 中对 `README.md` 的误屏蔽并保留 `./docs/assets/omniview-showcase.png` 封面图，同时过滤未编译的 `examples/`、`rust/` 与 `docker/` 冗余目录；
+>    - **开源双仓自动发布 (`release.yml` / `sync-to-oss.yml`)**：支持主仓 `fsyyzz/OmniView` 与开源镜像仓 `fsyyzz/OmniView-Open` 自动打包 `.vsix` 并发布至 VS Code Marketplace (`VSCE_PAT`) 与 Open VSX Registry (`OVSX_PAT`)，同步净化开源仓 `package.json` 的 `repository` / `bugs` / `homepage` 市场外链。
+> 3. **Vite 依赖预构建边界加固 (`vite.config.ts`)**：
+>    - 在 `optimizeDeps.entries` 中通过 `'!src/extension/**'` 排除 VS Code 扩展宿主 Node 端目录，并将 `['vscode']` 加入 `optimizeDeps.exclude`，根除启动预扫描对 `vscode` 宿主虚拟模块的误解析报错。
+
+---
+
+## [1.4.14] - 2026-11-04
 
 > [!TIP] v1.4.14 核心升级亮点
 > **Markdown 渲染视窗高频交互演进：任务清单原地平滑即时回写、图文双向聚焦高亮与 Tabbed 多标签容器全面兼容**：
@@ -140,27 +155,5 @@
 
 ---
 
-## [1.4.5] - 2026-10-29
-
-> [!TIP] v1.4.5 核心升级亮点
-> **根治 PWA Service Worker (`public/sw.js`) Cache-First 缓存锁死旧版 Vite 模块哈希导致的 `GraphvizStudioCanvas` React 双实例异常 (`public/sw.js` / `src/main.tsx` / `RenderErrorBoundary.tsx`)**：
-> 1. **修复 `public/sw.js` 对同域 `/src/*` 与 `/node_modules/.vite/deps/*` 采用 Cache-First 拦截导致的跨版本哈希锁死问题**：
->    - 原 `omniview-v1` Service Worker 对所有同域 GET 请求采用 `cache-first` 策略，导致早期缓存的 `/src/main.tsx` (`?v=45dd2f19`) 与懒加载缓存的 `GraphvizStudioCanvas.tsx` (`?v=b125d612`) 永久驻留浏览器 `CacheStorage`，即使重启服务端或刷新页面也持续返回两份不同哈希的 React 实例；
->    - 升级 `public/sw.js` 至 `omniview-v2`：在 `install` 与 `activate` 阶段立即清空 `omniview-v1` 等遗留缓存并自动导航刷新受控客户端；对 `/src/*`、`/@*`、`/node_modules/*` 及带 `?v=`/`?t=` 的模块请求直接放行绝不缓存，对外壳资源改为 `Network-First` 策略；
-> 2. **增强开发环境与 `RenderErrorBoundary` 的缓存自愈清理 (`src/main.tsx` / `RenderErrorBoundary.tsx`)**：
->    - 在开发模式下启动时自动清理残留 `CacheStorage` 与旧版 Service Worker 注册；当 `RenderErrorBoundary` 捕获到 React Dispatcher 空指针异常时，先彻底清除 `window.caches` 与 Service Worker 注册再执行刷新自愈。
-
----
-
-## [1.4.4] - 2026-10-29
-
-> [!TIP] v1.4.4 核心升级亮点
-> **修复懒加载驱动引发的 Vite 依赖重优化 React 双实例冲突与 Hook 边界隔离 (`vite.config.ts` / `ViewerRenderer.tsx` / `CodeViewer.tsx`)**：
-> 1. **消除 `GraphvizStudioCanvas` 等懒加载组件触发 Vite 运行时重优化导致的 React 双实例 `Invalid hook call` 异常 (`vite.config.ts`)**：
->    - 将 `@hpcc-js/wasm-graphviz`、`@myriaddreamin/typst.ts` 及全量 `prismjs/components/prism-*` 语言高亮子模块纳入 `optimizeDeps.include` 与 `entries: ['index.html', 'src/**/*.{ts,tsx}']` 启动预构建范围，并强化 `resolve.dedupe` 与 `resolve.alias` 锁定唯一 React / ReactDOM 单例，彻底杜绝运行期动态加载新依赖触发 `.vite/deps` 哈希漂移（`?v=` 不一致导致 `useState` 读取 `null` Dispatcher）；
->    - 加固 `ViewerRenderer` 与 `CodeViewer` 的 React Hook Fiber 边界 (`ViewerRenderer.tsx` / `CodeViewer.tsx`)：将 `ViewerRenderer` 中的 `plugin.renderMode` 从普通函数内联调用升级为独立 React 组件节点 `<PluginModeComponent />`，并将 `CodeViewer` 拆分为无状态路由分发器与 `PlainCodeViewer` 状态组件，确保跨格式切换时 100% 遵循 React Rules of Hooks。
-
----
-
 > [!NOTE] 历史版本归档提示
-> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认收敛并保留最近 10 个核心版本的详细履历。`v1.4.3` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。
+> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认收敛并保留最近 10 个核心版本的详细履历。`v1.4.5` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。

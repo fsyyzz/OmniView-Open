@@ -57,10 +57,12 @@ export function useSvgV2Viewport(): SvgV2ViewportApi {
   const [panning, setPanning] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null);
+  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
 
   const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     if (isCanvasUiWheelTarget(e.target)) return;
     e.preventDefault();
+    lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const factor = wheelZoomFactor(e.deltaY, e.ctrlKey);
@@ -69,11 +71,13 @@ export function useSvgV2Viewport(): SvgV2ViewportApi {
 
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (isCanvasUiWheelTarget(e.target)) return;
+    lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
     setViewport(resetViewport());
   }, []);
 
   const beginPan = useCallback((e: React.PointerEvent<HTMLDivElement>): boolean => {
     if (isCanvasUiWheelTarget(e.target)) return false;
+    lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
     const isMiddle = e.button === 1;
     const isAltLeft = e.button === 0 && e.altKey;
     if (!isMiddle && !isAltLeft) return false;
@@ -89,6 +93,7 @@ export function useSvgV2Viewport(): SvgV2ViewportApi {
   }, []);
 
   const movePan = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
     const pan = panRef.current;
     if (!pan || pan.pointerId !== e.pointerId) return;
     const dx = e.clientX - pan.lastX;
@@ -111,11 +116,29 @@ export function useSvgV2Viewport(): SvgV2ViewportApi {
   }, []);
 
   const zoomIn = useCallback(() => {
-    setViewport((vp) => ({ ...vp, scale: clampViewportScale(vp.scale * 1.25) }));
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const focal = lastPointerRef.current || {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      setViewport((vp) => zoomViewportAtPoint(vp, 1.25, focal.clientX, focal.clientY, rect));
+    } else {
+      setViewport((vp) => ({ ...vp, scale: clampViewportScale(vp.scale * 1.25) }));
+    }
   }, []);
 
   const zoomOut = useCallback(() => {
-    setViewport((vp) => ({ ...vp, scale: clampViewportScale(vp.scale / 1.25) }));
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const focal = lastPointerRef.current || {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      setViewport((vp) => zoomViewportAtPoint(vp, 1 / 1.25, focal.clientX, focal.clientY, rect));
+    } else {
+      setViewport((vp) => ({ ...vp, scale: clampViewportScale(vp.scale / 1.25) }));
+    }
   }, []);
 
   const zoomReset = useCallback(() => {

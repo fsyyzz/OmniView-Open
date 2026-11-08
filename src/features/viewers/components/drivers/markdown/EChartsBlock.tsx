@@ -204,7 +204,7 @@ export const EChartsBlock: React.FC<EChartsBlockProps> = ({
     onOpenLightbox({
       type: 'echarts',
       title: parsedResult.typeLabel || 'ECharts 矢量全景',
-      content: raw,
+      content: svgContent || raw,
       svgContent,
       raw,
     });

@@ -98,7 +98,8 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react(), ...twPluginList],
     optimizeDeps: {
-      entries: ['index.html', 'src/**/*.{ts,tsx}'],
+      entries: ['index.html', 'src/**/*.{ts,tsx}', '!src/extension/**'],
+      exclude: ['vscode'],
       include: [
         'react',
         'react-dom',

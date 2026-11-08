@@ -1323,7 +1323,13 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   }}
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
-                  onOpenLightbox={() => setLightboxItem({ title: t('plantUmlTitle', locale), url: svgUrl })}
+                  onOpenLightbox={(payload) =>
+                    setLightboxItem({
+                      title: t('plantUmlTitle', locale),
+                      content: payload?.content,
+                      url: payload?.content ? undefined : (payload?.url || svgUrl),
+                    })
+                  }
                   onReRender={() => handleCommitDiagramCode(block, currentCode)}
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}

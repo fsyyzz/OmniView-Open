@@ -62,6 +62,18 @@ assert.ok(
 const syncCleanupStep = syncConfig.jobs?.['sync-to-oss']?.steps?.find((s) => s.name?.includes('滚动清理'));
 assert.ok(syncCleanupStep, 'sync-to-oss.yml 必须包含主仓与开源仓滚动清理步骤');
 assert.ok(syncCleanupStep.run?.includes('fsyyzz/OmniView-Open'), '必须同步治理开源镜像仓 fsyyzz/OmniView-Open');
-console.log('✅ sync-to-oss.yml 双仓滚动清理与 PAT 权限降级自愈校验通过');
 
-console.log('🎉 GitHub Actions 自动滚动清理单元测试全部通过！');
+const publishJob = releaseConfig.jobs?.['publish-marketplace'];
+assert.ok(publishJob, 'release.yml 必须包含 publish-marketplace Job');
+assert.ok(
+  publishJob.if?.includes('fsyyzz/OmniView-Open'),
+  'release.yml publish-marketplace 必须支持开源镜像仓 fsyyzz/OmniView-Open 触发发布'
+);
+const cleanStep = syncConfig.jobs?.['sync-to-oss']?.steps?.find((s) => s.name?.includes('准备公开开源工作区'));
+assert.ok(
+  cleanStep?.run?.includes('pkg.bugs') && cleanStep?.run?.includes('pkg.homepage'),
+  'sync-to-oss.yml 必须将 package.json 的 bugs 与 homepage 同步改写为公开开源仓库地址'
+);
+console.log('✅ sync-to-oss.yml 双仓滚动清理与开源 Marketplace 元数据净化校验通过');
+
+console.log('🎉 GitHub Actions 自动滚动清理与 Marketplace 发布流水线单元测试全部通过！');

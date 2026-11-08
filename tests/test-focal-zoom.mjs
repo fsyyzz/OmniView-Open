@@ -95,4 +95,59 @@ assert.strictEqual(centerZoomed.pan.x, 0, '中心缩放时 pan.x 应维持 0');
 assert.strictEqual(centerZoomed.pan.y, 0, '中心缩放时 pan.y 应维持 0');
 console.log('✅ 视口中心缩放特殊情形测试通过');
 
-console.log('\n🎉 所有 Lightbox 光标锚点缩放 (Focal Point Zoom) 算法单元测试 100% 通过！');
+console.log('--- 测试 6: 独立查看器自定义缩放上下界 (ImageViewer / Mermaid / Graphviz / PlantUML) ---');
+// ImageViewer: [0.1, 32.0]
+const imgMaxState = calculateFocalZoom({ zoom: 16, pan: { x: 20, y: -10 } }, 50.0, cursor, containerRect, 0.1, 32.0);
+assert.strictEqual(imgMaxState.zoom, 32.0, 'ImageViewer 最大缩放应限制在 32.0x');
+
+// MermaidStudio / GraphvizStudio: [0.15, 5.0]
+const studioMinState = calculateFocalZoom({ zoom: 0.3, pan: { x: 10, y: 10 } }, 0.05, cursor, containerRect, 0.15, 5.0);
+assert.strictEqual(studioMinState.zoom, 0.15, 'Studio 最小缩放应限制在 0.15x');
+
+// PlantUmlViewer / Excalidraw preview: [0.2, 5.0]
+const pumlMaxState = calculateFocalZoom({ zoom: 3.0, pan: { x: -15, y: 25 } }, 8.0, cursor, containerRect, 0.2, 5.0);
+assert.strictEqual(pumlMaxState.zoom, 5.0, 'PlantUmlViewer 最大缩放应限制在 5.0x');
+console.log('✅ 独立查看器自定义缩放上下界测试通过');
+
+console.log('--- 测试 7: 全量图片与图表查看器光标锚点缩放接入源码契约校验 ---');
+import fs from 'node:fs';
+import path from 'node:path';
+
+const requiredFocalZoomFiles = [
+  'src/features/viewers/components/common/LightboxModal.tsx',
+  'src/features/viewers/components/drivers/ImageViewer.tsx',
+  'src/features/viewers/components/drivers/mermaid/MermaidStudioCanvas.tsx',
+  'src/features/viewers/components/drivers/graphviz/GraphvizStudioCanvas.tsx',
+  'src/features/viewers/components/drivers/PlantUmlViewer.tsx',
+  'src/features/viewers/components/drivers/excalidraw/useExcalidrawCanvas.ts',
+];
+
+for (const relPath of requiredFocalZoomFiles) {
+  const src = fs.readFileSync(path.resolve(process.cwd(), relPath), 'utf8');
+  assert.ok(
+    src.includes('calculateFocalZoom') && src.includes('calculateWheelFactor'),
+    `${relPath} 必须接入 calculateFocalZoom 与 calculateWheelFactor 实现光标锚点缩放`
+  );
+}
+
+const echartsBlockSrc = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/viewers/components/drivers/markdown/EChartsBlock.tsx'),
+  'utf8'
+);
+assert.ok(
+  echartsBlockSrc.includes('content: svgContent || raw'),
+  'EChartsBlock 打开 Lightbox 时应优先传递序列化后的矢量 svgContent'
+);
+
+const lightboxSrc = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/viewers/components/common/LightboxModal.tsx'),
+  'utf8'
+);
+assert.ok(
+  lightboxSrc.includes('activeItem?.svgContent || activeItem?.content') &&
+    lightboxSrc.includes('item?.items'),
+  'LightboxModal 必须支持 svgContent 优先渲染与 item.items 多图画廊自导航'
+);
+console.log('✅ 全量图片与图表查看器光标锚点缩放接入源码契约校验通过');
+
+console.log('\n🎉 所有 Lightbox 与独立查看器光标锚点缩放 (Focal Point Zoom) 单元测试 100% 通过！');

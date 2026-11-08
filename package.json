@@ -1,21 +1,25 @@
 {
   "name": "omniview",
-  "private": true,
-  "version": "1.4.14",
+  "version": "1.4.15",
   "displayName": "OmniView",
-  "description": "OmniView 多格式文件渲染与预览插件",
+  "description": "OmniView 多格式文件渲染与预览插件（支持 Markdown、Office DOCX/PPTX/XLSX、PDF、EPUB、Typst、Mermaid、PlantUML、Graphviz、SVG Studio、Excalidraw 等 23+ 格式离线渲染）",
   "publisher": "zhouzan",
   "author": "zhouzan",
   "license": "MIT",
   "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#0f172a",
+    "theme": "dark"
+  },
+  "qna": "marketplace",
   "repository": {
     "type": "git",
     "url": "https://github.com/fsyyzz/OmniView-Open"
   },
   "bugs": {
-    "url": "https://github.com/fsyyzz/OmniView/issues"
+    "url": "https://github.com/fsyyzz/OmniView-Open/issues"
   },
-  "homepage": "https://github.com/fsyyzz/OmniView#readme",
+  "homepage": "https://github.com/fsyyzz/OmniView-Open#readme",
   "engines": {
     "vscode": "^1.85.0",
     "node": ">=18.0.0"
@@ -23,7 +27,28 @@
   "main": "./dist/extension.cjs",
   "categories": [
     "Visualization",
+    "Formatters",
     "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "mermaid",
+    "plantuml",
+    "graphviz",
+    "svg",
+    "docx",
+    "xlsx",
+    "pptx",
+    "pdf",
+    "epub",
+    "excalidraw",
+    "mindmap",
+    "markmap",
+    "echarts",
+    "typst",
+    "viewer",
+    "preview",
+    "offline"
   ],
   "activationEvents": [
     "onCustomEditor:omniview.editor",
@@ -558,7 +583,9 @@
     "build:usvg-wasm": "node scripts/build-usvg-wasm.mjs",
     "build:usvg-wasm:check": "node scripts/build-usvg-wasm.mjs --check",
     "prebuild": "npm run build:usvg-wasm",
-    "package:vsix": "npx vsce package --no-dependencies && node scripts/check-vsix-contents.mjs",
+    "package:vsix": "npx @vscode/vsce package --no-dependencies && node scripts/check-vsix-contents.mjs",
+    "publish:vsce": "npx @vscode/vsce publish --no-dependencies",
+    "publish:ovsx": "npx ovsx publish",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",

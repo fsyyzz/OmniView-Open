@@ -38,10 +38,15 @@ import {
 } from '../../lib/focalZoom';
 
 export interface LightboxItem {
+  type?: string;
   title: string;
   content?: string;
+  svgContent?: string;
+  raw?: string;
   url?: string;
   fileName?: string;
+  items?: LightboxItem[];
+  initialIndex?: number;
 }
 
 interface LightboxModalProps {
@@ -114,10 +119,22 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const [bgMode, setBgMode] = useState<'theme' | 'dark' | 'light' | 'grid'>('theme');
   const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
   const [showThumbnails, setShowThumbnails] = useState(true);
+  const [internalIndex, setInternalIndex] = useState(0);
 
-  const hasMultipleItems = Boolean(items && items.length > 1);
-  const activeItem = item || (items && items[currentIndex]) || null;
-  
+  useEffect(() => {
+    if (item?.initialIndex !== undefined) {
+      setInternalIndex(item.initialIndex);
+    } else {
+      setInternalIndex(currentIndex);
+    }
+  }, [item, currentIndex]);
+
+  const effectiveItems = items && items.length > 0 ? items : item?.items;
+  const effectiveIndex = onNavigate ? currentIndex : internalIndex;
+  const hasMultipleItems = Boolean(effectiveItems && effectiveItems.length > 1);
+  const activeItem = (effectiveItems && effectiveItems[effectiveIndex]) || item || null;
+  const activeContent = activeItem?.svgContent || activeItem?.content;
+
   const contentRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const imageElementRef = useRef<HTMLImageElement>(null);
@@ -132,29 +149,29 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isSvg = useMemo(() => {
-    if (!activeItem?.content) return false;
-    return activeItem.content.includes('<svg') || activeItem.content.includes('</svg>');
-  }, [activeItem?.content]);
+    if (!activeContent) return false;
+    return activeContent.includes('<svg') || activeContent.includes('</svg>');
+  }, [activeContent]);
 
   const isGraphviz = useMemo(() => {
     if (!activeItem) return false;
     return (
       activeItem.title?.toLowerCase().includes('graphviz') ||
       activeItem.title?.toLowerCase().includes('dot') ||
-      (typeof activeItem.content === 'string' && (activeItem.content.includes('class="graph"') || activeItem.content.includes('id="graph0"')))
+      (typeof activeContent === 'string' && (activeContent.includes('class="graph"') || activeContent.includes('id="graph0"')))
     );
-  }, [activeItem]);
+  }, [activeItem, activeContent]);
 
   const sanitizedContent = useMemo(() => {
-    if (!activeItem?.content) return '';
+    if (!activeContent) return '';
     let content = isSvg
-      ? sanitizeDiagramSvg(activeItem.content)
-      : sanitizeDiagramHtml(activeItem.content);
+      ? sanitizeDiagramSvg(activeContent)
+      : sanitizeDiagramHtml(activeContent);
     if (isGraphviz && isSvg && content) {
       content = content.replace(/<svg\b([^>]*)>/i, '<svg$1 class="graphviz-svg-dark-inverted">');
     }
     return content;
-  }, [activeItem?.content, isSvg, isGraphviz]);
+  }, [activeContent, isSvg, isGraphviz]);
 
   // 测量当前视口可容纳尺寸
   const getStageDimensions = useCallback(() => {
@@ -289,18 +306,26 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     applyFocalZoomDelta(getNextZoomOut, focal);
   }, [applyFocalZoomDelta]);
 
+  const handleSelectIndex = useCallback((idx: number) => {
+    if (onNavigate) {
+      onNavigate(idx);
+    } else {
+      setInternalIndex(idx);
+    }
+  }, [onNavigate]);
+
   // 切换上一张 / 下一张
   const handlePrev = useCallback(() => {
-    if (!items || items.length <= 1 || !onNavigate) return;
-    const prevIdx = (currentIndex - 1 + items.length) % items.length;
-    onNavigate(prevIdx);
-  }, [items, currentIndex, onNavigate]);
+    if (!effectiveItems || effectiveItems.length <= 1) return;
+    const prevIdx = (effectiveIndex - 1 + effectiveItems.length) % effectiveItems.length;
+    handleSelectIndex(prevIdx);
+  }, [effectiveItems, effectiveIndex, handleSelectIndex]);
 
   const handleNext = useCallback(() => {
-    if (!items || items.length <= 1 || !onNavigate) return;
-    const nextIdx = (currentIndex + 1) % items.length;
-    onNavigate(nextIdx);
-  }, [items, currentIndex, onNavigate]);
+    if (!effectiveItems || effectiveItems.length <= 1) return;
+    const nextIdx = (effectiveIndex + 1) % effectiveItems.length;
+    handleSelectIndex(nextIdx);
+  }, [effectiveItems, effectiveIndex, handleSelectIndex]);
 
   // 打开新项目时初始化探测尺寸并自动适应屏幕
   useEffect(() => {
@@ -334,8 +359,8 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         setZoom(1);
       };
       img.src = activeItem.url;
-    } else if (activeItem.content) {
-      const dims = extractSvgDimensions(activeItem.content);
+    } else if (activeContent) {
+      const dims = extractSvgDimensions(activeContent);
       if (dims) {
         imgDimensionsRef.current = dims;
         setImgDimensions(dims);
@@ -343,7 +368,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         isInitialFitDoneRef.current = true;
       }
     }
-  }, [activeItem, applyFitToScreen]);
+  }, [activeItem, activeContent, applyFitToScreen]);
 
   // DOM 挂载后精确探测真实渲染尺寸（针对 Mermaid/Graphviz/PlantUML 动态矢量图二次校验）
   useLayoutEffect(() => {
@@ -519,12 +544,9 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const handleCopy = async () => {
     if (!activeItem) return;
     try {
-      if (activeItem.content) {
-        await navigator.clipboard.writeText(activeItem.content);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } else if (activeItem.url) {
-        await navigator.clipboard.writeText(activeItem.url);
+      const copyTarget = activeContent || activeItem.url;
+      if (copyTarget) {
+        await navigator.clipboard.writeText(copyTarget);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }
@@ -538,11 +560,11 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     if (!activeItem) return;
     const baseName = activeItem.fileName || (activeItem.title || 'omniview-export').replace(/\s+/g, '-').toLowerCase();
 
-    if (activeItem.content) {
-      const isSvgContent = activeItem.content.includes('<svg') || activeItem.content.includes('svg');
+    if (activeContent) {
+      const isSvgContent = activeContent.includes('<svg') || activeContent.includes('svg');
       const mime = isSvgContent ? 'image/svg+xml;charset=utf-8' : 'text/plain;charset=utf-8';
       const ext = isSvgContent ? '.svg' : '.txt';
-      const blob = new Blob([activeItem.content], { type: mime });
+      const blob = new Blob([activeContent], { type: mime });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -601,9 +623,9 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         <div className="flex items-center gap-2.5 text-slate-200 font-medium truncate min-w-0">
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0 shadow-sm shadow-cyan-400/50" />
           <span className="truncate text-sm font-semibold">{activeItem.title}</span>
-          {hasMultipleItems && (
+          {hasMultipleItems && effectiveItems && (
             <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[11px] font-bold border border-cyan-500/30 shrink-0">
-              {currentIndex + 1} / {items.length}
+              {effectiveIndex + 1} / {effectiveItems.length}
             </span>
           )}
           {imgDimensions && (
@@ -871,18 +893,18 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       </div>
 
       {/* 多图底部缩略图 Filmstrip */}
-      {hasMultipleItems && showThumbnails && (
+      {hasMultipleItems && showThumbnails && effectiveItems && (
         <div
           className="px-6 py-2.5 bg-slate-950/80 border-t border-slate-800/80 backdrop-blur-md z-20 flex items-center justify-center gap-2 overflow-x-auto select-none scrollbar-thin"
           onMouseDown={e => e.stopPropagation()}
         >
-          {items.map((it, idx) => {
-            const isCurrent = idx === currentIndex;
+          {effectiveItems.map((it, idx) => {
+            const isCurrent = idx === effectiveIndex;
             return (
               <button
                 key={idx}
                 type="button"
-                onClick={() => onNavigate?.(idx)}
+                onClick={() => handleSelectIndex(idx)}
                 className={`relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all p-0.5 ${
                   isCurrent
                     ? 'border-cyan-400 ring-2 ring-cyan-400/40 scale-105 shadow-lg'

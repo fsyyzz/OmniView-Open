@@ -32,6 +32,14 @@ import { getMermaidConfig } from '../../../../../shared/lib/mermaidConfig';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
 import { copySvgOrImageToClipboard } from '../../../../../shared/lib/copyImageHelper';
 import { solidifySvgString } from '../../../../../shared/lib/svgSolidifier';
+import { LightboxModal } from '../../common/LightboxModal';
+import {
+  calculateFocalZoom,
+  calculateWheelFactor,
+  getNextZoomIn,
+  getNextZoomOut,
+  type Point,
+} from '../../../lib/focalZoom';
 
 interface MermaidStudioCanvasProps {
   code: string;
@@ -51,6 +59,7 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [isWheeling, setIsWheeling] = useState<boolean>(false);
   const [panMode, setPanMode] = useState<boolean>(false);
   const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({
     x: 0,
@@ -70,6 +79,12 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
   const stageRef = useRef<HTMLDivElement>(null);
   const contentWrapperRef = useRef<HTMLDivElement>(null);
   const renderCountRef = useRef<number>(0);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const lastPointerPosRef = useRef<Point | null>(null);
+  const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 步骤回放引擎联动状态
   const playbackInfo = useMemo(() => detectDiagramPlaybackSupport(code), [code]);
@@ -130,7 +145,7 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
     return () => clearTimeout(timer);
   }, [code, compileDiagram]);
 
-  // 原生鼠标滚轮缩放监听 (注册非 passive 事件以保证彻底阻止外层滚动)
+  // 原生鼠标滚轮基于光标焦点缩放监听 (注册非 passive 事件以保证彻底阻止外层滚动)
   useEffect(() => {
     const stageEl = stageRef.current;
     if (!stageEl) return;
@@ -139,18 +154,64 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // 向下滚缩小，向上滚放大，步进 0.12
-      const delta = e.deltaY < 0 ? 0.12 : -0.12;
-      setZoom(prev => {
-        const next = Math.min(5.0, Math.max(0.15, Number((prev + delta).toFixed(2))));
-        return next;
-      });
+      lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
+      setIsWheeling(true);
+      if (wheelTimeoutRef.current) {
+        clearTimeout(wheelTimeoutRef.current);
+      }
+      wheelTimeoutRef.current = setTimeout(() => {
+        setIsWheeling(false);
+      }, 120);
+
+      const factor = calculateWheelFactor(e.deltaY, e.ctrlKey);
+      const targetZoom = zoomRef.current * factor;
+      const rect = stageEl.getBoundingClientRect();
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        { clientX: e.clientX, clientY: e.clientY },
+        rect,
+        0.15,
+        5.0
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
     };
 
     stageEl.addEventListener('wheel', handleNativeWheel, { passive: false });
     return () => {
       stageEl.removeEventListener('wheel', handleNativeWheel);
     };
+  }, []);
+
+  const applyFocalZoomStep = useCallback((calcTarget: (current: number) => number) => {
+    const stageEl = stageRef.current;
+    const targetZoom = calcTarget(zoomRef.current);
+    if (stageEl) {
+      const rect = stageEl.getBoundingClientRect();
+      const focal = lastPointerPosRef.current || {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        focal,
+        rect,
+        0.15,
+        5.0
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
+    } else {
+      const clamped = Math.max(0.15, Math.min(5.0, Number(targetZoom.toFixed(2))));
+      zoomRef.current = clamped;
+      setZoom(clamped);
+    }
   }, []);
 
   // 全局松开鼠标事件清理
@@ -168,6 +229,8 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
     const svgEl = contentWrapperRef.current.querySelector('svg');
 
     if (!svgEl || stageRect.width <= 0 || stageRect.height <= 0) {
+      zoomRef.current = 1;
+      panRef.current = { x: 0, y: 0 };
       setZoom(1);
       setPan({ x: 0, y: 0 });
       return;
@@ -193,9 +256,13 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
       const scaleY = availHeight / svgHeight;
       const fitScale = Math.min(scaleX, scaleY, 2.2);
       const clamped = Math.max(0.2, Math.min(3.5, Number(fitScale.toFixed(2))));
+      zoomRef.current = clamped;
+      panRef.current = { x: 0, y: 0 };
       setZoom(clamped);
       setPan({ x: 0, y: 0 });
     } else {
+      zoomRef.current = 1;
+      panRef.current = { x: 0, y: 0 };
       setZoom(1);
       setPan({ x: 0, y: 0 });
     }
@@ -269,13 +336,16 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
     if (!isPanning) return;
     const dx = e.clientX - panStartRef.current.x;
     const dy = e.clientY - panStartRef.current.y;
-    setPan({
+    const nextPan = {
       x: panStartRef.current.panX + dx,
       y: panStartRef.current.panY + dy,
-    });
+    };
+    panRef.current = nextPan;
+    setPan(nextPan);
   };
 
   const handleMouseUp = () => {
@@ -455,6 +525,8 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
           {/* Zoom Percentage Label (Click to 100%) */}
           <button
             onClick={() => {
+              zoomRef.current = 1;
+              panRef.current = { x: 0, y: 0 };
               setZoom(1);
               setPan({ x: 0, y: 0 });
             }}
@@ -471,20 +543,20 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
 
           {/* Zoom Out */}
           <button
-            onClick={() => setZoom(z => Math.max(0.15, Number((z - 0.15).toFixed(2))))}
+            onClick={() => applyFocalZoomStep(getNextZoomOut)}
             style={{ color: 'var(--ov-text-secondary)' }}
             className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded transition"
-            title="缩小 (步长 -15%)"
+            title="缩小 (基于光标焦点)"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
 
           {/* Zoom In */}
           <button
-            onClick={() => setZoom(z => Math.min(5.0, Number((z + 0.15).toFixed(2))))}
+            onClick={() => applyFocalZoomStep(getNextZoomIn)}
             style={{ color: 'var(--ov-text-secondary)' }}
             className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded transition"
-            title="放大 (步长 +15%)"
+            title="放大 (基于光标焦点)"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
@@ -492,6 +564,8 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
           {/* 1:1 Reset */}
           <button
             onClick={() => {
+              zoomRef.current = 1;
+              panRef.current = { x: 0, y: 0 };
               setZoom(1);
               setPan({ x: 0, y: 0 });
             }}
@@ -643,7 +717,7 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: 'center center',
-            transition: isPanning ? 'none' : 'transform 80ms ease-out',
+            transition: isPanning || isWheeling ? 'none' : 'transform 80ms ease-out',
           }}
           className="relative inline-flex items-center justify-center pointer-events-auto p-4"
         >
@@ -673,35 +747,20 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
         </div>
       )}
 
-      {/* Lightbox Modal */}
-      {isLightboxOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-6"
-          onClick={() => setIsLightboxOpen(false)}
-        >
-          <div
-            className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center justify-center p-6 bg-slate-900/90 border border-slate-700 rounded-2xl shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="w-full flex items-center justify-between pb-3 mb-3 border-b border-slate-700 text-xs">
-              <span className="font-mono text-cyan-300 flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                Mermaid 全屏高清预览 ({fileName})
-              </span>
-              <button
-                onClick={() => setIsLightboxOpen(false)}
-                className="px-2 py-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
-              >
-                ✕ 关闭
-              </button>
-            </div>
-            <div
-              className="w-full max-h-[75vh] overflow-auto flex items-center justify-center p-4 [&>svg]:max-h-[70vh] [&>svg]:w-auto"
-              dangerouslySetInnerHTML={{ __html: svgContent }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Fullscreen Interactive Lightbox Modal (支持基于光标位置的无级缩放与拖拽) */}
+      <LightboxModal
+        item={
+          isLightboxOpen && svgContent
+            ? {
+                title: `Mermaid 全屏高清预览 (${fileName})`,
+                content: svgContent,
+                fileName: fileName.replace(/\.[^/.]+$/, ''),
+              }
+            : null
+        }
+        onClose={() => setIsLightboxOpen(false)}
+        locale={locale}
+      />
     </div>
   );
 };

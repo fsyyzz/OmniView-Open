@@ -5,6 +5,10 @@ import {
   renderExcalidrawToSvgString,
   type ExcalidrawParsedData,
 } from './excalidrawEngine';
+import {
+  calculateFocalZoom,
+  calculateWheelFactor,
+} from '../../../lib/focalZoom';
 
 export type ExcalidrawViewMode = 'canvas' | 'split' | 'preview' | 'code';
 
@@ -50,6 +54,10 @@ export function useExcalidrawCanvas(options: UseExcalidrawCanvasOptions) {
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+  const positionRef = useRef(position);
+  positionRef.current = position;
 
   // 演播导览 (Slide Mode) 状态
   const [isSlideMode, setIsSlideMode] = useState<boolean>(false);
@@ -166,6 +174,8 @@ export function useExcalidrawCanvas(options: UseExcalidrawCanvasOptions) {
   // 居中视口（适应内容）
   const handleCenterView = useCallback(() => {
     if (viewMode === 'preview') {
+      scaleRef.current = 1;
+      positionRef.current = { x: 0, y: 0 };
       setScale(1);
       setPosition({ x: 0, y: 0 });
       return;
@@ -186,21 +196,23 @@ export function useExcalidrawCanvas(options: UseExcalidrawCanvasOptions) {
       if (e.button === 0 || e.button === 1) {
         setIsPanning(true);
         startPanRef.current = {
-          x: e.clientX - position.x,
-          y: e.clientY - position.y,
+          x: e.clientX - positionRef.current.x,
+          y: e.clientY - positionRef.current.y,
         };
       }
     },
-    [position]
+    []
   );
 
   const handleMouseMove = useCallback(
     (e: ReactMouseEvent) => {
       if (!isPanning) return;
-      setPosition({
+      const nextPos = {
         x: e.clientX - startPanRef.current.x,
         y: e.clientY - startPanRef.current.y,
-      });
+      };
+      positionRef.current = nextPos;
+      setPosition(nextPos);
     },
     [isPanning]
   );
@@ -210,15 +222,37 @@ export function useExcalidrawCanvas(options: UseExcalidrawCanvasOptions) {
   }, []);
 
   const handleWheel = useCallback((e: ReactWheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
+    if (e.ctrlKey || e.metaKey || !e.shiftKey) {
       e.preventDefault();
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      setScale((prev) => Math.min(4, Math.max(0.2, Number((prev * zoomFactor).toFixed(2)))));
+      const factor = calculateWheelFactor(e.deltaY, e.ctrlKey);
+      const targetZoom = scaleRef.current * factor;
+      const stageEl = containerRef.current;
+      if (stageEl) {
+        const rect = stageEl.getBoundingClientRect();
+        const nextState = calculateFocalZoom(
+          { zoom: scaleRef.current, pan: positionRef.current },
+          targetZoom,
+          { clientX: e.clientX, clientY: e.clientY },
+          rect,
+          0.2,
+          5.0
+        );
+        scaleRef.current = nextState.zoom;
+        positionRef.current = nextState.pan;
+        setScale(nextState.zoom);
+        setPosition(nextState.pan);
+      } else {
+        const clamped = Math.min(5, Math.max(0.2, Number(targetZoom.toFixed(2))));
+        scaleRef.current = clamped;
+        setScale(clamped);
+      }
     } else {
-      setPosition((prev) => ({
-        x: prev.x - e.deltaX,
-        y: prev.y - e.deltaY,
-      }));
+      const nextPos = {
+        x: positionRef.current.x - e.deltaX,
+        y: positionRef.current.y - e.deltaY,
+      };
+      positionRef.current = nextPos;
+      setPosition(nextPos);
     }
   }, []);
 

@@ -39,7 +39,7 @@ interface PlantUmlBlockProps {
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onZoomChange: (delta: number) => void;
   onResetZoom: () => void;
-  onOpenLightbox: () => void;
+  onOpenLightbox: (payload?: { content?: string; url?: string }) => void;
   onReRender: () => void;
   onCopy: () => void;
   onOpenSourceAtLine?: (line: number) => void;
@@ -240,7 +240,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
                 1:1
               </button>
               <button
-                onClick={onOpenLightbox}
+                onClick={() => onOpenLightbox(cachedSvg ? { content: cachedSvg } : { url: activeSvgUrl })}
                 className="p-1 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition"
                 title={t('fullScreen', locale)}
                 aria-label={t('fullScreen', locale)}
@@ -319,7 +319,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
           onDoubleClick={(e) => {
             if (!hasError && canRender) {
               e.stopPropagation();
-              onOpenLightbox();
+              onOpenLightbox(cachedSvg ? { content: cachedSvg } : { url: activeSvgUrl });
             }
           }}
           title={canRender && !hasError ? t('fullScreen', locale) : undefined}
@@ -354,7 +354,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
               className="transition-transform duration-150 flex justify-center items-center max-w-full cursor-zoom-in"
               onDoubleClick={(e) => {
                 e.stopPropagation();
-                onOpenLightbox();
+                onOpenLightbox(cachedSvg ? { content: cachedSvg } : { url: activeSvgUrl });
               }}
               title={t('fullScreen', locale)}
             >

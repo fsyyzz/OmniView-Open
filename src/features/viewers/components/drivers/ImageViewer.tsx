@@ -42,6 +42,13 @@ import {
 } from '../../lib/imageEngine';
 import type { ThemeId } from '../../../../shared/types';
 import { type Locale } from '../../../../shared/lib/i18n';
+import {
+  calculateFocalZoom,
+  calculateWheelFactor,
+  getNextZoomIn,
+  getNextZoomOut,
+  type Point,
+} from '../../lib/focalZoom';
 
 export interface ImageViewerProps {
   content?: string;
@@ -80,6 +87,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [zoom, setZoom] = useState<number>(1.0);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isWheeling, setIsWheeling] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [rotation, setRotation] = useState<number>(0); // 0, 90, 180, 270
   const [flipH, setFlipH] = useState<boolean>(false);
@@ -104,8 +112,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [showToolbar, setShowToolbar] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasHelperRef = useRef<HTMLCanvasElement | null>(null);
+
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const lastPointerPosRef = useRef<Point | null>(null);
+  const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 载入图片源与元数据
   const loadImage = useCallback(async () => {
@@ -178,33 +194,132 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   // 自适应居中缩放 (Fit to Screen)
   const handleFitScreen = useCallback(() => {
-    if (!containerRef.current || !metadata.width || !metadata.height) return;
-    const { clientWidth, clientHeight } = containerRef.current;
+    const viewportEl = stageRef.current || containerRef.current;
+    if (!viewportEl || !metadata.width || !metadata.height) return;
+    const { clientWidth, clientHeight } = viewportEl;
     const padding = 60;
     const scaleX = (clientWidth - padding) / metadata.width;
     const scaleY = (clientHeight - padding) / metadata.height;
     const fitScale = Math.min(1.0, Math.min(scaleX, scaleY));
-    setZoom(Math.max(0.1, Number(fitScale.toFixed(2))));
+    const nextZoom = Math.max(0.1, Number(fitScale.toFixed(2)));
+    zoomRef.current = nextZoom;
+    panRef.current = { x: 0, y: 0 };
+    setZoom(nextZoom);
     setPan({ x: 0, y: 0 });
   }, [metadata.width, metadata.height]);
 
   // 1:1 像素完全匹配
   const handlePixelPerfect = () => {
+    zoomRef.current = 1.0;
+    panRef.current = { x: 0, y: 0 };
     setZoom(1.0);
     setPan({ x: 0, y: 0 });
   };
 
-  // 鼠标滚轮缩放与平移
+  // 基于光标锚点的按钮缩放
+  const applyFocalZoomStep = useCallback((calcTarget: (current: number) => number) => {
+    const stage = stageRef.current || containerRef.current;
+    const targetZoom = calcTarget(zoomRef.current);
+    if (stage) {
+      const rect = stage.getBoundingClientRect();
+      const focal = lastPointerPosRef.current || {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        focal,
+        rect,
+        0.1,
+        32.0
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
+    } else {
+      const clamped = Math.max(0.1, Math.min(32.0, Number(targetZoom.toFixed(2))));
+      zoomRef.current = clamped;
+      setZoom(clamped);
+    }
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    applyFocalZoomStep(getNextZoomIn);
+  }, [applyFocalZoomStep]);
+
+  const handleZoomOut = useCallback(() => {
+    applyFocalZoomStep(getNextZoomOut);
+  }, [applyFocalZoomStep]);
+
+  // 鼠标滚轮基于光标焦点无级缩放与平移
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
+    lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
+
     if (e.ctrlKey || e.metaKey || !e.shiftKey) {
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => {
-        const next = prev > 1 ? prev * (e.deltaY > 0 ? 0.85 : 1.15) : Math.max(0.1, prev + delta);
-        return Math.max(0.1, Math.min(32.0, Number(next.toFixed(2))));
-      });
+      setIsWheeling(true);
+      if (wheelTimeoutRef.current) {
+        clearTimeout(wheelTimeoutRef.current);
+      }
+      wheelTimeoutRef.current = setTimeout(() => {
+        setIsWheeling(false);
+      }, 120);
+
+      const factor = calculateWheelFactor(e.deltaY, e.ctrlKey);
+      const targetZoom = zoomRef.current * factor;
+      const stage = stageRef.current || containerRef.current;
+
+      if (stage) {
+        const rect = stage.getBoundingClientRect();
+        const nextState = calculateFocalZoom(
+          { zoom: zoomRef.current, pan: panRef.current },
+          targetZoom,
+          { clientX: e.clientX, clientY: e.clientY },
+          rect,
+          0.1,
+          32.0
+        );
+        zoomRef.current = nextState.zoom;
+        panRef.current = nextState.pan;
+        setZoom(nextState.zoom);
+        setPan(nextState.pan);
+      } else {
+        const clamped = Math.max(0.1, Math.min(32.0, Number(targetZoom.toFixed(2))));
+        zoomRef.current = clamped;
+        setZoom(clamped);
+      }
     } else {
-      setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+      const nextPan = { x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY };
+      panRef.current = nextPan;
+      setPan(nextPan);
+    }
+  };
+
+  // 双击基于光标焦点放大或恢复自适应
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (enableLoupe) return;
+    e.stopPropagation();
+    const stage = stageRef.current || containerRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    if (zoomRef.current < 1.4) {
+      const targetZoom = Math.max(2.2, Number((zoomRef.current * 2.2).toFixed(2)));
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        { clientX: e.clientX, clientY: e.clientY },
+        rect,
+        0.1,
+        32.0
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
+    } else {
+      handleFitScreen();
     }
   };
 
@@ -214,16 +329,19 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       // 排除取色器点击
       if (enableLoupe) return;
       setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      setDragStart({ x: e.clientX - panRef.current.x, y: e.clientY - panRef.current.y });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
     if (isDragging) {
-      setPan({
+      const nextPan = {
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
-      });
+      };
+      panRef.current = nextPan;
+      setPan(nextPan);
     }
 
     // 像素放大镜取色检测
@@ -446,7 +564,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             }}
           >
             <button
-              onClick={() => setZoom(z => Math.max(0.1, Number((z * 0.8).toFixed(2))))}
+              onClick={handleZoomOut}
               className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
               style={{ color: 'var(--ov-text-secondary)' }}
               title="缩小"
@@ -460,7 +578,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
               {Math.round(zoom * 100)}%
             </span>
             <button
-              onClick={() => setZoom(z => Math.min(32.0, Number((z * 1.25).toFixed(2))))}
+              onClick={handleZoomIn}
               className="p-1 rounded hover:bg-[var(--ov-surface-hover)] transition cursor-pointer"
               style={{ color: 'var(--ov-text-secondary)' }}
               title="放大"
@@ -731,6 +849,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
       {/* 主画布视口 */}
       <div
+        ref={stageRef}
         className={`flex-1 min-h-0 relative overflow-hidden flex items-center justify-center ${
           enableLoupe ? 'cursor-crosshair' : isDragging ? 'cursor-grabbing' : 'cursor-grab'
         }`}
@@ -739,6 +858,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
         onClick={handleCanvasClick}
       >
         {/* 工具栏收起态：右上角极简半透明浮动操作胶囊 */}
@@ -790,10 +910,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
         {!loading && imageSrc && (
           <div
-            className="relative transition-transform duration-75 ease-out select-none"
+            className="relative select-none"
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`,
               transformOrigin: 'center center',
+              transition: isDragging || isWheeling ? 'none' : 'transform 75ms ease-out',
             }}
           >
             <img

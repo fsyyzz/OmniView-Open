@@ -3,9 +3,9 @@
 **中文** | [English](./README.en.md)
 
 <p align="left">
-  <a href="https://marketplace.visualstudio.com"><img src="https://img.shields.io/visual-studio-marketplace/v/omniview.omniview?style=flat-square&color=blue&logo=visual-studio-code" alt="Marketplace Version" /></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=zhouzan.omniview"><img src="https://img.shields.io/visual-studio-marketplace/v/zhouzan.omniview?style=flat-square&color=blue&logo=visual-studio-code" alt="Marketplace Version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License: MIT" /></a>
-  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-85%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
+  <a href="./docs/architecture.md"><img src="https://img.shields.io/badge/Tests-99%20Passing-brightgreen?style=flat-square" alt="Tests" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Offline-100%25-orange?style=flat-square" alt="100% Offline" /></a>
   <a href="#"><img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" /></a>
   <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.7+-blue?style=flat-square&logo=typescript" alt="TypeScript" /></a>
@@ -16,9 +16,9 @@
 
 <p align="left">
   <a href="https://ais-pre-3kity5ft64rqesjejxmxsu-168296143482.us-east1.run.app"><b>在线体验 (Web Demo)</b></a> ·
-  <a href="https://github.com/your-org/omniview/releases"><b>下载离线 VSIX</b></a> ·
+  <a href="https://github.com/fsyyzz/OmniView/releases"><b>下载离线 VSIX</b></a> ·
   <a href="./docs/architecture.md"><b>系统架构文档</b></a> ·
-  <a href="https://github.com/your-org/omniview/issues"><b>反馈与格式提案</b></a>
+  <a href="https://github.com/fsyyzz/OmniView/issues"><b>反馈与格式提案</b></a>
 </p>
 
 ![OmniView Showcase Banner](./docs/assets/omniview-showcase.png)

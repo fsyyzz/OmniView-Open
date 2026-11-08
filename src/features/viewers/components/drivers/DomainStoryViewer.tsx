@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { DomainStoryBlock } from './markdown/DomainStoryBlock.tsx';
 import { DiagramStudioShell, DiagramSnippet } from './DiagramStudioShell.tsx';
 import { Locale } from '../../../../shared/lib/i18n.ts';
+import { LightboxModal, LightboxItem } from '../common/LightboxModal.tsx';
 
 interface DomainStoryViewerProps {
   content: string;
@@ -106,6 +107,7 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
 }) => {
   const [zoom, setZoom] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
+  const [lightboxItem, setLightboxItem] = useState<LightboxItem | null>(null);
 
   const handleCopyFromBlock = async (code: string) => {
     try {
@@ -118,43 +120,56 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
   };
 
   return (
-    <DiagramStudioShell
-      title="Domain Storytelling 领域故事讲授工作室"
-      fileName={fileName}
-      content={content}
-      onContentChange={onContentChange}
-      onOpenInEditor={onOpenInEditor}
-      onOpenSettings={onOpenSettings}
-      onOpenShortcuts={onOpenShortcuts}
-      storageKeyPrefix="domainstory"
-      languageLabel="Domain Story (.dst / .domainstory)"
-      placeholder={'title: 业务流转\n1. 买家 -> 下单 -> 商城'}
-      accentClass="cyan"
-      snippets={DOMAIN_STORY_SNIPPETS}
-      defaultTemplate={DEFAULT_STORY_TEMPLATE}
-      renderPreview={code => (
-        <div className="flex-1 min-h-0 overflow-auto p-4 flex flex-col items-center">
-          <div className="w-full max-w-5xl">
-            <DomainStoryBlock
-              id="standalone-domainstory"
-              code={code}
-              editedCode={code}
-              onChangeEditedCode={() => undefined}
-              isCopied={isCopied}
-              viewMode="visual"
-              zoom={zoom}
-              onSetViewMode={() => undefined}
-              onZoomChange={delta =>
-                setZoom(prev => Math.min(2.5, Math.max(0.4, Number((prev + delta).toFixed(2)))))
-              }
-              onResetZoom={() => setZoom(1)}
-              onOpenLightbox={() => undefined}
-              onCopy={() => handleCopyFromBlock(code)}
-              locale={locale}
-            />
+    <>
+      <DiagramStudioShell
+        title="Domain Storytelling 领域故事讲授工作室"
+        fileName={fileName}
+        content={content}
+        onContentChange={onContentChange}
+        onOpenInEditor={onOpenInEditor}
+        onOpenSettings={onOpenSettings}
+        onOpenShortcuts={onOpenShortcuts}
+        storageKeyPrefix="domainstory"
+        languageLabel="Domain Story (.dst / .domainstory)"
+        placeholder={'title: 业务流转\n1. 买家 -> 下单 -> 商城'}
+        accentClass="cyan"
+        snippets={DOMAIN_STORY_SNIPPETS}
+        defaultTemplate={DEFAULT_STORY_TEMPLATE}
+        renderPreview={code => (
+          <div className="flex-1 min-h-0 overflow-auto p-4 flex flex-col items-center">
+            <div className="w-full max-w-5xl">
+              <DomainStoryBlock
+                id="standalone-domainstory"
+                code={code}
+                editedCode={code}
+                onChangeEditedCode={() => undefined}
+                isCopied={isCopied}
+                viewMode="visual"
+                zoom={zoom}
+                onSetViewMode={() => undefined}
+                onZoomChange={delta =>
+                  setZoom(prev => Math.min(2.5, Math.max(0.4, Number((prev + delta).toFixed(2)))))
+                }
+                onResetZoom={() => setZoom(1)}
+                onOpenLightbox={svg =>
+                  setLightboxItem({
+                    title: `Domain Story 全屏高清预览 (${fileName})`,
+                    content: svg,
+                    fileName: fileName.replace(/\.[^/.]+$/, ''),
+                  })
+                }
+                onCopy={() => handleCopyFromBlock(code)}
+                locale={locale}
+              />
+            </div>
           </div>
-        </div>
-      )}
-    />
+        )}
+      />
+      <LightboxModal
+        item={lightboxItem}
+        onClose={() => setLightboxItem(null)}
+        locale={locale}
+      />
+    </>
   );
 };

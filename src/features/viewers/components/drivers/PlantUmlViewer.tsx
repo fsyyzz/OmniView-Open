@@ -1,7 +1,7 @@
 /**
  * PlantUML 企业级架构建模与可视化视口驱动 (PlantUmlViewer)
  */
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   ZoomIn,
   ZoomOut,
@@ -53,6 +53,14 @@ import { PlantUmlServerModal } from './plantuml/PlantUmlServerModal';
 import { PlantUmlTemplateModal } from './plantuml/PlantUmlTemplateModal';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useSplitPane } from '../../hooks/useSplitPane';
+import { LightboxModal } from '../common/LightboxModal';
+import {
+  calculateFocalZoom,
+  calculateWheelFactor,
+  getNextZoomIn,
+  getNextZoomOut,
+  type Point,
+} from '../../lib/focalZoom';
 
 interface PlantUmlViewerProps {
   content: string;
@@ -78,6 +86,8 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
+  const [isWheeling, setIsWheeling] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedSvg, setCopiedSvg] = useState(false);
   const [copiedImage, setCopiedImage] = useState(false);
@@ -99,7 +109,14 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   const [headerRef, headerWidth] = useContainerWidth<HTMLDivElement>(800);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const lastPointerPosRef = useRef<Point | null>(null);
+  const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallbackTriedRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextExternalSync = useRef(false);
@@ -108,6 +125,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
     };
   }, []);
 
@@ -357,41 +375,103 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
 
   // Canvas Pan & Zoom Handlers
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    if (panMode || e.button === 1 || e.shiftKey) {
+    if (panMode || e.button === 1 || e.shiftKey || e.button === 0) {
       e.preventDefault();
       setIsPanning(true);
       panStartRef.current = {
         x: e.clientX,
         y: e.clientY,
-        panX: pan.x,
-        panY: pan.y,
+        panX: panRef.current.x,
+        panY: panRef.current.y,
       };
     }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
     if (!isPanning) return;
     const dx = e.clientX - panStartRef.current.x;
     const dy = e.clientY - panStartRef.current.y;
-    setPan({
+    const nextPan = {
       x: panStartRef.current.panX + dx,
       y: panStartRef.current.panY + dy,
-    });
+    };
+    panRef.current = nextPan;
+    setPan(nextPan);
   };
 
   const handleCanvasMouseUp = () => {
     setIsPanning(false);
   };
 
+  const applyFocalZoomStep = useCallback((calcTarget: (current: number) => number) => {
+    const stageEl = stageRef.current;
+    const targetZoom = calcTarget(zoomRef.current);
+    if (stageEl) {
+      const rect = stageEl.getBoundingClientRect();
+      const focal = lastPointerPosRef.current || {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        focal,
+        rect,
+        0.2,
+        5.0
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
+    } else {
+      const clamped = Math.max(0.2, Math.min(5.0, Number(targetZoom.toFixed(2))));
+      zoomRef.current = clamped;
+      setZoom(clamped);
+    }
+  }, []);
+
   const handleCanvasWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 0.15 : -0.15;
-      setZoom(z => Math.max(0.2, Math.min(3.5, z + delta)));
+    e.preventDefault();
+    e.stopPropagation();
+    lastPointerPosRef.current = { clientX: e.clientX, clientY: e.clientY };
+
+    setIsWheeling(true);
+    if (wheelTimeoutRef.current) {
+      clearTimeout(wheelTimeoutRef.current);
+    }
+    wheelTimeoutRef.current = setTimeout(() => {
+      setIsWheeling(false);
+    }, 120);
+
+    const factor = calculateWheelFactor(e.deltaY, e.ctrlKey);
+    const targetZoom = zoomRef.current * factor;
+    const stageEl = stageRef.current;
+    if (stageEl) {
+      const rect = stageEl.getBoundingClientRect();
+      const nextState = calculateFocalZoom(
+        { zoom: zoomRef.current, pan: panRef.current },
+        targetZoom,
+        { clientX: e.clientX, clientY: e.clientY },
+        rect,
+        0.2,
+        5.0
+      );
+      zoomRef.current = nextState.zoom;
+      panRef.current = nextState.pan;
+      setZoom(nextState.zoom);
+      setPan(nextState.pan);
+    } else {
+      const clamped = Math.max(0.2, Math.min(5.0, Number(targetZoom.toFixed(2))));
+      zoomRef.current = clamped;
+      setZoom(clamped);
     }
   };
 
   const handleResetViewport = () => {
+    zoomRef.current = 1;
+    panRef.current = { x: 0, y: 0 };
     setZoom(1);
     setPan({ x: 0, y: 0 });
   };
@@ -992,20 +1072,20 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               {/* Zoom Controls */}
               <button
                 type="button"
-                onClick={() => setZoom(z => Math.max(0.2, z - 0.15))}
+                onClick={() => applyFocalZoomStep(getNextZoomOut)}
                 style={{ color: 'var(--ov-text-secondary)' }}
                 className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded cursor-pointer"
-                title="缩小 (Ctrl + 滚轮向下)"
+                title="缩小 (基于光标焦点)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
               <span className="font-mono text-[var(--ov-accent)] text-xs min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
               <button
                 type="button"
-                onClick={() => setZoom(z => Math.min(3.5, z + 0.15))}
+                onClick={() => applyFocalZoomStep(getNextZoomIn)}
                 style={{ color: 'var(--ov-text-secondary)' }}
                 className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded cursor-pointer"
-                title="放大 (Ctrl + 滚轮向上)"
+                title="放大 (基于光标焦点)"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
@@ -1018,21 +1098,36 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
+              <button
+                type="button"
+                onClick={() => setIsLightboxOpen(true)}
+                style={{ color: 'var(--ov-text-secondary)' }}
+                className="p-1 hover:bg-[var(--ov-surface-hover,rgba(150,150,150,0.1))] rounded cursor-pointer"
+                title="全屏沉浸式灯箱查看"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
           {/* Interactive Canvas Stage */}
           <div
+            ref={stageRef}
             onMouseDown={handleCanvasMouseDown}
             onMouseMove={handleCanvasMouseMove}
             onMouseUp={handleCanvasMouseUp}
             onMouseLeave={handleCanvasMouseUp}
             onWheel={handleCanvasWheel}
+            onDoubleClick={() => {
+              if (canRender && imgStatus !== 'error' && displaySvgUrl) {
+                setIsLightboxOpen(true);
+              }
+            }}
             style={{
               backgroundColor: 'var(--ov-bg)',
             }}
             className={`flex-1 overflow-hidden relative flex items-center justify-center ${
-              panMode || isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+              panMode || isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-grab'
             }`}
           >
             {/* Draggable & Zoomable Canvas Element */}
@@ -1040,7 +1135,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: 'center center',
-                transition: isPanning ? 'none' : 'transform 100ms ease-out',
+                transition: isPanning || isWheeling ? 'none' : 'transform 100ms ease-out',
                 backgroundColor: 'var(--ov-surface)',
                 borderColor: 'var(--ov-border)',
                 boxShadow: 'var(--ov-shadow)',
@@ -1153,6 +1248,21 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
         isOpen={showTemplateModal}
         onClose={() => setShowTemplateModal(false)}
         onApplyTemplate={handleApplyTemplate}
+      />
+
+      {/* Fullscreen Interactive Lightbox Modal (支持基于光标位置的无级缩放与拖拽) */}
+      <LightboxModal
+        item={
+          isLightboxOpen && displaySvgUrl
+            ? {
+                title: `PlantUML 全屏高清预览 (${diagramBlocks[selectedBlockIndex]?.title || fileName})`,
+                url: displaySvgUrl,
+                fileName: (diagramBlocks[selectedBlockIndex]?.title || fileName).replace(/\.[^/.]+$/, ''),
+              }
+            : null
+        }
+        onClose={() => setIsLightboxOpen(false)}
+        locale={locale}
       />
     </div>
   );
