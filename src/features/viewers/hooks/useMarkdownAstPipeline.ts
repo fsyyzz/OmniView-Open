@@ -1073,16 +1073,46 @@ export function useMarkdownAstPipeline({
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
-          } else if (['domainstory', 'story', 'egn', 'dst'].includes(primaryLang)) {
+          } else if (
+            [
+              'domainstory',
+              'story',
+              'egn',
+              'dst',
+              'ddd',
+              'event-storming',
+              'eventstorming',
+              'context-map',
+              'contextmap',
+              'core-domain',
+              'coredomain',
+              'context-canvas',
+              'contextcanvas',
+            ].includes(primaryLang)
+          ) {
+            const rawDddText =
+              (primaryLang === 'event-storming' || primaryLang === 'eventstorming') &&
+              !/^(?:mode|type|view)\s*:/im.test(token.text)
+                ? `mode: event-storming\n${token.text}`
+                : (primaryLang === 'context-map' || primaryLang === 'contextmap') &&
+                  !/^(?:mode|type|view)\s*:/im.test(token.text)
+                ? `mode: context-map\n${token.text}`
+                : (primaryLang === 'core-domain' || primaryLang === 'coredomain') &&
+                  !/^(?:mode|type|view)\s*:/im.test(token.text)
+                ? `mode: core-domain-chart\n${token.text}`
+                : (primaryLang === 'context-canvas' || primaryLang === 'contextcanvas') &&
+                  !/^(?:mode|type|view)\s*:/im.test(token.text)
+                ? `mode: context-canvas\n${token.text}`
+                : token.text;
             parsedBlocks.push({
               id: `block-domainstory-${counter++}`,
               type: 'domainstory',
-              raw: token.text,
+              raw: rawDddText,
               externalFile,
               startLine: tokenStartLine,
               endLine: tokenEndLine,
             });
-          } else if (['markmap', 'mm', 'mindmap'].includes(primaryLang)) {
+          } else if (['markmap', 'mm', 'mindmap', 'km'].includes(primaryLang)) {
             parsedBlocks.push({
               id: `block-markmap-${counter++}`,
               type: 'markmap',

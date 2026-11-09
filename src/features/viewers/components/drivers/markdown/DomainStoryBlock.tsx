@@ -191,15 +191,41 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
         <div className="flex items-center gap-2 font-mono text-slate-300 min-w-0 flex-1 overflow-hidden">
           <span className="flex items-center gap-1.5 font-semibold text-sky-400 shrink-0" title={t('domainStoryTitle', locale)}>
             <Layers className="w-4 h-4 text-sky-400 shrink-0" />
-            <span className="hidden sm:inline">{t('domainStoryTitle', locale)}</span>
+            <span className="hidden sm:inline">
+              {model.mode === 'event-storming'
+                ? locale === 'zh-CN'
+                  ? 'DDD 事件风暴 (Event Storming)'
+                  : 'DDD Event Storming'
+                : model.mode === 'context-map'
+                ? locale === 'zh-CN'
+                  ? 'DDD 限界上下文映射 (Context Map)'
+                  : 'DDD Context Map'
+                : model.mode === 'core-domain-chart'
+                ? locale === 'zh-CN'
+                  ? 'DDD 核心域投资象限图 (Core Domain Chart)'
+                  : 'DDD Core Domain Chart'
+                : model.mode === 'context-canvas'
+                ? locale === 'zh-CN'
+                  ? 'DDD 限界上下文战略画布 (Context Canvas)'
+                  : 'DDD Context Canvas'
+                : t('domainStoryTitle', locale)}
+            </span>
           </span>
           {model.info?.name && (
-            <span className="hidden md:inline-block text-[11px] text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded border border-slate-700/50 truncate max-w-[140px]">
+            <span className="hidden md:inline-block text-[11px] text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded border border-slate-700/50 truncate max-w-[160px]">
               {model.info.name}
             </span>
           )}
           <span className="hidden lg:inline-block text-[10px] text-slate-400 shrink-0">
-            ({model.actors.length} {t('actorsCount', locale)} · {model.activities.length} {t('activitiesCount', locale)})
+            {model.mode === 'event-storming' && model.eventStorming
+              ? `(${model.eventStorming.flows.length} Flows · ${model.eventStorming.flows.reduce((s, f) => s + f.nodes.length, 0)} Notes)`
+              : model.mode === 'context-map' && model.contextMap
+              ? `(${model.contextMap.contexts.length} Contexts · ${model.contextMap.relationships.length} Links)`
+              : model.mode === 'core-domain-chart' && model.coreDomainChart
+              ? `(${model.coreDomainChart.domains.length} Domains)`
+              : model.mode === 'context-canvas' && model.contextCanvas
+              ? `(1 Context · ${model.contextCanvas.decisions.length} Decisions)`
+              : `(${model.actors.length} ${t('actorsCount', locale)} · ${model.activities.length} ${t('activitiesCount', locale)})`}
           </span>
         </div>
 
@@ -396,10 +422,10 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
         </div>
       </div>
 
-      {/* Body: Visual vs Code: 紧凑自适应居中呈现矢量图片，无多余大片空白 */}
+      {/* Body: Visual vs Code: 宽敞自适应居中呈现矢量图片 */}
       {viewMode === 'visual' ? (
         <div
-          className={`diagram-canvas p-2.5 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[100px] relative [&>div>svg]:max-w-full [&>div>svg]:h-auto [&>div>svg]:block ${!error && displaySvg ? 'cursor-zoom-in' : ''}`}
+          className={`diagram-canvas p-5 sm:p-6 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[180px] relative [&>div>svg]:max-w-full [&>div>svg]:h-auto [&>div>svg]:block ${!error && displaySvg ? 'cursor-zoom-in' : ''}`}
           onDoubleClick={(e) => {
             e.stopPropagation();
             if (!error && displaySvg) {
@@ -416,7 +442,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
           ) : (
             <div
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-              className="diagram-canvas-inner transition-transform duration-150 flex justify-center cursor-zoom-in max-w-full"
+              className="diagram-canvas-inner w-full transition-transform duration-150 flex justify-center cursor-zoom-in max-w-full"
               onDoubleClick={(e) => {
                 e.stopPropagation();
                 onOpenLightbox(displaySvg);
@@ -427,8 +453,8 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
           )}
         </div>
       ) : (
-        <div className="p-4 bg-slate-950">
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-2 font-mono">
+        <div className="p-4 bg-[var(--ov-surface,#0f172a)] border-t border-[var(--ov-border,#1e293b)]">
+          <div className="flex items-center justify-between text-xs text-[var(--ov-text-muted,#94a3b8)] mb-2 font-mono">
             <span>{t('editDiagramSource', locale)} (DSL / JSON):</span>
             <span>{activeCode.split('\n').length} {t('linesCode', locale)}</span>
           </div>
@@ -437,7 +463,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
             onChange={e => onChangeEditedCode(e.target.value)}
             spellCheck={false}
             rows={Math.min(18, Math.max(6, activeCode.split('\n').length + 1))}
-            className="w-full p-3.5 bg-slate-900 border border-slate-800 rounded-lg text-sky-300 font-mono text-xs leading-relaxed outline-none focus:border-sky-500 transition resize-y"
+            className="w-full p-3.5 bg-[var(--ov-code-bg,#0b1120)] border border-[var(--ov-border,#1e293b)] rounded-lg text-[var(--ov-inline-code-color,#38bdf8)] font-mono text-xs leading-relaxed outline-none focus:border-[var(--ov-accent,#0284c7)] transition resize-y"
           />
         </div>
       )}

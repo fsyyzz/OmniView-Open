@@ -1,0 +1,39 @@
+mode: context-canvas
+context: 订单履约上下文 (Order Fulfillment Context)
+classification: core
+team: 交易核心研发组
+description: 负责全渠道订单从创建、风控支付、分仓分单、锁定发货至售后完结的全生命周期编排与状态一致性保障
+
+inbound:
+  commands:
+    - SubmitOrderCommand (提交下单)
+    - PayOrderCommand (支付订单)
+    - CancelOrderCommand (取消订单)
+    - RequestRefundCommand (发起售后退款)
+  events:
+    - PaymentSuccessEvent (支付渠道到账)
+    - InventoryLockedEvent (分仓实物锁库)
+    - WaybillDispatchedEvent (运单已揽件)
+  queries:
+    - GetOrderDetailQuery (查询订单全景详情)
+    - GetFulfillmentTimelineQuery (订单履约轨迹时间轴)
+
+decisions:
+  - 严格幂等保障: 采用 CommandId 与分布式 Redis 租约锁，彻底避免重复扣款与重发
+  - 状态机强约束: 订单生命周期仅允许单向确定性状态流转，取消/退款必须触发补偿 Saga
+  - 最终一致性保障: 跨仓储与支付网关交互一律基于 Outbox 模式发布领域事件，杜绝分布式悬挂事务
+
+language:
+  - 订单聚合 (Order Aggregate) : 订单业务唯一凭据与聚合根，守护金额及项明细不变式
+  - 履约单 (Fulfillment Order) : 面向仓库与配送承运商派发的实际发货实物包
+  - 补偿流 (Compensating Saga) : 当支付失败或库存售罄时执行的反向回滚编排
+  - 幂等键 (Idempotency Key) : 客户端唯一请求序列标识，用于去重防刷
+
+outbound:
+  events:
+    - OrderCreatedEvent (订单已创建事件)
+    - OrderPaidEvent (订单已支付事件)
+    - OrderDeliveredEvent (订单已完成交付)
+  dependencies:
+    - 统一支付网关 (Generic) : ACL 防腐层 RPC 预支付收单与回调鉴权
+    - 仓储配送上下文 (Supporting) : OHS/PL 异步投递分拣发货任务

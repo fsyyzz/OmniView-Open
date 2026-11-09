@@ -1,0 +1,15 @@
+mode: event-storming
+title: 电商大促下单与履约事件风暴 (Event Storming)
+context: 交易与履约核心域 [core]
+description: 围绕下单、风控、支付、锁库与出库的完整事件因果链（支持点击右上角「演播」逐帧回放）
+
+timeline:
+  1. 买家 [actor] -> 提交购物车结算单 [cmd] -> @订单聚合 [agg] -> 订单已创建 [evt]
+     read: 订单确认页读视图 [readmodel]
+     hotspot: 秒杀高并发下预占库存超卖风险？是否引入 Redis 预扣减？
+  2. 订单已创建 [evt] -> 自动触发风控与支付策略 [policy] -> 发起渠道扣款 [cmd] -> $微信支付网关 [ext] -> 支付已成功 [evt]
+     read: 实时交易风控监控大盘 [readmodel]
+  3. 支付已成功 [evt] -> 驱动履约配货策略 [policy] -> 下发波次分拣指令 [cmd] -> @履约单聚合 [agg] -> 仓库已接单出库 [evt]
+     read: 买家物流轨迹实时看板 [readmodel]
+     hotspot: 跨仓拆单场景下部分商品缺货如何触发逆向部分退款？
+  4. 仓库已接单出库 [evt] -> 触发积分与成长值激励策略 [policy] -> 发放消费积分 [cmd] -> @会员账户聚合 [agg] -> 会员积分已到账 [evt]

@@ -6,6 +6,54 @@
  */
 
 import type { DiagramStep } from './diagramPlaybackEngine.ts';
+import type {
+  DddDiagramMode,
+  EventStormingSpec,
+  ContextMapSpec,
+  CoreDomainItem,
+  CoreDomainChartSpec,
+  ContextCanvasLanguageTerm,
+  ContextCanvasSpec,
+} from './dddModelingEngine.ts';
+import {
+  detectDddMode,
+  parseEventStormingDsl,
+  parseContextMapDsl,
+  parseCoreDomainChartDsl,
+  parseContextCanvasDsl,
+  renderEventStormingToSvg,
+  renderContextMapToSvg,
+  renderCoreDomainChartToSvg,
+  renderContextCanvasToSvg,
+  extractDddSteps,
+} from './dddModelingEngine.ts';
+
+export type {
+  DddDiagramMode,
+  StickyNoteKind,
+  EventStormingNode,
+  EventStormingFlow,
+  EventStormingSpec,
+  SubdomainType,
+  BoundedContextNode,
+  ContextRelationship,
+  ContextMapSpec,
+  CoreDomainItem,
+  CoreDomainChartSpec,
+  ContextCanvasLanguageTerm,
+  ContextCanvasSpec,
+} from './dddModelingEngine.ts';
+export {
+  detectDddMode,
+  parseEventStormingDsl,
+  parseContextMapDsl,
+  parseCoreDomainChartDsl,
+  parseContextCanvasDsl,
+  renderEventStormingToSvg,
+  renderContextMapToSvg,
+  renderCoreDomainChartToSvg,
+  renderContextCanvasToSvg,
+} from './dddModelingEngine.ts';
 
 export interface DomainStoryActor {
   id: string;
@@ -39,6 +87,7 @@ export interface DomainStoryGroup {
 }
 
 export interface DomainStoryModel {
+  mode?: DddDiagramMode;
   info?: {
     name?: string;
     description?: string;
@@ -48,6 +97,10 @@ export interface DomainStoryModel {
   workObjects: DomainStoryWorkObject[];
   activities: DomainStoryActivity[];
   groups?: DomainStoryGroup[];
+  eventStorming?: EventStormingSpec;
+  contextMap?: ContextMapSpec;
+  coreDomainChart?: CoreDomainChartSpec;
+  contextCanvas?: ContextCanvasSpec;
 }
 
 /**
@@ -68,12 +121,12 @@ export function escapeXml(str?: string): string {
  */
 export function parseDomainStory(input: string): DomainStoryModel {
   if (!input || typeof input !== 'string') {
-    return { actors: [], workObjects: [], activities: [] };
+    return { mode: 'domain-story', actors: [], workObjects: [], activities: [] };
   }
 
   const trimmed = input.trim();
 
-  // 1. 尝试作为 JSON (.egn 原生格式) 解析
+  // 1. 尝试作为 JSON (.egn / .dst / .ddd 原生格式) 解析
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
       const parsed = JSON.parse(trimmed);
@@ -83,26 +136,141 @@ export function parseDomainStory(input: string): DomainStoryModel {
     }
   }
 
-  // 2. 作为文本 DSL 解析
+  // 2. 自动识别 DDD 视图模式 (Domain Story / Event Storming / Context Map / Core Domain / Context Canvas)
+  const detectedMode = detectDddMode(trimmed);
+  if (detectedMode === 'event-storming') {
+    const es = parseEventStormingDsl(trimmed);
+    return {
+      mode: 'event-storming',
+      info: { name: es.title, description: es.description, version: '1.0' },
+      actors: [],
+      workObjects: [],
+      activities: [],
+      eventStorming: es.spec,
+    };
+  }
+
+  if (detectedMode === 'context-map') {
+    const cm = parseContextMapDsl(trimmed);
+    return {
+      mode: 'context-map',
+      info: { name: cm.title, description: cm.description, version: '1.0' },
+      actors: [],
+      workObjects: [],
+      activities: [],
+      contextMap: cm.spec,
+    };
+  }
+
+  if (detectedMode === 'core-domain-chart') {
+    const cdc = parseCoreDomainChartDsl(trimmed);
+    return {
+      mode: 'core-domain-chart',
+      info: { name: cdc.title, description: cdc.description, version: '1.0' },
+      actors: [],
+      workObjects: [],
+      activities: [],
+      coreDomainChart: cdc.spec,
+    };
+  }
+
+  if (detectedMode === 'context-canvas') {
+    const cc = parseContextCanvasDsl(trimmed);
+    return {
+      mode: 'context-canvas',
+      info: { name: cc.title, description: cc.description, version: '1.0' },
+      actors: [],
+      workObjects: [],
+      activities: [],
+      contextCanvas: cc.spec,
+    };
+  }
+
+  // 3. 作为领域故事文本 DSL 解析
   return parseDomainStoryDsl(trimmed);
 }
 
 /**
- * 归一化 JSON 格式（支持官方 egon.io 模型与扁平 JSON）
+ * 归一化 JSON 格式（支持官方 egon.io 模型、Event Storming JSON 与 Context Map JSON）
  */
 function normalizeJsonModel(json: any): DomainStoryModel {
   const root = json.model || json;
-  const actors: DomainStoryActor[] = [];
-  const workObjects: DomainStoryWorkObject[] = [];
-  const activities: DomainStoryActivity[] = [];
-  const groups: DomainStoryGroup[] = [];
-
   const rawInfo = root.info || json.info || {};
   const info = {
     name: rawInfo.name || rawInfo.title || 'Domain Story',
     description: rawInfo.description || '',
     version: rawInfo.version || '1.0',
   };
+
+  if (root.mode === 'event-storming' || root.eventStorming || Array.isArray(root.flows)) {
+    const spec: EventStormingSpec = root.eventStorming || {
+      context: root.context,
+      flows: Array.isArray(root.flows) ? root.flows : [],
+    };
+    return {
+      mode: 'event-storming',
+      info,
+      actors: [],
+      workObjects: [],
+      activities: [],
+      eventStorming: spec,
+    };
+  }
+
+  if (root.mode === 'context-map' || root.contextMap || Array.isArray(root.contexts)) {
+    const spec: ContextMapSpec = root.contextMap || {
+      contexts: Array.isArray(root.contexts) ? root.contexts : [],
+      relationships: Array.isArray(root.relationships) ? root.relationships : [],
+    };
+    return {
+      mode: 'context-map',
+      info,
+      actors: [],
+      workObjects: [],
+      activities: [],
+      contextMap: spec,
+    };
+  }
+
+  if (root.mode === 'core-domain-chart' || root.coreDomainChart || Array.isArray(root.domains)) {
+    const spec: CoreDomainChartSpec = root.coreDomainChart || {
+      domains: Array.isArray(root.domains) ? root.domains : [],
+    };
+    return {
+      mode: 'core-domain-chart',
+      info,
+      actors: [],
+      workObjects: [],
+      activities: [],
+      coreDomainChart: spec,
+    };
+  }
+
+  if (root.mode === 'context-canvas' || root.contextCanvas || root.contextName) {
+    const spec: ContextCanvasSpec = root.contextCanvas || {
+      contextName: root.contextName || info.name || 'Bounded Context',
+      classification: root.classification || 'core',
+      team: root.team,
+      description: root.description,
+      inbound: root.inbound || { commands: [], events: [], queries: [] },
+      decisions: root.decisions || [],
+      language: root.language || [],
+      outbound: root.outbound || { events: [], dependencies: [] },
+    };
+    return {
+      mode: 'context-canvas',
+      info,
+      actors: [],
+      workObjects: [],
+      activities: [],
+      contextCanvas: spec,
+    };
+  }
+
+  const actors: DomainStoryActor[] = [];
+  const workObjects: DomainStoryWorkObject[] = [];
+  const activities: DomainStoryActivity[] = [];
+  const groups: DomainStoryGroup[] = [];
 
   // 兼容官方 egon.io elements 数组或分离式对象
   if (Array.isArray(root.elements)) {
@@ -442,22 +610,34 @@ export function computeAutoLayout(model: DomainStoryModel): DomainStoryModel {
   const count = actors.length;
   if (count === 0) return model;
 
-  if (count <= 4) {
-    // 线性横向流布局
-    const startX = 140;
-    const spacingX = 260;
-    const centerY = 190;
+  if (count <= 3) {
+    // 宽敞错位横向流布局，留足工作对象工件铭牌与双向曲线空间
+    const startX = 220;
+    const spacingX = 500;
+    const centerY = 260;
 
     actors.forEach((a, idx) => {
       a.x = startX + idx * spacingX;
-      a.y = centerY;
+      a.y = count === 3 && idx === 1 ? centerY - 100 : centerY + (idx % 2 === 0 ? 30 : -30);
+    });
+  } else if (count === 4) {
+    // 4 节点采用宽敞 2x2 交错矩阵布局，充足间距防止活动连线与卡片挤压
+    const coords = [
+      { x: 240, y: 190 },
+      { x: 800, y: 170 },
+      { x: 260, y: 560 },
+      { x: 820, y: 540 },
+    ];
+    actors.forEach((a, idx) => {
+      a.x = coords[idx].x;
+      a.y = coords[idx].y;
     });
   } else {
-    // 环形/网格椭圆布局（防止复杂图连线混乱）
-    const centerX = Math.max(380, count * 65);
-    const centerY = 240;
-    const radiusX = Math.max(260, count * 50);
-    const radiusY = 160;
+    // 5+ 节点采用大半径环绕布局，确保中央与邻近节点留有充足的活动连线与工件铭牌空间
+    const centerX = Math.max(560, count * 110);
+    const centerY = Math.max(420, count * 80);
+    const radiusX = Math.max(480, count * 96);
+    const radiusY = Math.max(340, count * 68);
 
     actors.forEach((a, idx) => {
       const angle = (idx / count) * 2 * Math.PI - Math.PI / 2;
@@ -486,8 +666,37 @@ export function renderDomainStoryToSvg(
   rawModel: DomainStoryModel,
   options: RenderDomainStoryOptions = {}
 ): string {
-  const model = computeAutoLayout(rawModel);
   const { currentStep = -1, isDark = true } = options;
+
+  if (rawModel.mode === 'event-storming' && rawModel.eventStorming) {
+    return renderEventStormingToSvg(rawModel.eventStorming, rawModel.info, {
+      currentStep,
+      isDark,
+    });
+  }
+
+  if (rawModel.mode === 'context-map' && rawModel.contextMap) {
+    return renderContextMapToSvg(rawModel.contextMap, rawModel.info, {
+      currentStep,
+      isDark,
+    });
+  }
+
+  if (rawModel.mode === 'core-domain-chart' && rawModel.coreDomainChart) {
+    return renderCoreDomainChartToSvg(rawModel.coreDomainChart, rawModel.info, {
+      currentStep,
+      isDark,
+    });
+  }
+
+  if (rawModel.mode === 'context-canvas' && rawModel.contextCanvas) {
+    return renderContextCanvasToSvg(rawModel.contextCanvas, rawModel.info, {
+      currentStep,
+      isDark,
+    });
+  }
+
+  const model = computeAutoLayout(rawModel);
 
   // 1. 计算画布尺寸
   let minX = Infinity;
@@ -502,15 +711,15 @@ export function renderDomainStoryToSvg(
   for (const a of model.actors) {
     const x = a.x || 100;
     const y = a.y || 100;
-    minX = Math.min(minX, x - 100);
-    maxX = Math.max(maxX, x + 100);
-    minY = Math.min(minY, y - 80);
-    maxY = Math.max(maxY, y + 100);
+    minX = Math.min(minX, x - 145);
+    maxX = Math.max(maxX, x + 145);
+    minY = Math.min(minY, y - 145);
+    maxY = Math.max(maxY, y + 140);
   }
 
-  // 边界安全外补白
-  const padX = 70;
-  const padY = 70;
+  // 边界安全外补白（留足呼吸感与自环/标题空间）
+  const padX = 110;
+  const padY = 110;
   const vx = Math.floor(minX - padX);
   const vy = Math.floor(minY - padY);
   const vw = Math.ceil(maxX - minX + padX * 2);
@@ -569,7 +778,7 @@ export function renderDomainStoryToSvg(
         groupText: '#1d4ed8',
       };
 
-  let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="100%" height="100%" class="ov-domain-story-svg" style="background-color: transparent; user-select: none; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">\n`;
+  let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="${vw}" height="${vh}" class="ov-domain-story-svg" style="background-color: transparent; max-width: 100%; height: auto; user-select: none; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">\n`;
 
   // Defs: 滤镜与箭头标记
   svgContent += `
@@ -610,25 +819,26 @@ export function renderDomainStoryToSvg(
       for (const a of gActors) {
         const ax = a.x || 0;
         const ay = a.y || 0;
-        gMinX = Math.min(gMinX, ax - 70);
-        gMaxX = Math.max(gMaxX, ax + 70);
-        gMinY = Math.min(gMinY, ay - 60);
-        gMaxY = Math.max(gMaxY, ay + 75);
+        gMinX = Math.min(gMinX, ax - 84);
+        gMaxX = Math.max(gMaxX, ax + 84);
+        gMinY = Math.min(gMinY, ay - 72);
+        gMaxY = Math.max(gMaxY, ay + 86);
       }
 
-      const gx = gMinX - 16;
-      const gy = gMinY - 24;
-      const gw = gMaxX - gMinX + 32;
-      const gh = gMaxY - gMinY + 40;
+      const gx = gMinX - 24;
+      const gy = gMinY - 32;
+      const gw = gMaxX - gMinX + 48;
+      const gh = gMaxY - gMinY + 56;
 
       svgContent += `  <g class="ds-group" id="${escapeXml(g.id)}">
-    <rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="14" fill="${themeColors.groupBg}" stroke="${themeColors.groupBorder}" stroke-width="1.5" stroke-dasharray="6,4" />
-    <text x="${gx + 16}" y="${gy + 18}" fill="${themeColors.groupText}" font-size="12" font-weight="600" text-anchor="start">${escapeXml(g.name)}</text>
+    <rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="16" fill="${themeColors.groupBg}" stroke="${themeColors.groupBorder}" stroke-width="1.5" stroke-dasharray="6,4" />
+    <text x="${gx + 18}" y="${gy + 22}" fill="${themeColors.groupText}" font-size="12.5" font-weight="600" text-anchor="start">${escapeXml(g.name)}</text>
   </g>\n`;
     }
   }
 
   // 3. 渲染 Activities 连线与工作对象 (中层)
+  const pairEdgeMap = new Map<string, number>();
   model.activities.forEach((act, idx) => {
     const fromActor = actorMap.get(act.from);
     const toActor = actorMap.get(act.to);
@@ -649,7 +859,7 @@ export function renderDomainStoryToSvg(
       ? themeColors.linePast
       : themeColors.lineDefault;
 
-    const strokeWidth = isActive ? 3 : 1.8;
+    const strokeWidth = isActive ? 3 : 2;
     const marker = isActive ? 'url(#ds-arrow-active)' : isPast ? 'url(#ds-arrow-past)' : 'url(#ds-arrow-default)';
     const opacity = isFuture ? 0.22 : 1.0;
 
@@ -658,51 +868,66 @@ export function renderDomainStoryToSvg(
     let labelY = (y1 + y2) / 2;
 
     if (act.from === act.to) {
-      // 自环处理 (Self loop)
-      const loopR = 36;
-      pathD = `M ${x1 - 18} ${y1 - 42} C ${x1 - 36} ${y1 - 100}, ${x1 + 36} ${y1 - 100}, ${x1 + 18} ${y1 - 42}`;
+      // 自环处理 (Self loop)，留出更充裕的上方回环与工件便签空间
+      pathD = `M ${x1 - 24} ${y1 - 44} C ${x1 - 68} ${y1 - 138}, ${x1 + 68} ${y1 - 138}, ${x1 + 24} ${y1 - 44}`;
       labelX = x1;
-      labelY = y1 - 92;
+      labelY = y1 - 120;
     } else {
-      // 平滑二次贝塞尔曲线：稍微向正交方向拱起，使双向连线不重叠
+      // 平滑二次贝塞尔曲线：端点停靠在角色卡片外框，且同对节点多条边自动扇形分离
       const dx = x2 - x1;
       const dy = y2 - y1;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const perpX = -dy / (dist || 1);
-      const perpY = dx / (dist || 1);
-      // 拱起幅度根据步序号奇偶轻微错开
-      const curvature = 26 * ((act.number % 2 === 0) ? -1 : 1);
-      const cx = (x1 + x2) / 2 + perpX * curvature;
-      const cy = (y1 + y2) / 2 + perpY * curvature;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      const perpX = -uy;
+      const perpY = ux;
 
-      pathD = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
-      labelX = cx;
-      labelY = cy;
+      const pairKey = [act.from, act.to].sort().join('::');
+      const seenCount = pairEdgeMap.get(pairKey) || 0;
+      pairEdgeMap.set(pairKey, seenCount + 1);
+
+      const directionSign = seenCount % 2 === 0 ? 1 : -1;
+      const tier = Math.floor(seenCount / 2) + 1;
+      const curvature = (52 * tier) * directionSign;
+
+      const startX = x1 + ux * 66;
+      const startY = y1 + uy * 44;
+      const endX = x2 - ux * 66;
+      const endY = y2 - uy * 44;
+
+      const cx = (startX + endX) / 2 + perpX * curvature;
+      const cy = (startY + endY) / 2 + perpY * curvature;
+
+      pathD = `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`;
+      // 二次贝塞尔曲线 t=0.5 处的真实中点
+      labelX = 0.25 * startX + 0.5 * cx + 0.25 * endX;
+      labelY = 0.25 * startY + 0.5 * cy + 0.25 * endY;
     }
 
     const badgeBg = isActive ? themeColors.activeBadgeBg : themeColors.badgeBg;
     const badgeText = isActive ? themeColors.activeBadgeText : themeColors.badgeText;
     const badgeBorder = isActive ? themeColors.lineActive : themeColors.badgeBorder;
+    const boxW = Math.max(146, Math.min(188, Math.max(act.label.length, (act.workObjectName || '').length + 2) * 12 + 44));
 
     svgContent += `  <g class="ds-activity" id="${escapeXml(act.id)}" opacity="${opacity}" ${isActive ? 'filter="url(#ds-glow)"' : ''}>
     <!-- 活动连线 -->
-    <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" stroke-dasharray="${isActive ? 'none' : 'none'}" />
+    <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" />
 
     <!-- 序号圆圈与动作文本标签 -->
     <g transform="translate(${labelX}, ${labelY})">
       <!-- 阴影与底牌 -->
-      <rect x="-65" y="-22" width="130" height="44" rx="8" fill="${themeColors.actorBg}" stroke="${badgeBorder}" stroke-width="1.2" opacity="0.94" />
+      <rect x="${-boxW / 2}" y="-24" width="${boxW}" height="48" rx="10" fill="${themeColors.actorBg}" stroke="${badgeBorder}" stroke-width="1.3" opacity="0.96" />
       <!-- 序号圆标 -->
-      <circle cx="-42" cy="0" r="11" fill="${badgeBg}" stroke="${badgeBorder}" stroke-width="1.2" />
-      <text x="-42" y="4" fill="${badgeText}" font-size="11" font-weight="700" text-anchor="middle">${act.number}</text>
+      <circle cx="${-boxW / 2 + 20}" cy="0" r="12" fill="${badgeBg}" stroke="${badgeBorder}" stroke-width="1.2" />
+      <text x="${-boxW / 2 + 20}" y="4" fill="${badgeText}" font-size="11.5" font-weight="700" text-anchor="middle">${act.number}</text>
 
       <!-- 动词动作 -->
-      <text x="-24" y="-3" fill="${themeColors.actorText}" font-size="11" font-weight="600" text-anchor="start">${escapeXml(truncateText(act.label, 12))}</text>
+      <text x="${-boxW / 2 + 38}" y="-4" fill="${themeColors.actorText}" font-size="11.5" font-weight="600" text-anchor="start">${escapeXml(truncateText(act.label, 14))}</text>
 
       <!-- 工作对象便签 (Work Object) -->
       ${
         act.workObjectName
-          ? `<text x="-24" y="13" fill="${themeColors.woText}" font-size="10" font-weight="500" text-anchor="start">📄 ${escapeXml(truncateText(act.workObjectName, 11))}</text>`
+          ? `<text x="${-boxW / 2 + 38}" y="14" fill="${themeColors.woText}" font-size="10.5" font-weight="500" text-anchor="start">📄 ${escapeXml(truncateText(act.workObjectName, 13))}</text>`
           : ''
       }
     </g>
@@ -776,6 +1001,21 @@ function truncateText(str: string, maxLen: number): string {
  * 将领域故事活动序列提取为 DiagramStep 数组，无缝接入 DiagramStepPlayer
  */
 export function extractDomainStorySteps(model: DomainStoryModel): DiagramStep[] {
+  if (
+    model.mode === 'event-storming' ||
+    model.mode === 'context-map' ||
+    model.mode === 'core-domain-chart' ||
+    model.mode === 'context-canvas'
+  ) {
+    return extractDddSteps(
+      model.mode,
+      model.eventStorming,
+      model.contextMap,
+      model.coreDomainChart,
+      model.contextCanvas
+    );
+  }
+
   const actorMap = new Map<string, string>();
   model.actors.forEach(a => actorMap.set(a.id, a.name));
 
@@ -848,24 +1088,34 @@ export function extractModelFromPolyglotSvg(svgContent: string): DomainStoryMode
 }
 
 /**
- * 阶段三：导出为 WPS / egon.io 官方标准 .dst (JSON) 文件字符串
+ * 阶段三：导出为 WPS / egon.io 官方标准 .dst (JSON) 文件字符串（兼容 DDD 扩展视图）
  */
 export function exportDstJson(model: DomainStoryModel): string {
-  return JSON.stringify(
-    {
-      info: {
-        name: model.info?.name || 'Domain Story',
-        description: model.info?.description || '',
-        version: model.info?.version || '1.0',
-      },
-      actors: model.actors,
-      workObjects: model.workObjects,
-      activities: model.activities,
-      groups: model.groups || [],
+  const payload: Record<string, unknown> = {
+    mode: model.mode || 'domain-story',
+    info: {
+      name: model.info?.name || 'Domain Story',
+      description: model.info?.description || '',
+      version: model.info?.version || '1.0',
     },
-    null,
-    2
-  );
+    actors: model.actors,
+    workObjects: model.workObjects,
+    activities: model.activities,
+    groups: model.groups || [],
+  };
+  if (model.eventStorming) {
+    payload.eventStorming = model.eventStorming;
+  }
+  if (model.contextMap) {
+    payload.contextMap = model.contextMap;
+  }
+  if (model.coreDomainChart) {
+    payload.coreDomainChart = model.coreDomainChart;
+  }
+  if (model.contextCanvas) {
+    payload.contextCanvas = model.contextCanvas;
+  }
+  return JSON.stringify(payload, null, 2);
 }
 
 /**

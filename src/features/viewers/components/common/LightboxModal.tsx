@@ -870,11 +870,11 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             <div
               className={`markdown-lightbox-content ov-mermaid-svg-container flex items-center justify-center p-6 rounded-xl shadow-2xl border transition-colors overflow-visible [&>svg]:block [&>svg]:h-auto [&>svg]:w-full [&>svg]:max-w-none ${
                 bgMode === 'light'
-                  ? 'bg-slate-50 border-slate-300 text-slate-900'
+                  ? 'bg-slate-50 border-slate-300 text-slate-900 [--ov-text:#0f172a]'
                   : bgMode === 'dark'
-                  ? 'bg-slate-950 border-slate-800 text-slate-100'
+                  ? 'bg-slate-950 border-slate-800 text-slate-100 [--ov-text:#f1f5f9]'
                   : bgMode === 'grid'
-                  ? 'bg-[radial-gradient(#475569_1px,transparent_1px)] [background-size:16px_16px] bg-slate-900 border-slate-700 text-slate-100'
+                  ? 'bg-[radial-gradient(#475569_1px,transparent_1px)] [background-size:16px_16px] bg-slate-900 border-slate-700 text-slate-100 [--ov-text:#f1f5f9]'
                   : 'bg-[var(--ov-surface,rgba(15,23,42,0.95))] border-[var(--ov-border,rgba(51,65,85,0.6))] text-[var(--ov-text,#f1f5f9)]'
               }`}
               style={

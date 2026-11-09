@@ -138,18 +138,27 @@ export function resolveWikiTarget(target: string, files: WikiFileRef[] = []): Wi
   const lowerBase = baseName.toLowerCase();
   const lowerStem = stem.toLowerCase();
 
+  // 1. 优先精确匹配完整文件名或相对路径（防止 foo.markmap 被同名的 foo.md 抢先命中）
+  const exactMatch = files.find((f) => {
+    const name = f.name.toLowerCase();
+    const path = (f.path || '').replace(/\\/g, '/').replace(/^\//, '').toLowerCase();
+    if (name === lowerBase) return true;
+    if (path && (path === lowerClean || path.endsWith(`/${lowerClean}`) || path.endsWith(`/${lowerBase}`))) {
+      return true;
+    }
+    return false;
+  });
+  if (exactMatch) return exactMatch;
+
+  // 2. 回退到无扩展名 stem 或默认笔记扩展名匹配
   return (
     files.find((f) => {
       const name = f.name.toLowerCase();
       const nameStem = name.replace(/\.[^.]+$/, '');
-      const path = (f.path || '').replace(/\\/g, '/').replace(/^\//, '').toLowerCase();
-      if (name === lowerBase || name === `${lowerStem}.md` || name === `${lowerStem}.markdown` || name === `${lowerStem}.okf`) {
+      if (name === `${lowerStem}.md` || name === `${lowerStem}.markdown` || name === `${lowerStem}.okf`) {
         return true;
       }
       if (nameStem === lowerStem || nameStem === lowerBase) return true;
-      if (path && (path === lowerClean || path.endsWith(`/${lowerClean}`) || path.endsWith(`/${lowerBase}`))) {
-        return true;
-      }
       return false;
     }) || null
   );
@@ -279,12 +288,12 @@ function buildNoteEmbedHtml(
 }
 
 const DIAGRAM_EXTS = new Set([
-  'egn', 'domainstory', 'dst',
+  'egn', 'domainstory', 'dst', 'ddd',
   'excalidraw', 'excalidraw.json',
   'mmd', 'mermaid',
   'puml', 'plantuml',
   'dot', 'graphviz',
-  'markmap', 'mm', 'mindmap',
+  'markmap', 'mm', 'mindmap', 'km',
   'svg',
 ]);
 
@@ -293,6 +302,7 @@ function getDiagramLang(ext: string): string {
     case 'egn':
     case 'domainstory':
     case 'dst':
+    case 'ddd':
       return 'domainstory';
     case 'excalidraw':
     case 'excalidraw.json':
@@ -309,6 +319,7 @@ function getDiagramLang(ext: string): string {
     case 'markmap':
     case 'mm':
     case 'mindmap':
+    case 'km':
       return 'markmap';
     case 'svg':
       return 'svg';

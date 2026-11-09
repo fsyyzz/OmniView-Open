@@ -135,4 +135,29 @@ assert.strictEqual(resE.sourceLineOpened, null, '未开启双击编辑时严禁�
 
 console.log('  ✅ 双击逻辑仿真模拟全部通过！');
 
+console.log('--- 测试 4: Markmap 嵌入态解除 d3-zoom 双击劫持与独立灯箱 SVG 序列化契约检查 ---');
+const markmapViewerPath = path.resolve(process.cwd(), 'src/features/viewers/components/drivers/MarkmapViewer.tsx');
+const markmapViewerContent = fs.readFileSync(markmapViewerPath, 'utf8');
+assert.ok(
+  markmapViewerContent.includes("on('dblclick.zoom', null)"),
+  'MarkmapViewer 在 embedded 或传入 onDoubleClick 时必须移除 d3-zoom 默认的 dblclick.zoom 监听以防拦截双击打开灯箱'
+);
+assert.ok(
+  markmapViewerContent.includes('normalizeMindmapContent'),
+  'MarkmapViewer 必须兼容归一化 Markdown / FreeMind (.mm) / KityMinder (.km) 思维导图内容'
+);
+
+const markmapBlockPath = path.resolve(process.cwd(), 'src/features/viewers/components/drivers/markdown/MarkmapBlock.tsx');
+const markmapBlockContent = fs.readFileSync(markmapBlockPath, 'utf8');
+assert.ok(
+  markmapBlockContent.includes('serializeMarkmapSvgForLightbox'),
+  'MarkmapBlock 必须通过 serializeMarkmapSvgForLightbox 归一化 viewBox/width/height 并剥离内联 280px 缩略变换后再送入独立灯箱'
+);
+assert.ok(
+  markmapBlockContent.includes('onDoubleClickCapture'),
+  'MarkmapBlock 画布必须绑定 onDoubleClickCapture 确保双击稳定打开独立灯箱'
+);
+console.log('  ✅ Markmap 双击打开独立灯箱与 SVG 视口归一化契约校验通过');
+
 console.log('\n🎉 所有 Markdown 渲染图表与图片双击打开验证测试 100% 通过！');
+

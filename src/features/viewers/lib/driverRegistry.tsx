@@ -438,13 +438,14 @@ const DRIVER_PLUGINS: DriverPlugin[] = [
   },
   {
     id: 'domainstory',
-    name: 'Domain Storytelling',
-    extensions: ['dst', 'domainstory', 'egn'],
+    name: 'DDD & Domain Storytelling',
+    extensions: ['dst', 'domainstory', 'egn', 'ddd'],
     matchFile: (file) =>
       Boolean(
         file.name &&
           (file.name.toLowerCase().endsWith('.dst.json') ||
-            file.name.toLowerCase().endsWith('.story.json'))
+            file.name.toLowerCase().endsWith('.story.json') ||
+            file.name.toLowerCase().endsWith('.ddd.json'))
       ),
     getComponent: createLazyDriver('domainstory', () => import('../components/drivers/DomainStoryViewer'), 'DomainStoryViewer'),
   },

@@ -105,7 +105,28 @@ const unpositionedModel = computeAutoLayout(compactModel);
 assert(typeof unpositionedModel.actors[0].x === 'number', '应计算 x 坐标');
 assert(typeof unpositionedModel.actors[0].y === 'number', '应计算 y 坐标');
 assert(unpositionedModel.actors[0].x !== unpositionedModel.actors[1].x, '节点 x 坐标不应重叠');
-console.log('✅ 自动拓扑布局与坐标分配验证通过');
+const xDist = Math.abs(unpositionedModel.actors[1].x - unpositionedModel.actors[0].x);
+assert(xDist >= 400, `节点间距应至少保持 400px 宽敞呼吸空间 (实际: ${xDist}px)`);
+
+// 测试 5 节点大环绕布局的节点间距
+const fiveActorModel = computeAutoLayout({
+  actors: [
+    { id: 'a1', name: 'A1', type: 'person' },
+    { id: 'a2', name: 'A2', type: 'system' },
+    { id: 'a3', name: 'A3', type: 'person' },
+    { id: 'a4', name: 'A4', type: 'system' },
+    { id: 'a5', name: 'A5', type: 'system' },
+  ],
+  activities: [],
+});
+for (let i = 0; i < 5; i++) {
+  const next = (i + 1) % 5;
+  const dx = fiveActorModel.actors[i].x - fiveActorModel.actors[next].x;
+  const dy = fiveActorModel.actors[i].y - fiveActorModel.actors[next].y;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  assert(d >= 350, `5 节点环绕布局相邻节点距离应 >= 350px (实际: ${Math.round(d)}px)`);
+}
+console.log('✅ 自动拓扑布局与宽敞呼吸间距验证通过');
 
 // -------------------------------------------------------------
 // 测试 4: 矢量 SVG 渲染生成与步进态注入
@@ -164,4 +185,169 @@ assert.strictEqual(reParsed.actors.length, 3);
 assert.strictEqual(reParsed.activities.length, 3);
 console.log('✅ 导出标准 .egn JSON 契约验证通过');
 
-console.log('\n🎉 全部 7 组 Domain Storytelling 单元测试用例 100% 全部通过！');
+// -------------------------------------------------------------
+// 测试 8: DDD 事件风暴 (Event Storming) DSL 解析、色卡便利贴 SVG 渲染与逐帧步进
+// -------------------------------------------------------------
+console.log('\n--- 测试 8: DDD 事件风暴 (Event Storming) 视图引擎 ---');
+const eventStormingDsl = `
+mode: event-storming
+title: 电商大促下单事件风暴
+context: 交易核心域 [core]
+
+timeline:
+  1. 买家 [actor] -> 提交结算单 [cmd] -> @订单聚合 [agg] -> 订单已创建 [evt]
+     read: 订单确认页视图 [readmodel]
+     hotspot: 秒杀高并发下预占库存超卖风险？
+  2. 订单已创建 [evt] -> 自动触发风控与支付策略 [policy] -> 发起渠道扣款 [cmd] -> $微信支付网关 [ext] -> 支付已成功 [evt]
+`;
+const esModel = parseDomainStory(eventStormingDsl);
+assert.strictEqual(esModel.mode, 'event-storming');
+assert.strictEqual(esModel.info?.name, '电商大促下单事件风暴');
+assert.strictEqual(esModel.eventStorming?.flows.length, 2);
+assert.strictEqual(esModel.eventStorming?.flows[0].nodes.length, 4);
+assert.strictEqual(esModel.eventStorming?.flows[0].nodes[1].kind, 'command');
+assert.strictEqual(esModel.eventStorming?.flows[0].nodes[2].kind, 'aggregate');
+assert.strictEqual(esModel.eventStorming?.flows[0].nodes[3].kind, 'event');
+assert.strictEqual(esModel.eventStorming?.flows[0].hotspots.length, 1);
+assert.strictEqual(esModel.eventStorming?.flows[0].readModels.length, 1);
+
+const esSvg = renderDomainStoryToSvg(esModel, { currentStep: 0, isDark: true });
+assert.ok(esSvg.includes('ov-ddd-event-storming'), '应输出 Event Storming 专属 SVG 类名');
+assert.ok(esSvg.includes('COMMAND') && esSvg.includes('AGGREGATE') && esSvg.includes('EVENT'), '应包含标准便利贴类型标签');
+assert.ok(esSvg.includes('秒杀高并发下预占库存超卖风险'), '应渲染 Hotspot 风险痛点便利贴');
+
+const esSteps = extractDomainStorySteps(esModel);
+assert.strictEqual(esSteps.length, 2);
+assert.ok(esSteps[0].description?.includes('痛点'), '步进器描述应包含 Hotspot 提示');
+console.log('✅ DDD 事件风暴 (Event Storming) 解析、SVG 便利贴渲染与步进提取通过');
+
+// -------------------------------------------------------------
+// 测试 9: DDD 限界上下文映射图 (Context Map) DSL 解析、U/D 防腐层徽章渲染与步进
+// -------------------------------------------------------------
+console.log('\n--- 测试 9: DDD 限界上下文映射图 (Context Map) 视图引擎 ---');
+const contextMapDsl = `
+mode: context-map
+title: 智慧零售核心领域上下文映射
+
+contexts:
+  - 交易订单上下文 [core] (team: 交易研发组, desc: 订单生命周期与状态机, aggregates: 订单聚合, 履约单聚合)
+  - 营销促销上下文 [supporting] (team: 增长营销组, desc: 优惠券与算价引擎, aggregates: 优惠券聚合)
+  - 统一支付网关 [generic] (team: 金融组, desc: 多渠道收单与清结算, aggregates: 支付流水)
+
+relationships:
+  1. 营销促销上下文 [U: OHS, PL] -> 交易订单上下文 [D: ACL] : 优惠试算与锁定核销契约
+  2. 交易订单上下文 [U: PL] ->> 统一支付网关 [D: Conformist] : OrderPaymentRequestedEvent
+`;
+const cmModel = parseDomainStory(contextMapDsl);
+assert.strictEqual(cmModel.mode, 'context-map');
+assert.strictEqual(cmModel.contextMap?.contexts.length, 3);
+assert.strictEqual(cmModel.contextMap?.contexts[0].subdomain, 'core');
+assert.strictEqual(cmModel.contextMap?.contexts[1].subdomain, 'supporting');
+assert.strictEqual(cmModel.contextMap?.contexts[2].subdomain, 'generic');
+assert.strictEqual(cmModel.contextMap?.relationships.length, 2);
+assert.strictEqual(cmModel.contextMap?.relationships[0].upstreamPattern, 'U: OHS, PL');
+assert.strictEqual(cmModel.contextMap?.relationships[0].downstreamPattern, 'D: ACL');
+assert.strictEqual(cmModel.contextMap?.relationships[1].isAsync, true);
+
+const cmSvg = renderDomainStoryToSvg(cmModel, { currentStep: 0, isDark: true });
+assert.ok(cmSvg.includes('ov-ddd-context-map'), '应输出 Context Map 专属 SVG 类名');
+assert.ok(cmSvg.includes('CORE DOMAIN') && cmSvg.includes('SUPPORTING') && cmSvg.includes('GENERIC'), '应渲染三类子域战略徽章');
+assert.ok(cmSvg.includes('ACL') && cmSvg.includes('OHS, PL'), '应渲染上下游防腐层与开放主机徽章');
+
+const cmSteps = extractDomainStorySteps(cmModel);
+assert.strictEqual(cmSteps.length, 2);
+assert.strictEqual(cmSteps[1].arrowType, '-->>', '异步事件流应映射为虚线步进箭头');
+console.log('✅ DDD 限界上下文映射图 (Context Map) 解析、SVG 战略拓扑渲染与步进提取通过');
+
+// -------------------------------------------------------------
+// 测试 10: DDD 核心域四象限投资图 (Core Domain Chart) DSL 解析、SVG 象限渲染与步进
+// -------------------------------------------------------------
+console.log('\n--- 测试 10: DDD 核心域投资象限图 (Core Domain Chart) 视图引擎 ---');
+const coreDomainDsl = `
+mode: core-domain-chart
+title: 新零售战略子域分类与投资决策矩阵
+description: 业务模型复杂度 vs 业务差异化 4 象限分析
+
+domains:
+  - 智能动态推荐引擎 [core] (complexity: 88, diff: 94, invest: 战略自研/专利算法) -> 保持核心差异化壁垒
+  - 实时订单履约编排 [core] (complexity: 82, diff: 86, invest: 精细自研/高可用架构)
+  - 动态营销促活算价 [supporting] (complexity: 65, diff: 45, invest: 敏捷自建/规则引擎)
+  - 多渠道收单清结算 [generic] (complexity: 35, diff: 15, invest: 采购成熟SaaS/聚合支付)
+`;
+const cdcModel = parseDomainStory(coreDomainDsl);
+assert.strictEqual(cdcModel.mode, 'core-domain-chart');
+assert.strictEqual(cdcModel.coreDomainChart?.domains.length, 4);
+assert.strictEqual(cdcModel.coreDomainChart?.domains[0].subdomain, 'core');
+assert.strictEqual(cdcModel.coreDomainChart?.domains[0].complexity, 88);
+assert.strictEqual(cdcModel.coreDomainChart?.domains[0].differentiation, 94);
+assert.strictEqual(cdcModel.coreDomainChart?.domains[0].evolution, '保持核心差异化壁垒');
+
+const cdcSvg = renderDomainStoryToSvg(cdcModel, { currentStep: 0, isDark: true });
+assert.ok(cdcSvg.includes('ov-ddd-core-domain-chart'), '应输出 Core Domain Chart 专属 SVG 类名');
+assert.ok(cdcSvg.includes('CORE DOMAIN (核心域)') && cdcSvg.includes('GENERIC (通用域)'), '应渲染四象限文本');
+assert.ok(cdcSvg.includes('智能动态推荐引擎'), '应渲染子域节点泡泡');
+
+const cdcSteps = extractDomainStorySteps(cdcModel);
+assert.strictEqual(cdcSteps.length, 4);
+assert.ok(cdcSteps[0].description?.includes('战略自研'), '步进器应包含投资策略描述');
+console.log('✅ DDD 核心域投资象限图 (Core Domain Chart) 解析、四象限 SVG 渲染与步进提取通过');
+
+// -------------------------------------------------------------
+// 测试 11: DDD 限界上下文战略画布 (Context Canvas) Bento Grid 架构解析与 SVG 渲染
+// -------------------------------------------------------------
+console.log('\n--- 测试 11: DDD 限界上下文战略画布 (Context Canvas) 视图引擎 ---');
+const contextCanvasDsl = `
+mode: context-canvas
+context: 订单履约上下文 (Order Fulfillment Context)
+classification: core
+team: 交易核心研发组
+description: 全生命周期订单状态与履约编排
+
+inbound:
+  commands:
+    - SubmitOrderCommand (提交下单)
+    - PayOrderCommand (支付订单)
+  events:
+    - PaymentSuccessEvent (支付到账)
+  queries:
+    - GetOrderDetailQuery (查询订单详情)
+
+decisions:
+  - 严格幂等保障: 基于分布式租约锁防重复扣款
+  - 状态机强约束: 订单生命周期单向流转
+
+language:
+  - 订单聚合 (Order Aggregate) : 订单业务唯一凭据与聚合根
+  - 履约单 (Fulfillment Order) : 发货实物包
+
+outbound:
+  events:
+    - OrderPaidEvent (订单已支付事件)
+  dependencies:
+    - 统一支付网关 (Generic) : ACL 防腐层 RPC 预支付收单
+`;
+const ccModel = parseDomainStory(contextCanvasDsl);
+assert.strictEqual(ccModel.mode, 'context-canvas');
+assert.strictEqual(ccModel.contextCanvas?.contextName, '订单履约上下文 (Order Fulfillment Context)');
+assert.strictEqual(ccModel.contextCanvas?.classification, 'core');
+assert.strictEqual(ccModel.contextCanvas?.inbound.commands.length, 2);
+assert.strictEqual(ccModel.contextCanvas?.inbound.events.length, 1);
+assert.strictEqual(ccModel.contextCanvas?.inbound.queries.length, 1);
+assert.strictEqual(ccModel.contextCanvas?.decisions.length, 2);
+assert.strictEqual(ccModel.contextCanvas?.language.length, 2);
+assert.strictEqual(ccModel.contextCanvas?.outbound.events.length, 1);
+assert.strictEqual(ccModel.contextCanvas?.outbound.dependencies.length, 1);
+
+const ccSvg = renderDomainStoryToSvg(ccModel, { currentStep: 1, isDark: true });
+assert.ok(ccSvg.includes('ov-ddd-context-canvas'), '应输出 Context Canvas 专属 SVG 类名');
+assert.ok(ccSvg.includes('INBOUND COMMUNICATION'), '应包含输入通信列');
+assert.ok(ccSvg.includes('STRATEGIC HEART'), '应包含战略内核列');
+assert.ok(ccSvg.includes('OUTBOUND COMMUNICATION'), '应包含输出通信列');
+assert.ok(ccSvg.includes('SubmitOrderCommand'), '应渲染命令条目');
+
+const ccSteps = extractDomainStorySteps(ccModel);
+assert.strictEqual(ccSteps.length, 3, 'Context Canvas 应提取 3 栏架构步骤 (Inbound -> Heart -> Outbound)');
+console.log('✅ DDD 限界上下文战略画布 (Context Canvas) 解析、三栏 Bento Grid SVG 渲染与步进提取通过');
+
+console.log('\n🎉 全部 11 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
+

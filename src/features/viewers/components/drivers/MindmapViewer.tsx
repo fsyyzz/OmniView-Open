@@ -28,7 +28,7 @@ import {
 import { ThemeId, DensityMode } from '../../../../shared/types';
 import { Locale, t } from '../../../../shared/lib/i18n';
 import { loadStoredSettings, saveStoredSettings } from '../../../../shared/lib/settingsStorage';
-import { MarkmapViewer } from './MarkmapViewer';
+import { MarkmapViewer, normalizeMindmapContent } from './MarkmapViewer';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { safeConfirm } from '../../../../shared/lib/vscode';
 
@@ -124,49 +124,6 @@ const DEFAULT_MINDMAP_TEMPLATE = `# 业务系统架构全景导图
 - 开放矢量与离线 HTML 导出
 `;
 
-/**
- * 自动识别并转换 FreeMind XML 格式为标准 Markdown 层次树
- */
-function normalizeMindmapContent(input: string): string {
-  if (!input || !input.trim()) {
-    return DEFAULT_MINDMAP_TEMPLATE;
-  }
-  const trimmed = input.trim();
-  // 检测是否为 FreeMind / Freeplane 传统 XML 格式
-  if (trimmed.startsWith('<map') || trimmed.startsWith('<?xml')) {
-    try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(trimmed, 'text/xml');
-      const rootNode = doc.querySelector('map > node') || doc.querySelector('node');
-      if (rootNode) {
-        const lines: string[] = [];
-        const traverse = (el: Element, depth: number) => {
-          const text = el.getAttribute('TEXT') || el.getAttribute('text') || '节点';
-          if (depth === 1) {
-            lines.push(`# ${text}`);
-          } else if (depth === 2) {
-            lines.push(`## ${text}`);
-          } else {
-            const indent = '  '.repeat(depth - 3);
-            lines.push(`${indent}- ${text}`);
-          }
-          const children = Array.from(el.children).filter(c => c.tagName.toLowerCase() === 'node');
-          for (const child of children) {
-            traverse(child, depth + 1);
-          }
-        };
-        traverse(rootNode, 1);
-        if (lines.length > 0) {
-          return lines.join('\n');
-        }
-      }
-    } catch {
-      // 容错回退
-    }
-  }
-  return input;
-}
-
 export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   content,
   fileName = 'mindmap.markmap',
@@ -180,7 +137,7 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
   onOpenSettings,
   onOpenShortcuts,
 }) => {
-  const [localCode, setLocalCode] = useState<string>(() => normalizeMindmapContent(content));
+  const [localCode, setLocalCode] = useState<string>(() => normalizeMindmapContent(content, DEFAULT_MINDMAP_TEMPLATE));
   const [viewMode, setViewMode] = useState<MindmapViewMode>(() => {
     const s = loadStoredSettings();
     return s.mindmapViewMode || 'mindmap';
@@ -200,7 +157,7 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({
 
   // 当外部传入内容变更（且非内部编辑触发时）同步更新
   useEffect(() => {
-    const normalized = normalizeMindmapContent(content);
+    const normalized = normalizeMindmapContent(content, DEFAULT_MINDMAP_TEMPLATE);
     if (normalized !== localCode && isSynced) {
       setLocalCode(normalized);
     }

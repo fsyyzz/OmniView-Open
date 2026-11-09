@@ -1,0 +1,11 @@
+mode: core-domain-chart
+title: 新零售战略子域分类与投资矩阵 (Core Domain Investment Matrix)
+description: 业务模型复杂度 (Model Complexity) 与业务差异化优势 (Business Differentiation) 战略四象限
+
+domains:
+  - 智能动态推荐引擎 [core] (complexity: 88, diff: 94, invest: 战略自研/专利算法) -> 保持核心差异化壁垒
+  - 实时订单履约编排 [core] (complexity: 82, diff: 86, invest: 精细自研/高可用架构)
+  - 动态营销促活算价 [supporting] (complexity: 65, diff: 45, invest: 敏捷自建/规则引擎)
+  - 智能分仓路径调度 [supporting] (complexity: 72, diff: 38, invest: 半自研+运筹SDK)
+  - 多渠道收单清结算 [generic] (complexity: 35, diff: 15, invest: 采购成熟SaaS/聚合支付)
+  - 员工考勤与薪资结算 [generic] (complexity: 25, diff: 8, invest: 标准商业ERP软件)

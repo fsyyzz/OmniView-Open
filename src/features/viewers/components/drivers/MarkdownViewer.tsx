@@ -1527,7 +1527,10 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onZoomChange={delta => adjustZoom(block.id, delta)}
                   onResetZoom={() => resetZoom(block.id)}
                   onOpenLightbox={content =>
-                    setLightboxItem({ title: 'Markmap Mindmap', content: content || block.raw })
+                    setLightboxItem({
+                      title: block.externalFile ? `Markmap (${block.externalFile})` : 'Markmap Mindmap',
+                      content: content || block.raw,
+                    })
                   }
                   onCopy={() => handleCopy(block.id, currentCode)}
                   onOpenSourceAtLine={onOpenSourceAtLine}

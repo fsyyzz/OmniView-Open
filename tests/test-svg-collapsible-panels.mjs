@@ -219,23 +219,22 @@ await it('SvgV2Studio: 右侧垂直工具条支持图层与属性单选展开，
   });
   assert.strictEqual(container.querySelector('aside[data-inspector-panel]'), null, '再次点击已激活项应当收起抽屉');
 
-  // 4) 通过顶栏 "图层" 按钮呼出，验证顶栏与右侧工具条完全联动
+  // 4) 验证顶栏不再包含重复的图层与属性按钮（响应用户去重诉求）
   const headerLayersBtn = container.querySelector('header button[aria-label="图层面板"]');
-  assert.ok(headerLayersBtn, '顶栏应有图层按钮');
+  assert.strictEqual(headerLayersBtn, null, '顶栏重复的图层按钮已去除，避免与右侧工具栏重复');
+
+  // 5) 再次通过右侧工具条呼出图层面板并再次点击收起
   await act(async () => {
-    headerLayersBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    railLayersBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   });
   const drawer3 = container.querySelector('aside[data-inspector-panel]');
-  assert.ok(drawer3, '顶栏点击应当同步打开抽屉');
-  assert.ok(railLayersBtn.classList.contains('bg-[var(--ov-accent)]'), '右侧工具条图层按钮应当同步呈现激活高亮状态');
+  assert.ok(drawer3, '点击右侧工具条图层按钮应当打开图层抽屉');
+  assert.ok(railLayersBtn.classList.contains('bg-[var(--ov-accent)]'), '右侧工具条图层按钮应当高亮激活');
 
-  // 5) 点击抽屉顶栏的收起按钮关闭抽屉
-  const closeBtn = drawer3.querySelector('button[aria-label="收起右侧面板"]');
-  assert.ok(closeBtn, '抽屉顶栏应提供收起按钮');
   await act(async () => {
-    closeBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    railLayersBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   });
-  assert.strictEqual(container.querySelector('aside[data-inspector-panel]'), null, '点击抽屉收起按钮应当关闭抽屉');
+  assert.strictEqual(container.querySelector('aside[data-inspector-panel]'), null, '再次点击右侧工具条图层按钮应当收起抽屉');
 
   await act(async () => {
     root.unmount();

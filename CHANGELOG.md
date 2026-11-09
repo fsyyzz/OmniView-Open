@@ -8,7 +8,93 @@
 
 ---
 
-## [1.4.20] - 2026-11-08 (当前最新发布)
+## [1.4.26] - 2026-11-09 (当前最新发布)
+
+> [!TIP] v1.4.26 核心升级亮点
+> **领域故事讲授法 (Domain Storytelling) 拓扑布局呼吸间距全面升级**：
+> 1. **优化自动拓扑间距 (`computeAutoLayout`)**：
+>    - 2-3 角色线性流间距自 370px 扩展至 500px，中位节点纵向交错落差由 68px 提升至 100px，消除工作对象与动词标牌重叠；
+>    - 4 角色 2x2 矩阵网格水平间距由 440px 扩展至 560px，纵向间距由 250px 扩展至 370px，杜绝交叉连线拥挤；
+>    - 5+ 角色环绕椭圆大半径扩展（长轴由 360px 提升至 480px+，短轴由 225px 提升至 340px+），中心与相邻节点净距保持在 350px-500px 以上。
+> 2. **自环与多重边扇形曲线解离**：
+>    - 自环曲线控制高度提升至 138px，工件铭牌上方安全空间充裕；
+>    - 多重边弧度曲率提升至 52px，实现更清晰的扇面分离；
+>    - 画布安全边界内衬由 95px 扩展至 110px，自环与标题无任何裁切风险。
+> 3. **质量门禁与测试体系**：
+>    - 单元测试套件补充相邻节点呼吸间距断言，11 组 DDD & Domain Story 单元测试全量通过。
+
+---
+
+## [1.4.25] - 2026-11-09
+
+> [!TIP] v1.4.25 核心升级亮点
+> **构建完备的 DDD 战略设计五大视图建模套件 (`Core Domain Chart` & `Bounded Context Canvas`)**：
+> 1. **新增 DDD 核心域四象限战略投资矩阵 (`core-domain-chart` / ````core-domain`)**：
+>    - 依托 **业务模型复杂度 (Complexity)** 与 **业务差异化优势 (Differentiation)** 4 象限战略投资分析体系（核心域自研攻坚、差异专属域敏捷孵化、支撑域外包/规则引擎、通用域 SaaS 采购）；
+>    - 支持以 `-> 保持核心差异化壁垒` 或 `evolution: 85, 90` 语法绘制动态技术演进轨迹虚线箭头；
+> 2. **新增 DDD 限界上下文战略画布 (`context-canvas` / ````context-canvas`)**：
+>    - 采用现代 Bento Grid 三栏卡片架构，精细呈现 **输入通信 (Inbound: Commands / Events / Queries)**、**战略内核 (Strategic Heart: 统一语言 Ubiquitous Language & 业务决策/不变式规则)** 与 **输出通信 (Outbound: Domain Events & 下游依赖)**；
+> 3. **全流程工具链与多视态生态联动**：
+>    - `DomainStoryBlock` 与 `DomainStoryViewer` 零缝隙支持全部 5 类 DDD 视图；
+>    - 扩展 `DiagramStepPlayer` 支持核心域战略子域与战略画布三栏架构步骤逐帧演播；
+>    - 提供 `retail-core-domain.ddd` 与 `order-context-canvas.ddd` 工作区样本及 Markdown 深度演练文档；
+>    - 单元测试套件全量扩充至 11 组并 100% 通过。
+
+---
+
+## [1.4.24] - 2026-11-09
+
+> [!TIP] v1.4.24 核心升级亮点
+> **全面优化 DDD 三视图（限界上下文映射、事件风暴、领域故事）矢量排版间距与呼吸感 (`dddModelingEngine.ts` / `domainStoryEngine.ts` / `DomainStoryBlock.tsx`)**：
+> 1. **限界上下文映射 (`Context Map`) 双列交错布局与双层复合契约铭牌**：
+>    - 将上下文卡片水平中心间距从 `340px` 拓宽至 `580px`（纵向间距拓宽至 `295px`，卡片拓宽至 `296×162px`），右列轻微纵向错位 `28px` 使连线自然舒展；
+>    - 将原先散落在连线两端的 `[U: OHS, PL]` 与 `🛡️ [D: ACL]` 角色胶囊聚合进连线中点的**双层战略契约铭牌**（上层展示上下游角色与防腐层标识，下层展示契约编号与说明），彻底杜绝与限界上下文边框重叠。
+> 2. **事件风暴 (`Event Storming`) 主副双轨分离排版**：
+>    - 将便利贴尺寸升级为 `168×98px`（支持双行自动折行），水平间距拉大至 `74px`，泳道行距拉宽至 `26px`；
+>    - 将 `ReadModel`（绿色读视图）与 `Hotspot`（品红色痛点便签）独立下挂在泳道下方的专属子轨道并以虚线引线连接，避免横向挤压主因果链。
+> 3. **领域故事 (`Domain Story`) 贝塞尔真实中点与多边扇形分离**：
+>    - 修正活动铭牌坐标至二次贝塞尔曲线 $t=0.5$ 真实中点，新增同对节点多条活动连线的扇形曲率递增分离，并为 `<svg>` 注入显式像素宽高与 `w-full` 画布容器，消除 Flexbox 下缩略挤压。
+
+---
+
+## [1.4.23] - 2026-11-09
+
+> [!TIP] v1.4.23 核心升级亮点
+> **补齐工作区与示例库中的 DDD 事件风暴与限界上下文映射全量演示样本 (`examples/domainstory/` / `examples/markdown/` / `examplesLoader.ts`)**：
+> 1. **新增独立 `.ddd` 工作区工程样本**：
+>    - `examples/domainstory/order-event-storming.ddd`：电商大促下单与履约事件风暴便利贴时间轴完整示例；
+>    - `examples/domainstory/retail-context-map.ddd`：智慧零售 6 大限界上下文（核心域/支撑域/通用域）与 5 条上下游 `ACL` / `OHS, PL` 映射契约示例，已注册至 `examplesLoader.ts` 随工作区默认加载。
+> 2. **升级 Markdown 综合示例文档**：
+>    - `examples/markdown/domain-storytelling.md`：同步收录「领域故事 (`domainstory`)」「事件风暴 (`event-storming`)」与「限界上下文映射 (`context-map`)」三大内联渲染板块；
+>    - `examples/markdown/external-diagram-attachments.md`：新增 `![[../domainstory/order-event-storming.ddd]]` 与 `![[../domainstory/retail-context-map.ddd]]` 外挂 `.ddd` 工程文件直接内联渲染演示。
+
+---
+
+## [1.4.22] - 2026-11-09
+
+> [!TIP] v1.4.22 核心升级亮点
+> **在领域故事图底座上构建 DDD 探索与战略协同描述语言及矢量图形化渲染引擎 (`dddModelingEngine.ts` / `domainStoryEngine.ts` / `DomainStoryViewer.tsx` / `DomainStoryBlock.tsx`)**：
+> 1. **DDD 事件风暴时间轴便利贴视图 (`mode: event-storming` / ````event-storming`)**：
+>    - 支持直观的因果流语法 `1. 买家 [actor] -> 提交结算单 [cmd] -> @订单聚合 [agg] -> 订单已创建 [evt]` 及 `read:` / `hotspot:` 附属行，同时支持 `@聚合`、`!事件`、`?策略`、`$外部系统` 前缀简写与智能语义推断；
+>    - 遵循 Alberto Brandolini 标准色板渲染折角便利贴矩阵（蓝色 `Command`、黄色 `Aggregate`、橙色 `Domain Event`、紫色 `Policy`、粉色 `External System`、绿色 `Read Model` 与品红色微倾 `Hotspot` 痛点便签），并无缝对接 `DiagramStepPlayer` 逐帧高亮回放事件因果链。
+> 2. **DDD 战略设计：限界上下文映射图 (`mode: context-map` / ````context-map`)**：
+>    - 支持声明核心域 (`[core]`)、支撑域 (`[supporting]`)、通用域 (`[generic]`) 及其负责团队 (`team:`)、职责说明 (`desc:`) 与内部核心聚合标签 (`aggregates:`)；
+>    - 支持上下游协作契约语法 `A [U: OHS, PL] -> B [D: ACL] : 契约说明`（实线同步调用 `->`、虚线异步领域事件 `->>`、双向合作 `<->`），自动绘制上下游 `[U]` / `🛡️ [D: ACL]` 防腐层胶囊徽章与战略图例栏。
+> 3. **全链路集成与一键模板库**：新增 `.ddd` 扩展名与 ````ddd` / ````event-storming` / ````context-map` Markdown 代码块支持，并在 DDD 工作室内置「领域故事 DSL」「事件风暴」「上下文映射」一键插入模板。
+
+---
+
+## [1.4.21] - 2026-11-08
+
+> [!TIP] v1.4.21 核心升级亮点
+> **修复 Markdown 渲染中 Markmap 思维导图（代码块及外挂 `.markmap` / `.mm` / `.mindmap` / `.km` 文件）双击无法打开独立全屏灯箱问题 (`MarkmapViewer.tsx` / `MarkmapBlock.tsx` / `LightboxModal.tsx` / `markdownWikiLinks.ts`)**：
+> 1. **解除 `d3-zoom` 对双击事件的内部劫持 (`MarkmapViewer.tsx`)**：在 Markdown 嵌入模式（`embedded`）或传入 `onDoubleClick` 时，主动注销 `markmap-view` 底层 `d3-zoom` 默认绑定的 `svg.on('dblclick.zoom', null)`（该监听器原先会在原地缩放 280px 小卡片并调用 `stopImmediatePropagation()` 吞掉双击事件），同時保留点击节点小圆点（`<circle>`）展开/折叠子树能力；
+> 2. **独立灯箱全图视口归一化序列化 (`MarkmapBlock.tsx` · `serializeMarkmapSvgForLightbox`)**：双击或点击工具栏放大按钮进入 `LightboxModal` 时，自动遍历全部 `g.markmap-node` 坐标与 `foreignObject` 尺寸计算完整思维导图包围盒，剥离 280px 内联卡片的局域 `transform` 并注入标准 `viewBox`、`width` 与 `height`，确保独立灯箱 100% 居中完整展示整张导图并支持平滑缩放/拖拽/导出；
+> 3. **外挂思维导图文件全格式嵌入与精确文件名解析 (`markdownWikiLinks.ts` / `useMarkdownAstPipeline.ts`)**：`resolveWikiTarget` 优先精确匹配完整文件名（防止 `xxx.markmap` 被同名 `xxx.md` 遮蔽），并补齐 `.mm` (FreeMind XML) 与 `.km` (KityMinder JSON) 在 Markdown 内嵌渲染中的自动归一化转换。
+
+---
+
+## [1.4.20] - 2026-11-08
 
 > [!TIP] v1.4.20 核心升级亮点
 > **修复 SVG Studio 右侧图层与属性抽屉面板高度未铺满问题 (`SvgV2LayersPanel.tsx` / `SvgV2Inspector.tsx` / `SvgV2Studio.tsx`)**：

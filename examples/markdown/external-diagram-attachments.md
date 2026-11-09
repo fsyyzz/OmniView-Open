@@ -4,12 +4,18 @@
 
 ---
 
-## 1. 领域故事模型 (`.dst` / `.domainstory` / `.egn`) 直接内联渲染
+## 1. DDD 领域驱动设计与领域故事模型 (`.ddd` / `.dst` / `.domainstory` / `.egn`) 直接内联渲染
 
-读取外挂 `.dst` 业务模型文件，自动解析并在正文直接生成可交互流程图卡片：
+读取外挂 `.dst` 领域故事与 `.ddd`（事件风暴、限界上下文映射）模型文件，自动解析并在正文直接生成可交互 DDD 矢量图卡片：
 
-### A. WikiLink 嵌入语法 (`![[...]]`)
+### A. 领域故事外挂嵌入 (`![[...dst]]`)
 ![[../domainstory/ecommerce-fulfillment.dst]]
+
+### B. DDD 事件风暴外挂嵌入 (`![[...ddd]]`)
+![[../domainstory/order-event-storming.ddd]]
+
+### C. DDD 限界上下文映射图外挂嵌入 (`![[...ddd]]`)
+![[../domainstory/retail-context-map.ddd]]
 
 ---
 

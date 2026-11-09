@@ -43,6 +43,94 @@ interface MarkmapBlockProps {
   locale?: Locale;
 }
 
+/**
+ * 将 Markmap 动态 SVG 克隆并标准化为带独立 viewBox 与真实宽高属性的完整矢量图，
+ * 消除内联 280px 容器的 d3-zoom 局部缩放偏移，确保在独立全屏灯箱 (LightboxModal) 中 100% 居中高清呈现
+ */
+export function serializeMarkmapSvgForLightbox(svgEl: SVGSVGElement, isDarkTheme = true): string {
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  const liveG = svgEl.querySelector('g') as SVGGElement | null;
+  const cloneG = clone.querySelector('g') as SVGGElement | null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  // 1. 优先从 g.getBBox() 读取 SVG 几何边界（忽略 g 自身的 d3-zoom transform）
+  if (liveG && typeof liveG.getBBox === 'function') {
+    try {
+      const bbox = liveG.getBBox();
+      if (bbox && bbox.width > 0 && bbox.height > 0) {
+        minX = Math.min(minX, bbox.x);
+        minY = Math.min(minY, bbox.y);
+        maxX = Math.max(maxX, bbox.x + bbox.width);
+        maxY = Math.max(maxY, bbox.y + bbox.height);
+      }
+    } catch {
+      // Headless / 離屏環境容錯
+    }
+  }
+
+  // 2. 遍历所有 g.markmap-node 节点，合并 foreignObject 文本与线条真实坐标范围
+  const nodeEls = svgEl.querySelectorAll<SVGGElement>('g.markmap-node');
+  nodeEls.forEach(node => {
+    const transformAttr = node.getAttribute('transform') || '';
+    const m = transformAttr.match(/translate\(\s*([-\d.]+)[,\s]+([-\d.]+)\s*\)/i);
+    const nx = m ? parseFloat(m[1]) : 0;
+    const ny = m ? parseFloat(m[2]) : 0;
+    if (Number.isNaN(nx) || Number.isNaN(ny)) return;
+
+    const fo = node.querySelector('foreignObject');
+    if (fo) {
+      const fx = parseFloat(fo.getAttribute('x') || '0') || 0;
+      const fy = parseFloat(fo.getAttribute('y') || '0') || 0;
+      const fw = parseFloat(fo.getAttribute('width') || '160') || 160;
+      const fh = parseFloat(fo.getAttribute('height') || '24') || 24;
+      minX = Math.min(minX, nx + fx);
+      minY = Math.min(minY, ny + fy - 4);
+      maxX = Math.max(maxX, nx + fx + fw + 16);
+      maxY = Math.max(maxY, ny + fy + fh + 4);
+    } else {
+      minX = Math.min(minX, nx);
+      minY = Math.min(minY, ny - 16);
+      maxX = Math.max(maxX, nx + 160);
+      maxY = Math.max(maxY, ny + 16);
+    }
+  });
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    const rect = svgEl.getBoundingClientRect();
+    minX = 0;
+    minY = 0;
+    maxX = Math.max(640, Math.round(rect.width || 640));
+    maxY = Math.max(360, Math.round(rect.height || 360));
+  }
+
+  const pad = 32;
+  const vx = Math.floor(minX - pad);
+  const vy = Math.floor(minY - pad);
+  const vw = Math.max(360, Math.ceil(maxX - minX + pad * 2));
+  const vh = Math.max(220, Math.ceil(maxY - minY + pad * 2));
+
+  if (cloneG) {
+    cloneG.removeAttribute('transform');
+  }
+
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`);
+  clone.setAttribute('width', String(vw));
+  clone.setAttribute('height', String(vh));
+  clone.setAttribute('class', `markmap ${isDarkTheme ? 'markmap-dark' : 'markmap-light'}`);
+  clone.style.width = `${vw}px`;
+  clone.style.height = `${vh}px`;
+  clone.style.maxWidth = 'none';
+  clone.style.overflow = 'visible';
+
+  const serializer = new XMLSerializer();
+  return serializer.serializeToString(clone);
+}
+
 export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
   id,
   code,
@@ -66,21 +154,30 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
 }) => {
   const [isToolbarExpanded, setIsToolbarExpanded] = React.useState<boolean>(false);
   const canvasRef = React.useRef<HTMLDivElement>(null);
+  const lastLightboxTriggerRef = React.useRef<number>(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
   const handleOpenLightbox = React.useCallback((e?: React.MouseEvent) => {
     if (e) {
+      const target = e.target as HTMLElement | null;
+      // 双击节点折叠圆圈或按钮时不误触发独立灯箱
+      if (target?.closest('circle, button')) return;
       e.stopPropagation();
     }
+    const now = Date.now();
+    if (e && now - lastLightboxTriggerRef.current < 80) {
+      return;
+    }
+    lastLightboxTriggerRef.current = now;
+
     const svgEl = canvasRef.current?.querySelector('svg');
     if (svgEl) {
-      const serializer = new XMLSerializer();
-      const svgString = serializer.serializeToString(svgEl);
+      const svgString = serializeMarkmapSvgForLightbox(svgEl, isDarkTheme);
       onOpenLightbox(svgString);
     } else {
       onOpenLightbox(activeCode);
     }
-  }, [activeCode, onOpenLightbox]);
+  }, [activeCode, isDarkTheme, onOpenLightbox]);
 
   return (
     <div
@@ -220,6 +317,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
         className={`diagram-canvas relative h-[280px] p-1.5 overflow-hidden flex items-center justify-center ${viewMode === 'visual' ? 'cursor-zoom-in' : ''}`}
         style={{ backgroundColor: 'var(--ov-diagram-canvas-bg, transparent)' }}
         onDoubleClick={viewMode === 'visual' ? handleOpenLightbox : undefined}
+        onDoubleClickCapture={viewMode === 'visual' ? handleOpenLightbox : undefined}
         title={viewMode === 'visual' ? t('fullScreen', locale) : undefined}
       >
         {viewMode === 'visual' ? (
@@ -233,6 +331,7 @@ export const MarkmapBlock: React.FC<MarkmapBlockProps> = React.memo(({
               theme={theme}
               locale={locale}
               onOpenSourceAtLine={onOpenSourceAtLine}
+              onDoubleClick={handleOpenLightbox}
               embedded={true}
             />
           </div>

@@ -37,8 +37,87 @@ interface MarkmapViewerProps {
   locale?: Locale;
   onOpenSourceAtLine?: (line: number) => void;
   onSwitchToDocumentView?: () => void;
+  onDoubleClick?: (e: React.MouseEvent<SVGSVGElement | HTMLDivElement>) => void;
   /** 嵌入在 Markdown Block 预览时隐藏自身多余工具栏 */
   embedded?: boolean;
+}
+
+/**
+ * 自动识别并转换 FreeMind XML (.mm) 与 KityMinder JSON (.km) 格式为标准 Markdown 层次树
+ */
+export function normalizeMindmapContent(input: string, fallbackTemplate = ''): string {
+  if (!input || !input.trim()) {
+    return fallbackTemplate;
+  }
+  const trimmed = input.trim();
+
+  // 1. 检测是否为 KityMinder (.km) JSON 格式: {"root": {"data": {"text": "..."}, "children": [...]}}
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object' && parsed.root) {
+        const lines: string[] = [];
+        const traverseKm = (node: any, depth: number) => {
+          const text = String(node?.data?.text || node?.text || '节点').trim();
+          if (depth === 1) {
+            lines.push(`# ${text}`);
+          } else if (depth === 2) {
+            lines.push(`## ${text}`);
+          } else {
+            const indent = '  '.repeat(depth - 3);
+            lines.push(`${indent}- ${text}`);
+          }
+          const children = Array.isArray(node?.children) ? node.children : [];
+          for (const child of children) {
+            traverseKm(child, depth + 1);
+          }
+        };
+        traverseKm(parsed.root, 1);
+        if (lines.length > 0) {
+          return lines.join('\n');
+        }
+      }
+    } catch {
+      // 容错回退
+    }
+  }
+
+  // 2. 检测是否为 FreeMind / Freeplane (.mm) 传统 XML 格式
+  if (trimmed.startsWith('<map') || trimmed.startsWith('<?xml')) {
+    try {
+      if (typeof DOMParser !== 'undefined') {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(trimmed, 'text/xml');
+        const rootNode = doc.querySelector('map > node') || doc.querySelector('node');
+        if (rootNode) {
+          const lines: string[] = [];
+          const traverseXml = (el: Element, depth: number) => {
+            const text = el.getAttribute('TEXT') || el.getAttribute('text') || '节点';
+            if (depth === 1) {
+              lines.push(`# ${text}`);
+            } else if (depth === 2) {
+              lines.push(`## ${text}`);
+            } else {
+              const indent = '  '.repeat(depth - 3);
+              lines.push(`${indent}- ${text}`);
+            }
+            const children = Array.from(el.children).filter(c => c.tagName.toLowerCase() === 'node');
+            for (const child of children) {
+              traverseXml(child, depth + 1);
+            }
+          };
+          traverseXml(rootNode, 1);
+          if (lines.length > 0) {
+            return lines.join('\n');
+          }
+        }
+      }
+    } catch {
+      // 容错回退
+    }
+  }
+
+  return input;
 }
 
 const DARK_PALETTE = [
@@ -152,6 +231,7 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
   locale = 'zh-CN',
   onOpenSourceAtLine,
   onSwitchToDocumentView,
+  onDoubleClick,
   embedded = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -167,13 +247,14 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
 
   const transformer = useMemo(() => new Transformer(), []);
 
-  // Compute AST root & metrics
+  // Compute AST root & metrics (supports Markdown, FreeMind .mm XML, KityMinder .km JSON)
   const { rootNode, metrics } = useMemo(() => {
-    if (!content || !content.trim()) {
+    const normalized = normalizeMindmapContent(content);
+    if (!normalized || !normalized.trim()) {
       return { rootNode: null, metrics: { totalNodes: 0, maxDepth: 0 } };
     }
     try {
-      const { root } = transformer.transform(content);
+      const { root } = transformer.transform(normalized);
       const m = calculateTreeMetrics(root);
       return { rootNode: root, metrics: m };
     } catch (err) {
@@ -249,10 +330,19 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
       });
     }
 
+    // 嵌入在 Markdown 正文时禁用 d3-zoom 默认的 dblclick.zoom，确保双击打开独立灯箱而非局部缩放并吞噬事件
+    if (embedded || onDoubleClick) {
+      try {
+        markmapRef.current?.svg?.on('dblclick.zoom', null);
+      } catch {
+        // ignore
+      }
+    }
+
     return () => {
       // Keep instance intact across renders, destroy on final unmount
     };
-  }, [rootNode, colorFunction]);
+  }, [rootNode, colorFunction, embedded, onDoubleClick]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -634,7 +724,17 @@ export const MarkmapViewer: React.FC<MarkmapViewerProps> = ({
         {rootNode ? (
           <svg
             ref={svgRef}
-            className="w-full h-full block cursor-grab active:cursor-grabbing markmap"
+            className={`w-full h-full block ${embedded ? 'cursor-zoom-in active:cursor-grabbing' : 'cursor-grab active:cursor-grabbing'} markmap`}
+            onDoubleClick={
+              onDoubleClick
+                ? e => {
+                    const target = e.target as HTMLElement | null;
+                    if (target?.closest('circle')) return;
+                    e.stopPropagation();
+                    onDoubleClick(e);
+                  }
+                : undefined
+            }
             style={{
               backgroundColor: 'transparent',
               // Inject custom CSS variables matching theme

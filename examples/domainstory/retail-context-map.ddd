@@ -1,0 +1,18 @@
+mode: context-map
+title: 智慧零售核心领域上下文映射图 (DDD Context Map)
+description: 核心域、支撑域与通用域的上下游防腐层 (ACL) 与开放主机/发布语言 (OHS/PL) 战略协同拓扑
+
+contexts:
+  - 交易订单上下文 [core] (team: 交易研发组, desc: 购物车结算、订单生命周期与状态机, aggregates: 订单聚合, 履约单聚合)
+  - 商品与价格上下文 [core] (team: 商品中心组, desc: SPU/SKU 多维规格体系与动态价格树, aggregates: 商品聚合, 价格表聚合)
+  - 营销促销上下文 [supporting] (team: 增长营销组, desc: 优惠券、满减算价与秒杀活动引擎, aggregates: 优惠券聚合, 促销规则)
+  - 仓储物流上下文 [supporting] (team: 供应链研发组, desc: 智能分仓路由、WMS 波次拣货与运单跟踪, aggregates: 出库单聚合, 库存台账)
+  - 会员与积分上下文 [supporting] (team: 用户增长组, desc: 会员等级权益、积分账本与成长值体系, aggregates: 会员账户聚合)
+  - 统一支付网关 [generic] (team: 金融基础设施组, desc: 微信/支付宝/银联多渠道收单与清结算对账, aggregates: 支付流水聚合)
+
+relationships:
+  1. 商品与价格上下文 [U: OHS, PL] -> 交易订单上下文 [D: ACL] : 商品快照与实时目录价格查询契约
+  2. 营销促销上下文 [U: OHS, PL] -> 交易订单上下文 [D: ACL] : 优惠试算与锁券核销防腐契约
+  3. 交易订单上下文 [U] <-> 统一支付网关 [D: ACL] : 预支付指令与渠道回调防腐适配
+  4. 交易订单上下文 [U: PL] ->> 仓储物流上下文 [D: Conformist] : OrderPaidEvent (订单已支付异步领域事件)
+  5. 仓储物流上下文 [U: PL] ->> 会员与积分上下文 [D: ACL] : OrderShippedEvent (出库完成触发积分结算事件)

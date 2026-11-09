@@ -30,10 +30,14 @@ import csvPerformanceBenchmarks from '../../../../examples/csv/performance-bench
 import dockerCompose from '../../../../examples/docker/docker-compose.yml?raw';
 import dockerDockerfile from '../../../../examples/docker/Dockerfile?raw';
 
-// Domain Story
+// Domain Story & DDD Modeling
 import domainStoryEcommerce from '../../../../examples/domainstory/ecommerce-fulfillment.dst?raw';
 import domainStoryEcommerceEgn from '../../../../examples/domainstory/ecommerce-fulfillment.egn?raw';
 import domainStoryLeave from '../../../../examples/domainstory/leave-approval.domainstory?raw';
+import dddOrderEventStorming from '../../../../examples/domainstory/order-event-storming.ddd?raw';
+import dddRetailContextMap from '../../../../examples/domainstory/retail-context-map.ddd?raw';
+import dddRetailCoreDomain from '../../../../examples/domainstory/retail-core-domain.ddd?raw';
+import dddOrderContextCanvas from '../../../../examples/domainstory/order-context-canvas.ddd?raw';
 
 // Excalidraw
 import excalidrawArchitecture from '../../../../examples/excalidraw/architecture-sketch.excalidraw?raw';
@@ -195,10 +199,14 @@ export const INITIAL_FILES: FileItem[] = [
   makeFile('docker/docker-compose.yml', 'docker-compose.yml', dockerCompose),
   makeFile('docker/Dockerfile', 'Dockerfile', dockerDockerfile),
 
-  // Domain Story
+  // Domain Story & DDD Modeling
   makeFile('domainstory/ecommerce-fulfillment.dst', 'ecommerce-fulfillment.dst', domainStoryEcommerce),
   makeFile('domainstory/ecommerce-fulfillment.egn', 'ecommerce-fulfillment.egn', domainStoryEcommerceEgn),
   makeFile('domainstory/leave-approval.domainstory', 'leave-approval.domainstory', domainStoryLeave),
+  makeFile('domainstory/order-event-storming.ddd', 'order-event-storming.ddd', dddOrderEventStorming),
+  makeFile('domainstory/retail-context-map.ddd', 'retail-context-map.ddd', dddRetailContextMap),
+  makeFile('domainstory/retail-core-domain.ddd', 'retail-core-domain.ddd', dddRetailCoreDomain),
+  makeFile('domainstory/order-context-canvas.ddd', 'order-context-canvas.ddd', dddOrderContextCanvas),
 
   // Excalidraw
   makeFile('excalidraw/architecture-sketch.excalidraw', 'architecture-sketch.excalidraw', excalidrawArchitecture),
