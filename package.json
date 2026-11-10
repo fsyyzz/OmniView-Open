@@ -1,6 +1,6 @@
 {
   "name": "omniview",
-  "version": "1.4.38",
+  "version": "1.4.39",
   "displayName": "OmniView",
   "description": "OmniView 多格式文件渲染与预览插件（支持 Markdown、Office DOCX/PPTX/XLSX、PDF、EPUB、Typst、Mermaid、PlantUML、Graphviz、SVG Studio、Excalidraw 等 23+ 格式离线渲染）",
   "publisher": "zhouzan",

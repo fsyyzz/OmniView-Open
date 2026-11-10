@@ -67,6 +67,7 @@ interface PlantUmlViewerProps {
   onContentChange?: (newContent: string) => void;
   fileName?: string;
   locale?: Locale;
+  isDarkTheme?: boolean;
   onOpenInEditor?: () => void;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
@@ -77,6 +78,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   onContentChange,
   fileName = 'diagram.puml',
   locale = 'zh-CN',
+  isDarkTheme = true,
   onOpenInEditor,
   onOpenSettings,
   onOpenShortcuts,
@@ -184,10 +186,10 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     maxRatio: 88,
   });
 
-  // Derived URLs
+  // Derived URLs (支持主题动态透传，防止用例图/思维导图白底白字)
   const canRender = hasRenderablePlantUmlCode(activeRenderCode);
-  const svgUrl = canRender ? getPlantUmlSvgUrl(activeRenderCode, serverUrl) : '';
-  const pngUrl = canRender ? getPlantUmlPngUrl(activeRenderCode, serverUrl) : '';
+  const svgUrl = canRender ? getPlantUmlSvgUrl(activeRenderCode, serverUrl, isDarkTheme) : '';
+  const pngUrl = canRender ? getPlantUmlPngUrl(activeRenderCode, serverUrl, isDarkTheme) : '';
   const displaySvgUrl = withPlantUmlCacheBust(svgUrl, renderNonce);
   const activeThemeId = detectPlantUmlTheme(localCode);
 

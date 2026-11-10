@@ -77,10 +77,10 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   const activeCode = editedCode !== undefined ? editedCode : code;
   const canRender = hasRenderablePlantUmlCode(activeCode);
 
-  // 1. 确定性复合缓存键
+  // 1. 确定性复合缓存键 (版本升级至 v2 以使旧版白底白字缓存平滑失效)
   const cacheKey = React.useMemo(() => {
     if (!canRender) return '';
-    return makeDeterministicCacheKey('plantuml', activeCode, isDarkTheme, 'svg');
+    return makeDeterministicCacheKey('plantuml:v2', activeCode, isDarkTheme, 'svg');
   }, [canRender, activeCode, isDarkTheme]);
 
   // 2. 离线缓存数据状态 (内存同步快照优先)

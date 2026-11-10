@@ -8,7 +8,23 @@
 
 ---
 
-## [1.4.38] - 2026-11-10 (当前最新发布)
+## [1.4.39] - 2026-11-10 (当前最新发布)
+
+> [!TIP] v1.4.39 核心升级亮点
+> **彻底修复 PlantUML 用例图 (Use Case) 与思维脑图 (Mindmap) 节点文字与背景同为白色的对比度异常**：
+> 1. **全景样式注入引擎重构 (`src/shared/lib/plantuml.ts`)**：
+>    - 脑图与 WBS 原生 `<style>` 规范覆盖：针对 `@startmindmap` / `@startwbs` 注入自适应原生 `<style>` 块，深色模式下显式定义 `#111827` 节点底色、`#38bdf8` 边框与 `#f8fafc` 文字，浅色模式下定义 `#f8fafc` 节点底色与 `#0f172a` 文字，彻底解决 PlantUML 默认浅灰白底色与全局白字冲突导致的不可读现象；
+>    - 工业级 UML 图元全面补全：为用例图 `usecase` 以及各类架构图元（`rectangle`, `agent`, `database`, `queue`, `collections`, `cloud`, `node`, `storage`, `card`, `boundary`, `control`, `entity`, `interface`）补齐多主题高对比度的 `skinparam` 背景色、边框色与字体颜色契约；
+> 2. **独立驱动与缓存快照平滑演进**：
+>    - `PlantUmlViewer` 驱动支持 `isDarkTheme` 属性与深浅色模式动态透传；
+>    - Markdown AST 渲染管道 `PlantUmlBlock` 缓存版本升至 `plantuml:v2`，自动使历史白底白字离线缓存失效并无缝更新；
+> 3. **自动化测试与门禁验证**：
+>    - `tests/test-plantuml-url.mjs` 增补对用例图 `usecase` 皮肤和思维脑图 `mindmapDiagram` 原生 `<style>` 注入的双向断言；
+>    - 全量 101/101 套自动化测试与文档代码一致性门禁 100% 绿灯通过。
+
+---
+
+## [1.4.38] - 2026-11-10
 
 > [!TIP] v1.4.38 核心升级亮点
 > **新增 PlantUML 架构与工程图表全景展馆示例文档并完善导航链路**：

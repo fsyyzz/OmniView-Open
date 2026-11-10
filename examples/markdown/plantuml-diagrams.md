@@ -267,6 +267,9 @@ OrderRepository ..> Order : 依赖持久化
 
 展示外部角色参与者 (Actor)、业务边界与用例依赖 (`<<include>>`, `<<extend>>`)：
 
+> [!NOTE] 全主题自适应渲染保障
+> OmniView 内置多主题自适应渲染引擎，会自动为用例图的 `usecase` 椭圆、边界 `rectangle` 与外部 `actor` 注入高对比度主题样式，彻底杜绝深色模式下常见的“白底白字”显示异常，并支持双击全屏无级放大检视。
+
 ```plantuml
 @startuml
 left to right direction
@@ -363,6 +366,9 @@ stop
 ### 7. 架构与知识体系思维脑图 (PlantUML Mindmap)
 
 展示树状发散的架构解耦分解与技术栈全景：
+
+> [!TIP] 现代思维脑图原生样式规范
+> PlantUML 脑图基于 `@startmindmap` 语法构建，OmniView 渲染引擎会自动注入原生 `<style>` 脑图图元样式契约，为各层级节点与折叠树枝提供深邃自适应底色与高对比文字，彻底告别传统 PlantUML 脑图节点文字与背景同色的问题。
 
 ```plantuml
 @startmindmap
