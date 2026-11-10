@@ -24,6 +24,7 @@ import {
   embedExcalidrawPayloadInSvg,
 } from '../excalidraw/excalidrawEngine.ts';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill.tsx';
+import type { ThemeId } from '../../../../../shared/types.ts';
 
 interface ExcalidrawBlockProps {
   id: string;
@@ -34,6 +35,7 @@ interface ExcalidrawBlockProps {
   viewMode: 'visual' | 'code';
   editedCode: string;
   isDarkTheme?: boolean;
+  theme?: ThemeId | string;
   onChangeEditedCode: (val: string) => void;
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onOpenLightbox: (content?: string) => void;
@@ -52,6 +54,7 @@ export const ExcalidrawBlock: React.FC<ExcalidrawBlockProps> = React.memo(({
   viewMode,
   editedCode,
   isDarkTheme = true,
+  theme,
   onChangeEditedCode,
   onSetViewMode,
   onOpenLightbox,

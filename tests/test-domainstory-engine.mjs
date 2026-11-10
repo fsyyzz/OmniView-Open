@@ -541,5 +541,26 @@ cmBadges.forEach((m, idx) => {
 });
 console.log('✅ Event Storming 零溢出与 Context Map 零遮盖全部断言通过');
 
-console.log('\n🎉 全部 14 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
+// -------------------------------------------------------------
+// 测试 15: DDD 领域建模图表 14 大渲染主题高保真调色盘深度联动验证
+// -------------------------------------------------------------
+console.log('\n--- 测试 15: DDD 14 大渲染主题调色盘联动断言 ---');
+const draculaCmSvg = renderDomainStoryToSvg(fullCmModel, { theme: 'dracula', isDark: true });
+assert.ok(draculaCmSvg.includes('#21222c'), 'Dracula 主题下卡片背景应为 #21222c');
+assert.ok(draculaCmSvg.includes('#bd93f9'), 'Dracula 主题下关系连线与副标题应为德古拉紫 #bd93f9');
+
+const catppuccinEsSvg = renderDomainStoryToSvg(fullEsModel, { theme: 'catppuccin', isDark: true });
+assert.ok(catppuccinEsSvg.includes('#181825'), 'Catppuccin 主题下泳道背景应为 #181825');
+assert.ok(catppuccinEsSvg.includes('#cdd6f4'), 'Catppuccin 主题下文字应为 #cdd6f4');
+
+const sepiaCmSvg = renderDomainStoryToSvg(fullCmModel, { theme: 'sepia', isDark: false });
+assert.ok(sepiaCmSvg.includes('#fffbf2'), 'Sepia 暖阳主题下卡片背景应为 #fffbf2');
+assert.ok(sepiaCmSvg.includes('#b45309'), 'Sepia 暖阳主题下连线应为琥珀色 #b45309');
+
+const nordEsSvg = renderDomainStoryToSvg(fullEsModel, { theme: 'nord', isDark: true });
+assert.ok(nordEsSvg.includes('#242933'), 'Nord 极地主题下泳道背景应为 #242933');
+assert.ok(nordEsSvg.includes('#88c0d0'), 'Nord 极地主题下高亮线条应为冰蓝 #88c0d0');
+console.log('✅ DDD 14 大渲染主题专属调色盘深度联动断言全部通过');
+
+console.log('\n🎉 全部 15 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
 

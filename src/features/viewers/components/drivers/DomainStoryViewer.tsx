@@ -275,6 +275,7 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
                 onCopy={() => handleCopyFromBlock(code)}
                 locale={locale}
                 isDarkTheme={effectiveIsDark}
+                theme={theme}
               />
             </div>
           </div>

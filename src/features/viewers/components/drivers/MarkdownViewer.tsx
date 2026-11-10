@@ -113,6 +113,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     files,
     locale,
     isDarkTheme,
+    theme,
   });
   const [isHealthModalOpen, setIsHealthModalOpen] = React.useState(false);
 
@@ -1314,6 +1315,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
+                  theme={theme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
                   onSetViewMode={mode => {
                     if (mode === 'visual' && editedCodes[block.id] !== undefined) {
@@ -1468,6 +1470,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   zoom={zoom}
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
+                  theme={theme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
                   onSetViewMode={mode => {
                     if (mode === 'visual' && editedCodes[block.id] !== undefined) {
@@ -1566,6 +1569,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   viewMode={currentMode}
                   editedCode={currentCode}
                   isDarkTheme={isDarkTheme}
+                  theme={theme}
                   onChangeEditedCode={val => setEditedCode(block.id, val)}
                   onSetViewMode={mode => {
                     if (mode === 'visual' && editedCodes[block.id] !== undefined) {

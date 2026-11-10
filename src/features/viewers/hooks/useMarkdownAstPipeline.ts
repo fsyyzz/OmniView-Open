@@ -26,7 +26,7 @@ import {
 } from '../lib/markdownCrossReferenceEngine';
 import { lintMarkdownHealth, type MarkdownHealthReport } from '../lib/markdownHealthLinter';
 import { normalizeMarkdownTabs } from '../lib/markdownTabsNormalizer';
-import type { AiDiffViewMode } from '../../../shared/types';
+import type { AiDiffViewMode, ThemeId } from '../../../shared/types';
 
 export interface RenderedBlock {
   id: string;
@@ -147,6 +147,7 @@ export interface UseMarkdownAstPipelineOptions {
   files: Array<{ name: string; content: string; extension: string; path?: string; binaryUrl?: string }>;
   locale: Locale;
   isDarkTheme?: boolean;
+  theme?: ThemeId;
 }
 
 /**
@@ -377,6 +378,7 @@ export function useMarkdownAstPipeline({
   files,
   locale,
   isDarkTheme = true,
+  theme,
 }: UseMarkdownAstPipelineOptions) {
   const [blocks, setBlocks] = useState<RenderedBlock[]>([]);
   const [isRendering, setIsRendering] = useState(false);
@@ -1264,7 +1266,7 @@ export function useMarkdownAstPipeline({
 
       for (const block of parsedBlocks) {
         if (block.type === 'plantuml') {
-          block.renderedHtml = getPlantUmlSvgUrl(block.raw, undefined, isDarkTheme);
+          block.renderedHtml = getPlantUmlSvgUrl(block.raw, undefined, theme || isDarkTheme);
         }
         // 计算内容指纹，用于增量 Diff 与引用稳定化
         block.contentHash = fastFnv1a(
@@ -1309,7 +1311,7 @@ export function useMarkdownAstPipeline({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [content, okfData, aiDiffResult, locale, isDarkTheme]);
+  }, [content, okfData, aiDiffResult, locale, isDarkTheme, theme]);
 
   return {
     blocks,

@@ -28,6 +28,7 @@ import {
   Settings,
   Keyboard,
 } from 'lucide-react';
+import type { ThemeId } from '../../../../shared/types.ts';
 import {
   getPlantUmlSvgUrl,
   getPlantUmlPngUrl,
@@ -68,6 +69,7 @@ interface PlantUmlViewerProps {
   fileName?: string;
   locale?: Locale;
   isDarkTheme?: boolean;
+  theme?: ThemeId;
   onOpenInEditor?: () => void;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
@@ -79,6 +81,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   fileName = 'diagram.puml',
   locale = 'zh-CN',
   isDarkTheme = true,
+  theme,
   onOpenInEditor,
   onOpenSettings,
   onOpenShortcuts,
@@ -186,10 +189,11 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
     maxRatio: 88,
   });
 
-  // Derived URLs (支持主题动态透传，防止用例图/思维导图白底白字)
+  // Derived URLs (支持主题动态透传，联动 14 大渲染主题高保真调色盘)
+  const effectiveThemeId = theme || (isDarkTheme ? 'dark' : 'light');
   const canRender = hasRenderablePlantUmlCode(activeRenderCode);
-  const svgUrl = canRender ? getPlantUmlSvgUrl(activeRenderCode, serverUrl, isDarkTheme) : '';
-  const pngUrl = canRender ? getPlantUmlPngUrl(activeRenderCode, serverUrl, isDarkTheme) : '';
+  const svgUrl = canRender ? getPlantUmlSvgUrl(activeRenderCode, serverUrl, effectiveThemeId) : '';
+  const pngUrl = canRender ? getPlantUmlPngUrl(activeRenderCode, serverUrl, effectiveThemeId) : '';
   const displaySvgUrl = withPlantUmlCacheBust(svgUrl, renderNonce);
   const activeThemeId = detectPlantUmlTheme(localCode);
 
@@ -502,6 +506,7 @@ export const PlantUmlViewer: React.FC<PlantUmlViewerProps> = ({
   return (
     <div
       id="plantuml-studio-container"
+      data-theme={theme}
       style={{
         backgroundColor: 'var(--ov-bg)',
         color: 'var(--ov-text)',

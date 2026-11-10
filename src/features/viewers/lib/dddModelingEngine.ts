@@ -607,12 +607,170 @@ export function parseContextMapDsl(dsl: string): {
 // ============================================================
 // 2. 渲染：DDD 事件风暴时间轴 (Event Storming)
 // ============================================================
+export interface DddRenderOptions {
+  currentStep?: number;
+  isDark?: boolean;
+  theme?: string;
+}
+
+export interface DddThemePalette {
+  bg: string;
+  cardBg: string;
+  cardBorder: string;
+  title: string;
+  subtitle: string;
+  line: string;
+  boxBg: string;
+  accent: string;
+}
+
+export const DDD_THEME_PALETTES: Record<string, DddThemePalette> = {
+  dracula: {
+    bg: '#282a36',
+    cardBg: '#21222c',
+    cardBorder: '#6272a4',
+    title: '#f8f8f2',
+    subtitle: '#bd93f9',
+    line: '#bd93f9',
+    boxBg: '#191a21',
+    accent: '#bd93f9',
+  },
+  catppuccin: {
+    bg: '#1e1e2e',
+    cardBg: '#181825',
+    cardBorder: '#45475a',
+    title: '#cdd6f4',
+    subtitle: '#a6adc8',
+    line: '#cba6f7',
+    boxBg: '#11111b',
+    accent: '#cba6f7',
+  },
+  nord: {
+    bg: '#2e3440',
+    cardBg: '#242933',
+    cardBorder: '#4c566a',
+    title: '#eceff4',
+    subtitle: '#d8dee9',
+    line: '#88c0d0',
+    boxBg: '#1e222a',
+    accent: '#88c0d0',
+  },
+  'tokyo-night': {
+    bg: '#1a1b26',
+    cardBg: '#16161e',
+    cardBorder: '#414868',
+    title: '#c0caf5',
+    subtitle: '#9aa5ce',
+    line: '#7aa2f7',
+    boxBg: '#0f1017',
+    accent: '#7aa2f7',
+  },
+  sepia: {
+    bg: '#fef9ed',
+    cardBg: '#fffbf2',
+    cardBorder: '#fde68a',
+    title: '#78350f',
+    subtitle: '#92400e',
+    line: '#b45309',
+    boxBg: '#fef3c7',
+    accent: '#b45309',
+  },
+  forest: {
+    bg: '#0f1712',
+    cardBg: '#0a100c',
+    cardBorder: '#2d4535',
+    title: '#e2f0e6',
+    subtitle: '#a3c4ad',
+    line: '#10b981',
+    boxBg: '#070c09',
+    accent: '#10b981',
+  },
+  solarized: {
+    bg: '#002b36',
+    cardBg: '#073642',
+    cardBorder: '#586e75',
+    title: '#839496',
+    subtitle: '#93a1a1',
+    line: '#2aa198',
+    boxBg: '#00212b',
+    accent: '#2aa198',
+  },
+  notion: {
+    bg: '#ffffff',
+    cardBg: '#f7f6f3',
+    cardBorder: '#e5e5e5',
+    title: '#37352f',
+    subtitle: '#787774',
+    line: '#0f172a',
+    boxBg: '#ffffff',
+    accent: '#0284c7',
+  },
+  'github-dark': {
+    bg: '#0d1117',
+    cardBg: '#161b22',
+    cardBorder: '#30363d',
+    title: '#e6edf3',
+    subtitle: '#8b949e',
+    line: '#58a6ff',
+    boxBg: '#010409',
+    accent: '#58a6ff',
+  },
+  midnight: {
+    bg: '#020617',
+    cardBg: '#0b1120',
+    cardBorder: '#1e293b',
+    title: '#f8fafc',
+    subtitle: '#94a3b8',
+    line: '#38bdf8',
+    boxBg: '#020617',
+    accent: '#38bdf8',
+  },
+  cyber: {
+    bg: '#09090b',
+    cardBg: '#18181b',
+    cardBorder: '#27272a',
+    title: '#fafafa',
+    subtitle: '#a1a1aa',
+    line: '#06b6d4',
+    boxBg: '#09090b',
+    accent: '#06b6d4',
+  },
+  dark: {
+    bg: '#0b1120',
+    cardBg: '#1e293b',
+    cardBorder: '#334155',
+    title: '#f8fafc',
+    subtitle: '#94a3b8',
+    line: '#38bdf8',
+    boxBg: '#0f172a',
+    accent: '#38bdf8',
+  },
+  light: {
+    bg: '#f8fafc',
+    cardBg: '#ffffff',
+    cardBorder: '#cbd5e1',
+    title: '#0f172a',
+    subtitle: '#475569',
+    line: '#0284c7',
+    boxBg: '#f1f5f9',
+    accent: '#0284c7',
+  },
+};
+
+export function resolveDddPalette(theme?: string, isDark?: boolean): DddThemePalette {
+  if (theme && DDD_THEME_PALETTES[theme]) {
+    return DDD_THEME_PALETTES[theme];
+  }
+  return isDark !== false ? DDD_THEME_PALETTES.dark : DDD_THEME_PALETTES.light;
+}
+
 export function renderEventStormingToSvg(
   spec: EventStormingSpec,
   info?: { name?: string; description?: string },
-  options: { currentStep?: number; isDark?: boolean } = {}
+  options: DddRenderOptions = {}
 ): string {
-  const { currentStep = -1, isDark = true } = options;
+  const { currentStep = -1, isDark = true, theme } = options;
+  const palette = resolveDddPalette(theme, isDark);
   const flows = spec.flows || [];
 
   const noteW = 120;
@@ -649,11 +807,11 @@ export function renderEventStormingToSvg(
   const laneH = 130;
   const vh = headerH + Math.max(1, flows.length) * (laneH + laneGap) + 40;
 
-  const bg = isDark ? '#0b1120' : '#f8fafc';
-  const textTitle = isDark ? '#f1f5f9' : '#0f172a';
-  const textSub = isDark ? '#94a3b8' : '#64748b';
-  const laneBg = isDark ? '#1e293b' : '#ffffff';
-  const laneBorder = isDark ? '#334155' : '#e2e8f0';
+  const bg = palette.bg;
+  const textTitle = palette.title;
+  const textSub = palette.subtitle;
+  const laneBg = palette.cardBg;
+  const laneBorder = palette.cardBorder;
 
   const stickyStyles: Record<StickyNoteKind, { bg: string; border: string; text: string; label: string }> = {
     actor: { bg: '#fef08a', border: '#eab308', text: '#854d0e', label: 'ACTOR' },
@@ -786,9 +944,9 @@ export function renderEventStormingToSvg(
 export function renderContextMapToSvg(
   spec: ContextMapSpec,
   info?: { name?: string; description?: string },
-  options: { currentStep?: number; isDark?: boolean } = {}
+  options: DddRenderOptions = {}
 ): string {
-  const { currentStep = -1, isDark = true } = options;
+  const { currentStep = -1, isDark = true, theme } = options;
   const contexts = spec.contexts || [];
   const relationships = spec.relationships || [];
 
@@ -796,25 +954,7 @@ export function renderContextMapToSvg(
   const vw = Math.max(1520, 500 + contexts.length * 160);
   const vh = Math.max(960, 420 + contexts.length * 90);
 
-  const colors = isDark
-    ? {
-        bg: '#0b1120',
-        cardBg: '#1e293b',
-        cardBorder: '#334155',
-        title: '#f8fafc',
-        subtitle: '#94a3b8',
-        line: '#38bdf8',
-        boxBg: '#0f172a',
-      }
-    : {
-        bg: '#f8fafc',
-        cardBg: '#ffffff',
-        cardBorder: '#cbd5e1',
-        title: '#0f172a',
-        subtitle: '#475569',
-        line: '#0284c7',
-        boxBg: '#f1f5f9',
-      };
+  const colors = resolveDddPalette(theme, isDark);
 
   const domainBadges: Record<SubdomainType, { label: string; bg: string; text: string }> = {
     core: { label: '★ CORE DOMAIN', bg: '#0284c7', text: '#ffffff' },
@@ -1193,9 +1333,10 @@ export function parseCoreDomainChartDsl(dsl: string): {
 export function renderCoreDomainChartToSvg(
   spec: CoreDomainChartSpec,
   info?: { name?: string; description?: string },
-  options: { currentStep?: number; isDark?: boolean } = {}
+  options: DddRenderOptions = {}
 ): string {
-  const { currentStep = -1, isDark = true } = options;
+  const { currentStep = -1, isDark = true, theme } = options;
+  const palette = resolveDddPalette(theme, isDark);
   const domains = spec.domains || [];
 
   const vw = 960;
@@ -1213,11 +1354,11 @@ export function renderCoreDomainChartToSvg(
 
   const colors = isDark
     ? {
-        bg: '#090d16',
-        panelBg: '#0f172a',
-        gridLine: '#1e293b',
+        bg: palette.bg,
+        panelBg: palette.cardBg,
+        gridLine: palette.cardBorder,
         axisLine: '#475569',
-        axisText: '#94a3b8',
+        axisText: palette.subtitle,
         coreBg: 'rgba(14, 165, 233, 0.12)',
         coreBorder: '#0284c7',
         supportingBg: 'rgba(139, 92, 246, 0.08)',
@@ -1226,12 +1367,12 @@ export function renderCoreDomainChartToSvg(
         genericBorder: '#475569',
         specializedBg: 'rgba(16, 185, 129, 0.08)',
         specializedBorder: '#059669',
-        bubbleText: '#f8fafc',
+        bubbleText: palette.title,
       }
     : {
-        bg: '#ffffff',
-        panelBg: '#f8fafc',
-        gridLine: '#e2e8f0',
+        bg: palette.bg,
+        panelBg: palette.cardBg,
+        gridLine: palette.cardBorder,
         axisLine: '#64748b',
         axisText: '#475569',
         coreBg: 'rgba(2, 132, 199, 0.09)',
@@ -1551,9 +1692,10 @@ export function parseContextCanvasDsl(dsl: string): {
 export function renderContextCanvasToSvg(
   spec: ContextCanvasSpec,
   info?: { name?: string; description?: string },
-  options: { currentStep?: number; isDark?: boolean } = {}
+  options: DddRenderOptions = {}
 ): string {
-  const { currentStep = -1, isDark = true } = options;
+  const { currentStep = -1, isDark = true, theme } = options;
+  const palette = resolveDddPalette(theme, isDark);
 
   const vw = 1060;
   const vh = 680;
@@ -1571,28 +1713,28 @@ export function renderContextCanvasToSvg(
 
   const colors = isDark
     ? {
-        bg: '#090d16',
-        cardBg: '#0f172a',
-        cardBorder: '#1e293b',
-        title: '#f8fafc',
-        subtitle: '#94a3b8',
+        bg: palette.bg,
+        cardBg: palette.cardBg,
+        cardBorder: palette.cardBorder,
+        title: palette.title,
+        subtitle: palette.subtitle,
         inboundHeader: '#0369a1',
         heartHeader: '#5b21b6',
         outboundHeader: '#047857',
-        badgeBorder: '#38bdf8',
-        boxBg: '#1e293b',
+        badgeBorder: palette.accent,
+        boxBg: palette.boxBg,
       }
     : {
-        bg: '#ffffff',
-        cardBg: '#f8fafc',
-        cardBorder: '#cbd5e1',
-        title: '#0f172a',
-        subtitle: '#475569',
+        bg: palette.bg,
+        cardBg: palette.cardBg,
+        cardBorder: palette.cardBorder,
+        title: palette.title,
+        subtitle: palette.subtitle,
         inboundHeader: '#0284c7',
         heartHeader: '#6d28d9',
         outboundHeader: '#059669',
-        badgeBorder: '#0ea5e9',
-        boxBg: '#ffffff',
+        badgeBorder: palette.accent,
+        boxBg: palette.boxBg,
       };
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}" width="${vw}" height="${vh}" class="ov-domain-story-svg ov-ddd-context-canvas" style="background-color: transparent; max-width: 100%; height: auto; user-select: none; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">\n`;

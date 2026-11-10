@@ -23,6 +23,7 @@ import { analyzePlantUmlError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill';
 import { persistentPlantUmlCache, makeDeterministicCacheKey } from '../../../lib/diagramCache';
+import { ThemeId } from '../../../../../shared/types';
 
 interface PlantUmlBlockProps {
   id: string;
@@ -35,6 +36,7 @@ interface PlantUmlBlockProps {
   zoom: number;
   editedCode: string;
   isDarkTheme?: boolean;
+  theme?: ThemeId;
   onChangeEditedCode: (val: string) => void;
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onZoomChange: (delta: number) => void;
@@ -58,6 +60,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   zoom,
   editedCode,
   isDarkTheme = true,
+  theme,
   onChangeEditedCode,
   onSetViewMode,
   onZoomChange,
@@ -77,11 +80,14 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   const activeCode = editedCode !== undefined ? editedCode : code;
   const canRender = hasRenderablePlantUmlCode(activeCode);
 
-  // 1. 确定性复合缓存键 (版本升级至 v2 以使旧版白底白字缓存平滑失效)
+  // 解析并对齐当前激活主题标识 (支持 14 大渲染主题独立调色盘)
+  const activeThemeId = theme || (isDarkTheme ? 'dark' : 'light');
+
+  // 1. 确定性复合缓存键 (版本升级至 v3，正交绑定 activeThemeId)
   const cacheKey = React.useMemo(() => {
     if (!canRender) return '';
-    return makeDeterministicCacheKey('plantuml:v2', activeCode, isDarkTheme, 'svg');
-  }, [canRender, activeCode, isDarkTheme]);
+    return makeDeterministicCacheKey('plantuml:v3', activeCode, activeThemeId, 'svg');
+  }, [canRender, activeCode, activeThemeId]);
 
   // 2. 离线缓存数据状态 (内存同步快照优先)
   const [cachedSvg, setCachedSvg] = React.useState<string | null>(() => {
@@ -89,20 +95,23 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
     return persistentPlantUmlCache.getSync(cacheKey) || null;
   });
 
-  const activeSvgUrl = canRender ? withPlantUmlCacheBust(getPlantUmlSvgUrl(activeCode, undefined, isDarkTheme), renderNonce) : '';
-  const activePngUrl = canRender ? withPlantUmlCacheBust(getPlantUmlPngUrl(activeCode, undefined, isDarkTheme), renderNonce) : '';
+  const activeSvgUrl = canRender ? withPlantUmlCacheBust(getPlantUmlSvgUrl(activeCode, undefined, activeThemeId), renderNonce) : '';
+  const activePngUrl = canRender ? withPlantUmlCacheBust(getPlantUmlPngUrl(activeCode, undefined, activeThemeId), renderNonce) : '';
 
-  // 3. 异步探测并加载持久化缓存
+  // 3. 核心修复：当 cacheKey / theme 改变时，立即重置并探测缓存，严防跨主题脏快照导致主题联动失效
   React.useEffect(() => {
-    let isCancelled = false;
     if (!canRender || !cacheKey) {
       setCachedSvg(null);
       return;
     }
 
+    const syncHit = persistentPlantUmlCache.getSync(cacheKey) || null;
+    setCachedSvg(syncHit);
+
+    let isCancelled = false;
     persistentPlantUmlCache.get(cacheKey).then((cached) => {
-      if (!isCancelled && cached) {
-        setCachedSvg(cached);
+      if (!isCancelled) {
+        setCachedSvg(cached || null);
         setHasError(false);
       }
     });
@@ -115,7 +124,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   React.useEffect(() => {
     setHasError(false);
     setRenderNonce(n => n + 1);
-  }, [activeCode, isDarkTheme]);
+  }, [activeCode, activeThemeId]);
 
   // 4. 远程加载成功后，静默拉取 SVG 源码沉淀到 IndexedDB 离线缓存池
   const handleRemoteSvgLoad = React.useCallback(async () => {
@@ -156,7 +165,18 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
   };
 
   return (
-    <div id={id} className={`markdown-diagram markdown-diagram-plantuml group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+    <div
+      id={id}
+      data-theme={theme}
+      data-source-line={startLine}
+      data-source-end-line={endLine}
+      className={`markdown-diagram markdown-diagram-plantuml group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}
+      style={{
+        backgroundColor: 'var(--ov-surface)',
+        borderColor: 'var(--ov-border)',
+        color: 'var(--ov-text)',
+      }}
+    >
       {/* 默认折叠微型展开胶囊 */}
       {!isToolbarExpanded && viewMode !== 'code' && (
         <DiagramCompactTrigger
@@ -362,7 +382,7 @@ export const PlantUmlBlock: React.FC<PlantUmlBlockProps> = ({
                 key={effectiveImgSrc}
                 src={effectiveImgSrc}
                 alt="PlantUML Diagram"
-                className={`max-w-full h-auto max-h-[550px] object-contain rounded shadow-xs ${isDarkTheme ? 'p-1.5' : 'bg-white/95 p-1.5'}`}
+                className="max-w-full h-auto max-h-[550px] object-contain rounded shadow-xs p-1.5"
                 loading="lazy"
                 onLoad={handleRemoteSvgLoad}
                 onError={() => {

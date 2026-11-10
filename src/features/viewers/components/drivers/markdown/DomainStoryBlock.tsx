@@ -34,6 +34,7 @@ import {
 } from '../../../lib/domainStoryEngine.ts';
 import { DiagramStepPlayer } from '../common/DiagramStepPlayer.tsx';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill.tsx';
+import type { ThemeId } from '../../../../../shared/types.ts';
 
 interface DomainStoryBlockProps {
   id: string;
@@ -45,6 +46,7 @@ interface DomainStoryBlockProps {
   zoom: number;
   editedCode: string;
   isDarkTheme?: boolean;
+  theme?: ThemeId | string;
   onChangeEditedCode: (val: string) => void;
   onSetViewMode: (mode: 'visual' | 'code') => void;
   onZoomChange: (delta: number) => void;
@@ -66,6 +68,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
   zoom,
   editedCode,
   isDarkTheme = true,
+  theme,
   onChangeEditedCode,
   onSetViewMode,
   onZoomChange,
@@ -103,13 +106,14 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
     return extractDomainStorySteps(model);
   }, [model]);
 
-  // 渲染 SVG (若处于播放模式，则传递当前步)
+  // 渲染 SVG (若处于播放模式，则传递当前步，并深度绑定当前渲染主题)
   const displaySvg = useMemo(() => {
     return renderDomainStoryToSvg(model, {
       currentStep: isPlaybackActive ? currentStep : -1,
       isDark: isDarkTheme,
+      theme,
     });
-  }, [model, isPlaybackActive, currentStep, isDarkTheme]);
+  }, [model, isPlaybackActive, currentStep, isDarkTheme, theme]);
 
   // 导出处理
   const handleDownloadStandardSvg = () => {
@@ -425,7 +429,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
       {/* Body: Visual vs Code: 宽敞自适应居中呈现矢量图片 */}
       {viewMode === 'visual' ? (
         <div
-          className={`diagram-canvas p-5 sm:p-6 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[180px] relative [&>div>svg]:max-w-full [&>div>svg]:h-auto [&>div>svg]:block ${!error && displaySvg ? 'cursor-zoom-in' : ''}`}
+          className={`diagram-canvas p-5 sm:p-6 overflow-x-auto flex justify-center items-center bg-[var(--ov-diagram-canvas-bg,transparent)] min-h-[180px] relative [&_svg]:max-w-full [&_svg]:h-auto [&_svg]:block ${!error && displaySvg ? 'cursor-zoom-in' : ''}`}
           onDoubleClick={(e) => {
             e.stopPropagation();
             if (!error && displaySvg) {

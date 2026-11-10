@@ -11,19 +11,22 @@ import { build } from 'esbuild';
 
 const ROOT_DIR = process.cwd();
 const CACHE_DIR = path.resolve(ROOT_DIR, 'node_modules', '.tmp-test-bundles');
+const myCreatedFiles = new Set();
 
-// 注册退出自动清理
+// 注册退出自动清理 (仅清理当前进程创建的临时 bundle，防止多进程并发测试互相误删发生 ENOENT 竞争)
 let cleanupRegistered = false;
 function registerCleanup() {
   if (cleanupRegistered) return;
   cleanupRegistered = true;
   const clean = () => {
-    try {
-      if (fs.existsSync(CACHE_DIR)) {
-        fs.rmSync(CACHE_DIR, { recursive: true, force: true });
+    for (const file of myCreatedFiles) {
+      try {
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+        }
+      } catch {
+        // 忽略清理异常
       }
-    } catch {
-      // 忽略清理异常
     }
   };
   process.on('exit', clean);
@@ -45,6 +48,7 @@ export async function bundleAndLoadTsx(contents, options = {}) {
   }
 
   const bundlePath = path.join(CACHE_DIR, `bundle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mjs`);
+  myCreatedFiles.add(bundlePath);
 
   try {
     await build({

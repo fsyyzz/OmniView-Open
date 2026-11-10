@@ -56,6 +56,23 @@ assert.ok(lightCode.includes('skinparam backgroundColor transparent'), '亮色�
 assert.ok(lightCode.includes('skinparam usecaseBackgroundColor #f8fafc'), '亮色模式下用例图必须注入浅色背景');
 assert.ok(lightCode.includes('skinparam usecaseFontColor #0f172a'), '亮色模式下用例图必须注入深色文字');
 
+// 14 大渲染主题高保真调色盘深度联动验证
+const draculaCode = preparePlantUmlCode('@startuml\nBob -> Alice : hi\n@enduml', 'dracula');
+assert.ok(draculaCode.includes('skinparam ArrowColor #bd93f9'), 'Dracula 主题必须注入紫色箭头');
+assert.ok(draculaCode.includes('skinparam usecaseBackgroundColor #282a36'), 'Dracula 主题必须注入暗黑底色');
+assert.ok(draculaCode.includes('skinparam usecaseFontColor #f8f8f2'), 'Dracula 主题必须注入高亮文字');
+
+const catppuccinCode = preparePlantUmlCode('@startmindmap\n* Root\n** Child\n@endmindmap', 'catppuccin');
+assert.ok(catppuccinCode.includes('BackgroundColor #1e1e2e'), 'Catppuccin 脑图必须注入 Base 色');
+assert.ok(catppuccinCode.includes('LineColor #cba6f7'), 'Catppuccin 脑图必须注入 Mauve 连线色');
+
+const sepiaCode = preparePlantUmlCode('@startuml\nBob -> Alice : hi\n@enduml', 'sepia');
+assert.ok(sepiaCode.includes('skinparam ArrowColor #b45309'), 'Sepia 暖阳模式必须注入琥珀色箭头');
+assert.ok(sepiaCode.includes('skinparam usecaseBackgroundColor #fef3c7'), 'Sepia 模式必须注入温暖米黄底色');
+
+const nordCode = preparePlantUmlCode('@startuml\nBob -> Alice : hi\n@enduml', 'nord');
+assert.ok(nordCode.includes('skinparam ArrowColor #88c0d0'), 'Nord 极地主题必须注入北欧冰蓝箭头');
+
 const busted = withPlantUmlCacheBust(url, 42);
 assert.match(busted, /\?ov_cb=42$/);
 

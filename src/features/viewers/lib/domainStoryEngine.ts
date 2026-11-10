@@ -774,6 +774,7 @@ export function computeAutoLayout(model: DomainStoryModel): DomainStoryModel {
 export interface RenderDomainStoryOptions {
   currentStep?: number; // 0-indexed; -1 或 undefined 显示全景
   isDark?: boolean;
+  theme?: string;
   width?: number | string;
   height?: number | string;
 }
@@ -785,12 +786,13 @@ export function renderDomainStoryToSvg(
   rawModel: DomainStoryModel,
   options: RenderDomainStoryOptions = {}
 ): string {
-  const { currentStep = -1, isDark = true } = options;
+  const { currentStep = -1, isDark = true, theme } = options;
 
   if (rawModel.mode === 'event-storming' && rawModel.eventStorming) {
     return renderEventStormingToSvg(rawModel.eventStorming, rawModel.info, {
       currentStep,
       isDark,
+      theme,
     });
   }
 
@@ -798,6 +800,7 @@ export function renderDomainStoryToSvg(
     return renderContextMapToSvg(rawModel.contextMap, rawModel.info, {
       currentStep,
       isDark,
+      theme,
     });
   }
 
@@ -805,6 +808,7 @@ export function renderDomainStoryToSvg(
     return renderCoreDomainChartToSvg(rawModel.coreDomainChart, rawModel.info, {
       currentStep,
       isDark,
+      theme,
     });
   }
 
@@ -812,6 +816,7 @@ export function renderDomainStoryToSvg(
     return renderContextCanvasToSvg(rawModel.contextCanvas, rawModel.info, {
       currentStep,
       isDark,
+      theme,
     });
   }
 
