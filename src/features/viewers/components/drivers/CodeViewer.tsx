@@ -15,6 +15,7 @@ import {
   scrollTopForTextareaLine,
   type PaneSyncDetail,
 } from '../../lib/scrollSync';
+import { MarkdownQuickInserter } from '../markdown/MarkdownQuickInserter';
 
 const StructuredDataViewer = lazy(() =>
   import('./data/StructuredDataViewer').then(m => ({ default: m.StructuredDataViewer }))
@@ -128,6 +129,15 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
   const lastEmittedRef = useRef(content);
   const applyingRemoteScrollRef = useRef(false);
   const lineCountRef = useRef(1);
+
+  // Markdown 识别与光标行状态
+  const isMarkdown = useMemo(() => {
+    const cleanExt = (extension || '').toLowerCase();
+    const cleanName = (fileName || '').toLowerCase();
+    return ['md', 'markdown', 'mdown', 'mkd', 'mdx'].includes(cleanExt) || cleanName.endsWith('.md');
+  }, [extension, fileName]);
+  const [cursorLine, setCursorLine] = useState<number>(1);
+  const [cursorScrollTop, setCursorScrollTop] = useState<number>(0);
 
   // Undo / Redo 历史管理 Hook
   const {
@@ -434,6 +444,7 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
     const ta = textareaRef.current;
     if (ta && lineGutterRef.current) {
       lineGutterRef.current.scrollTop = ta.scrollTop;
+      setCursorScrollTop(ta.scrollTop);
     }
     if (!ta || applyingRemoteScrollRef.current) return;
     const { lineHeight, paddingTop } = readTextareaMetrics();
@@ -443,10 +454,69 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
 
   const handleSelect = () => {
     const ta = textareaRef.current;
-    if (!ta || applyingRemoteScrollRef.current) return;
+    if (!ta) return;
     const before = ta.value.slice(0, ta.selectionStart);
     const activeLine = before.split('\n').length;
-    emitSourceSync('editor-cursor-sync', activeLine);
+    setCursorLine(activeLine);
+    setCursorScrollTop(ta.scrollTop);
+    if (!applyingRemoteScrollRef.current) {
+      emitSourceSync('editor-cursor-sync', activeLine);
+    }
+  };
+
+  // 光标所在行快速插入 Markdown 工具特性
+  const handleQuickInsertSnippet = (template: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const currentVal = editValue;
+
+    const lineStart = currentVal.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = currentVal.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = currentVal.length;
+
+    const currentLineText = currentVal.slice(lineStart, lineEnd);
+    const isCurrentLineEmpty = currentLineText.trim() === '';
+
+    let newVal: string;
+    let newCursorPos: number;
+
+    if (start === end && isCurrentLineEmpty) {
+      // 当前行为空行：直接将特性替换到当前行
+      const before = currentVal.slice(0, lineStart);
+      const after = currentVal.slice(lineEnd);
+      const textToInsert = template.endsWith('\n') ? template : template + '\n';
+      newVal = before + textToInsert + (after.startsWith('\n') ? after.slice(1) : after);
+      newCursorPos = lineStart + textToInsert.length;
+    } else if (start < end) {
+      // 选中文本包围处理
+      const before = currentVal.slice(0, start);
+      const after = currentVal.slice(end);
+      const textToInsert = template.endsWith('\n') ? template : template + '\n';
+      newVal = before + textToInsert + after;
+      newCursorPos = start + textToInsert.length;
+    } else {
+      // 当前行有内容且未选中：换行插入至当前行下方
+      const before = currentVal.slice(0, lineEnd);
+      const after = currentVal.slice(lineEnd);
+      const textToInsert = '\n' + (template.endsWith('\n') ? template.slice(0, -1) : template);
+      newVal = before + textToInsert + after;
+      newCursorPos = lineEnd + textToInsert.length;
+    }
+
+    setEditValue(newVal);
+    recordChange(newVal, newCursorPos, newCursorPos);
+    onContentChange?.(newVal);
+    setIsSaved(false);
+
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        handleSelect();
+      }
+    });
   };
 
   useEffect(() => {
@@ -1358,6 +1428,20 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
               }}
               placeholder="在此输入或编辑内容..."
             />
+
+            {/* Markdown 光标所在行悬浮工具特性快速插入栏 */}
+            {isMarkdown && (
+              <MarkdownQuickInserter
+                cursorTop={readTextareaMetrics().paddingTop + (cursorLine - 1) * readTextareaMetrics().lineHeight - cursorScrollTop}
+                cursorLine={cursorLine}
+                isVisible={
+                  readTextareaMetrics().paddingTop + (cursorLine - 1) * readTextareaMetrics().lineHeight - cursorScrollTop >= -8 &&
+                  readTextareaMetrics().paddingTop + (cursorLine - 1) * readTextareaMetrics().lineHeight - cursorScrollTop <= (textareaRef.current?.clientHeight || 600) - 26
+                }
+                locale={locale}
+                onInsert={handleQuickInsertSnippet}
+              />
+            )}
           </div>
         </div>
       ) : (

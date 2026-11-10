@@ -27,6 +27,7 @@ const SUITE_CONFIG_OVERRIDES = {
   'test-find-and-replace.mjs': { mode: 'node', category: 'markdown' },
   'test-diagram-toolbar-toggle.mjs': { mode: 'node', category: 'diagram' },
   'test-markdown-diagram-dblclick.mjs': { mode: 'node', category: 'diagram' },
+  'test-markdown-quick-inserter.mjs': { mode: 'node', category: 'markdown' },
   'test-markdown-outline.mjs': { mode: 'node', category: 'markdown' },
   'test-markdown-print-export.mjs': { mode: 'node', category: 'markdown' },
   'test-webview-save-writeback.mjs': { mode: 'node', category: 'markdown' },
