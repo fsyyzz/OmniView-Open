@@ -440,5 +440,106 @@ for (let i = 0; i < labelPositions.length; i++) {
 }
 console.log('✅ Groups 业务中枢拓扑分层、双向弧线对称分离与活动标牌 0 重叠校验全部通过');
 
-console.log('\n🎉 全部 13 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
+// -------------------------------------------------------------
+// 测试 14: 事件风暴横向自适应零溢出与限界上下文大半径零遮挡验证
+// -------------------------------------------------------------
+console.log('\n--- 测试 14: Event Storming 零溢出与 Context Map 零遮盖断言 ---');
+const orderEsDsl = `
+mode: event-storming
+title: 电商大促下单与履约事件风暴 (Event Storming)
+context: 交易与履约核心域 [core]
+
+timeline:
+  1. 买家 [actor] -> 提交购物车结算单 [cmd] -> @订单聚合 [agg] -> 订单已创建 [evt]
+     read: 订单确认页读视图 [readmodel]
+     hotspot: 秒杀高并发下预占库存超卖风险？是否引入 Redis 预扣减？
+  2. 订单已创建 [evt] -> 自动触发风控与支付策略 [policy] -> 发起渠道扣款 [cmd] -> $微信支付网关 [ext] -> 支付已成功 [evt]
+     read: 实时交易风控监控大盘 [readmodel]
+  3. 支付已成功 [evt] -> 驱动履约配货策略 [policy] -> 下发波次分拣指令 [cmd] -> @履约单聚合 [agg] -> 仓库已接单出库 [evt]
+     read: 买家物流轨迹实时看板 [readmodel]
+     hotspot: 跨仓拆单场景下部分商品缺货如何触发逆向部分退款？
+`;
+const fullEsModel = parseDomainStory(orderEsDsl);
+const fullEsSvg = renderDomainStoryToSvg(fullEsModel, { isDark: true });
+
+const esVw = parseFloat(fullEsSvg.match(/viewBox="0 0 ([^ ]+) /)?.[1] || '0');
+assert.ok(esVw >= 1280, `Event Storming 画布宽度应具备自适应充裕空间 (实际: ${esVw})`);
+// 验证最右侧 HOTSPOT 痛点卡片未超出泳道右外框
+const esHotspots = [...fullEsSvg.matchAll(/class="es-hotspot" transform="translate\(([^,]+),/g)];
+esHotspots.forEach((m, idx) => {
+  const xInLane = parseFloat(m[1]);
+  const hotspotRight = 94 + xInLane + 134; // 94 为左偏移，134 为痛点卡片宽
+  const laneRight = 20 + (esVw - 40);
+  assert.ok(hotspotRight < laneRight - 30, `Flow #${idx+1} HOTSPOT 应当在泳道内留有至少 30px 安全空间 (实际留白: ${(laneRight - hotspotRight).toFixed(1)}px)`);
+});
+
+// Context Map 6 节点大半径与零遮挡断言
+const retailCmDsl = `
+mode: context-map
+title: 智慧零售核心领域上下文映射图
+contexts:
+  - 交易订单上下文 [core]
+  - 商品与价格上下文 [core]
+  - 营销促销上下文 [supporting]
+  - 仓储物流上下文 [supporting]
+  - 会员与积分上下文 [supporting]
+  - 统一支付网关 [generic]
+relationships:
+  1. 商品与价格上下文 [U: OHS, PL] -> 交易订单上下文 [D: ACL] : 商品快照与价格契约
+  2. 营销促销上下文 [U: OHS, PL] -> 交易订单上下文 [D: ACL] : 优惠试算防腐契约
+  3. 交易订单上下文 [U] <-> 统一支付网关 [D: ACL] : 渠道回调防腐适配
+  4. 交易订单上下文 [U: PL] ->> 仓储物流上下文 [D: Conformist] : OrderPaidEvent
+  5. 仓储物流上下文 [U: PL] ->> 会员与积分上下文 [D: ACL] : OrderShippedEvent
+`;
+const fullCmModel = parseDomainStory(retailCmDsl);
+const fullCmSvg = renderDomainStoryToSvg(fullCmModel, { isDark: true });
+
+const cmVw = parseFloat(fullCmSvg.match(/viewBox="0 0 ([^ ]+) /)?.[1] || '0');
+assert.ok(cmVw >= 1360, `Context Map 环绕布局画布宽度应 >= 1360 (实际: ${cmVw})`);
+
+// 提取所有卡片
+const cmCards = [...fullCmSvg.matchAll(/class="cm-context-card" transform="translate\(([^,]+),\s*([^)]+)\)"/g)].map((m, i) => ({
+  id: i,
+  x: parseFloat(m[1]),
+  y: parseFloat(m[2]),
+  w: 260,
+  h: 130,
+}));
+assert.strictEqual(cmCards.length, 6, '应有 6 个上下文卡片');
+
+// 验证卡片间最小净缝隙 >= 130px
+for (let i = 0; i < cmCards.length; i++) {
+  for (let j = i + 1; j < cmCards.length; j++) {
+    const c1 = cmCards[i];
+    const c2 = cmCards[j];
+    const dx = Math.max(0, Math.max(c1.x - (c2.x + c2.w), c2.x - (c1.x + c1.w)));
+    const dy = Math.max(0, Math.max(c1.y - (c2.y + c2.h), c2.y - (c1.y + c1.h)));
+    const gap = Math.hypot(dx, dy);
+    assert.ok(gap >= 130, `卡片 [${i}] 与 [${j}] 净缝隙应 >= 130px (实际: ${gap.toFixed(1)}px)`);
+  }
+}
+
+// 验证顶层关系标签与卡片 100% 零重合
+const cmBadges = [...fullCmSvg.matchAll(/class="cm-rel-badge" transform="translate\(([^,]+),\s*([^)]+)\)"[\s\S]*?<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g)];
+assert.strictEqual(cmBadges.length, 5, '应渲染 5 个独立关系契约铭牌');
+
+cmBadges.forEach((m, idx) => {
+  const bx = parseFloat(m[1]);
+  const by = parseFloat(m[2]);
+  const bw = parseFloat(m[5]);
+  const bh = parseFloat(m[6]);
+  const bLeft = bx - bw / 2;
+  const bRight = bx + bw / 2;
+  const bTop = by - bh / 2;
+  const bBottom = by + bh / 2;
+
+  cmCards.forEach(c => {
+    const overlapX = Math.max(0, Math.min(bRight, c.x + c.w) - Math.max(bLeft, c.x));
+    const overlapY = Math.max(0, Math.min(bBottom, c.y + c.h) - Math.max(bTop, c.y));
+    assert.ok(overlapX === 0 || overlapY === 0, `标签 #${idx+1} 不得与卡片 #${c.id} 发生任何几何重叠`);
+  });
+});
+console.log('✅ Event Storming 零溢出与 Context Map 零遮盖全部断言通过');
+
+console.log('\n🎉 全部 14 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
 

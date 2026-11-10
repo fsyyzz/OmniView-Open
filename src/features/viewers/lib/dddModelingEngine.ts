@@ -620,14 +620,29 @@ export function renderEventStormingToSvg(
   const noteGap = 24;
   const laneGap = 36;
   const laneHeaderW = 60;
+  const flowLeftPadding = 94;
 
-  // 计算每条 Flow 的节点与附加项宽度
-  const maxNodesInFlow = Math.max(1, ...flows.map(f => f.nodes.length));
-  const maxHotspots = Math.max(0, ...flows.map(f => f.hotspots.length));
-  const maxReadModels = Math.max(0, ...flows.map(f => f.readModels.length));
+  // 精准累加每条 Flow 实际占用的真实像素宽度，彻底根治右侧溢出界限与便利贴截断
+  let maxRequiredFlowW = 0;
+  flows.forEach(flow => {
+    let flowW = flowLeftPadding;
+    if (flow.nodes && flow.nodes.length > 0) {
+      flowW += flow.nodes.length * noteW + (flow.nodes.length - 1) * noteGap;
+    }
+    if (flow.readModels && flow.readModels.length > 0) {
+      flowW += noteGap + 8 + flow.readModels.length * (noteW + 10 + noteGap);
+    }
+    if (flow.hotspots && flow.hotspots.length > 0) {
+      flowW += 8 + flow.hotspots.length * (noteW + 14 + noteGap);
+    }
+    // 泳道卡片右侧留出 80px 充裕呼吸留白，防止紧贴外框
+    flowW += 80;
+    if (flowW > maxRequiredFlowW) {
+      maxRequiredFlowW = flowW;
+    }
+  });
 
-  const totalLaneW = laneHeaderW + (maxNodesInFlow + Math.max(maxHotspots, maxReadModels)) * (noteW + noteGap) + 100;
-  const vw = Math.max(960, totalLaneW);
+  const vw = Math.max(1280, Math.ceil(maxRequiredFlowW + 40));
 
   // 计算高度
   const headerH = 84;
@@ -777,8 +792,9 @@ export function renderContextMapToSvg(
   const contexts = spec.contexts || [];
   const relationships = spec.relationships || [];
 
-  const vw = 960;
-  const vh = Math.max(620, 220 + contexts.length * 75);
+  // 画布尺寸宽敞化，留足节点与关系连线防遮盖呼吸空间
+  const vw = Math.max(1520, 500 + contexts.length * 160);
+  const vh = Math.max(960, 420 + contexts.length * 90);
 
   const colors = isDark
     ? {
@@ -806,7 +822,7 @@ export function renderContextMapToSvg(
     generic: { label: '⚙ GENERIC', bg: '#475569', text: '#ffffff' },
   };
 
-  // 坐标布局计算
+  // 坐标布局计算：卡片尺寸
   const cardW = 260;
   const cardH = 130;
   const ctxPositions = new Map<string, { x: number; y: number }>();
@@ -815,25 +831,25 @@ export function renderContextMapToSvg(
     const startX = (vw - contexts.length * cardW) / (contexts.length + 1);
     contexts.forEach((ctx, idx) => {
       const cx = (idx + 1) * startX + idx * cardW;
-      const cy = 180 + (idx % 2 === 1 ? 90 : 0);
+      const cy = 260 + (idx % 2 === 1 ? 120 : 0);
       ctxPositions.set(ctx.id, { x: cx, y: cy });
     });
   } else if (contexts.length <= 4) {
     const pos = [
-      { x: 120, y: 160 },
-      { x: 580, y: 160 },
-      { x: 120, y: 380 },
-      { x: 580, y: 380 },
+      { x: 220, y: 200 },
+      { x: 980, y: 200 },
+      { x: 220, y: 560 },
+      { x: 980, y: 560 },
     ];
     contexts.forEach((ctx, idx) => {
-      ctxPositions.set(ctx.id, pos[idx] || { x: 100, y: 100 });
+      ctxPositions.set(ctx.id, pos[idx] || { x: 220, y: 200 });
     });
   } else {
-    // 5+ 节点采用圆周环绕布局
+    // 5+ 节点采用大幅度扩展的圆周环绕布局，节点间距扩大至 190px+，彻底消除拥挤与遮盖
     const centerX = vw / 2 - cardW / 2;
-    const centerY = (vh + 80) / 2 - cardH / 2;
-    const radiusX = 330;
-    const radiusY = 170;
+    const centerY = (vh + 90) / 2 - cardH / 2;
+    const radiusX = 540;
+    const radiusY = 320;
     contexts.forEach((ctx, idx) => {
       const angle = (idx / contexts.length) * 2 * Math.PI - Math.PI / 2;
       ctxPositions.set(ctx.id, {
@@ -842,6 +858,25 @@ export function renderContextMapToSvg(
       });
     });
   }
+
+  // 辅助函数：计算卡片中心与目标点连线与卡片外框边界的交点（实现精准边缘停靠，不穿透卡片）
+  const getCardBorderPoint = (
+    cx: number,
+    cy: number,
+    tx: number,
+    ty: number,
+    margin: number = 6
+  ): { x: number; y: number } => {
+    const dx = tx - cx;
+    const dy = ty - cy;
+    if (Math.abs(dx) < 1e-4 && Math.abs(dy) < 1e-4) return { x: cx, y: cy };
+    const hw = cardW / 2 + margin;
+    const hh = cardH / 2 + margin;
+    const sx = Math.abs(dx) > 0 ? hw / Math.abs(dx) : Infinity;
+    const sy = Math.abs(dy) > 0 ? hh / Math.abs(dy) : Infinity;
+    const s = Math.min(sx, sy);
+    return { x: cx + dx * s, y: cy + dy * s };
+  };
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}" width="${vw}" height="${vh}" class="ov-domain-story-svg ov-ddd-context-map" style="background-color: transparent; max-width: 100%; height: auto; user-select: none; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">\n`;
 
@@ -881,7 +916,20 @@ export function renderContextMapToSvg(
     </g>
   </g>\n`;
 
-  // 2. 关系连线 (先绘制以位于节点下方)
+  // 2. 底层图层：关系连线 (Lines Layer)
+  svg += `  <!-- Layer 1: 关系连线 (端点精确停靠在卡片外框边界) -->\n  <g class="cm-relationships-lines">\n`;
+  const computedRelPoints: Array<{
+    rel: typeof relationships[0];
+    relIdx: number;
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    badgeX: number;
+    badgeY: number;
+    badgeW: number;
+  }> = [];
+
   relationships.forEach((rel, relIdx) => {
     const fromPos = ctxPositions.get(rel.from);
     const toPos = ctxPositions.get(rel.to);
@@ -890,45 +938,70 @@ export function renderContextMapToSvg(
     const isStepActive = currentStep === relIdx;
     const isStepDimmed = currentStep !== -1 && !isStepActive;
 
-    const x1 = fromPos.x + cardW / 2;
-    const y1 = fromPos.y + cardH / 2;
-    const x2 = toPos.x + cardW / 2;
-    const y2 = toPos.y + cardH / 2;
+    const c1x = fromPos.x + cardW / 2;
+    const c1y = fromPos.y + cardH / 2;
+    const c2x = toPos.x + cardW / 2;
+    const c2y = toPos.y + cardH / 2;
 
-    const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
+    // 端点停靠点
+    const p1 = getCardBorderPoint(c1x, c1y, c2x, c2y, 4);
+    const p2 = getCardBorderPoint(c2x, c2y, c1x, c1y, 4);
 
     const marker = rel.isAsync ? 'url(#cm-arrow-open)' : 'url(#cm-arrow-solid)';
 
-    svg += `  <!-- Relationship #${rel.number}: ${escapeXml(rel.label)} -->
-  <g class="cm-relationship" opacity="${isStepDimmed ? '0.25' : '1'}" style="transition: opacity 0.2s ease;">
-    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${isStepActive ? '#38bdf8' : colors.line}" stroke-width="${isStepActive ? '3.5' : '2'}" stroke-dasharray="${rel.isAsync ? '6,4' : 'none'}" marker-end="${marker}" filter="${isStepActive ? 'url(#cm-glow)' : 'none'}" />
-    
-    <!-- 铭牌与防腐徽章 -->
-    <g transform="translate(${midX}, ${midY})">
-      <rect x="-110" y="-18" width="220" height="36" rx="6" fill="${colors.cardBg}" stroke="${isStepActive ? '#38bdf8' : colors.cardBorder}" stroke-width="1.2" filter="url(#cm-shadow)" />
-      
-      <!-- 上游 U 标签 -->
-      ${rel.upstreamPattern ? `<rect x="-104" y="-13" width="54" height="14" rx="3" fill="#0284c7" />
-      <text x="-77" y="-2" fill="#ffffff" font-size="8.5" font-weight="700" text-anchor="middle">${escapeXml(rel.upstreamPattern)}</text>` : ''}
-      
-      <!-- 下游 D 标签 -->
-      ${rel.downstreamPattern ? `<rect x="50" y="-13" width="54" height="14" rx="3" fill="#ea580c" />
-      <text x="77" y="-2" fill="#ffffff" font-size="8.5" font-weight="700" text-anchor="middle">${escapeXml(rel.downstreamPattern)}</text>` : ''}
-      
-      <!-- 关系说明文字 -->
-      <text x="0" y="11" fill="${colors.title}" font-size="10.5" font-weight="700" text-anchor="middle">#${rel.number} ${escapeXml(truncateLabel(rel.label, 20))}</text>
-    </g>
-  </g>\n`;
-  });
+    svg += `    <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${isStepActive ? '#38bdf8' : colors.line}" stroke-width="${isStepActive ? '3.5' : '2'}" stroke-dasharray="${rel.isAsync ? '6,4' : 'none'}" marker-end="${marker}" opacity="${isStepDimmed ? '0.2' : '1'}" filter="${isStepActive ? 'url(#cm-glow)' : 'none'}" />\n`;
 
-  // 3. 上下文卡片节点
+    // 预计算标签铭牌宽度与位置：精致紧凑型胶囊设计，确保在卡片间隙中留有纯净留白
+    const badgeW = Math.max(140, Math.min(176, rel.label.length * 9 + 48));
+    let badgeX = (p1.x + p2.x) / 2;
+    let badgeY = (p1.y + p2.y) / 2;
+
+    // 避让检测：若中点距离任何卡片中心太近，微调 t
+    const isCollidingWithCard = (bx: number, by: number) => {
+      for (const [, pos] of ctxPositions) {
+        const kx = pos.x + cardW / 2;
+        const ky = pos.y + cardH / 2;
+        if (Math.abs(bx - kx) < (cardW + badgeW) / 2 && Math.abs(by - ky) < (cardH + 36) / 2) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (isCollidingWithCard(badgeX, badgeY)) {
+      const candidates = [0.4, 0.6, 0.32, 0.68];
+      for (const t of candidates) {
+        const candX = p1.x + (p2.x - p1.x) * t;
+        const candY = p1.y + (p2.y - p1.y) * t;
+        if (!isCollidingWithCard(candX, candY)) {
+          badgeX = candX;
+          badgeY = candY;
+          break;
+        }
+      }
+    }
+
+    computedRelPoints.push({
+      rel,
+      relIdx,
+      startX: p1.x,
+      startY: p1.y,
+      endX: p2.x,
+      endY: p2.y,
+      badgeX,
+      badgeY,
+      badgeW,
+    });
+  });
+  svg += `  </g>\n`;
+
+  // 3. 中层图层：上下文卡片节点 (Context Cards Layer)
+  svg += `  <!-- Layer 2: 上下文卡片节点 -->\n  <g class="cm-context-cards">\n`;
   contexts.forEach(ctx => {
     const pos = ctxPositions.get(ctx.id) || { x: 100, y: 100 };
     const badge = domainBadges[ctx.subdomain] || domainBadges.supporting;
 
-    svg += `  <!-- Context: ${escapeXml(ctx.name)} -->
-  <g class="cm-context-card" transform="translate(${pos.x}, ${pos.y})" filter="url(#cm-shadow)">
+    svg += `  <g class="cm-context-card" transform="translate(${pos.x}, ${pos.y})" filter="url(#cm-shadow)">
     <rect x="0" y="0" width="${cardW}" height="${cardH}" rx="10" fill="${colors.cardBg}" stroke="${badge.bg}" stroke-width="2" />
     <rect x="0" y="0" width="${cardW}" height="28" rx="10" fill="${badge.bg}" />
     <text x="${cardW / 2}" y="18" fill="${badge.text}" font-size="11" font-weight="700" text-anchor="middle">${badge.label}</text>
@@ -951,6 +1024,31 @@ export function renderContextMapToSvg(
     }
   </g>\n`;
   });
+  svg += `  </g>\n`;
+
+  // 4. 顶层图层：关系标签与防腐契约铭牌 (Top Badges Layer，置于卡片上方，彻底杜绝文字被卡片遮盖)
+  svg += `  <!-- Layer 3: 顶层关系标签与契约铭牌 (永远浮在卡片与连线上方) -->\n  <g class="cm-relationship-badges">\n`;
+  computedRelPoints.forEach(item => {
+    const { rel, relIdx, badgeX, badgeY, badgeW } = item;
+    const isStepActive = currentStep === relIdx;
+    const isStepDimmed = currentStep !== -1 && !isStepActive;
+
+    svg += `  <g class="cm-rel-badge" transform="translate(${badgeX}, ${badgeY})" opacity="${isStepDimmed ? '0.35' : '1'}" filter="url(#cm-shadow)" style="transition: opacity 0.2s ease;">
+      <rect x="${-badgeW / 2}" y="-18" width="${badgeW}" height="36" rx="6" fill="${colors.cardBg}" stroke="${isStepActive ? '#38bdf8' : colors.cardBorder}" stroke-width="${isStepActive ? '2' : '1.2'}" />
+      
+      <!-- 上游 U 标签 -->
+      ${rel.upstreamPattern ? `<rect x="${-badgeW / 2 + 6}" y="-13" width="52" height="14" rx="3" fill="#0284c7" />
+      <text x="${-badgeW / 2 + 32}" y="-2" fill="#ffffff" font-size="8.5" font-weight="700" text-anchor="middle">${escapeXml(rel.upstreamPattern)}</text>` : ''}
+      
+      <!-- 下游 D 标签 -->
+      ${rel.downstreamPattern ? `<rect x="${badgeW / 2 - 58}" y="-13" width="52" height="14" rx="3" fill="#ea580c" />
+      <text x="${badgeW / 2 - 32}" y="-2" fill="#ffffff" font-size="8.5" font-weight="700" text-anchor="middle">${escapeXml(rel.downstreamPattern)}</text>` : ''}
+      
+      <!-- 关系说明文字 -->
+      <text x="0" y="11" fill="${colors.title}" font-size="10" font-weight="700" text-anchor="middle">#${rel.number} ${escapeXml(truncateLabel(rel.label, 13))}</text>
+    </g>\n`;
+  });
+  svg += `  </g>\n`;
 
   svg += `</svg>`;
   return svg;
