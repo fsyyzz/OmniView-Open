@@ -8,7 +8,23 @@
 
 ---
 
-## [1.4.37] - 2026-11-10 (当前最新发布)
+## [1.4.38] - 2026-11-10 (当前最新发布)
+
+> [!TIP] v1.4.38 核心升级亮点
+> **新增 PlantUML 架构与工程图表全景展馆示例文档并完善导航链路**：
+> 1. **全景工程图表展馆 (`examples/markdown/plantuml-diagrams.md`)**：
+>    - 全面覆盖工业级 PlantUML 核心图表类型，包括微服务鉴权时序图 (`activate`/`deactivate`/`alt`)、分层解耦组件架构图、订单履约复合状态机 (`state`)、领域模型高内聚类图 (`class`)、用户认证与权限用例图 (`usecase`)、DevOps 持续交付泳道活动图 (`fork`/`join`) 以及思维脑图 (`mindmap`)；
+>    - 提供外部 `.puml` 架构文件挂载（`external="../plantuml/cloud-topology.puml"`）的标准规范与热重载演示；
+> 2. **设计规范与排版标杆**：
+>    - 遵循 `skills:omniview-markdown-authoring` 现代排版规范，集成 `[!BANNER]`、`[!TABS]`、`[!COMPARE]`、`[!NOTE]`、`[!TIP]` 与 `[!IMPORTANT]` 等语义化卡片，严格自适应多主题与原生设计令牌；
+> 3. **导航与索引打通**：
+>    - 更新 `examples/markdown/README.md` 与 `examples/markdown/diagrams.md`，打通基础图表示例与专属全景展馆的引导闭环；
+> 4. **质量门禁与全量测试**：
+>    - 101/101 套自动化测试与一致性物理门禁 100% 绿灯通过。
+
+---
+
+## [1.4.37] - 2026-11-10
 
 > [!TIP] v1.4.37 核心升级亮点
 > **光标悬浮胶囊全面扩充 OmniView 专属非标准 Markdown 渲染特性库**：

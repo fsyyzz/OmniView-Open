@@ -16,6 +16,7 @@
 | [pandoc-extras.md](./pandoc-extras.md) | Pandoc 定义列表与 emoji shortcode（`:rocket:`） |
 | [code-blocks.md](./code-blocks.md) | TypeScript、Python、JSON、Shell 代码块 |
 | [diagrams.md](./diagrams.md) | Mermaid 与 PlantUML 图表 |
+| [plantuml-diagrams.md](./plantuml-diagrams.md) | PlantUML 架构与工程图表全景展馆：时序图、组件图、状态机、领域模型、思维脑图与外部文件挂载 |
 | [graphviz-diagrams.md](./graphviz-diagrams.md) | Graphviz / DOT 拓扑图、有向图、网络状态机与多布局引擎 |
 | [math-formulas.md](./math-formulas.md) | KaTeX 数学公式、微积分、线性代数、物理学方程与深度学习模型 |
 | [echarts-charts.md](./echarts-charts.md) | Apache ECharts 商业级矢量图表、快捷语法糖、纯数据简写与多列响应式卡片仪表盘 |

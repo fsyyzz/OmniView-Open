@@ -41,6 +41,9 @@ extension --> viewer
 @enduml
 ```
 
+> [!TIP]
+> 想要体验更多高阶 PlantUML 架构、时序生命周期、状态机、领域类图、活动泳道图与外部 `.puml` 引用渲染？请参阅专属全景展馆文档：**[PlantUML 架构与工程图表全景展馆 (plantuml-diagrams.md)](./plantuml-diagrams.md)**。
+
 ## SVG 矢量图渲染示例
 
 在 Markdown 文档中支持直接通过 \`\`\`svg 代码块内联渲染交互式矢量图形，支持在【预览/源码】之间切换编辑，以及下载 SVG：
