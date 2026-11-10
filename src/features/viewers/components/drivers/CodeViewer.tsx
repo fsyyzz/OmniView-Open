@@ -16,6 +16,7 @@ import {
   type PaneSyncDetail,
 } from '../../lib/scrollSync';
 import { MarkdownQuickInserter } from '../markdown/MarkdownQuickInserter';
+import { getCaretCoordinates } from '../../lib/caretCoordinates';
 
 const StructuredDataViewer = lazy(() =>
   import('./data/StructuredDataViewer').then(m => ({ default: m.StructuredDataViewer }))
@@ -136,8 +137,17 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
     const cleanName = (fileName || '').toLowerCase();
     return ['md', 'markdown', 'mdown', 'mkd', 'mdx'].includes(cleanExt) || cleanName.endsWith('.md');
   }, [extension, fileName]);
-  const [cursorLine, setCursorLine] = useState<number>(1);
-  const [cursorScrollTop, setCursorScrollTop] = useState<number>(0);
+  const [caretCoords, setCaretCoords] = useState<{
+    caretLeft: number;
+    caretTop: number;
+    cursorLine: number;
+    cursorColumn: number;
+  }>({
+    caretLeft: 60,
+    caretTop: 12,
+    cursorLine: 1,
+    cursorColumn: 1,
+  });
 
   // Undo / Redo 历史管理 Hook
   const {
@@ -439,13 +449,37 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
     window.dispatchEvent(new CustomEvent(PANE_SYNC_EVENT, { detail }));
   };
 
+  // 计算并更新光标在屏幕上的像素级精确位置 (caretLeft, caretTop)
+  const updateCaretPosition = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const pos = ta.selectionStart;
+    const textBefore = ta.value.slice(0, pos);
+    const splitLines = textBefore.split('\n');
+    const currentLine = splitLines.length;
+    const currentCol = splitLines[splitLines.length - 1].length + 1;
+
+    // 基于镜像 DOM 计算真实的精确光标坐标
+    const coords = getCaretCoordinates(ta, pos);
+    const gutterWidth = lineGutterRef.current?.offsetWidth || 44;
+    const caretLeft = gutterWidth + coords.viewportLeft;
+    const caretTop = coords.viewportTop;
+
+    setCaretCoords({
+      caretLeft,
+      caretTop,
+      cursorLine: currentLine,
+      cursorColumn: currentCol,
+    });
+  }, []);
+
   // Sync scrolling between line gutter / preview and textarea
   const handleScroll = () => {
     const ta = textareaRef.current;
     if (ta && lineGutterRef.current) {
       lineGutterRef.current.scrollTop = ta.scrollTop;
-      setCursorScrollTop(ta.scrollTop);
     }
+    updateCaretPosition();
     if (!ta || applyingRemoteScrollRef.current) return;
     const { lineHeight, paddingTop } = readTextareaMetrics();
     const topLine = lineFromTextareaScroll(ta.scrollTop, lineHeight, paddingTop, lineCountRef.current);
@@ -455,11 +489,10 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
   const handleSelect = () => {
     const ta = textareaRef.current;
     if (!ta) return;
-    const before = ta.value.slice(0, ta.selectionStart);
-    const activeLine = before.split('\n').length;
-    setCursorLine(activeLine);
-    setCursorScrollTop(ta.scrollTop);
+    updateCaretPosition();
     if (!applyingRemoteScrollRef.current) {
+      const before = ta.value.slice(0, ta.selectionStart);
+      const activeLine = before.split('\n').length;
       emitSourceSync('editor-cursor-sync', activeLine);
     }
   };
@@ -605,8 +638,9 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
     setEditValue(val);
     setIsSaved(false);
 
-    // 记录到撤回/重做历史栈
+    // 记录到撤回/重做历史栈并更新光标位置
     recordChange(val, selStart, selEnd, false);
+    updateCaretPosition();
 
     // Debounced sync to trigger live render in split mode / mindmap
     if (debounceTimerRef.current) {
@@ -1429,14 +1463,18 @@ const PlainCodeViewer: React.FC<CodeViewerProps> = (props) => {
               placeholder="在此输入或编辑内容..."
             />
 
-            {/* Markdown 光标所在行悬浮工具特性快速插入栏 */}
+            {/* Markdown 光标所在位置悬浮工具特性快速插入栏 */}
             {isMarkdown && (
               <MarkdownQuickInserter
-                cursorTop={readTextareaMetrics().paddingTop + (cursorLine - 1) * readTextareaMetrics().lineHeight - cursorScrollTop}
-                cursorLine={cursorLine}
+                caretLeft={caretCoords.caretLeft}
+                caretTop={caretCoords.caretTop}
+                cursorLine={caretCoords.cursorLine}
+                cursorColumn={caretCoords.cursorColumn}
+                containerWidth={textareaRef.current?.parentElement?.clientWidth || 800}
                 isVisible={
-                  readTextareaMetrics().paddingTop + (cursorLine - 1) * readTextareaMetrics().lineHeight - cursorScrollTop >= -8 &&
-                  readTextareaMetrics().paddingTop + (cursorLine - 1) * readTextareaMetrics().lineHeight - cursorScrollTop <= (textareaRef.current?.clientHeight || 600) - 26
+                  isEditing &&
+                  caretCoords.caretTop >= -8 &&
+                  caretCoords.caretTop <= (textareaRef.current?.clientHeight || 600) - 24
                 }
                 locale={locale}
                 onInsert={handleQuickInsertSnippet}

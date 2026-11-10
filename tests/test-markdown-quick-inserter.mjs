@@ -57,14 +57,17 @@ assert.ok(inserterContent.includes('| 字段名称 | 类型 | 说明 |'), '必�
 assert.ok(inserterContent.includes('```typescript'), '必须支持标准语法着色代码块');
 console.log('✅ 标题、待办清单、表格与代码块模板校验通过');
 
-// 5. CodeViewer 挂载与光标行吸附契约断言
+// 5. CodeViewer 挂载与光标像素级吸附契约断言
 console.log('--- 测试 5: CodeViewer 源码编辑窗口挂载与吸附逻辑 ---');
 assert.ok(codeViewerContent.includes('MarkdownQuickInserter'), 'CodeViewer 必须引入 MarkdownQuickInserter');
 assert.ok(codeViewerContent.includes('isMarkdown'), 'CodeViewer 必须判断是否为 Markdown 文件格式');
-assert.ok(codeViewerContent.includes('cursorLine'), 'CodeViewer 必须维护光标所在行 cursorLine 状态');
+assert.ok(codeViewerContent.includes('caretCoords'), 'CodeViewer 必须维护精确 caretCoords 状态');
+assert.ok(codeViewerContent.includes('getCaretCoordinates'), 'CodeViewer 必须接入精确光标坐标计算器 getCaretCoordinates');
+assert.ok(codeViewerContent.includes('updateCaretPosition'), 'CodeViewer 必须具备 updateCaretPosition 光标位置更新器');
 assert.ok(codeViewerContent.includes('handleQuickInsertSnippet'), 'CodeViewer 必须具备 handleQuickInsertSnippet 插入调度器');
-assert.ok(codeViewerContent.includes('cursorTop'), '必须动态根据行高与滚动计算光标绝对垂直位置 cursorTop');
-console.log('✅ CodeViewer 挂载、光标行吸附与插入调度契约全部通过');
+assert.ok(codeViewerContent.includes('caretLeft={caretCoords.caretLeft}'), '必须向悬浮组件传递真实的横向 caretLeft 坐标');
+assert.ok(codeViewerContent.includes('caretTop={caretCoords.caretTop}'), '必须向悬浮组件传递真实的纵向 caretTop 坐标');
+console.log('✅ CodeViewer 挂载、光标像素级吸附与插入调度契约全部通过');
 
 // 6. 纯逻辑仿真测试：插入片段调度器行为
 console.log('--- 测试 6: 纯函数模拟空行替换与换行插入逻辑 ---');

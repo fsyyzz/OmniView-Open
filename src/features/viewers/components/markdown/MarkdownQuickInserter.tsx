@@ -319,20 +319,28 @@ export const QUICK_INSERT_ITEMS: QuickInsertItem[] = [
 ];
 
 export interface MarkdownQuickInserterProps {
-  cursorTop: number;
+  caretLeft?: number;
+  caretTop?: number;
+  cursorTop?: number;
   cursorLine: number;
+  cursorColumn?: number;
+  containerWidth?: number;
   isVisible: boolean;
   locale?: Locale;
   onInsert: (snippet: string, placeholderLength?: number) => void;
 }
 
 /**
- * 光标行悬浮快速插入工具条
- * 实时吸附在光标所在行同一高度，支持快速气泡、快捷常用动作与丰富特性弹窗
+ * 光标位置悬浮快速插入工具条
+ * 实时吸附在光标真实位置 (caretX, caretY)，支持快速气泡、快捷常用动作与丰富特性弹窗
  */
 export const MarkdownQuickInserter: React.FC<MarkdownQuickInserterProps> = ({
+  caretLeft,
+  caretTop,
   cursorTop,
   cursorLine,
+  cursorColumn = 1,
+  containerWidth = 800,
   isVisible,
   locale = 'zh-CN',
   onInsert,
@@ -386,27 +394,41 @@ export const MarkdownQuickInserter: React.FC<MarkdownQuickInserterProps> = ({
 
   if (!isVisible) return null;
 
+  // 像素级光标位置计算
+  const effectiveTop = caretTop !== undefined ? caretTop : (cursorTop ?? 0);
+  const effectiveLeft = caretLeft !== undefined ? caretLeft : 60;
+
+  // 悬浮条宽度与停靠碰撞计算
+  const pillWidth = 236;
+  const isRightConstrained = effectiveLeft + pillWidth + 20 > containerWidth;
+  const leftPosition = isRightConstrained
+    ? Math.max(52, effectiveLeft - pillWidth - 8)
+    : Math.max(52, effectiveLeft + 8);
+
+  const isPopupAlignRight = leftPosition + 360 > containerWidth;
+
   return (
     <div
       ref={menuRef}
       style={{
-        top: `${Math.max(6, cursorTop - 4)}px`,
+        top: `${Math.max(4, effectiveTop - 4)}px`,
+        left: `${leftPosition}px`,
       }}
-      className="absolute right-5 z-30 transition-all duration-150 select-none"
+      className="absolute z-30 transition-all duration-100 select-none"
     >
-      {/* 悬浮微型控制栏 (Floating Pill) */}
+      {/* 悬浮微型控制栏 (Floating Pill - 紧密跟随光标) */}
       <div
         className="flex items-center gap-1 px-1.5 py-1 rounded-full border shadow-lg backdrop-blur-md transition group hover:shadow-xl"
         style={{
           background: 'var(--ov-surface)',
           borderColor: 'var(--ov-border)',
           color: 'var(--ov-text-secondary)',
-          boxShadow: 'var(--ov-shadow, 0 4px 12px rgba(0,0,0,0.25))',
+          boxShadow: 'var(--ov-shadow, 0 4px 14px rgba(0,0,0,0.3))',
         }}
       >
-        {/* 行号提示微标 */}
+        {/* 光标行列提示微标 */}
         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--ov-surface-header)] border border-[var(--ov-border)] text-[var(--ov-text-secondary)] opacity-80">
-          L{cursorLine}
+          L{cursorLine}{cursorColumn > 1 ? `:${cursorColumn}` : ''}
         </span>
 
         {/* 核心主按钮: 展开丰富工具特性库 */}
@@ -419,10 +441,10 @@ export const MarkdownQuickInserter: React.FC<MarkdownQuickInserterProps> = ({
               ? 'bg-[var(--ov-accent)] text-white'
               : 'hover:bg-[var(--ov-surface-hover)] hover:text-[var(--ov-text)] text-[var(--ov-text)]'
           }`}
-          title={isEn ? 'Insert Markdown feature at cursor line' : '在光标行快速插入 Markdown 工具特性'}
+          title={isEn ? 'Insert Markdown feature at cursor position' : '在当前光标位置快速插入 Markdown 工具特性'}
         >
           <Plus className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-semibold">{isEn ? 'Insert' : '快速插入'}</span>
+          <span className="text-[11px] font-semibold">{isEn ? 'Insert' : '插入'}</span>
         </button>
 
         <div className="w-[1px] h-3.5 bg-[var(--ov-border)] my-auto" />
@@ -486,7 +508,9 @@ export const MarkdownQuickInserter: React.FC<MarkdownQuickInserterProps> = ({
       {/* 弹出的丰富工具特性选择面板 */}
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150"
+          className={`absolute mt-2 w-80 sm:w-96 rounded-xl border shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 ${
+            isPopupAlignRight ? 'right-0' : 'left-0'
+          }`}
           style={{
             background: 'var(--ov-surface)',
             borderColor: 'var(--ov-border)',
