@@ -3,6 +3,8 @@
  * OmniView 驱动分发路由与边界降级自动化测试套件
  */
 import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getDriverIdForFile } from '../src/features/viewers/lib/driverRouting.ts';
 
 console.log('🧪 开始驱动分发路由与格式自愈降级单元测试...');
@@ -135,4 +137,21 @@ assert.strictEqual(getDriverIdForFile(mockFile('unknown.xyz', 'xyz')), 'code', '
 assert.strictEqual(getDriverIdForFile(mockFile('binary.dat', 'dat')), 'code', '二进制后缀应安全降级至 code 驱动');
 console.log('✅ 无扩展名与未知格式安全降级测试全部通过');
 
-console.log('🎉 全部 7 组驱动路由与格式自愈测试用例 100% 通过！\n');
+// 9. Markdown 驱动分屏拖拽与可调大小支持契约
+console.log('--- 测试 9: Markdown 驱动分屏拖拽与可调大小支持契约 ---');
+const registrySource = fs.readFileSync(
+  path.join(process.cwd(), 'src/features/viewers/lib/driverRegistry.tsx'),
+  'utf-8'
+);
+
+assert.ok(registrySource.includes('supportsSplitView: true'), 'markdown 驱动必须声明 supportsSplitView: true');
+assert.ok(registrySource.includes('MarkdownSplitLayout'), 'driverRegistry 必须实现 MarkdownSplitLayout 可拖拽分屏布局');
+assert.ok(registrySource.includes('useSplitPane'), 'Markdown 分屏必须接入标准化 useSplitPane 拖拽 Hook');
+assert.ok(registrySource.includes('omniview:markdown:splitRatio'), 'Markdown 分屏必须配置持久化 storageKey');
+assert.ok(registrySource.includes('cursor-col-resize'), 'Markdown 分屏分隔手柄必须支持 cursor-col-resize 光标样式');
+assert.ok(registrySource.includes('role="separator"'), 'Markdown 分屏手柄必须配置无障碍 separator 语义角色');
+assert.ok(registrySource.includes('30, 50, 70'), 'Markdown 分屏必须提供 30:70 / 50:50 / 70:30 快捷比例预设');
+assert.ok(registrySource.includes('applyPreset(50)'), 'Markdown 分屏手柄必须支持双击一键复位 50%');
+console.log('✅ Markdown 驱动分屏拖拽手柄、比例持久化与快捷预设契约测试全部通过');
+
+console.log('🎉 全部 9 组驱动路由、格式自愈与分屏拖拽测试用例 100% 通过！\n');

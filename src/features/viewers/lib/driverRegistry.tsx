@@ -7,6 +7,7 @@ import type { FileItem, DriverId, ViewMode, ThemeId, ContentWidthMode, DensityMo
 import type { Locale } from '../../../shared/lib/i18n';
 import { saveStoredSettings, loadStoredSettings } from '../../../shared/lib/settingsStorage';
 import { Eye, Network } from 'lucide-react';
+import { useSplitPane } from '../hooks/useSplitPane';
 
 export interface DriverProps {
   file?: FileItem;
@@ -113,6 +114,259 @@ const getMarkdownViewer = createLazyDriver('markdown', () => import('../componen
 const getMarkmapViewer = createLazyDriver('mindmap-mode', () => import('../components/drivers/MarkmapViewer'), 'MarkmapViewer');
 const getCodeViewer = createLazyDriver('source-mode', () => import('../components/drivers/CodeViewer'), 'CodeViewer');
 
+interface MarkdownSplitLayoutProps {
+  file: FileItem;
+  files: FileItem[];
+  theme: ThemeId;
+  isDarkTheme: boolean;
+  density: DensityMode;
+  contentWidth: ContentWidthMode;
+  effectiveFontSize: number;
+  zoomStyle?: React.CSSProperties;
+  fontVarsStyle: React.CSSProperties;
+  locale: Locale;
+  onContentChange: (content: string) => void;
+  onAcceptAiDiff?: (content: string) => void;
+  onRenderComplete?: () => void;
+  onOpenSourceAtLine?: (line: number) => void;
+  onOpenInEditor?: () => void;
+  onSelectFile?: (file: FileItem) => void;
+  effectiveEnableOkf: boolean;
+  handleToggleOkf: () => void;
+  eagerMount?: boolean;
+  splitRightMode: 'preview' | 'mindmap';
+  setSplitRightMode: (mode: 'preview' | 'mindmap') => void;
+}
+
+/**
+ * Markdown 双栏可拖拽分屏交互组件
+ * 支持 60 FPS 平滑拖拽改变比例、双击复位 50%、快捷预设与防穿透遮罩
+ */
+const MarkdownSplitLayout: React.FC<MarkdownSplitLayoutProps> = ({
+  file,
+  files,
+  theme,
+  isDarkTheme,
+  density,
+  contentWidth,
+  effectiveFontSize,
+  zoomStyle,
+  fontVarsStyle,
+  locale,
+  onContentChange,
+  onAcceptAiDiff,
+  onRenderComplete,
+  onOpenSourceAtLine,
+  onOpenInEditor,
+  onSelectFile,
+  effectiveEnableOkf,
+  handleToggleOkf,
+  eagerMount,
+  splitRightMode,
+  setSplitRightMode,
+}) => {
+  const MarkdownViewer = getMarkdownViewer();
+  const MarkmapViewer = getMarkmapViewer();
+  const CodeViewer = getCodeViewer();
+
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const { splitRatio, setSplitRatio, isDragging, handleSplitterMouseDown } = useSplitPane({
+    storageKey: 'omniview:markdown:splitRatio',
+    defaultRatio: 50,
+    minRatio: 15,
+    maxRatio: 85,
+    containerRef,
+  });
+
+  const applyPreset = (ratio: number) => {
+    setSplitRatio(ratio);
+    try {
+      localStorage.setItem('omniview:markdown:splitRatio', ratio.toString());
+      saveStoredSettings({ splitRatio: ratio });
+    } catch {}
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex min-h-0 flex-1 overflow-hidden relative select-none"
+      data-theme={theme}
+      data-font-size={effectiveFontSize}
+      style={fontVarsStyle}
+    >
+      {/* 拖拽防穿透全局遮罩 */}
+      {isDragging && (
+        <div
+          className="ov-drag-overlay absolute inset-0 z-50 cursor-col-resize select-none pointer-events-auto"
+          style={{ backgroundColor: 'transparent' }}
+        />
+      )}
+
+      {/* Left: Source Code Editor */}
+      <div
+        className="flex min-h-0 flex-col overflow-hidden shrink-0"
+        style={{
+          width: `${splitRatio}%`,
+          minWidth: '180px',
+          ...zoomStyle,
+        }}
+      >
+        <CodeViewer
+          content={file.content}
+          fileName={file.name}
+          extension={file.extension}
+          locale={locale}
+          onContentChange={onContentChange}
+          onOpenInEditor={onOpenInEditor}
+        />
+      </div>
+
+      {/* Center: Draggable Resizer Splitter */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-valuenow={Math.round(splitRatio)}
+        aria-label="拖拽调整分屏大小"
+        title="拖拽调节源码与预览分屏大小 | 双击复位 50%"
+        onMouseDown={handleSplitterMouseDown}
+        onDoubleClick={() => applyPreset(50)}
+        style={{
+          backgroundColor: isDragging ? 'var(--ov-accent)' : 'var(--ov-surface-header)',
+          borderColor: 'var(--ov-border)',
+        }}
+        className="relative z-30 w-2.5 shrink-0 flex items-center justify-center cursor-col-resize select-none transition-colors border-x group hover:bg-[var(--ov-accent)]/80"
+      >
+        {/* 居中把手握持条纹 */}
+        <div
+          style={{ backgroundColor: isDragging ? '#ffffff' : 'var(--ov-border)' }}
+          className="h-10 w-1 rounded-full group-hover:bg-white transition-colors"
+        />
+      </div>
+
+      {/* Right: Toggleable Preview / Mindmap */}
+      <div
+        className="min-h-0 flex flex-col overflow-hidden relative flex-1"
+        style={{
+          width: `${100 - splitRatio}%`,
+          minWidth: '180px',
+          background: 'var(--ov-bg)',
+        }}
+      >
+        {/* Floating switcher for split view right pane */}
+        <div
+          className="absolute top-2 right-4 z-20 flex items-center backdrop-blur rounded-md p-0.5 shadow-md border gap-1"
+          style={{
+            background: 'var(--ov-surface)',
+            borderColor: 'var(--ov-border)',
+          }}
+        >
+          {/* 分屏比例快捷预设 (30:70 / 50:50 / 70:30) */}
+          <div className="flex items-center gap-0.5 border-r pr-1 mr-0.5" style={{ borderColor: 'var(--ov-border)' }}>
+            {[30, 50, 70].map(ratio => (
+              <button
+                key={ratio}
+                type="button"
+                onClick={() => applyPreset(ratio)}
+                style={{
+                  backgroundColor: Math.round(splitRatio) === ratio ? 'var(--ov-accent)' : 'transparent',
+                  color: Math.round(splitRatio) === ratio ? '#ffffff' : 'var(--ov-text-secondary)',
+                }}
+                className="px-1.5 py-0.5 rounded text-[10px] font-mono transition cursor-pointer hover:text-[var(--ov-text)]"
+                title={`快速切换至 ${ratio}:${100 - ratio} 比例`}
+              >
+                {ratio}:{100 - ratio}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSplitRightMode('preview');
+              saveStoredSettings({ splitRightMode: 'preview' });
+            }}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer ${
+              splitRightMode === 'preview'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'hover:bg-[var(--ov-surface-hover)]'
+            }`}
+            style={{
+              color: splitRightMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            title="富文本渲染预览"
+            aria-label="富文本渲染预览"
+          >
+            <Eye className="w-3 h-3 shrink-0" />
+            <span className="hidden sm:inline">预览</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSplitRightMode('mindmap');
+              saveStoredSettings({ splitRightMode: 'mindmap' });
+            }}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer ${
+              splitRightMode === 'mindmap'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'hover:bg-[var(--ov-surface-hover)]'
+            }`}
+            style={{
+              color: splitRightMode === 'mindmap' ? '#ffffff' : 'var(--ov-text-secondary)',
+            }}
+            title="全景思维导图 (Markmap)"
+            aria-label="全景思维导图"
+          >
+            <Network className="w-3 h-3 shrink-0" />
+            <span className="hidden sm:inline">思维导图</span>
+          </button>
+        </div>
+
+        {splitRightMode === 'preview' ? (
+          <div
+            className="markdown-plugin-scroll ov-split-preview-scroll flex-1 overflow-y-auto"
+            data-font-size={effectiveFontSize}
+            style={{ background: 'var(--ov-bg)', ...fontVarsStyle }}
+          >
+            <div style={zoomStyle} data-font-size={effectiveFontSize}>
+              <MarkdownViewer
+                content={file.content}
+                baseContent={file.baseContent}
+                diskContent={file.diskContent}
+                files={files}
+                theme={theme}
+                isDarkTheme={isDarkTheme}
+                density={density}
+                contentWidth={contentWidth}
+                locale={locale}
+                onContentChange={onContentChange}
+                onAcceptAiDiff={onAcceptAiDiff}
+                onRenderComplete={onRenderComplete}
+                onOpenSourceAtLine={onOpenSourceAtLine}
+                onSelectFile={onSelectFile}
+                enableOkf={effectiveEnableOkf}
+                onToggleOkf={handleToggleOkf}
+                eagerMount={eagerMount}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={zoomStyle}>
+            <MarkmapViewer
+              content={file.content}
+              fileName={file.name}
+              isDarkTheme={isDarkTheme}
+              theme={theme}
+              density={density}
+              locale={locale}
+              onOpenSourceAtLine={onOpenSourceAtLine}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 /**
  * Markdown 驱动多模式渲染分发 (mindmap / source / split / preview)
  * 内部合法使用 useState 保持 splitRightMode 等渲染上下文的跨渲染生命周期
@@ -212,114 +466,29 @@ function renderMarkdownMode(ctx: ViewerRenderContext): React.ReactNode {
 
   if (mode === 'split') {
     return (
-      <div
-        className="flex min-h-0 flex-1 overflow-hidden"
-        data-theme={theme}
-        data-font-size={effectiveFontSize}
-        style={fontVarsStyle}
-      >
-        {/* Left: Source Code Editor */}
-        <div className="flex min-h-0 w-1/2 flex-col border-r" style={{ ...zoomStyle, borderColor: 'var(--ov-border)' }}>
-          <CodeViewer
-            content={file.content}
-            fileName={file.name}
-            extension={file.extension}
-            locale={locale}
-            onContentChange={onContentChange}
-            onOpenInEditor={onOpenInEditor}
-          />
-        </div>
-
-        {/* Right: Toggleable Preview / Mindmap */}
-        <div className="min-h-0 w-1/2 flex flex-col overflow-hidden relative" style={{ background: 'var(--ov-bg)' }}>
-          {/* Floating switcher for split view right pane */}
-          <div
-            className="absolute top-2 right-4 z-20 flex items-center backdrop-blur rounded-md p-0.5 shadow-md border"
-            style={{
-              background: 'var(--ov-surface)',
-              borderColor: 'var(--ov-border)',
-            }}
-          >
-            <button
-              onClick={() => {
-                setSplitRightMode('preview');
-                saveStoredSettings({ splitRightMode: 'preview' });
-              }}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer ${
-                splitRightMode === 'preview'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'hover:bg-[var(--ov-surface-hover)]'
-              }`}
-              style={{
-                color: splitRightMode === 'preview' ? '#ffffff' : 'var(--ov-text-secondary)',
-              }}
-              title="富文本渲染预览"
-              aria-label="富文本渲染预览"
-            >
-              <Eye className="w-3 h-3 shrink-0" />
-              <span className="hidden sm:inline">预览</span>
-            </button>
-            <button
-              onClick={() => {
-                setSplitRightMode('mindmap');
-                saveStoredSettings({ splitRightMode: 'mindmap' });
-              }}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                splitRightMode === 'mindmap'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="全景思维导图 (Markmap)"
-              aria-label="全景思维导图"
-            >
-              <Network className="w-3 h-3 shrink-0" />
-              <span className="hidden sm:inline">思维导图</span>
-            </button>
-          </div>
-
-          {splitRightMode === 'preview' ? (
-            <div
-              className="markdown-plugin-scroll ov-split-preview-scroll flex-1 overflow-y-auto"
-              data-font-size={effectiveFontSize}
-              style={{ background: 'var(--ov-bg)', ...fontVarsStyle }}
-            >
-              <div style={zoomStyle} data-font-size={effectiveFontSize}>
-                <MarkdownViewer
-                  content={file.content}
-                  baseContent={file.baseContent}
-                  diskContent={file.diskContent}
-                  files={files}
-                  theme={theme}
-                  isDarkTheme={isDarkTheme}
-                  density={density}
-                  contentWidth={contentWidth}
-                  locale={locale}
-                  onContentChange={onContentChange}
-                  onAcceptAiDiff={onAcceptAiDiff}
-                  onRenderComplete={onRenderComplete}
-                  onOpenSourceAtLine={onOpenSourceAtLine}
-                  onSelectFile={onSelectFile}
-                  enableOkf={effectiveEnableOkf}
-                  onToggleOkf={handleToggleOkf}
-                  eagerMount={eagerMount}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={zoomStyle}>
-              <MarkmapViewer
-                content={file.content}
-                fileName={file.name}
-                isDarkTheme={isDarkTheme}
-                theme={theme}
-                density={density}
-                locale={locale}
-                onOpenSourceAtLine={onOpenSourceAtLine}
-              />
-            </div>
-          )}
-        </div>
-      </div>
+      <MarkdownSplitLayout
+        file={file}
+        files={files}
+        theme={theme}
+        isDarkTheme={isDarkTheme}
+        density={density}
+        contentWidth={contentWidth}
+        effectiveFontSize={effectiveFontSize}
+        zoomStyle={zoomStyle}
+        fontVarsStyle={fontVarsStyle}
+        locale={locale}
+        onContentChange={onContentChange}
+        onAcceptAiDiff={onAcceptAiDiff}
+        onRenderComplete={onRenderComplete}
+        onOpenSourceAtLine={onOpenSourceAtLine}
+        onOpenInEditor={onOpenInEditor}
+        onSelectFile={onSelectFile}
+        effectiveEnableOkf={effectiveEnableOkf}
+        handleToggleOkf={handleToggleOkf}
+        eagerMount={eagerMount}
+        splitRightMode={splitRightMode}
+        setSplitRightMode={setSplitRightMode}
+      />
     );
   }
 
