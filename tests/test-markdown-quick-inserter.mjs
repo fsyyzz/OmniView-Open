@@ -37,15 +37,38 @@ assert.ok(inserterContent.includes('> [!COMPARE]'), '必须包含 [!COMPARE] 方
 assert.ok(inserterContent.includes('> [!TIMELINE]'), '必须包含 [!TIMELINE] 时间线模板');
 console.log('✅ 交互式卡片排版组件模板校验通过');
 
-// 3. 图表与公式模板契约断言
-console.log('--- 测试 3: 可视化图表与数学公式模板 ---');
+// 3. 现代专业图表与思维导图模板断言 (含非标准 Markdown 代码块)
+console.log('--- 测试 3: 现代专业图表与思维导图模板 ---');
+assert.ok(inserterContent.includes('```echarts'), '必须包含 ECharts 交互数据图表模板');
+assert.ok(inserterContent.includes('chart-echarts-pie'), '必须包含 ECharts 饼图模板');
+assert.ok(inserterContent.includes('```markmap'), '必须包含 Markmap 交互思维导图模板');
+assert.ok(inserterContent.includes('```dot'), '必须包含 Graphviz DOT 拓扑图模板');
 assert.ok(inserterContent.includes('```mermaid\\nflowchart'), '必须包含 Mermaid 流程图模板');
 assert.ok(inserterContent.includes('```mermaid\\nsequenceDiagram'), '必须包含 Mermaid 时序图模板');
 assert.ok(inserterContent.includes('```plantuml'), '必须包含 PlantUML 架构图模板');
 assert.ok(inserterContent.includes('```svg'), '必须包含 SVG 矢量图模板');
-assert.ok(inserterContent.includes('diag-katex'), '必须定义 KaTeX 数学公式模板');
+assert.ok(inserterContent.includes('chart-katex'), '必须定义 KaTeX 数学公式模板');
 assert.ok(inserterContent.includes('f(x) = '), '必须包含 KaTeX 独立数学公式模板内容');
-console.log('✅ 流程图、时序图、PlantUML、SVG 与数学公式模板校验通过');
+console.log('✅ ECharts、Markmap、DOT、PlantUML、Mermaid 与数学公式模板校验通过');
+
+// 3.1 OmniView 专属 DDD 领域模型契约断言
+console.log('--- 测试 3.1: OmniView 专属 DDD 领域模型模板 ---');
+assert.ok(inserterContent.includes('```domainstory'), '必须包含 domainstory 领域故事代码块');
+assert.ok(inserterContent.includes('```eventstorming'), '必须包含 eventstorming 事件风暴泳道模板');
+assert.ok(inserterContent.includes('```contextmap'), '必须包含 contextmap 限界上下文映射模板');
+assert.ok(inserterContent.includes('.ddd)'), '必须包含挂载外部 .ddd 模型链接语法');
+console.log('✅ DDD 领域故事、事件风暴、上下文映射与外部挂载模板校验通过');
+
+// 3.2 OmniView 专属高阶交互卡片扩展
+console.log('--- 测试 3.2: OmniView 专属交互卡片扩展 ---');
+assert.ok(inserterContent.includes('> [!METRICS]'), '必须包含 [!METRICS] 核心指标网格模板');
+assert.ok(inserterContent.includes('> [!FAQ]'), '必须包含 [!FAQ] 交互式折叠问答模板');
+assert.ok(inserterContent.includes('> [!QUOTE]'), '必须包含 [!QUOTE] 名人引文模板');
+assert.ok(inserterContent.includes('> [!BANNER]'), '必须包含 [!BANNER] 顶部公告横幅模板');
+assert.ok(inserterContent.includes('> [!CARDS:3]'), '必须包含 [!CARDS:3] 多列卡片网格模板');
+assert.ok(inserterContent.includes('> [!NOTE]-'), '必须包含折叠手风琴模板');
+assert.ok(inserterContent.includes('<div class="page-break"></div>'), '必须包含打印物理分页符模板');
+console.log('✅ Metrics、FAQ、Quote、Banner、Cards 与分页符扩展校验通过');
 
 // 4. 基础排版结构覆盖
 console.log('--- 测试 4: 基础常用结构模板 ---');
