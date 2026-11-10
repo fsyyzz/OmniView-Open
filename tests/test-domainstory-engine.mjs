@@ -349,5 +349,96 @@ const ccSteps = extractDomainStorySteps(ccModel);
 assert.strictEqual(ccSteps.length, 3, 'Context Canvas 应提取 3 栏架构步骤 (Inbound -> Heart -> Outbound)');
 console.log('✅ DDD 限界上下文战略画布 (Context Canvas) 解析、三栏 Bento Grid SVG 渲染与步进提取通过');
 
-console.log('\n🎉 全部 11 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
+// -------------------------------------------------------------
+// 测试 12: DDD 统一文件中的 mode: domain-story 模式解析与渲染
+// -------------------------------------------------------------
+console.log('\n--- 测试 12: DDD 架构文件中的 mode: domain-story 统一模式 ---');
+const dddDomainStoryDsl = `
+mode: domain-story
+title: 企业请假审批协同流
+description: 员工与审批系统之间的全链路协作
+
+actors:
+  - 申请员工 [person]
+  - 企业OA门户 [system]
+  - 部门主管 [person]
+
+activities:
+  1. 申请员工 -> 发起请假申请单 -> 请假单 [document] -> 企业OA门户
+  2. 企业OA门户 -> 路由审批待办 -> 待办通知 [email] -> 部门主管
+  3. 部门主管 -> 签署同意意见 -> 审批批注 [document] -> 企业OA门户
+`;
+const dddDsModel = parseDomainStory(dddDomainStoryDsl);
+assert.strictEqual(dddDsModel.mode, 'domain-story', 'DDD 中的 mode: domain-story 模式识别错误');
+assert.strictEqual(dddDsModel.info?.name, '企业请假审批协同流');
+assert.strictEqual(dddDsModel.actors.length, 3);
+assert.strictEqual(dddDsModel.activities.length, 3);
+const dddDsSvg = renderDomainStoryToSvg(dddDsModel, { currentStep: -1, isDark: true });
+assert.ok(dddDsSvg.includes('企业请假审批协同流'), 'SVG 应包含标题');
+assert.ok(dddDsSvg.includes('申请员工') && dddDsSvg.includes('企业OA门户'), 'SVG 应包含角色节点');
+console.log('✅ DDD 统一架构文件 mode: domain-story 模式解析与 SVG 渲染通过');
+
+// -------------------------------------------------------------
+// 测试 13: 包含 Groups 的 DDD 领域故事智能拓扑分层与活动标牌碰撞避让
+// -------------------------------------------------------------
+console.log('\n--- 测试 13: Groups 业务中枢拓扑分层与防重叠避让验证 ---');
+const ecommerceDsl = `
+mode: domain-story
+title: 电商订单履约与仓配协同领域故事
+description: 买家、电商交易中台、支付网关与智能仓储中心的端到端协作
+
+actors:
+  - 买家 [person]
+  - 电商交易中台 [system]
+  - 统一支付网关 [system]
+  - 智能仓储中心 [system]
+
+groups:
+  - 内部履约核心: 电商交易中台, 智能仓储中心
+
+activities:
+  1. 买家 -> 提交购物车结算 -> 订购清单 [document] -> 电商交易中台
+  2. 电商交易中台 -> 发起预授权扣款 -> 扣款指令 [data] -> 统一支付网关
+  3. 统一支付网关 -> 支付到账确认 -> 支付凭单 [document] -> 电商交易中台
+  4. 电商交易中台 -> 派发实物分拣工单 -> 拣货任务单 [package] -> 智能仓储中心
+  5. 智能仓储中心 -> 扫描打包发货 -> 运单与包裹 [package] -> 买家
+`;
+
+const ecModel = parseDomainStory(ecommerceDsl);
+const ecLaidOut = computeAutoLayout(ecModel);
+
+// 验证中枢 Group 角色居中垂直对齐，买家在左，支付网关在右
+const buyer = ecLaidOut.actors.find(a => a.name === '买家');
+const ecPlatform = ecLaidOut.actors.find(a => a.name === '电商交易中台');
+const warehouse = ecLaidOut.actors.find(a => a.name === '智能仓储中心');
+const payment = ecLaidOut.actors.find(a => a.name === '统一支付网关');
+
+assert.ok(buyer && ecPlatform && warehouse && payment, '所有角色应成功排布');
+assert.ok(buyer.x! < ecPlatform.x!, '买家(外部发起者)应排布在内部中枢左侧');
+assert.ok(payment.x! > ecPlatform.x!, '统一支付网关(外部支撑服务)应排布在内部中枢右侧');
+assert.strictEqual(ecPlatform.x, warehouse.x, '内部核心 Group 角色应在中轴纵向居中对齐');
+assert.ok(warehouse.y! > ecPlatform.y!, '智能仓储中心应处于下游工序位置');
+
+// 渲染 SVG 并验证标牌无重叠碰撞
+const ecSvg = renderDomainStoryToSvg(ecLaidOut, { isDark: true });
+assert.ok(ecSvg.includes('内部履约核心'), '应渲染内部履约核心 Group 虚线框');
+
+const labelRegex = /<g class="ds-activity" id="([^"]+)"[^>]*>[\s\S]*?<g transform="translate\(([^,]+),\s*([^)]+)\)">/g;
+let match;
+const labelPositions = [];
+while ((match = labelRegex.exec(ecSvg)) !== null) {
+  labelPositions.push({ id: match[1], x: parseFloat(match[2]), y: parseFloat(match[3]) });
+}
+assert.strictEqual(labelPositions.length, 5, '5 个活动标牌均应成功渲染');
+
+// 验证任意两个标牌之间均有充足空间，杜绝重叠
+for (let i = 0; i < labelPositions.length; i++) {
+  for (let j = i + 1; j < labelPositions.length; j++) {
+    const dist = Math.hypot(labelPositions[i].x - labelPositions[j].x, labelPositions[i].y - labelPositions[j].y);
+    assert.ok(dist >= 80, `活动标牌 [${labelPositions[i].id}] 与 [${labelPositions[j].id}] 间距应 >= 80px (实际: ${dist.toFixed(1)}px)`);
+  }
+}
+console.log('✅ Groups 业务中枢拓扑分层、双向弧线对称分离与活动标牌 0 重叠校验全部通过');
+
+console.log('\n🎉 全部 13 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
 

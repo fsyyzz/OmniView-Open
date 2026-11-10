@@ -77,7 +77,7 @@ flowchart LR
     Detector -->|".ipynb"| DrvNB["📓 Notebook 驱动<br/>(单元格渲染 + ANSI 高亮)"]
     Detector -->|".typ / .typst"| DrvTYP["📑 Typst 现代排版<br/>(端侧 AST + A4 出版)"]
     Detector -->|".excalidraw"| DrvEXC["✏️ Excalidraw 白板<br/>(手绘白板 + 双向分屏)"]
-    Detector -->|".egn / .domainstory"| DrvDS["👥 领域故事驱动<br/>(业务建模 + 逐帧演播)"]
+    Detector -->|".ddd"| DrvDS["👥 DDD 领域建模驱动<br/>(业务建模 + 逐帧演播)"]
     Detector -->|".epub"| DrvEPUB["📖 EPUB 电子书<br/>(羊皮纸护眼 + 目录大纲)"]
     Detector -->|".docx"| DrvDOCX["📄 Word 拟真排版<br/>(OOXML 离线解包 + A4)"]
     Detector -->|".pptx"| DrvPPTX["📽️ PPTX 幻灯片<br/>(矢量画布 + 沉浸放映)"]
@@ -165,7 +165,7 @@ flowchart LR
 * **FR-09.2 (双向分屏协同)**：支持左侧大纲源码编辑，右侧思维导图矢量画布毫秒级同步重绘，支持独立 SVG 导出。
 
 ### FR-10: 领域故事驱动建模器 (DomainStory Driver)
-* **FR-10.1 (标准互通与 DSL 嵌入)**：兼容 \`egon.io\` 标准 \`.egn\` JSON 格式与 Markdown \`\`\`domainstory 紧凑文本 DSL。
+* **FR-10.1 (标准互通与 DSL 嵌入)**：统一采用 \`.ddd\` 架构模型文件，支持 Markdown \`\`\`ddd\`\`\` 与 \`\`\`domainstory\`\`\` 紧凑文本 DSL。
 * **FR-10.2 (逐帧交互演播)**：提供时序步进演播器 (DiagramStepPlayer)，支持上一帧/下一帧、自动巡游演播与步骤注释。
 * **FR-10.3 (Polyglot SVG 导出)**：导出内嵌领域故事模型元数据的双通道 SVG，实现绘图与数据复用的统一。
 

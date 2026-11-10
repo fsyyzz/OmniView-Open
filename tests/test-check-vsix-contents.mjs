@@ -20,6 +20,11 @@ async function buildFakeVsix() {
   zip.file('extension/dist/index.html', '<html></html>');
   zip.file('extension/dist/assets/index.js', 'console.log(1);');
   zip.file('extension/dist/assets/index.css', 'body{}');
+  zip.file('extension/readme.md', '# Readme');
+  zip.file('extension/changelog.md', '# Changelog');
+  zip.file('extension/license', 'MIT');
+  zip.file('extension/assets/icon.png', 'fake-png');
+  zip.file('extension/docs/assets/omniview-showcase.png', 'fake-png');
   const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
   writeFileSync(fakeVsix, buf);
 }

@@ -84,7 +84,7 @@ OmniView 现已包含 **23 类专属文件格式驱动 (Viewer Drivers)**、**1 
 | **08** | `notebook` | Jupyter Notebook 离线分析器 | `.ipynb` | 纯前端 Jupyter v4 AST 语法流式解析 | 生产就绪 (P0) |
 | **09** | `typst` | Typst 现代出版排版引擎 | `.typ`, `.typst` | 纯端侧 AST 增量解析 + A4 2.0 纸张排版 | 生产就绪 (P1) |
 | **10** | `excalidraw` | Excalidraw 手绘白板工作室 | `.excalidraw`, `.excalidraw.json` | `@excalidraw/excalidraw` 纯前端内核 | 生产就绪 (P1) |
-| **11** | `domainstory`| Domain Storytelling 业务建模 | `.egn`, `.domainstory`, `.story.json` | egon.io 领域故事标准规范引擎 | 生产就绪 (P1) |
+| **11** | `domainstory`| DDD 领域建模与故事设计器 | `.ddd` | 统一 DDD 5 大视图模型与领域故事引擎 | 生产就绪 (P1) |
 | **12** | `mindmap` | 思维导图与 Markmap 工作台 | `.markmap`, `.mm`, `.mindmap`, `.km` | Markmap 矢量树 + D3.js 几何变换 | 生产就绪 (P0) |
 | **13** | `structured` | 结构化数据全景检视器 | `.json`, `.yaml`, `.yml`, `.toml`, `.xml` | 统一结构化 AST + 跨格式双向序列化 | 生产就绪 (P0) |
 | **14** | `docx` | Word (.docx) 高保真纸张阅读器 | `.docx` | OOXML 纯前端解包 + `docx-preview` | 生产就绪 (P1) |
@@ -383,7 +383,7 @@ OmniView 现已包含 **23 类专属文件格式驱动 (Viewer Drivers)**、**1 
 ### 功能 11：Domain Storytelling 业务建模演播器 (`DomainStoryViewer`)
 
 * **驱动定位**: 领域驱动设计 (DDD)、业务流梳理、事件风暴与协作式建模的专用图形演播器。
-* **文件支持**: `.egn`, `.domainstory`, `.story.json`。
+* **文件支持**: `.ddd`。
 * **底层引擎与技术栈**: egon.io 国际标准规范引擎 + 逐帧步进时序演播管线 (`diagramPlaybackEngine.ts`)。
 * **核心能力清单**:
   1. **标准 DDD 故事建模图元**:

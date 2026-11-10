@@ -739,7 +739,7 @@ export class OmniViewAssetTreeDataProvider implements vscode.TreeDataProvider<As
 
     if (element.type === 'category' && element.categoryKey) {
       const extsByCategory: Record<string, string[]> = {
-        arch: ['.mmd', '.mermaid', '.puml', '.plantuml', '.iuml', '.dot', '.gv', '.dst', '.egn', '.domainstory'],
+        arch: ['.mmd', '.mermaid', '.puml', '.plantuml', '.iuml', '.dot', '.gv', '.ddd'],
         whiteboard: ['.excalidraw', '.svg'],
         document: ['.md', '.markdown', '.typ', '.typst', '.docx', '.pptx', '.pdf', '.epub', '.ipynb', '.html', '.htm'],
         data: ['.xlsx', '.xls', '.xlsm', '.xltx', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.toml'],

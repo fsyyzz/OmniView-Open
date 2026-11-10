@@ -3,7 +3,7 @@ export const SUPPORTED_EXTENSIONS = [
   '.dot', '.gv', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif', '.tiff',
   '.pdf', '.epub', '.docx', '.pptx', '.xlsx', '.xls', '.xlsm', '.xltx',
   '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.ts', '.tsx', '.js', '.jsx', '.txt',
-  '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.dst', '.egn', '.domainstory',
+  '.markmap', '.mm', '.mindmap', '.km', '.typ', '.typst', '.excalidraw', '.ipynb', '.ddd',
   '.html', '.htm'
 ];
 

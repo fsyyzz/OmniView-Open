@@ -195,16 +195,16 @@ For **JSON, YAML, TOML, and XML**, OmniView goes beyond plain-text viewing with 
 - **Geometric transforms & export**: 90° clockwise/counterclockwise rotation, horizontal/vertical flip, copy Base64 Data URI, and download original;
 - **EXIF metadata extraction**: dimensions, megapixels, aspect ratio, file size, and camera exposure parameters (aperture, shutter, ISO, focal length).
 
-### 16. Domain Storytelling Studio
-- **Multi-syntax support**:
-  - Parses official WPS egon.io `.dst` (JSON) schema, `.egn` extensions, and standalone `.domainstory` files;
-  - Markdown integration: ````domainstory````, ````story````, ````dst````, and ````egn```` fenced DSL blocks plus single-line stream syntax;
+### 16. DDD & Domain Storytelling Studio
+- **Unified DDD Extension (`.ddd`)**:
+  - Unified `.ddd` extension covering all 5 DDD views: Domain Story (`mode: domain-story`), Event Storming (`mode: event-storming`), Context Map (`mode: context-map`), Core Domain Chart (`mode: core-domain-chart`), and Context Canvas (`mode: context-canvas`);
+  - Markdown integration: ````ddd```` and ````domainstory```` fenced DSL blocks plus natural stream syntax;
 - **Domain topology & actor relationships**:
   - Renders Actors (person, system, group), Work Objects (document, data, package, email, etc.), and numbered activity arrows;
   - Boundary group zones with adaptive heuristic layout;
 - **Step-by-step playback & export**:
   - Integrated `DiagramStepPlayer` for step-by-step playback, forward/backward navigation, and spotlight focus;
-  - Export `.dst` files and **Polyglot SVG** with embedded domain model for lossless bi-directional extraction.
+  - Export **Polyglot SVG** with embedded domain model for lossless bi-directional extraction.
 
 ### 17. Cloud-Native Infrastructure Studio
 - **Dockerfile Studio**:
@@ -316,7 +316,7 @@ Ready-to-open samples live under [`examples/`](./examples) (see [`examples/READM
 | [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | Raft / PBFT / PoW-PoS state machines and sequence diagrams |
 | [`technical-guide.md`](./examples/markdown/technical-guide.md) | Mixed engineering doc — architecture diagrams, code, tables |
 | [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | Broken diagrams, missing images, ultra-wide tables, error isolation |
-| [`domainstory/ecommerce-fulfillment.dst`](./examples/domainstory/ecommerce-fulfillment.dst) | Standalone official WPS egon.io `.dst` e-commerce fulfillment domain story |
+| [`domainstory/ecommerce-fulfillment.ddd`](./examples/domainstory/ecommerce-fulfillment.ddd) | Unified `.ddd` format cross-border e-commerce fulfillment domain story |
 | [`markdown/domain-storytelling.md`](./examples/markdown/domain-storytelling.md) | Markdown embedded Domain Storytelling DSL case |
 | [`html/interactive-dashboard.html`](./examples/html/interactive-dashboard.html) | HTML5 responsive monitoring dashboard, sandbox script interaction, and device viewports |
 

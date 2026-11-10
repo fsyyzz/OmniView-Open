@@ -169,4 +169,36 @@ console.log('--- 测试 8: [[#Heading]] ---');
 }
 console.log('✅ 页内标题链接通过');
 
+// 9. 标准 Markdown 图片链接挂载外部 DDD 架构与图表文件
+console.log('--- 测试 9: 标准 Markdown 图片语法 ![alt](path.ext) 挂载 DDD 模型与图表 ---');
+{
+  const files = [
+    { name: 'ecommerce-fulfillment.ddd', content: 'mode: domain-story\n1. 买家 -> 提交 -> 订单', extension: 'ddd', path: '/workspace/examples/domainstory/ecommerce-fulfillment.ddd' },
+    { name: 'order-event-storming.ddd', content: 'view: event-storming', extension: 'ddd', path: '/workspace/examples/domainstory/order-event-storming.ddd' },
+    { name: 'leave-approval.ddd', content: 'mode: domain-story\n1. 员工 -> 提交 -> 请假单', extension: 'ddd', path: '/workspace/examples/domainstory/leave-approval.ddd' },
+    { name: 'architecture.puml', content: '@startuml\nAlice -> Bob\n@enduml', extension: 'puml', path: '/workspace/architecture.puml' },
+  ];
+
+  // 9.1 相对路径带 ./ 挂载领域故事 .ddd
+  const res1 = processMarkdownWikiLinks('![电商履约流程](./ecommerce-fulfillment.ddd)', { files });
+  assertIncludes(res1.markdown, '```domainstory external="ecommerce-fulfillment.ddd"');
+  assertIncludes(res1.markdown, '1. 买家 -> 提交 -> 订单');
+
+  // 9.2 子目录路径挂载事件风暴 .ddd
+  const res2 = processMarkdownWikiLinks('![订单事件风暴](./examples/domainstory/order-event-storming.ddd)', { files });
+  assertIncludes(res2.markdown, '```domainstory external="order-event-storming.ddd"');
+  assertIncludes(res2.markdown, 'view: event-storming');
+
+  // 9.3 纯文本 DSL 领域故事 .ddd
+  const res3 = processMarkdownWikiLinks('![请假审批流程](leave-approval.ddd)', { files });
+  assertIncludes(res3.markdown, '```domainstory external="leave-approval.ddd"');
+  assertIncludes(res3.markdown, '1. 员工 -> 提交 -> 请假单');
+
+  // 9.4 PlantUML 图表 .puml 挂载
+  const res4 = processMarkdownWikiLinks('![架构拓扑](./architecture.puml)', { files });
+  assertIncludes(res4.markdown, '```plantuml external="architecture.puml"');
+  assertIncludes(res4.markdown, 'Alice -> Bob');
+}
+console.log('✅ 标准 Markdown 图片语法挂载外部 DDD 架构与图表通过');
+
 console.log('🎉 Obsidian Wiki 链接 / 嵌入单元测试全部通过');

@@ -91,7 +91,7 @@ flowchart LR
           { "filenamePattern": "*.ipynb" },
           { "filenamePattern": "*.typ" },
           { "filenamePattern": "*.excalidraw" },
-          { "filenamePattern": "*.egn" },
+          { "filenamePattern": "*.ddd" },
           { "filenamePattern": "*.docx" },
           { "filenamePattern": "*.pptx" },
           { "filenamePattern": "*.xlsx" },

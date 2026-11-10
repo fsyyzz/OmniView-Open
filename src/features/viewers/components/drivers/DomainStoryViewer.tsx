@@ -23,8 +23,9 @@ interface DomainStoryViewerProps {
 
 const DOMAIN_STORY_SNIPPETS: DiagramSnippet[] = [
   {
-    label: '领域故事 DSL',
+    label: '领域故事 (Domain Story)',
     code: `
+mode: domain-story
 title: 订单创建与履约流程
 description: 买家、电商与仓储系统的协作
 
@@ -41,7 +42,7 @@ activities:
   2. 电商中台 -> 创建销售凭单 -> 电子订单 [document] -> 电商中台
   3. 电商中台 -> 下发分拣作业 -> 拣货任务 [package] -> 仓储中心
 `,
-    tooltip: '插入 DDD 领域故事标准 DSL 模板',
+    tooltip: '插入 DDD 领域故事 (Domain Story) 标准 DSL 模板',
   },
   {
     label: '事件风暴 (Event Storming)',
@@ -243,7 +244,7 @@ export const DomainStoryViewer: React.FC<DomainStoryViewerProps> = ({
         onOpenSettings={onOpenSettings}
         onOpenShortcuts={onOpenShortcuts}
         storageKeyPrefix="domainstory"
-        languageLabel="DDD / Domain Story (.dst / .ddd / .domainstory)"
+        languageLabel="DDD 领域建模与设计 (.ddd)"
         placeholder={'title: 业务流转\n1. 买家 -> 下单 -> 商城'}
         accentClass="cyan"
         snippets={DOMAIN_STORY_SNIPPETS}

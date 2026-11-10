@@ -8,7 +8,83 @@
 
 ---
 
-## [1.4.26] - 2026-11-09 (当前最新发布)
+## [1.4.31] - 2026-11-10 (当前最新发布)
+
+> [!TIP] v1.4.31 核心升级亮点
+> **DDD 领域故事拓扑布局与活动连线防重叠深度重构**：
+> 1. **业务中枢 Group 聚类分层布局**：
+>    - 彻底修复 `groups` 业务中枢框窄长割裂与穿透交叉缺陷，内部 Group 角色在中轴居中纵向对齐，虚线框横向保证最小 280px 充裕呼吸空间；
+>    - 外部角色精准分流：真实人员与上游客户（如买家）稳健排布在左侧输入端，下游外部依赖网关（如统一支付网关）排布在右侧支撑端，连线 0 交叉；
+> 2. **反向边法向基准向量归一化**：
+>    - 修复反向贝塞尔边法向量同向叠加抵消的数学 Bug，双向边以固定基准法向分别向相反两侧饱满隆起（间距 84px），消除双向边重叠；
+> 3. **活动工作对象卡片碰撞检测与贝塞尔参数滑动避让**：
+>    - 引入卡片包围盒 AABB 碰撞检测与 $t$ 参数沿曲线多候选点滑动（`[0.5, 0.35, 0.65, 0.28, 0.72...]`），全图杜绝任何活动标签重叠；
+> 4. **自动化测试套件扩充**：
+>    - 单元测试增至 13 组，覆盖 Groups 拓扑分层、双向弧线对称与活动标牌 0 重叠校验。
+
+---
+
+## [1.4.30] - 2026-11-10
+
+> [!TIP] v1.4.30 核心升级亮点
+> **全面清理冗余 `.dst` / `.egn` / `.domainstory` 文件、扩展名代码与全量文档同步**：
+> 1. **彻底物理删除冗余历史样例**：
+>    - 删除 `ecommerce-fulfillment.dst`、`ecommerce-fulfillment.egn` 与 `leave-approval.domainstory`，目录收敛为纯净 `.ddd` 矩阵；
+> 2. **全链路代码收敛**：
+>    - `package.json`（`editorAssociations`、`selector`、`when` 正则）、`types.ts`、`extension.ts`、`fileBridge.ts`、`WorkbenchHeader.tsx`、`driverRegistry.tsx`、`markdownWikiLinks.ts` 等全面清理已作废扩展名；
+> 3. **全套中英文档与规范彻底同步**：
+>    - 同步更新 `README.md`、`README.en.md`、`PROJECT.md`、`docs/`、`examples/README.md`、`prdDoc.ts` 及 `.codex` 写作技能规范。
+
+---
+
+## [1.4.29] - 2026-11-10
+
+> [!TIP] v1.4.29 核心升级亮点
+> **收敛与统一 DDD 领域建模后缀为 `.ddd`，领域故事整合为专属模式 (`mode: domain-story`)**：
+> 1. **全生态后缀大一统 (`.ddd`)**：
+>    - 收敛复杂的 `.dst` / `.egn` / `.domainstory` 多后缀生态，主推统一使用 `.ddd` 承载全套 DDD 业务与架构模型；
+>    - 领域故事保留最简洁直观的纯文本 DSL 编写方式，通过 `mode: domain-story`（或无模式声明自动推断）作为统一模式整合进 `.ddd`；
+> 2. **样例收敛与示范项目重构**：
+>    - `examples/domainstory/` 增加 `ecommerce-fulfillment.ddd` 与 `leave-approval.ddd` 标准样例，全方位覆盖事件风暴、上下文映射、核心域矩阵、上下文画布与领域故事 5 大视图；
+>    - 驱动模板库更新领域故事为标准 `mode: domain-story` 声明；
+> 3. **向下兼容与自动化测试覆盖**：
+>    - 引擎全面兼容老格式与纯文本 DSL，新增测试套件测试 12，12 组 DDD 单元测试全部通过。
+
+---
+
+## [1.4.28] - 2026-11-10
+
+> [!TIP] v1.4.28 核心升级亮点
+> **强化 Markdown 标准图片语法 `![alt](url)` 外部挂载领域故事与图表**：
+> 1. **CommonMark 标准图片链接语法完全对齐**：
+>    - 明确确立标准 Markdown 图片语法 `![说明文字](相对路径.ext)` 为外部图形/领域故事推荐挂载姿势；
+>    - 原生自动拦截并转换 `![说明](./file.dst)`、`![说明](./file.ddd)`、`![说明](./file.domainstory)`、`![说明](./file.puml)` 为对应交互式视图组件；
+> 2. **宿主双向桥接容错增强**：
+>    - `fileBridge.ts` 补充对 `external="..."` 属性的资产扫描，确保无论是图片链接还是代码块外部属性均能 100% 自动装载。
+> 3. **测试套件扩充**：
+>    - 完善 `test-markdown-wiki-links.mjs` 测试 9，覆盖相对路径、子目录与多种扩展名挂载场景。
+
+---
+
+## [1.4.27] - 2026-11-10
+
+> [!TIP] v1.4.27 核心升级亮点
+> **领域故事讲授法与 DDD 视图全生态关联与 Markdown 嵌入能力**：
+> 1. **VS Code 默认编辑器与快捷菜单全量关联**：
+>    - 配置 `contributes.configurationDefaults.workbench.editorAssociations`，使 `*.dst`, `*.egn`, `*.domainstory`, `*.ddd` 默认在单击时直接由 OmniView 可视化编辑器唤出；
+>    - `contributes.customEditors[0].selector` 与 10 处快捷键/右键菜单 when 正则补齐 `*.ddd` 格式支持；
+>    - 宿主端 `SUPPORTED_EXTENSIONS`、`extsByCategory.arch`、`fileBridge` 自动补全容错及 Webview 文件选择器原生对齐该 4 大后缀。
+> 2. **Markdown 渲染能力与双链挂载规范**：
+>    - 完备支持 ````domainstory````, ````ddd````, ````event-storming````, ````context-map````, ````core-domain````, ````context-canvas```` 语言标识符内联解析；
+>    - 支持 `external="..."` 属性外部挂载与 `![[ecommerce-fulfillment.dst]]` Obsidian 风格 WikiLink 双链无缝嵌入；
+>    - 原生配备逐帧分步演播播放器 (Playback Stepper)、全屏矢量灯箱与 Polyglot SVG 导出。
+> 3. **工程质量与自动化测试**：
+>    - 路由测试套件 `test-driver-routing.mjs` 补充领域故事与 DDD 后缀的全量大/小写驱动路由断言；
+>    - 修复 `test-check-vsix-contents.mjs` 打包结构假体桩文件，CI 门禁与全量测试 100% 通过。
+
+---
+
+## [1.4.26] - 2026-11-09
 
 > [!TIP] v1.4.26 核心升级亮点
 > **领域故事讲授法 (Domain Storytelling) 拓扑布局呼吸间距全面升级**：

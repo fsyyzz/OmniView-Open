@@ -288,7 +288,7 @@ function buildNoteEmbedHtml(
 }
 
 const DIAGRAM_EXTS = new Set([
-  'egn', 'domainstory', 'dst', 'ddd',
+  'ddd',
   'excalidraw', 'excalidraw.json',
   'mmd', 'mermaid',
   'puml', 'plantuml',
@@ -299,9 +299,6 @@ const DIAGRAM_EXTS = new Set([
 
 function getDiagramLang(ext: string): string {
   switch (ext) {
-    case 'egn':
-    case 'domainstory':
-    case 'dst':
     case 'ddd':
       return 'domainstory';
     case 'excalidraw':

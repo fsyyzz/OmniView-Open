@@ -403,8 +403,9 @@ export const TRANSLATIONS = {
     // Domain Storytelling (egon.io)
     domainStoryTitle: '领域故事 (Domain Storytelling)',
     domainStoryPlayback: '故事业务演进流',
-    exportDst: '导出官方 .dst (JSON)',
-    exportEgn: '导出 .egn (兼容)',
+    exportDst: '导出 .ddd 架构模型',
+    exportEgn: '导出 .ddd 架构模型',
+    exportDdd: '导出 .ddd 架构模型',
     exportPolyglotSvg: '导出 Polyglot SVG (内嵌元数据)',
     actorsCount: '个参与角色',
     activitiesCount: '个业务活动',
@@ -844,8 +845,9 @@ export const TRANSLATIONS = {
     // Domain Storytelling (egon.io)
     domainStoryTitle: 'Domain Storytelling',
     domainStoryPlayback: 'Domain Story Walkthrough',
-    exportDst: 'Export Official .dst (JSON)',
-    exportEgn: 'Export .egn (Compatibility)',
+    exportDst: 'Export .ddd Model',
+    exportEgn: 'Export .ddd Model',
+    exportDdd: 'Export .ddd Model',
     exportPolyglotSvg: 'Export Polyglot SVG (Embedded)',
     actorsCount: 'Actors',
     activitiesCount: 'Activities',

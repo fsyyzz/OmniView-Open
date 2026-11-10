@@ -44,6 +44,14 @@ async function loadReferencedMediaFilesAsync(
     }
   }
 
+  // 4. 匹配代码块外部挂载属性: ```lang external="path/to/file.ext"
+  for (const match of markdown.matchAll(/external=["']([^"']+)["']/gi)) {
+    const rawTarget = match[1].trim().split(/[?#]/)[0].trim();
+    if (rawTarget && !/^[a-z]+:/i.test(rawTarget) && !rawTarget.startsWith('data:')) {
+      references.push(rawTarget);
+    }
+  }
+
   const uniqueSources = [...new Set(references)];
   const assets: Array<Record<string, unknown>> = [];
 
@@ -53,7 +61,7 @@ async function loadReferencedMediaFilesAsync(
 
     // 容错: 若相对路径无后缀但对应同名工程文件
     if (!ext && !existsSync(assetPath)) {
-      for (const candidateExt of ['md', 'dst', 'egn', 'excalidraw', 'puml', 'mmd', 'svg', 'dot', 'markmap', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'html', 'htm']) {
+      for (const candidateExt of ['md', 'ddd', 'excalidraw', 'puml', 'mmd', 'svg', 'dot', 'markmap', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'html', 'htm']) {
         if (existsSync(`${assetPath}.${candidateExt}`)) {
           assetPath = `${assetPath}.${candidateExt}`;
           ext = candidateExt;

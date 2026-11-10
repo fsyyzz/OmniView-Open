@@ -407,6 +407,11 @@ export function parseDomainStoryDsl(dsl: string): DomainStoryModel {
       continue;
     }
 
+    // 识别与忽略 DDD 模式声明 (如 mode: domain-story / view: domainstory)
+    if (/^(?:mode|view|type)\s*:/i.test(line)) {
+      continue;
+    }
+
     // 识别区域切换
     if (/^actors?\s*:/i.test(line)) {
       currentSection = 'actors';
@@ -541,6 +546,7 @@ export function parseDomainStoryDsl(dsl: string): DomainStoryModel {
   activities.sort((a, b) => a.number - b.number);
 
   return {
+    mode: 'domain-story',
     info: { name: title, description },
     actors: Array.from(actorsMap.values()),
     workObjects: Array.from(workObjectsMap.values()),
@@ -598,6 +604,7 @@ function parseWorkObjectToken(token: string): { name: string; type: string; acti
 
 /**
  * 自动计算优雅的拓扑布局坐标（若未自带坐标）
+ * 支持 Group 业务中枢聚类感知、无交叉分层与动态防重叠
  */
 export function computeAutoLayout(model: DomainStoryModel): DomainStoryModel {
   const actors = model.actors.map(a => ({ ...a }));
@@ -610,8 +617,120 @@ export function computeAutoLayout(model: DomainStoryModel): DomainStoryModel {
   const count = actors.length;
   if (count === 0) return model;
 
+  // 1. 优先检测是否包含 Groups 业务中枢分组
+  const hasGroups = Array.isArray(model.groups) && model.groups.length > 0 && model.groups.some(g => g.actors && g.actors.length > 0);
+
+  if (hasGroups) {
+    const groupActorIds = new Set<string>();
+    model.groups!.forEach(g => {
+      (g.actors || []).forEach(nameOrId => {
+        const matched = actors.find(a => a.id === nameOrId || a.name === nameOrId);
+        if (matched) groupActorIds.add(matched.id);
+      });
+    });
+
+    const internalActors = actors.filter(a => groupActorIds.has(a.id));
+    const externalActors = actors.filter(a => !groupActorIds.has(a.id));
+
+    // 如果同时存在内部中枢 Group 和外部角色（典型的 DDD 业务协同全景）
+    if (internalActors.length > 0 && externalActors.length > 0) {
+      // 内部 group 角色在中轴区域垂直清晰对齐
+      const centerX = 680;
+      const startY = 220;
+      const internalSpacingY = 340;
+
+      internalActors.forEach((a, idx) => {
+        a.x = centerX;
+        a.y = startY + idx * internalSpacingY;
+      });
+
+      // 外部角色精准分流：
+      // - leftActors: 业务输入驱动者/客户/发起人（如买家、申请人、person 角色、或第1步发起方）
+      // - rightActors: 外部支撑系统/依赖网关/第三方通道（由内部系统发起的下游系统，如支付网关、短信中心）
+      const leftActors: typeof externalActors = [];
+      const rightActors: typeof externalActors = [];
+
+      externalActors.forEach(ext => {
+        // 如果是真实人员/客户端角色，天然排在左侧
+        if (ext.type === 'person') {
+          leftActors.push(ext);
+          return;
+        }
+
+        // 检查该角色第一次在 activities 中登场的角色地位
+        const firstAct = model.activities.find(act => act.from === ext.id || act.to === ext.id);
+        if (firstAct) {
+          // 如果该角色第一次出现是被内部中枢调用（to 端），属于典型的出站下游支撑系统 -> 右侧
+          if (firstAct.to === ext.id && groupActorIds.has(firstAct.from)) {
+            rightActors.push(ext);
+            return;
+          }
+          // 如果该角色是第 1 步的发起方且发往内部系统，属于业务源头发起点 -> 左侧
+          if (firstAct.from === ext.id && firstAct.number === 1 && groupActorIds.has(firstAct.to)) {
+            leftActors.push(ext);
+            return;
+          }
+        }
+
+        // 统计内部中枢对它的主动调用次数与它主动调用内部中枢的次数
+        const inFromInternal = model.activities.filter(act => act.to === ext.id && groupActorIds.has(act.from)).length;
+        const outToInternal = model.activities.filter(act => act.from === ext.id && groupActorIds.has(act.to)).length;
+
+        if (inFromInternal > outToInternal) {
+          rightActors.push(ext);
+        } else if (outToInternal > inFromInternal) {
+          leftActors.push(ext);
+        } else {
+          // 次数相等时：如果是 system 且内部更早发起了对它的调用 -> 右侧
+          const callFromInternalIdx = model.activities.findIndex(act => act.to === ext.id && groupActorIds.has(act.from));
+          const callToInternalIdx = model.activities.findIndex(act => act.from === ext.id && groupActorIds.has(act.to));
+          if (callFromInternalIdx !== -1 && (callToInternalIdx === -1 || callFromInternalIdx < callToInternalIdx)) {
+            rightActors.push(ext);
+          } else {
+            leftActors.push(ext);
+          }
+        }
+      });
+
+      // 防单边倾斜平衡：如果外部角色全被推到左侧且 >= 2 个，且右侧为空，将最后一个系统级角色平衡至右侧
+      if (leftActors.length >= 2 && rightActors.length === 0) {
+        let nonPersonIdx = -1;
+        for (let i = leftActors.length - 1; i >= 0; i--) {
+          if (leftActors[i].type !== 'person') {
+            nonPersonIdx = i;
+            break;
+          }
+        }
+        if (nonPersonIdx !== -1) {
+          rightActors.push(leftActors.splice(nonPersonIdx, 1)[0]);
+        }
+      }
+
+      // 排布左侧角色（如买家、前端客户、申请人）
+      const leftX = 220;
+      const leftStartY = internalActors.length === 1 ? 260 : 220;
+      leftActors.forEach((a, idx) => {
+        a.x = leftX;
+        a.y = leftStartY + idx * 300;
+      });
+
+      // 排布右侧外部系统（如统一支付网关、仓配外协、物流跟踪）
+      const rightX = 1140;
+      const rightStartY = 220;
+      rightActors.forEach((a, idx) => {
+        a.x = rightX;
+        a.y = rightStartY + idx * 300;
+      });
+
+      return {
+        ...model,
+        actors,
+      };
+    }
+  }
+
+  // 2. 无分组时的通用拓扑排布
   if (count <= 3) {
-    // 宽敞错位横向流布局，留足工作对象工件铭牌与双向曲线空间
     const startX = 220;
     const spacingX = 500;
     const centerY = 260;
@@ -621,19 +740,19 @@ export function computeAutoLayout(model: DomainStoryModel): DomainStoryModel {
       a.y = count === 3 && idx === 1 ? centerY - 100 : centerY + (idx % 2 === 0 ? 30 : -30);
     });
   } else if (count === 4) {
-    // 4 节点采用宽敞 2x2 交错矩阵布局，充足间距防止活动连线与卡片挤压
+    // 4 节点顺时针环形流矩阵布局，消除 Z 字形主副对角线中央交叉
     const coords = [
-      { x: 240, y: 190 },
-      { x: 800, y: 170 },
-      { x: 260, y: 560 },
-      { x: 820, y: 540 },
+      { x: 240, y: 200 }, // 0: 左上
+      { x: 800, y: 200 }, // 1: 右上
+      { x: 800, y: 560 }, // 2: 右下
+      { x: 240, y: 560 }, // 3: 左下
     ];
     actors.forEach((a, idx) => {
       a.x = coords[idx].x;
       a.y = coords[idx].y;
     });
   } else {
-    // 5+ 节点采用大半径环绕布局，确保中央与邻近节点留有充足的活动连线与工件铭牌空间
+    // 5+ 节点大半径环绕布局
     const centerX = Math.max(560, count * 110);
     const centerY = Math.max(420, count * 80);
     const radiusX = Math.max(480, count * 96);
@@ -825,10 +944,18 @@ export function renderDomainStoryToSvg(
         gMaxY = Math.max(gMaxY, ay + 86);
       }
 
-      const gx = gMinX - 24;
-      const gy = gMinY - 32;
-      const gw = gMaxX - gMinX + 48;
-      const gh = gMaxY - gMinY + 56;
+      let gx = gMinX - 32;
+      let gy = gMinY - 36;
+      let gw = gMaxX - gMinX + 64;
+      let gh = gMaxY - gMinY + 64;
+
+      // Group 边界横向最小宽度保证，消除单列窄条感，提供舒展的领域边界空间
+      const minGroupW = 280;
+      if (gw < minGroupW) {
+        const diff = minGroupW - gw;
+        gx -= diff / 2;
+        gw = minGroupW;
+      }
 
       svgContent += `  <g class="ds-group" id="${escapeXml(g.id)}">
     <rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="16" fill="${themeColors.groupBg}" stroke="${themeColors.groupBorder}" stroke-width="1.5" stroke-dasharray="6,4" />
@@ -838,7 +965,19 @@ export function renderDomainStoryToSvg(
   }
 
   // 3. 渲染 Activities 连线与工作对象 (中层)
+  // 预先统计节点对之间的连线总数
+  const pairTotalMap = new Map<string, number>();
+  model.activities.forEach(act => {
+    if (act.from !== act.to) {
+      const pairKey = [act.from, act.to].sort().join('::');
+      pairTotalMap.set(pairKey, (pairTotalMap.get(pairKey) || 0) + 1);
+    }
+  });
+
   const pairEdgeMap = new Map<string, number>();
+  // 维护已放置活动卡片的矩形包围盒，用于精准碰撞检测与贝塞尔参数滑动避让
+  const placedLabels: Array<{ x: number; y: number; w: number; h: number }> = [];
+
   model.activities.forEach((act, idx) => {
     const fromActor = actorMap.get(act.from);
     const toActor = actorMap.get(act.to);
@@ -863,6 +1002,9 @@ export function renderDomainStoryToSvg(
     const marker = isActive ? 'url(#ds-arrow-active)' : isPast ? 'url(#ds-arrow-past)' : 'url(#ds-arrow-default)';
     const opacity = isFuture ? 0.22 : 1.0;
 
+    const boxW = Math.max(146, Math.min(188, Math.max(act.label.length, (act.workObjectName || '').length + 2) * 12 + 44));
+    const boxH = 48;
+
     let pathD = '';
     let labelX = (x1 + x2) / 2;
     let labelY = (y1 + y2) / 2;
@@ -873,41 +1015,109 @@ export function renderDomainStoryToSvg(
       labelX = x1;
       labelY = y1 - 120;
     } else {
-      // 平滑二次贝塞尔曲线：端点停靠在角色卡片外框，且同对节点多条边自动扇形分离
+      const pairKey = [act.from, act.to].sort().join('::');
+      const seenIndex = pairEdgeMap.get(pairKey) || 0;
+      pairEdgeMap.set(pairKey, seenIndex + 1);
+      const totalInPair = pairTotalMap.get(pairKey) || 1;
+
+      // 规范化基准方向向量（固定由 pairKey[0] 指向 pairKey[1]），彻底杜绝反向边法向同向叠加的数学 Bug
+      const sortedIds = [act.from, act.to].sort();
+      const firstActor = actorMap.get(sortedIds[0])!;
+      const secondActor = actorMap.get(sortedIds[1])!;
+      const baseDx = (secondActor.x || 0) - (firstActor.x || 0);
+      const baseDy = (secondActor.y || 0) - (firstActor.y || 0);
+      const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy) || 1;
+      const basePerpX = -baseDy / baseDist;
+      const basePerpY = baseDx / baseDist;
+
+      // 如果节点对仅有 1 条边，使用平直路径；如果是双向或多条边，交替向基准法向的两侧饱满隆起
+      let curvature = 0;
+      if (totalInPair > 1) {
+        const sign = seenIndex % 2 === 0 ? 1 : -1;
+        const tier = Math.floor(seenIndex / 2) + 1;
+        curvature = 84 * tier * sign;
+      }
+
       const dx = x2 - x1;
       const dy = y2 - y1;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
       const ux = dx / dist;
       const uy = dy / dist;
-      const perpX = -uy;
-      const perpY = ux;
-
-      const pairKey = [act.from, act.to].sort().join('::');
-      const seenCount = pairEdgeMap.get(pairKey) || 0;
-      pairEdgeMap.set(pairKey, seenCount + 1);
-
-      const directionSign = seenCount % 2 === 0 ? 1 : -1;
-      const tier = Math.floor(seenCount / 2) + 1;
-      const curvature = (52 * tier) * directionSign;
 
       const startX = x1 + ux * 66;
       const startY = y1 + uy * 44;
       const endX = x2 - ux * 66;
       const endY = y2 - uy * 44;
 
-      const cx = (startX + endX) / 2 + perpX * curvature;
-      const cy = (startY + endY) / 2 + perpY * curvature;
+      const cx = (startX + endX) / 2 + basePerpX * curvature;
+      const cy = (startY + endY) / 2 + basePerpY * curvature;
 
       pathD = `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`;
-      // 二次贝塞尔曲线 t=0.5 处的真实中点
-      labelX = 0.25 * startX + 0.5 * cx + 0.25 * endX;
-      labelY = 0.25 * startY + 0.5 * cy + 0.25 * endY;
+
+      // 沿二次贝塞尔曲线计算任意 t 点的坐标
+      const evalBezier = (t: number) => {
+        const invT = 1 - t;
+        return {
+          x: invT * invT * startX + 2 * invT * t * cx + t * t * endX,
+          y: invT * invT * startY + 2 * invT * t * cy + t * t * endY,
+        };
+      };
+
+      // 碰撞检测：检查卡片中心 (px, py) 是否与已放置卡片重合，或过于遮挡端点 Actor
+      const checkCollision = (px: number, py: number) => {
+        const collidesWithLabel = placedLabels.some(
+          l => Math.abs(l.x - px) < (l.w + boxW) / 2 + 14 && Math.abs(l.y - py) < (l.h + boxH) / 2 + 14
+        );
+        if (collidesWithLabel) return true;
+
+        // 避免过于遮挡两端 Actor 卡片中心
+        const distToStart = Math.hypot(px - x1, py - y1);
+        const distToEnd = Math.hypot(px - x2, py - y2);
+        return distToStart < 92 || distToEnd < 92;
+      };
+
+      // 候选 t 参数集合：优先中点 0.5，遇碰撞时向两侧滑动错位 (0.35/0.65/0.26/0.74...)
+      const candidateTs = [0.5, 0.35, 0.65, 0.28, 0.72, 0.42, 0.58];
+      let bestT = 0.5;
+      let foundSafe = false;
+
+      for (const t of candidateTs) {
+        const pos = evalBezier(t);
+        if (!checkCollision(pos.x, pos.y)) {
+          bestT = t;
+          foundSafe = true;
+          break;
+        }
+      }
+
+      if (!foundSafe) {
+        // 若所有候选点都有轻微干涉，选择与已有标签欧氏距离最大化的 t
+        let maxMinDist = -1;
+        for (const t of candidateTs) {
+          const pos = evalBezier(t);
+          let minDist = Infinity;
+          for (const l of placedLabels) {
+            const d = Math.hypot(l.x - pos.x, l.y - pos.y);
+            if (d < minDist) minDist = d;
+          }
+          if (minDist > maxMinDist) {
+            maxMinDist = minDist;
+            bestT = t;
+          }
+        }
+      }
+
+      const finalPos = evalBezier(bestT);
+      labelX = finalPos.x;
+      labelY = finalPos.y;
     }
+
+    // 记录已放置卡片坐标与包围盒
+    placedLabels.push({ x: labelX, y: labelY, w: boxW, h: boxH });
 
     const badgeBg = isActive ? themeColors.activeBadgeBg : themeColors.badgeBg;
     const badgeText = isActive ? themeColors.activeBadgeText : themeColors.badgeText;
     const badgeBorder = isActive ? themeColors.lineActive : themeColors.badgeBorder;
-    const boxW = Math.max(146, Math.min(188, Math.max(act.label.length, (act.workObjectName || '').length + 2) * 12 + 44));
 
     svgContent += `  <g class="ds-activity" id="${escapeXml(act.id)}" opacity="${opacity}" ${isActive ? 'filter="url(#ds-glow)"' : ''}>
     <!-- 活动连线 -->

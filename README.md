@@ -196,16 +196,16 @@
 - **几何变换与导出**：顺时针/逆时针 90° 旋转、水平/垂直镜像翻转、复制 Base64 Data URI 与下载原图；
 - **EXIF 元数据提取**：图像尺寸、总像素数、纵横比、文件大小与相机拍摄参数（光圈/快门/ISO/焦距/时间）。
 
-### 16. 领域故事讲授法 (Domain Storytelling Studio)
-- **多语法支持**:
-  - 识别 WPS egon.io 官方 `.dst` JSON 规范、`.egn` 扩展及 `.domainstory` 文件；
-  - Markdown 内嵌：支持 ````domainstory````、````story````、````dst````、````egn```` 声明式 DSL 及极简流语法；
+### 16. DDD 领域建模与故事设计器 (DDD & Domain Storytelling Studio)
+- **DDD 全生态统一格式 (`.ddd`)**:
+  - 原生统一采用 `.ddd` 后缀承载 DDD 5 大视图：领域故事 (`mode: domain-story`)、事件风暴 (`mode: event-storming`)、限界上下文映射 (`mode: context-map`)、核心域投资矩阵 (`mode: core-domain-chart`) 与上下文战略画布 (`mode: context-canvas`)；
+  - Markdown 内嵌：支持 ````ddd````、````domainstory```` 声明式 DSL 及极简流语法；
 - **领域拓扑与角色关系**:
   - 渲染参与者 (Actor: 人物、系统、组织)、工作对象 (Work Object: 文档、数据、包裹、消息等) 与带序号活动连接；
   - 支持领域协作边界圈层分组 (Groups) 与自适应启发式布局；
 - **逐帧演播与导出**:
   - 接入 `DiagramStepPlayer` 播放器，支持按活动序号单步播放、前后帧切换与聚焦高亮；
-  - 导出 `.dst` 文件与将领域模型嵌入的 **Polyglot SVG**，图形与源码可双向提取。
+  - 导出将领域模型嵌入的 **Polyglot SVG**，图形与源码可双向提取。
 
 ### 17. 云原生与容器化基础设施 (Cloud-Native Infrastructure Studio)
 - **Dockerfile 构建流水线 (Dockerfile Studio)**:
@@ -317,7 +317,7 @@ OmniView 在 [`examples/`](./examples) 提供开箱即用的多格式样例（�
 | [`consensus-algorithms.md`](./examples/markdown/consensus-algorithms.md) | 分布式共识机制 (Raft, PBFT, PoW/PoS) 状态机与时序图 |
 | [`technical-guide.md`](./examples/markdown/technical-guide.md) | 工程级混合技术文档（架构图、代码块与多态表格） |
 | [`stability-stress-test.md`](./examples/markdown/stability-stress-test.md) | 语法损坏图表、缺失图片、超宽表格等极限压测与错误边界隔离 |
-| [`domainstory/ecommerce-fulfillment.dst`](./examples/domainstory/ecommerce-fulfillment.dst) | 独立 WPS egon.io 官方 `.dst` 格式跨境电商履约领域故事模型 |
+| [`domainstory/ecommerce-fulfillment.ddd`](./examples/domainstory/ecommerce-fulfillment.ddd) | 统一 `.ddd` 格式跨境电商履约领域故事模型 |
 | [`markdown/domain-storytelling.md`](./examples/markdown/domain-storytelling.md) | Markdown 内嵌 Domain Storytelling DSL 敏捷与协同用例 |
 | [`html/interactive-dashboard.html`](./examples/html/interactive-dashboard.html) | HTML5 响应式监控大屏、沙箱隔离脚本交互与多终端视口示例 |
 

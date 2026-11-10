@@ -152,7 +152,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${model.info?.name || 'domain-story'}.dst`;
+    a.download = `${model.info?.name || 'domain-story'}.ddd`;
     a.click();
     URL.revokeObjectURL(url);
     setExportMenuOpen(false);
@@ -164,7 +164,7 @@ export const DomainStoryBlock: React.FC<DomainStoryBlockProps> = React.memo(({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${model.info?.name || 'domain-story'}.egn`;
+    a.download = `${model.info?.name || 'domain-story'}.ddd`;
     a.click();
     URL.revokeObjectURL(url);
     setExportMenuOpen(false);

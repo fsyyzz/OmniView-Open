@@ -176,10 +176,10 @@ export const SUPPORTED_DRIVERS: ViewerDriver[] = [
   {
     id: 'domainstory',
     name: 'DDD & Domain Storytelling Studio',
-    displayName: 'DDD & Domain Storytelling (.dst / .ddd / .domainstory) 领域建模引擎',
-    description: 'DDD 领域驱动设计（领域故事、事件风暴便利贴时间轴、战略限界上下文映射图）可视化查看器，支持 egon.io .dst 规范、Markdown DSL 嵌入、逐帧演播与 Polyglot SVG 导出。',
+    displayName: 'DDD 领域建模与故事设计器 (.ddd)',
+    description: 'DDD 领域驱动设计（领域故事、事件风暴便利贴时间轴、战略限界上下文映射图、核心域投资矩阵与上下文画布）统一可视化查看器，支持模式自适应切换、Markdown DSL 嵌入、逐帧演播与 Polyglot SVG 导出。',
     iconName: 'GitCommit',
-    supportedExtensions: ['dst', 'domainstory', 'egn', 'ddd'],
+    supportedExtensions: ['ddd'],
     isBuiltin: true,
     version: '1.1.0',
     category: 'core',

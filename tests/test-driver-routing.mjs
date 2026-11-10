@@ -103,6 +103,15 @@ assert.strictEqual(getDriverIdForFile(mockFile('about.htm', 'htm')), 'html', '.h
 assert.strictEqual(getDriverIdForFile(mockFile('PAGE.HTML', 'HTML')), 'html', '大写 HTML 后缀应正确路由至 html 驱动');
 console.log('✅ HTML5 网页与沙箱工作台路由测试通过');
 
+// 6.5 DDD 架构与领域故事统一驱动路由 (.ddd)
+console.log('--- 测试 6.5: DDD 架构与领域故事统一驱动路由 (.ddd) ---');
+assert.strictEqual(getDriverIdForFile(mockFile('ecommerce-fulfillment.ddd', 'ddd')), 'domainstory');
+assert.strictEqual(getDriverIdForFile(mockFile('leave-approval.ddd', 'ddd')), 'domainstory');
+assert.strictEqual(getDriverIdForFile(mockFile('order-event-storming.ddd', 'ddd')), 'domainstory');
+assert.strictEqual(getDriverIdForFile(mockFile('retail-context-map.ddd', 'ddd')), 'domainstory');
+assert.strictEqual(getDriverIdForFile(mockFile('MODEL.DDD', 'DDD')), 'domainstory', '大写 DDD 路由错误');
+console.log('✅ DDD 架构与领域故事统一驱动路由测试通过');
+
 // 7. 源码与结构化文本路由至 code 驱动
 console.log('--- 测试 7: 代码高亮与工程配置文件路由 ---');
 const codeExtensions = ['ts', 'tsx', 'js', 'jsx', 'json', 'py', 'java', 'go', 'rs', 'css', 'yaml', 'yml', 'toml', 'xml'];
