@@ -45,6 +45,8 @@ interface MermaidStudioCanvasProps {
   code: string;
   fileName?: string;
   locale?: Locale;
+  theme?: string;
+  isDarkTheme?: boolean;
   onCodeChange?: (newCode: string) => void;
   onOpenSourceAtLine?: (line: number) => void;
 }
@@ -53,6 +55,8 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
   code,
   fileName = 'diagram.mmd',
   locale = 'zh-CN',
+  theme,
+  isDarkTheme,
   onCodeChange,
   onOpenSourceAtLine,
 }) => {
@@ -91,21 +95,19 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
   const [currentStep, setCurrentStep] = useState<number>(-1);
   const [isPlaybackActive, setIsPlaybackActive] = useState<boolean>(false);
 
-  // 初始化与动态响应主题
-  const initMermaidTheme = useCallback(() => {
-    const isDark =
-      typeof document !== 'undefined'
-        ? (document.documentElement.getAttribute('data-theme')?.includes('dark') ??
-          document.body.classList.contains('vscode-dark') ??
-          true)
-        : true;
+  const effectiveTheme =
+    theme ||
+    (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : undefined) ||
+    (isDarkTheme !== undefined ? (isDarkTheme ? 'dark' : 'light') : 'dark');
 
+  // 初始化与动态响应 14 大渲染主题
+  const initMermaidTheme = useCallback(() => {
     try {
-      mermaid.initialize(getMermaidConfig(isDark));
+      mermaid.initialize(getMermaidConfig(effectiveTheme));
     } catch {
       /* ignore re-init errors */
     }
-  }, []);
+  }, [effectiveTheme]);
 
   // 实时编译 Mermaid 语法
   const compileDiagram = useCallback(async (srcCode: string) => {
@@ -137,13 +139,13 @@ export const MermaidStudioCanvas: React.FC<MermaidStudioCanvasProps> = ({
     }
   }, [initMermaidTheme]);
 
-  // 源码变更防抖即时编译 (180ms)
+  // 源码或主题变更防抖即时编译 (180ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       void compileDiagram(code);
     }, 180);
     return () => clearTimeout(timer);
-  }, [code, compileDiagram]);
+  }, [code, effectiveTheme, compileDiagram]);
 
   // 原生鼠标滚轮基于光标焦点缩放监听 (注册非 passive 事件以保证彻底阻止外层滚动)
   useEffect(() => {

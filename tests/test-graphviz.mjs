@@ -3,6 +3,7 @@
  * Graphviz 渲染器与安全清洗单元测试脚本
  */
 import { Graphviz } from '@hpcc-js/wasm-graphviz';
+import { solidifyGraphvizSvg, resolveGraphvizPalette } from '../src/features/viewers/lib/graphvizTheme.ts';
 
 async function runTests() {
   console.log('🧪 开始运行 Graphviz 渲染与安全清洗自动化测试...');
@@ -70,6 +71,25 @@ async function runTests() {
   } catch (err) {
     assert(true, `语法错误正确被捕获并抛出友好异常: ${err.message?.slice(0, 40)}...`);
   }
+
+  // 5. 14 大主题高保真调色盘与矢量渲染自适应测试 (solidifyGraphvizSvg)
+  console.log('\n[5/5] 测试 Graphviz 14 大主题高保真调色盘与原生矢量重映射');
+  const rawSvg = `<svg width="100" height="100"><polygon fill="white" stroke="none" points="-4,4 -4,-100 100,-100 100,4 -4,4"/><g class="node"><polygon fill="none" stroke="black" points="54,-36 0,-36 0,0 54,0 54,-36"/><text text-anchor="middle" x="27" y="-14.3" font-family="Times,serif" font-size="14.00">A</text></g><g class="edge"><path fill="none" stroke="black" d="M27,-36 C27,-40 27,-50 27,-55"/><polygon fill="black" stroke="black" points="30,-55 27,-65 24,-55 30,-55"/></g></svg>`;
+
+  const draculaSvg = solidifyGraphvizSvg(rawSvg, 'dracula');
+  assert(draculaSvg.includes('fill="none"') || draculaSvg.includes('fill="transparent"'), '白底 polygon 已被置为 transparent 或 none 消除纯白底框');
+  assert(draculaSvg.includes('stroke="#bd93f9"'), '默认黑线已被重映射为 Dracula 强调色 #bd93f9');
+  assert(draculaSvg.includes('fill="#f8f8f2"'), '默认黑字已重映射为 Dracula 前景色 #f8f8f2');
+
+  const sepiaSvg = solidifyGraphvizSvg(rawSvg, 'sepia');
+  assert(sepiaSvg.includes('stroke="#b45309"'), '默认黑线已被重映射为 Sepia 强调色 #b45309');
+  assert(sepiaSvg.includes('fill="#78350f"'), '默认黑字已重映射为 Sepia 文本色 #78350f');
+
+  // 原彩保持测试
+  const colorfulSvg = `<svg width="100" height="100"><polygon fill="#ef4444" stroke="#22c55e" points="0,0 10,10"/></svg>`;
+  const preservedSvg = solidifyGraphvizSvg(colorfulSvg, 'dracula');
+  assert(preservedSvg.includes('fill="#ef4444"'), '用户显式指定的原彩 fill 必须 100% 保持');
+  assert(preservedSvg.includes('stroke="#22c55e"'), '用户显式指定的原彩 stroke 必须 100% 保持');
 
   console.log(`\n========================================`);
   console.log(`测试完成: ${passed} 项通过, ${failed} 项失败`);

@@ -32,6 +32,7 @@ import { DiagramStepPlayer } from '../common/DiagramStepPlayer';
 import { persistentMermaidCache, makeDeterministicCacheKey } from '../../../lib/diagramCache';
 import { getMermaidConfig } from '../../../../../shared/lib/mermaidConfig';
 import { appLogger } from '../../../../../shared/lib/appLogger';
+import type { ThemeId } from '../../../../../shared/types.ts';
 
 interface MermaidBlockProps {
   id: string;
@@ -57,6 +58,7 @@ interface MermaidBlockProps {
   externalFile?: string;
   locale?: Locale;
   isDarkTheme?: boolean;
+  theme?: ThemeId | string;
 }
 
 export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
@@ -83,7 +85,9 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   externalFile,
   locale = 'zh-CN',
   isDarkTheme = true,
+  theme,
 }) => {
+  const activeThemeId = (theme as string) || (isDarkTheme ? 'dark' : 'light');
   const [liveSvg, setLiveSvg] = useState<string>(svgContent || '');
   const [liveError, setLiveError] = useState<string | undefined>(error);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
@@ -107,7 +111,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
     }
   }, [svgContent, error, code, editedCode]);
 
-  // 实时编译：仅当用户改过源码，或尚无可用 svgContent 时跑防抖 render
+  // 实时编译：仅当用户改过源码，或尚无可用 svgContent 时跑防抖 render，且深度绑定 14 大渲染主题
   useEffect(() => {
     const isDirty = Boolean(editedCode !== undefined && editedCode !== code);
     const hasSeedSvg = Boolean(svgContent) && !isDirty;
@@ -117,9 +121,8 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       return;
     }
 
-    // 优先命中双层持久化快照缓存（内存 0ms + IndexedDB 异步落盘）
-    const themeSuffix = isDarkTheme ? 'dark' : 'light';
-    const cacheKey = makeDeterministicCacheKey('mermaid', activeCode, themeSuffix, 'svg');
+    // 优先命中双层持久化快照缓存（内存 0ms + IndexedDB 异步落盘，按当前 activeThemeId 精准隔离）
+    const cacheKey = makeDeterministicCacheKey('mermaid:v3', activeCode, activeThemeId, 'svg');
     
     // 1. 同步内存级检查 (0ms)
     const memCachedSvg = persistentMermaidCache.getSync(cacheKey);
@@ -145,7 +148,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
 
     const timer = setTimeout(async () => {
       try {
-        mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
+        mermaid.initialize(getMermaidConfig(activeThemeId));
         const uniqueId = `mermaid-live-${Math.random().toString(36).substr(2, 9)}`;
         const { svg } = await mermaid.render(uniqueId, activeCode);
         if (isCurrent && count === renderCountRef.current) {
@@ -168,7 +171,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [activeCode, code, editedCode, svgContent, isDarkTheme]);
+  }, [activeCode, code, editedCode, svgContent, isDarkTheme, activeThemeId]);
 
   // 计算应用步进高亮后的 SVG 内容
   const displaySvg = useMemo(() => {
@@ -268,7 +271,11 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({
   };
 
   return (
-    <div id={id} className={`markdown-diagram markdown-diagram-mermaid group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+    <div
+      id={id}
+      data-theme={theme}
+      className={`markdown-diagram markdown-diagram-mermaid group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}
+    >
       {/* 默认折叠微型展开胶囊 */}
       {!isToolbarExpanded && viewMode !== 'code' && (
         <DiagramCompactTrigger

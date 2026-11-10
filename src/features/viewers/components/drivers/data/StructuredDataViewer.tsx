@@ -177,7 +177,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
       let isMounted = true;
       const renderTopology = async () => {
         try {
-          mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
+          mermaid.initialize(getMermaidConfig(theme || (isDarkTheme ? 'dark' : 'light')));
           const id = `topology-${Math.random().toString(36).slice(2, 9)}`;
           const { svg } = await mermaid.render(id, topologyMermaid);
           if (isMounted) {
@@ -192,7 +192,7 @@ export const StructuredDataViewer: React.FC<StructuredDataViewerProps> = ({
         isMounted = false;
       };
     }
-  }, [topologyMermaid, viewMode, isDarkTheme]);
+  }, [topologyMermaid, viewMode, isDarkTheme, theme]);
 
   const handleCopySource = useCallback(() => {
     navigator.clipboard.writeText(localRawText);

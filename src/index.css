@@ -1976,16 +1976,6 @@ ul.ov-task-list {
   margin: 0 auto;
 }
 
-/* Graphviz / DOT 矢量图全主题高对比度自适应 (Dark Theme Inversion & Border Normalization) */
-:root:not([data-theme="light"]):not([data-theme="sepia"]):not([data-theme="solarized"]) .markdown-diagram-graphviz .diagram-canvas svg {
-  filter: invert(0.92) hue-rotate(180deg) contrast(1.15);
-}
-
-/* 灯箱全屏模式下 Graphviz 矢量图随暗色背景自适应 */
-.markdown-lightbox-content svg.graphviz-svg-dark-inverted {
-  filter: invert(0.92) hue-rotate(180deg) contrast(1.15);
-}
-
 /* KaTeX 数学公式渲染随系统与多主题字体颜色自动继承 */
 .markdown-diagram-math .katex,
 .markdown-diagram-math .katex-display {

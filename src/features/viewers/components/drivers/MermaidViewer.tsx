@@ -11,6 +11,8 @@ interface MermaidViewerProps {
   content: string;
   fileName?: string;
   locale?: Locale;
+  theme?: string;
+  isDarkTheme?: boolean;
   onContentChange?: (content: string) => void;
   onOpenInEditor?: () => void;
   onOpenSettings?: () => void;
@@ -50,6 +52,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   content,
   fileName = 'diagram.mmd',
   locale = 'zh-CN',
+  theme,
+  isDarkTheme,
   onContentChange,
   onOpenInEditor,
   onOpenSettings,
@@ -75,6 +79,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
           code={code}
           fileName={fileName}
           locale={locale}
+          theme={theme}
+          isDarkTheme={isDarkTheme}
           onCodeChange={onContentChange}
         />
       )}

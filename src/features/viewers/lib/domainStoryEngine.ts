@@ -26,6 +26,7 @@ import {
   renderCoreDomainChartToSvg,
   renderContextCanvasToSvg,
   extractDddSteps,
+  resolveDddPalette,
 } from './dddModelingEngine.ts';
 
 export type {
@@ -828,8 +829,10 @@ export function renderDomainStoryToSvg(
   let minY = Infinity;
   let maxY = -Infinity;
 
+  const palette = resolveDddPalette(theme, isDark);
+
   if (model.actors.length === 0) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" width="100%" height="200"><rect width="100%" height="100%" fill="${isDark ? '#0f172a' : '#f8fafc'}"/><text x="300" y="105" fill="${isDark ? '#94a3b8' : '#64748b'}" font-family="sans-serif" font-size="14" text-anchor="middle">未发现有效的领域故事角色与活动 (Empty Domain Story)</text></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" width="100%" height="200"><rect width="100%" height="100%" fill="${palette.bg}"/><text x="300" y="105" fill="${palette.subtitle}" font-family="sans-serif" font-size="14" text-anchor="middle">未发现有效的领域故事角色与活动 (Empty Domain Story)</text></svg>`;
   }
 
   for (const a of model.actors) {
@@ -857,50 +860,28 @@ export function renderDomainStoryToSvg(
   const isPlaybackMode = currentStep >= 0 && currentStep < totalSteps;
   const activeActivity = isPlaybackMode ? model.activities[currentStep] : null;
 
-  // 配色方案（遵循 anti-slop 工业级高对比度）
-  const themeColors = isDark
-    ? {
-        bg: '#090d16',
-        actorBg: '#111827',
-        actorBorder: '#38bdf8',
-        actorText: '#f8fafc',
-        actorSubText: '#cbd5e1',
-        lineDefault: '#60a5fa',
-        lineActive: '#38bdf8',
-        linePast: '#94a3b8',
-        badgeBg: '#0f172a',
-        badgeText: '#f8fafc',
-        badgeBorder: '#38bdf8',
-        activeBadgeBg: '#0284c7',
-        activeBadgeText: '#ffffff',
-        woBg: '#1e293b',
-        woBorder: '#38bdf8',
-        woText: '#38bdf8',
-        groupBg: 'rgba(15, 23, 42, 0.55)',
-        groupBorder: '#64748b',
-        groupText: '#93c5fd',
-      }
-    : {
-        bg: '#ffffff',
-        actorBg: '#ffffff',
-        actorBorder: '#2563eb',
-        actorText: '#0f172a',
-        actorSubText: '#334155',
-        lineDefault: '#1e293b',
-        lineActive: '#2563eb',
-        linePast: '#64748b',
-        badgeBg: '#f8fafc',
-        badgeText: '#0f172a',
-        badgeBorder: '#94a3b8',
-        activeBadgeBg: '#2563eb',
-        activeBadgeText: '#ffffff',
-        woBg: '#eff6ff',
-        woBorder: '#2563eb',
-        woText: '#1d4ed8',
-        groupBg: 'rgba(241, 245, 249, 0.7)',
-        groupBorder: '#94a3b8',
-        groupText: '#1d4ed8',
-      };
+  // 配色方案（遵循 14 大渲染主题高保真调色盘与高对比度）
+  const themeColors = {
+    bg: palette.cardBg,
+    actorBg: palette.cardBg,
+    actorBorder: palette.accent,
+    actorText: palette.title,
+    actorSubText: palette.subtitle,
+    lineDefault: palette.line,
+    lineActive: palette.accent,
+    linePast: isDark ? '#94a3b8' : '#64748b',
+    badgeBg: palette.boxBg,
+    badgeText: palette.title,
+    badgeBorder: palette.cardBorder,
+    activeBadgeBg: palette.accent,
+    activeBadgeText: isDark ? '#0f172a' : '#ffffff',
+    woBg: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+    woBorder: palette.accent,
+    woText: palette.accent,
+    groupBg: isDark ? 'rgba(15, 23, 42, 0.55)' : 'rgba(241, 245, 249, 0.7)',
+    groupBorder: palette.cardBorder,
+    groupText: palette.accent,
+  };
 
   let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="${vw}" height="${vh}" class="ov-domain-story-svg" style="background-color: transparent; max-width: 100%; height: auto; user-select: none; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">\n`;
 

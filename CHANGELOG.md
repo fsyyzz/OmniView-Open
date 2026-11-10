@@ -8,7 +8,25 @@
 
 ---
 
-## [1.4.40] - 2026-11-10 (当前最新发布)
+## [1.4.41] - 2026-11-10 (当前最新发布)
+
+> [!TIP] v1.4.41 核心升级亮点
+> **全面打通 Mermaid、Graphviz 与 DDD 领域驱动设计的 14 大渲染主题深度联动，彻底消除图表与界面主题不一致现象**：
+> 1. **Mermaid 14 大主题高保真调色盘深度联动 (`src/shared/lib/mermaidConfig.ts`, `MermaidBlock.tsx`, `MermaidStudioCanvas.tsx`)**：
+>    - 定义专属 `MermaidThemePalette` 矩阵，涵盖流程图、序列图、状态机、甘特图（任务与分区色阶）、GitGraph（7 阶分支色板）、饼图等专用变量，精准映射 14 大渲染主题（`dracula`、`catppuccin`、`nord`、`tokyo-night`、`sepia`、`forest`、`solarized`、`notion`、`github-dark`、`midnight` 等）；
+>    - 在 Markdown 渲染器、MermaidStudioCanvas 画布与 StructuredDataViewer 拓扑图中全面透传 `theme`，缓存版本升级为 `mermaid:v3` 实现跨主题即时隔离刷新；
+> 2. **Graphviz 矢量固化与原生主题自适应 (`src/features/viewers/lib/graphvizTheme.ts`, `graphvizRenderer.ts`, `GraphvizBlock.tsx`)**：
+>    - 废除原有的暴力 CSS 反转滤镜（`filter: invert` 会导致用户彩色图元色相完全失真），重构实现原生矢量固化器 `solidifyGraphvizSvg`；
+>    - 消除 WASM 原生生成的默认全屏白底矩形，将默认黑线、黑色箭头与文本自适应重映射为当前主题的高对比度语义色，同时 100% 保持用户显式声明的语法原彩（如用户自定义的红绿蓝边框与节点）；
+> 3. **DDD 领域故事图 (Domain Storytelling) 全面统一 14 大主题 (`src/features/viewers/lib/domainStoryEngine.ts`)**：
+>    - 将 DDD 引擎中最后的标准领域故事图（`mode: domain-story`）由旧有的二元黑白色板统一接入 `resolveDddPalette`，至此 DDD 的全部 5 种模式（领域故事、事件风暴、上下文映射图、投资象限图、战略画布）100% 与 14 大主题深度融合；
+> 4. **自动化测试套件与物理门禁验证**：
+>    - `tests/test-mermaid-config.mjs`、`tests/test-graphviz.mjs`、`tests/test-domainstory-engine.mjs` 增补 14 大主题覆盖与原彩保持断言；
+>    - 全量 101/101 套单元测试、`tsc --noEmit`、4 大物理门禁与 `build:plugin` 全部 100% 绿灯通过。
+
+---
+
+## [1.4.40] - 2026-11-10
 
 > [!TIP] v1.4.40 核心升级亮点
 > **全面打通 PlantUML 与 DDD 领域驱动设计图表的 14 大渲染主题深度联动，彻底消除图表超出边界截断与遮盖太近**：

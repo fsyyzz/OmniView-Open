@@ -1,13 +1,28 @@
 /**
  * Graphviz 渲染器服务 (支持 Web Worker 与 VS Code Webview 沙箱直接 WASM 双模回退)
+ * 支持 14 大渲染主题高保真自适应 (Dracula, Catppuccin, Nord, Sepia, Tokyo Night 等)
+ * 智能保留用户显式语法着色，并使默认黑白图元与多主题背景像素级深度融合
  */
-import { validateGraphvizSource, sanitizeGraphvizSvg } from './graphvizSanitizer';
-import type { WorkerRequest, WorkerResponse } from '../workers/graphviz.worker';
+import { validateGraphvizSource, sanitizeGraphvizSvg } from './graphvizSanitizer.ts';
+import type { WorkerRequest, WorkerResponse } from '../workers/graphviz.worker.ts';
 import { Graphviz, type Engine } from '@hpcc-js/wasm-graphviz';
-import { persistentGraphvizCache, makeDeterministicCacheKey } from './diagramCache';
-import { appLogger } from '../../../shared/lib/appLogger';
+import { persistentGraphvizCache, makeDeterministicCacheKey } from './diagramCache.ts';
+import { appLogger } from '../../../shared/lib/appLogger.ts';
+import type { ThemeId } from '../../../shared/types.ts';
+import {
+  GRAPHVIZ_THEME_PALETTES,
+  resolveGraphvizPalette,
+  solidifyGraphvizSvg,
+  type GraphvizThemePalette,
+} from './graphvizTheme.ts';
 
 export type GraphvizEngine = Engine;
+export {
+  GRAPHVIZ_THEME_PALETTES,
+  resolveGraphvizPalette,
+  solidifyGraphvizSvg,
+  type GraphvizThemePalette,
+};
 
 interface PendingTask {
   resolve: (svg: string) => void;
@@ -27,13 +42,6 @@ class GraphvizRendererService {
   private directGraphvizPromise: Promise<Graphviz> | null = null;
 
   /**
-   * 生成缓存 Key
-   */
-  private getCacheKey(source: string, engine: GraphvizEngine): string {
-    return `${engine}:${source.trim()}`;
-  }
-
-  /**
    * 获取直接在主线程/Webview 沙箱内运行的 Graphviz WASM 单例
    */
   private async getDirectGraphviz(): Promise<Graphviz> {
@@ -44,7 +52,7 @@ class GraphvizRendererService {
   }
 
   /**
-   * 按需延迟初始化 Web Worker（若受 VS Code Webview 跨源策略限制，则标记失败并安全降级）
+   * 按需延迟初始化 Web Worker
    */
   private getOrCreateWorker(): Worker | null {
     if (this.workerFailed) {
@@ -117,7 +125,6 @@ class GraphvizRendererService {
    * 进程内直接异步执行 Graphviz WASM 渲染
    */
   private async renderDirectly(source: string, engine: GraphvizEngine): Promise<string> {
-    // 让出微任务时间切片，保证 UI 响应
     await new Promise((resolve) => setTimeout(resolve, 0));
     const graphviz = await this.getDirectGraphviz();
     const rawSvg = graphviz.layout(source, 'svg', engine);
@@ -125,9 +132,13 @@ class GraphvizRendererService {
   }
 
   /**
-   * 渲染 Graphviz 源码为 SVG 矢量图
+   * 渲染 Graphviz 源码为 SVG 矢量图，并与当前 14 大渲染主题深度融合
    */
-  public async render(source: string, engine: GraphvizEngine = 'dot'): Promise<string> {
+  public async render(
+    source: string,
+    engine: GraphvizEngine = 'dot',
+    themeOrIsDark?: ThemeId | string | boolean
+  ): Promise<string> {
     // 1. 前置安全与语法长度校验
     const validation = validateGraphvizSource(source);
     if (!validation.valid) {
@@ -136,8 +147,10 @@ class GraphvizRendererService {
       throw new Error(err);
     }
 
+    const activeThemeId = typeof themeOrIsDark === 'string' ? themeOrIsDark : (themeOrIsDark ? 'dark' : 'light');
+
     // 2. 检查双层持久化缓存命中 (0ms 内存 + IndexedDB 磁盘回填)
-    const cacheKey = makeDeterministicCacheKey(`graphviz:${engine}`, source, 'dark', 'svg');
+    const cacheKey = makeDeterministicCacheKey(`graphviz:v3:${engine}`, source, activeThemeId, 'svg');
     const cached = await persistentGraphvizCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -151,9 +164,10 @@ class GraphvizRendererService {
       worker = null;
     }
 
-    // 若无法使用 Worker（如 VS Code Webview 沙箱跨源策略拦截），直接走内存 WASM
+    // 若无法使用 Worker，直接走内存 WASM
     if (!worker) {
-      const cleanSvg = await this.renderDirectly(source, engine);
+      const rawSvg = await this.renderDirectly(source, engine);
+      const cleanSvg = solidifyGraphvizSvg(rawSvg, themeOrIsDark);
       void persistentGraphvizCache.set(cacheKey, cleanSvg, 'svg');
       return cleanSvg;
     }
@@ -167,9 +181,9 @@ class GraphvizRendererService {
         if (this.pendingTasks.has(requestId)) {
           this.pendingTasks.delete(requestId);
           this.restartWorker();
-          // 超时后自动尝试直接渲染降级
           this.renderDirectly(source, engine)
-            .then((svg) => {
+            .then((raw) => {
+              const svg = solidifyGraphvizSvg(raw, themeOrIsDark);
               void persistentGraphvizCache.set(cacheKey, svg, 'svg');
               resolve(svg);
             })
@@ -178,7 +192,8 @@ class GraphvizRendererService {
       }, this.timeoutMs);
 
       this.pendingTasks.set(requestId, {
-        resolve: (svg: string) => {
+        resolve: (rawSvg: string) => {
+          const svg = solidifyGraphvizSvg(rawSvg, themeOrIsDark);
           void persistentGraphvizCache.set(cacheKey, svg, 'svg');
           resolve(svg);
         },
@@ -194,12 +209,12 @@ class GraphvizRendererService {
           engine,
         };
         worker.postMessage(msg);
-      } catch (postErr: any) {
+      } catch {
         clearTimeout(timer);
         this.pendingTasks.delete(requestId);
-        // postMessage 失败时立即自动走直接渲染
         this.renderDirectly(source, engine)
-          .then((svg) => {
+          .then((raw) => {
+            const svg = solidifyGraphvizSvg(raw, themeOrIsDark);
             void persistentGraphvizCache.set(cacheKey, svg, 'svg');
             resolve(svg);
           })

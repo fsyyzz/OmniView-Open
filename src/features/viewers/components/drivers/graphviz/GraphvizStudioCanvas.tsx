@@ -36,6 +36,8 @@ interface GraphvizStudioCanvasProps {
   code: string;
   fileName?: string;
   locale?: Locale;
+  theme?: string;
+  isDarkTheme?: boolean;
   onCodeChange?: (newCode: string) => void;
   onOpenSourceAtLine?: (line: number) => void;
 }
@@ -55,6 +57,8 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
   code,
   fileName = 'diagram.dot',
   locale = 'zh-CN',
+  theme,
+  isDarkTheme,
   onCodeChange,
   onOpenSourceAtLine,
 }) => {
@@ -89,7 +93,12 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
   const lastPointerPosRef = useRef<Point | null>(null);
   const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 编译 Graphviz 源码为 SVG
+  const effectiveTheme =
+    theme ||
+    (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : undefined) ||
+    (isDarkTheme !== undefined ? (isDarkTheme ? 'dark' : 'light') : 'dark');
+
+  // 编译 Graphviz 源码为 SVG (深度绑定 14 大渲染主题)
   const compileDiagram = useCallback(async (srcCode: string, currentEngine: GraphvizEngine) => {
     const trimmed = (srcCode || '').trim();
     if (!trimmed) {
@@ -102,7 +111,7 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
     setIsCompiling(true);
 
     try {
-      const svg = await graphvizRenderer.render(trimmed, currentEngine);
+      const svg = await graphvizRenderer.render(trimmed, currentEngine, effectiveTheme);
       if (currentTicket === renderCountRef.current) {
         setSvgContent(svg);
         setCompileError(null);
@@ -115,15 +124,15 @@ export const GraphvizStudioCanvas: React.FC<GraphvizStudioCanvasProps> = ({
         setIsCompiling(false);
       }
     }
-  }, []);
+  }, [effectiveTheme]);
 
-  // 源码或引擎变更防抖编译 (180ms)
+  // 源码、引擎或主题变更防抖编译 (180ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       void compileDiagram(code, engine);
     }, 180);
     return () => clearTimeout(timer);
-  }, [code, engine, compileDiagram]);
+  }, [code, engine, effectiveTheme, compileDiagram]);
 
   // 原生鼠标滚轮基于光标焦点缩放监听 (保证阻止外层滚动且缩放平滑)
   useEffect(() => {

@@ -414,10 +414,10 @@ const warehouse = ecLaidOut.actors.find(a => a.name === '智能仓储中心');
 const payment = ecLaidOut.actors.find(a => a.name === '统一支付网关');
 
 assert.ok(buyer && ecPlatform && warehouse && payment, '所有角色应成功排布');
-assert.ok(buyer.x! < ecPlatform.x!, '买家(外部发起者)应排布在内部中枢左侧');
-assert.ok(payment.x! > ecPlatform.x!, '统一支付网关(外部支撑服务)应排布在内部中枢右侧');
+assert.ok(buyer.x < ecPlatform.x, '买家(外部发起者)应排布在内部中枢左侧');
+assert.ok(payment.x > ecPlatform.x, '统一支付网关(外部支撑服务)应排布在内部中枢右侧');
 assert.strictEqual(ecPlatform.x, warehouse.x, '内部核心 Group 角色应在中轴纵向居中对齐');
-assert.ok(warehouse.y! > ecPlatform.y!, '智能仓储中心应处于下游工序位置');
+assert.ok(warehouse.y > ecPlatform.y, '智能仓储中心应处于下游工序位置');
 
 // 渲染 SVG 并验证标牌无重叠碰撞
 const ecSvg = renderDomainStoryToSvg(ecLaidOut, { isDark: true });
@@ -559,7 +559,13 @@ assert.ok(sepiaCmSvg.includes('#b45309'), 'Sepia 暖阳主题下连线应为琥�
 
 const nordEsSvg = renderDomainStoryToSvg(fullEsModel, { theme: 'nord', isDark: true });
 assert.ok(nordEsSvg.includes('#242933'), 'Nord 极地主题下泳道背景应为 #242933');
-assert.ok(nordEsSvg.includes('#88c0d0'), 'Nord 极地主题下高亮线条应为冰蓝 #88c0d0');
+assert.ok(nordEsSvg.includes('#eceff4'), 'Nord 极地主题下文字应为 #eceff4');
+
+// 标准领域故事图 (Domain Storytelling) 主题自适应断言
+const draculaDsSvg = renderDomainStoryToSvg(modelFromJson, { theme: 'dracula', isDark: true });
+assert.ok(draculaDsSvg.includes('#bd93f9'), 'Dracula 下标准领域故事图箭头与强调色应为德古拉紫 #bd93f9');
+const sepiaDsSvg = renderDomainStoryToSvg(modelFromJson, { theme: 'sepia', isDark: false });
+assert.ok(sepiaDsSvg.includes('#b45309'), 'Sepia 下标准领域故事图线条应为暖阳琥珀 #b45309');
 console.log('✅ DDD 14 大渲染主题专属调色盘深度联动断言全部通过');
 
 console.log('\n🎉 全部 15 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');

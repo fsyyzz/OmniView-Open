@@ -23,6 +23,7 @@ import { graphvizRenderer, GraphvizEngine } from '../../../lib/graphvizRenderer'
 import { analyzeGraphvizError } from '../../../lib/diagramDiagnostics';
 import { DiagramDiagnosticCard } from '../../common/DiagramDiagnosticCard';
 import { ExternalBadgePill } from '../../common/ExternalBadgePill';
+import type { ThemeId } from '../../../../../shared/types.ts';
 
 interface GraphvizBlockProps {
   id: string;
@@ -46,6 +47,8 @@ interface GraphvizBlockProps {
   onFocusTextForNode?: (label: string, line?: number) => void;
   externalFile?: string;
   locale?: Locale;
+  theme?: ThemeId | string;
+  isDarkTheme?: boolean;
 }
 
 export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
@@ -70,6 +73,8 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   onFocusTextForNode,
   externalFile,
   locale = 'zh-CN',
+  theme,
+  isDarkTheme,
 }) => {
   const [svgContent, setSvgContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -82,7 +87,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   const renderCountRef = useRef(0);
   const activeCode = editedCode !== undefined ? editedCode : code;
 
-  // 异步加载与渲染 Graphviz SVG (支持 200ms 防抖即时编译)
+  // 异步加载与渲染 Graphviz SVG (支持 200ms 防抖即时编译，且深度绑定 14 大渲染主题系统)
   useEffect(() => {
     let isCurrent = true;
     const currentRender = ++renderCountRef.current;
@@ -91,7 +96,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
 
     const timer = setTimeout(() => {
       graphvizRenderer
-        .render(activeCode, (engine || 'dot') as GraphvizEngine)
+        .render(activeCode, (engine || 'dot') as GraphvizEngine, theme || isDarkTheme)
         .then((svg) => {
           if (isCurrent && currentRender === renderCountRef.current) {
             setSvgContent(svg);
@@ -111,7 +116,7 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [activeCode, engine]);
+  }, [activeCode, engine, theme, isDarkTheme]);
 
   const handleCopyError = () => {
     if (error) {
@@ -195,7 +200,11 @@ export const GraphvizBlock: React.FC<GraphvizBlockProps> = ({
   };
 
   return (
-    <div id={id} className={`markdown-diagram markdown-diagram-graphviz group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}>
+    <div
+      id={id}
+      data-theme={theme}
+      className={`markdown-diagram markdown-diagram-graphviz group relative ${isToolbarExpanded ? 'is-toolbar-open' : ''}`}
+    >
       {/* 默认折叠微型展开胶囊 */}
       {!isToolbarExpanded && viewMode !== 'code' && (
         <DiagramCompactTrigger

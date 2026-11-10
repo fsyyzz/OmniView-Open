@@ -56,4 +56,24 @@ assert.ok(lightTheme.compositeBackground, '亮色复合状态背景必须存在'
 assert.ok(lightTheme.compositeTitleBackground, '亮色复合状态标题背景必须存在');
 console.log('✅ 复合状态配置校验通过');
 
+// 4. 14 大渲染主题高保真调色盘与专用图表变量测试
+console.log('--- 测试 4: 14 大渲染主题独立调色盘与 Gantt / GitGraph / Pie 变量覆盖 ---');
+const draculaConfig = getMermaidConfig('dracula');
+assert.strictEqual(draculaConfig.theme, 'dark');
+assert.strictEqual(draculaConfig.themeVariables?.primaryColor, '#282a36');
+assert.strictEqual(draculaConfig.themeVariables?.git0, '#bd93f9', 'Dracula git0 必须为德古拉紫');
+assert.strictEqual(draculaConfig.themeVariables?.git1, '#ff79c6', 'Dracula git1 必须为德古拉粉');
+
+const sepiaConfig = getMermaidConfig('sepia');
+assert.strictEqual(sepiaConfig.theme, 'default');
+assert.strictEqual(sepiaConfig.themeVariables?.primaryColor, '#fffbf2');
+assert.strictEqual(sepiaConfig.themeVariables?.lineColor, '#b45309');
+
+const catppuccinConfig = getMermaidConfig('catppuccin');
+assert.strictEqual(catppuccinConfig.theme, 'dark');
+assert.strictEqual(catppuccinConfig.themeVariables?.primaryColor, '#1e1e2e');
+assert.strictEqual(catppuccinConfig.themeVariables?.git0, '#cba6f7', 'Catppuccin git0 必须为浅紫');
+
+console.log('✅ 14 大渲染主题特定调色盘及 GitGraph / Gantt 变量校验通过');
+
 console.log('🎉 所有 Mermaid stateDiagram 校验测试 100% 通过！\n');

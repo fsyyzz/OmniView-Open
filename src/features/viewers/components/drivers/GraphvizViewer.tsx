@@ -11,6 +11,8 @@ interface GraphvizViewerProps {
   content: string;
   fileName?: string;
   locale?: Locale;
+  theme?: string;
+  isDarkTheme?: boolean;
   onContentChange?: (content: string) => void;
   onOpenInEditor?: () => void;
   onOpenSettings?: () => void;
@@ -56,6 +58,8 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
   content,
   fileName = 'diagram.dot',
   locale = 'zh-CN',
+  theme,
+  isDarkTheme,
   onContentChange,
   onOpenInEditor,
   onOpenSettings,
@@ -81,6 +85,8 @@ export const GraphvizViewer: React.FC<GraphvizViewerProps> = ({
           code={code}
           fileName={fileName}
           locale={locale}
+          theme={theme}
+          isDarkTheme={isDarkTheme}
           onCodeChange={onContentChange}
         />
       )}

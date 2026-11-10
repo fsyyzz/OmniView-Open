@@ -336,11 +336,12 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     const graphvizBlocks = blocks.filter(b => b.type === 'graphviz');
 
     const compileTimer = setTimeout(async () => {
+      const effectiveThemeKey = (theme as string) || (isDarkTheme ? 'dark' : 'light');
       for (const b of mermaidBlocks) {
-        const cacheKey = mermaidRenderCache.makeKey('mermaid', b.raw, isDarkTheme ? 'dark' : 'light');
+        const cacheKey = mermaidRenderCache.makeKey('mermaid', b.raw, effectiveThemeKey);
         if (!mermaidRenderCache.get(cacheKey) && !b.svgContent) {
           try {
-            mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
+            mermaid.initialize(getMermaidConfig(effectiveThemeKey));
             const uniqueId = `mermaid-prewarm-${Math.random().toString(36).substr(2, 9)}`;
             const { svg } = await mermaid.render(uniqueId, b.raw);
             mermaidRenderCache.set(cacheKey, svg);
@@ -354,7 +355,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       for (const b of graphvizBlocks) {
         if (!graphvizRenderCache.get(b.raw) && !b.svgContent) {
           try {
-            const svg = await graphvizRenderer.render(b.raw);
+            const svg = await graphvizRenderer.render(b.raw, 'dot', effectiveThemeKey);
             graphvizRenderCache.set(b.raw, svg);
             b.svgContent = svg;
           } catch {
@@ -726,14 +727,14 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     onHoverWikiLink: setHoverWikiLinkInfo,
   });
 
-  // 初始化 Mermaid 渲染主题 (高对比度与全主题自适应)
+  // 初始化 Mermaid 渲染主题 (深度绑定 14 大渲染主题高保真调色盘)
   useEffect(() => {
     try {
-      mermaid.initialize(getMermaidConfig(Boolean(isDarkTheme)));
+      mermaid.initialize(getMermaidConfig(theme || (isDarkTheme ? 'dark' : 'light')));
     } catch {
       // 容错降级
     }
-  }, [isDarkTheme]);
+  }, [isDarkTheme, theme]);
 
   // 双击定位配置：若关闭则不显示双击提示
   const isDoubleClickEditEnabled = loadStoredSettings().enableDoubleClickEdit ?? false;
@@ -1224,6 +1225,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   externalFile={block.externalFile}
                   locale={locale}
                   isDarkTheme={isDarkTheme}
+                  theme={theme}
                 />
               </RenderErrorBoundary>
             </LazyViewportBlock>
@@ -1437,6 +1439,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
                   onFocusTextForNode={handleFocusTextForNode}
                   externalFile={block.externalFile}
                   locale={locale}
+                  theme={theme}
+                  isDarkTheme={isDarkTheme}
                 />
               </RenderErrorBoundary>
             </LazyViewportBlock>
