@@ -685,7 +685,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                   <input
                     type="range"
                     min={12}
-                    max={22}
+                    max={24}
                     step={1}
                     value={localSettings.fontSize || 15}
                     onChange={(e) => updateSetting('fontSize', Number(e.target.value))}
@@ -694,7 +694,7 @@ export const WorkbenchSettingsModal: React.FC<WorkbenchSettingsModalProps> = ({
                   <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5">
                     <span>12px 紧凑</span>
                     <span>15px 推荐</span>
-                    <span>22px 舒适</span>
+                    <span>24px 宽大</span>
                   </div>
                 </div>
               </div>

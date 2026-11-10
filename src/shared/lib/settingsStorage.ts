@@ -101,7 +101,7 @@ export function loadStoredSettings(): WorkbenchSettings {
       : 'standard';
 
     const fontSize: number = typeof parsed.fontSize === 'number'
-      ? Math.min(22, Math.max(12, Math.round(parsed.fontSize)))
+      ? Math.min(24, Math.max(12, Math.round(parsed.fontSize)))
       : 15;
 
     const sidebarOpen: boolean = typeof parsed.sidebarOpen === 'boolean'

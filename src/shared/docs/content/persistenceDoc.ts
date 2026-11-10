@@ -29,7 +29,7 @@ flowchart TD
 
     subgraph Middleware ["🛡️ 防护与校验中间件 (settingsStorage.ts)"]
         Migrator["平滑数据迁移器<br/>(自动读取 v1 并回写落盘至 v2)"]
-        Clamper["数学边界钳位器<br/>• zoom: 0.5 ~ 2.5 (两位浮点)<br/>• fontSize: 12 ~ 22px<br/>• splitRatio: 15 ~ 85%"]
+        Clamper["数学边界钳位器<br/>• zoom: 0.5 ~ 2.5 (两位浮点)<br/>• fontSize: 12 ~ 24px<br/>• splitRatio: 15 ~ 85%"]
         Capacity["存储容量与键分析器<br/>(getStorageStats: 实时统计精确到 0.1KB)"]
     end
 
@@ -59,7 +59,7 @@ export interface WorkbenchSettings {
   density: DensityMode;       // compact | standard | comfortable
   locale: 'zh-CN' | 'en-US';  // 国际化多语言
   contentWidth: 'narrow' | 'standard' | 'wide' | 'full';
-  fontSize: number;           // 12px ~ 22px 钳位
+  fontSize: number;           // 12px ~ 24px 钳位
   zoom: number;               // 0.5x ~ 2.5x 两位精度钳位
   viewMode: ViewMode;         // preview | split | source | mindmap
 

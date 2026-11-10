@@ -623,27 +623,92 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                   borderColor: 'var(--ov-border)',
                   color: 'var(--ov-text)',
                 }}
-                className="absolute right-0 mt-1 w-36 border rounded-lg shadow-xl py-1 z-50"
+                className="absolute right-0 mt-1 w-60 border rounded-lg shadow-xl p-2.5 z-50 select-none animate-in fade-in zoom-in-95 duration-100"
               >
-                {[13, 14, 15, 16, 18].map(size => (
+                {/* 顶部标题与当前字号数值展示 + 一键重置 */}
+                <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-[var(--ov-border)]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-xs font-bold text-[var(--ov-accent)]">A</span>
+                    <span className="text-xs font-semibold">{t('fontSize', locale)}</span>
+                    <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--ov-surface-header)] border border-[var(--ov-border)] text-[var(--ov-accent)]">
+                      {fontSize}px
+                    </span>
+                  </div>
+                  {fontSize !== 15 && (
+                    <button
+                      type="button"
+                      onClick={() => onFontSizeChange(15)}
+                      className="text-[10px] flex items-center gap-1 text-[var(--ov-text-secondary)] hover:text-[var(--ov-accent)] hover:underline transition"
+                      title={t('fontSizeReset', locale)}
+                    >
+                      <RotateCcw size={10} />
+                      <span>{locale === 'en-US' ? 'Reset' : '重置'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 快捷微调步进器与连续滑块 */}
+                <div className="flex items-center gap-2 mb-2.5">
                   <button
-                    key={size}
                     type="button"
-                    onClick={() => {
-                      onFontSizeChange(size);
-                      setFontSizeMenuOpen(false);
-                    }}
-                    title={`${t('fontSizeTooltip', locale)}: ${size}px`}
-                    style={{
-                      backgroundColor: fontSize === size ? 'var(--ov-surface-header)' : 'transparent',
-                      color: fontSize === size ? 'var(--ov-accent)' : 'var(--ov-text-secondary)',
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition hover:opacity-90 font-medium"
+                    disabled={fontSize <= 12}
+                    onClick={() => onFontSizeChange(Math.max(12, fontSize - 1))}
+                    className="p-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface-header)] hover:bg-[var(--ov-surface)] disabled:opacity-30 disabled:cursor-not-allowed transition text-xs font-mono font-bold w-6 h-6 flex items-center justify-center shrink-0"
+                    title={locale === 'en-US' ? 'Decrease font size (-1px)' : '减小字号 (-1px)'}
                   >
-                    <span>{size} px</span>
-                    {fontSize === size && <Check size={12} style={{ color: 'var(--ov-accent)' }} />}
+                    <Minus size={12} />
                   </button>
-                ))}
+                  <input
+                    type="range"
+                    min={12}
+                    max={24}
+                    step={1}
+                    value={fontSize}
+                    onChange={(e) => onFontSizeChange(Number(e.target.value))}
+                    className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer accent-[var(--ov-accent)] bg-[var(--ov-border)]"
+                    aria-label={t('fontSize', locale)}
+                  />
+                  <button
+                    type="button"
+                    disabled={fontSize >= 24}
+                    onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))}
+                    className="p-1 rounded border border-[var(--ov-border)] bg-[var(--ov-surface-header)] hover:bg-[var(--ov-surface)] disabled:opacity-30 disabled:cursor-not-allowed transition text-xs font-mono font-bold w-6 h-6 flex items-center justify-center shrink-0"
+                    title={locale === 'en-US' ? 'Increase font size (+1px)' : '增大字号 (+1px)'}
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+
+                {/* 常用阶梯预设网格 (10 档精细阶梯) */}
+                <div className="mb-1 text-[10px] text-[var(--ov-text-secondary)] font-medium flex items-center justify-between">
+                  <span>{t('fontSizePresets', locale)}</span>
+                  <span className="font-mono text-[9px] opacity-70">12px ~ 24px</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {[12, 13, 14, 15, 16, 17, 18, 20, 22, 24].map((size) => {
+                    const isSelected = fontSize === size;
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          onFontSizeChange(size);
+                        }}
+                        style={{
+                          backgroundColor: isSelected ? 'var(--ov-accent)' : 'var(--ov-surface-header)',
+                          color: isSelected ? '#ffffff' : 'var(--ov-text-secondary)',
+                          borderColor: isSelected ? 'var(--ov-accent)' : 'var(--ov-border)',
+                        }}
+                        className={`text-center py-1 rounded text-[11px] font-mono border transition hover:opacity-90 ${
+                          isSelected ? 'font-bold shadow-sm' : 'hover:border-[var(--ov-accent)]'
+                        }`}
+                        title={`${size}px${size === 15 ? (locale === 'en-US' ? ' (Default)' : ' (推荐默认)') : ''}`}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -1092,7 +1157,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const sizes = [13, 14, 15, 16, 18];
+                        const sizes = [12, 13, 14, 15, 16, 17, 18, 20, 22, 24];
                         const idx = sizes.indexOf(fontSize);
                         const next = sizes[(idx + 1) % sizes.length] || 15;
                         onFontSizeChange(next);

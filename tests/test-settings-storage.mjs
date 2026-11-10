@@ -92,6 +92,12 @@ assert.strictEqual(clamped.zoom, 2.5, 'zoom 超限应被截断至 2.5');
 assert.strictEqual(clamped.fontSize, 12, 'fontSize 低于下限应被截断至 12');
 assert.strictEqual(clamped.mindmapSplitRatio, 85, 'mindmapSplitRatio 超限应被截断至 85');
 assert.strictEqual(clamped.plantUmlSplitRatio, 15, 'plantUmlSplitRatio 低于下限应被截断至 15');
+
+// 测试字号上限提升至 24px 及其溢出截断
+saveStoredSettings({ fontSize: 99 });
+assert.strictEqual(loadStoredSettings().fontSize, 24, 'fontSize 超过上限应被截断至 24');
+saveStoredSettings({ fontSize: 24 });
+assert.strictEqual(loadStoredSettings().fontSize, 24, 'fontSize 为 24px 应能正常持久化');
 console.log('✅ 3. 非法参数与数值钳位容错通过');
 
 // 4. 测试旧版 v1 结构向 v2 自动平滑迁移

@@ -154,4 +154,19 @@ assert.ok(registrySource.includes('30, 50, 70'), 'Markdown 分屏必须提供 30
 assert.ok(registrySource.includes('applyPreset(50)'), 'Markdown 分屏手柄必须支持双击一键复位 50%');
 console.log('✅ Markdown 驱动分屏拖拽手柄、比例持久化与快捷预设契约测试全部通过');
 
-console.log('🎉 全部 9 组驱动路由、格式自愈与分屏拖拽测试用例 100% 通过！\n');
+// 10. Markdown 工具栏多梯度字号调节与微调契约
+console.log('--- 测试 10: Markdown 工具栏多梯度字号调节与微调契约 ---');
+const toolbarSource = fs.readFileSync(
+  path.join(process.cwd(), 'src/features/viewers/components/markdown/MarkdownToolbar.tsx'),
+  'utf-8'
+);
+
+assert.ok(toolbarSource.includes('min={12}'), 'Markdown 字号滑块必须支持 12px 最小安全下限');
+assert.ok(toolbarSource.includes('max={24}'), 'Markdown 字号滑块必须支持 24px 宽大上限');
+assert.ok(toolbarSource.includes('[12, 13, 14, 15, 16, 17, 18, 20, 22, 24]'), 'Markdown 字号必须提供 10 档精选预设梯度');
+assert.ok(toolbarSource.includes('Minus'), 'Markdown 字号调节必须支持逐级减小步进器');
+assert.ok(toolbarSource.includes('Plus'), 'Markdown 字号调节必须支持逐级增大步进器');
+assert.ok(toolbarSource.includes('fontSizeReset'), 'Markdown 字号调节必须支持一键重置为默认 15px');
+console.log('✅ Markdown 工具栏多梯度字号调节、滑块与步进契约测试全部通过');
+
+console.log('🎉 全部 10 组驱动路由、格式自愈、分屏拖拽与字号调节测试用例 100% 通过！\n');
