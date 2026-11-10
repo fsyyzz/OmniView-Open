@@ -69,6 +69,10 @@ assert.ok(
   publishJob.if?.includes('fsyyzz/OmniView-Open'),
   'release.yml publish-marketplace 必须支持开源镜像仓 fsyyzz/OmniView-Open 触发发布'
 );
+assert.ok(
+  !publishJob.if?.includes("github.repository == 'fsyyzz/OmniView'"),
+  'release.yml publish-marketplace 严禁允许私有主仓 fsyyzz/OmniView 发布到插件市场'
+);
 const cleanStep = syncConfig.jobs?.['sync-to-oss']?.steps?.find((s) => s.name?.includes('准备公开开源工作区'));
 assert.ok(
   cleanStep?.run?.includes('pkg.bugs') && cleanStep?.run?.includes('pkg.homepage'),
