@@ -568,5 +568,82 @@ const sepiaDsSvg = renderDomainStoryToSvg(modelFromJson, { theme: 'sepia', isDar
 assert.ok(sepiaDsSvg.includes('#b45309'), 'Sepia 下标准领域故事图线条应为暖阳琥珀 #b45309');
 console.log('✅ DDD 14 大渲染主题专属调色盘深度联动断言全部通过');
 
-console.log('\n🎉 全部 15 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
+// -------------------------------------------------------------
+// 测试 16: 多 Group 研发交付流水线分列阶段流与 0 遮盖碰撞防御验证
+// -------------------------------------------------------------
+console.log('\n--- 测试 16: 多 Group 研发交付流水线分列阶段流与 0 遮盖断言 ---');
+const pipelineDsl = `
+title: 敏捷团队用户故事端到端交付流水线
+description: 业务负责人、开发工程师、CI自动化流水线与K8s云集群的端到端协作
+
+actors:
+  - 业务负责人 [person]
+  - 敏捷看板平台 [system]
+  - 全栈开发专员 [person]
+  - 持续集成流水线 [system]
+  - Kubernetes集群 [system]
+
+groups:
+  - 产研敏捷协作圈: 敏捷看板平台, 全栈开发专员
+  - 云原生基础设施: 持续集成流水线, Kubernetes集群
+
+activities:
+  1. 业务负责人 -> 录入需求卡片 -> 需求故事卡 [document] -> 敏捷看板平台
+  2. 全栈开发专员 -> 领取故事并检出分支 -> 任务详情 [data] -> 敏捷看板平台
+  3. 全栈开发专员 -> 提交工程代码 -> Git变更集 [document] -> 持续集成流水线
+  4. 持续集成流水线 -> 执行测试套件与安全扫描 -> 自动化测试报告 [data] -> 持续集成流水线
+  5. 持续集成流水线 -> 构建并分发容器镜像 -> Docker镜像制品 [package] -> Kubernetes集群
+  6. Kubernetes集群 -> 滚动发布并健康探测 -> 运行状态指标 [data] -> 全栈开发专员
+  7. 持续集成流水线 -> 广播发布完成事件 -> 飞书通知消息 [email] -> 业务负责人
+`;
+
+const pipelineModel = parseDomainStory(pipelineDsl);
+const pipelineLaidOut = computeAutoLayout(pipelineModel);
+
+const pOwner = pipelineLaidOut.actors.find(a => a.name === '业务负责人');
+const pBoard = pipelineLaidOut.actors.find(a => a.name === '敏捷看板平台');
+const pDev = pipelineLaidOut.actors.find(a => a.name === '全栈开发专员');
+const pCi = pipelineLaidOut.actors.find(a => a.name === '持续集成流水线');
+const pK8s = pipelineLaidOut.actors.find(a => a.name === 'Kubernetes集群');
+
+assert.ok(pOwner && pBoard && pDev && pCi && pK8s, '所有多 Group 角色应成功解析');
+// 验证分阶段排布：业务负责人在左，Group 1（产研圈）在中，Group 2（基础设施）在右
+assert.ok(pOwner.x < pBoard.x, '业务负责人应在最左侧列');
+assert.ok(pBoard.x < pCi.x, '产研敏捷协作圈应在云原生基础设施左侧列，形成阶段流');
+assert.strictEqual(pBoard.x, pDev.x, '产研协作圈内部角色应在同列垂直对齐');
+assert.strictEqual(pCi.x, pK8s.x, '云原生基础设施内部角色应在同列垂直对齐');
+
+// 渲染多 Group 矢量 SVG 并提取所有标牌位置
+const pipelineSvg = renderDomainStoryToSvg(pipelineLaidOut, { isDark: true });
+assert.ok(pipelineSvg.includes('产研敏捷协作圈'), '应渲染产研协作圈 Group 框');
+assert.ok(pipelineSvg.includes('云原生基础设施'), '应渲染云原生基础设施 Group 框');
+
+const pipelineLabelRegex = /<g class="ds-activity" id="([^"]+)"[^>]*>[\s\S]*?<g transform="translate\(([^,]+),\s*([^)]+)\)">/g;
+let pMatch;
+const pLabels = [];
+while ((pMatch = pipelineLabelRegex.exec(pipelineSvg)) !== null) {
+  pLabels.push({ id: pMatch[1], x: parseFloat(pMatch[2]), y: parseFloat(pMatch[3]) });
+}
+
+assert.strictEqual(pLabels.length, 7, '7 个活动标牌均应成功渲染');
+
+// 验证标牌之间零重叠
+for (let i = 0; i < pLabels.length; i++) {
+  for (let j = i + 1; j < pLabels.length; j++) {
+    const dist = Math.hypot(pLabels[i].x - pLabels[j].x, pLabels[i].y - pLabels[j].y);
+    assert.ok(dist >= 70, `标牌 [${pLabels[i].id}] 与 [${pLabels[j].id}] 间距应 >= 70px (实际: ${dist.toFixed(1)}px)`);
+  }
+}
+
+// 验证标牌不遮挡任意 Actor 卡片中心
+pLabels.forEach(l => {
+  pipelineLaidOut.actors.forEach(a => {
+    const dist = Math.hypot(l.x - a.x, l.y - a.y);
+    assert.ok(dist >= 80, `标牌 [${l.id}] 不得与角色 [${a.name}] 发生重叠 (实际间距: ${dist.toFixed(1)}px)`);
+  });
+});
+
+console.log('✅ 多 Group 分阶段流横向矩阵与 7 大活动标牌 0 遮盖校验全部通过');
+
+console.log('\n🎉 全部 16 组 DDD & Domain Storytelling 单元测试用例 100% 全部通过！\n');
 

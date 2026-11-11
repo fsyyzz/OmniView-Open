@@ -633,8 +633,10 @@ export function computeAutoLayout(model: DomainStoryModel): DomainStoryModel {
     const internalActors = actors.filter(a => groupActorIds.has(a.id));
     const externalActors = actors.filter(a => !groupActorIds.has(a.id));
 
-    // 如果同时存在内部中枢 Group 和外部角色（典型的 DDD 业务协同全景）
-    if (internalActors.length > 0 && externalActors.length > 0) {
+    const validGroups = model.groups!.filter(g => g.actors && g.actors.length > 0);
+
+    // Case 1: 单中枢 Group 与外部角色共存（经典业务协同：买家 -> 中枢核心 -> 外部支付网关）
+    if (validGroups.length === 1 && internalActors.length > 0 && externalActors.length > 0) {
       // 内部 group 角色在中轴区域垂直清晰对齐
       const centerX = 680;
       const startY = 220;
@@ -721,6 +723,66 @@ export function computeAutoLayout(model: DomainStoryModel): DomainStoryModel {
       rightActors.forEach((a, idx) => {
         a.x = rightX;
         a.y = rightStartY + idx * 300;
+      });
+
+      return {
+        ...model,
+        actors,
+      };
+    }
+
+    // Case 2: 多 Group 分阶段流横向矩阵排布（如产研协作圈 -> 云原生基础设施，杜绝单列接龙拥挤）
+    if (validGroups.length >= 2) {
+      const leftActors: typeof externalActors = [];
+      const rightActors: typeof externalActors = [];
+
+      externalActors.forEach(ext => {
+        if (ext.type === 'person') {
+          leftActors.push(ext);
+          return;
+        }
+        const firstAct = model.activities.find(act => act.from === ext.id || act.to === ext.id);
+        if (firstAct && firstAct.from === ext.id && firstAct.number === 1) {
+          leftActors.push(ext);
+          return;
+        }
+        const inFromInternal = model.activities.filter(act => act.to === ext.id && groupActorIds.has(act.from)).length;
+        const outToInternal = model.activities.filter(act => act.from === ext.id && groupActorIds.has(act.to)).length;
+        if (inFromInternal > outToInternal) {
+          rightActors.push(ext);
+        } else {
+          leftActors.push(ext);
+        }
+      });
+
+      const hasLeftCol = leftActors.length > 0;
+      const leftColX = 180;
+      const groupStartX = hasLeftCol ? 620 : 320;
+      const groupSpacingX = 520;
+      const internalSpacingY = 300;
+      const startY = 220;
+
+      validGroups.forEach((g, gIdx) => {
+        const colX = groupStartX + gIdx * groupSpacingX;
+        const gActorList = (g.actors || [])
+          .map(nameOrId => actors.find(a => a.id === nameOrId || a.name === nameOrId))
+          .filter(Boolean) as typeof actors;
+
+        gActorList.forEach((a, idx) => {
+          a.x = colX;
+          a.y = startY + idx * internalSpacingY;
+        });
+      });
+
+      leftActors.forEach((a, idx) => {
+        a.x = leftColX;
+        a.y = startY + idx * internalSpacingY;
+      });
+
+      const rightColX = groupStartX + validGroups.length * groupSpacingX;
+      rightActors.forEach((a, idx) => {
+        a.x = rightColX;
+        a.y = startY + idx * internalSpacingY;
       });
 
       return {
@@ -950,7 +1012,7 @@ export function renderDomainStoryToSvg(
     }
   }
 
-  // 3. 渲染 Activities 连线与工作对象 (中层)
+  // 3. 渲染 Activities 连线与活动标牌 (严格分层：连线在 Actor 下方，标牌在 Actor 顶层)
   // 预先统计节点对之间的连线总数
   const pairTotalMap = new Map<string, number>();
   model.activities.forEach(act => {
@@ -963,6 +1025,9 @@ export function renderDomainStoryToSvg(
   const pairEdgeMap = new Map<string, number>();
   // 维护已放置活动卡片的矩形包围盒，用于精准碰撞检测与贝塞尔参数滑动避让
   const placedLabels: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+  let activitiesLinesSvg = '';
+  let activitiesBadgesSvg = '';
 
   model.activities.forEach((act, idx) => {
     const fromActor = actorMap.get(act.from);
@@ -996,10 +1061,33 @@ export function renderDomainStoryToSvg(
     let labelY = (y1 + y2) / 2;
 
     if (act.from === act.to) {
-      // 自环处理 (Self loop)，留出更充裕的上方回环与工件便签空间
-      pathD = `M ${x1 - 24} ${y1 - 44} C ${x1 - 68} ${y1 - 138}, ${x1 + 68} ${y1 - 138}, ${x1 + 24} ${y1 - 44}`;
-      labelX = x1;
-      labelY = y1 - 120;
+      // 自环处理 (Self loop)：感知周围 Actor 空间，自适应选择最空旷的方向（上/左/右）
+      const hasTopObstacle = model.actors.some(
+        a => a.id !== act.from && Math.abs((a.x || 0) - x1) < 160 && (a.y || 0) < y1 && y1 - (a.y || 0) < 320
+      );
+      const hasLeftObstacle = model.actors.some(
+        a => a.id !== act.from && Math.abs((a.y || 0) - y1) < 140 && (a.x || 0) < x1 && x1 - (a.x || 0) < 320
+      );
+      const hasRightObstacle = model.actors.some(
+        a => a.id !== act.from && Math.abs((a.y || 0) - y1) < 140 && (a.x || 0) > x1 && (a.x || 0) - x1 < 320
+      );
+
+      if (hasTopObstacle && !hasLeftObstacle) {
+        // 向左侧饱满回环
+        pathD = `M ${x1 - 58} ${y1 - 18} C ${x1 - 150} ${y1 - 70}, ${x1 - 150} ${y1 + 70}, ${x1 - 58} ${y1 + 18}`;
+        labelX = x1 - 140;
+        labelY = y1;
+      } else if (hasTopObstacle && !hasRightObstacle) {
+        // 向右侧饱满回环
+        pathD = `M ${x1 + 58} ${y1 - 18} C ${x1 + 150} ${y1 - 70}, ${x1 + 150} ${y1 + 70}, ${x1 + 58} ${y1 + 18}`;
+        labelX = x1 + 140;
+        labelY = y1;
+      } else {
+        // 向上方饱满回环
+        pathD = `M ${x1 - 24} ${y1 - 44} C ${x1 - 68} ${y1 - 134}, ${x1 + 68} ${y1 - 134}, ${x1 + 24} ${y1 - 44}`;
+        labelX = x1;
+        labelY = y1 - 116;
+      }
     } else {
       const pairKey = [act.from, act.to].sort().join('::');
       const seenIndex = pairEdgeMap.get(pairKey) || 0;
@@ -1016,9 +1104,28 @@ export function renderDomainStoryToSvg(
       const basePerpX = -baseDy / baseDist;
       const basePerpY = baseDx / baseDist;
 
-      // 如果节点对仅有 1 条边，使用平直路径；如果是双向或多条边，交替向基准法向的两侧饱满隆起
+      // 检测两节点直线路径上是否跨越中间阻挡 Actor（Obstacle Detour Avoidance）
+      const isActorBlockingSegment = (ax: number, ay: number, sx: number, sy: number, ex: number, ey: number) => {
+        const segDx = ex - sx;
+        const segDy = ey - sy;
+        const lenSq = segDx * segDx + segDy * segDy;
+        if (lenSq < 100) return false;
+        const t = Math.max(0, Math.min(1, ((ax - sx) * segDx + (ay - sy) * segDy) / lenSq));
+        if (t < 0.12 || t > 0.88) return false;
+        const projX = sx + t * segDx;
+        const projY = sy + t * segDy;
+        return Math.hypot(ax - projX, ay - projY) < 80;
+      };
+
+      const hasObstacle = model.actors.some(
+        a => a.id !== act.from && a.id !== act.to && isActorBlockingSegment(a.x || 0, a.y || 0, x1, y1, x2, y2)
+      );
+
+      // 如果中间有阻挡节点，强制大弧度外展绕行；如果双向/多条边，交替隆起
       let curvature = 0;
-      if (totalInPair > 1) {
+      if (hasObstacle) {
+        curvature = 160;
+      } else if (totalInPair > 1) {
         const sign = seenIndex % 2 === 0 ? 1 : -1;
         const tier = Math.floor(seenIndex / 2) + 1;
         curvature = 84 * tier * sign;
@@ -1049,20 +1156,31 @@ export function renderDomainStoryToSvg(
         };
       };
 
-      // 碰撞检测：检查卡片中心 (px, py) 是否与已放置卡片重合，或过于遮挡端点 Actor
+      // 碰撞检测：检查卡片中心 (px, py) 是否与已放置卡片重合，或过于遮挡任何 Actor 节点
       const checkCollision = (px: number, py: number) => {
+        // 与已放置活动标牌碰撞检测
         const collidesWithLabel = placedLabels.some(
           l => Math.abs(l.x - px) < (l.w + boxW) / 2 + 14 && Math.abs(l.y - py) < (l.h + boxH) / 2 + 14
         );
         if (collidesWithLabel) return true;
 
-        // 避免过于遮挡两端 Actor 卡片中心
+        // 避免过于遮挡端点 Actor
         const distToStart = Math.hypot(px - x1, py - y1);
         const distToEnd = Math.hypot(px - x2, py - y2);
-        return distToStart < 92 || distToEnd < 92;
+        if (distToStart < 92 || distToEnd < 92) return true;
+
+        // 避免遮挡全图任意 Actor 节点卡片（标准卡片尺寸 112x72）
+        const collidesWithAnyActor = model.actors.some(a => {
+          const ax = a.x || 0;
+          const ay = a.y || 0;
+          return Math.abs(ax - px) < (112 + boxW) / 2 + 16 && Math.abs(ay - py) < (72 + boxH) / 2 + 16;
+        });
+        if (collidesWithAnyActor) return true;
+
+        return false;
       };
 
-      // 候选 t 参数集合：优先中点 0.5，遇碰撞时向两侧滑动错位 (0.35/0.65/0.26/0.74...)
+      // 候选 t 参数集合：优先中点 0.5，遇碰撞时向两侧平滑滑动错位
       const candidateTs = [0.5, 0.35, 0.65, 0.28, 0.72, 0.42, 0.58];
       let bestT = 0.5;
       let foundSafe = false;
@@ -1077,13 +1195,17 @@ export function renderDomainStoryToSvg(
       }
 
       if (!foundSafe) {
-        // 若所有候选点都有轻微干涉，选择与已有标签欧氏距离最大化的 t
+        // 若所有候选点都有轻微干涉，选择与已有标签和 Actor 欧氏综合距离最大化的 t
         let maxMinDist = -1;
         for (const t of candidateTs) {
           const pos = evalBezier(t);
           let minDist = Infinity;
           for (const l of placedLabels) {
             const d = Math.hypot(l.x - pos.x, l.y - pos.y);
+            if (d < minDist) minDist = d;
+          }
+          for (const a of model.actors) {
+            const d = Math.hypot((a.x || 0) - pos.x, (a.y || 0) - pos.y);
             if (d < minDist) minDist = d;
           }
           if (minDist > maxMinDist) {
@@ -1105,11 +1227,11 @@ export function renderDomainStoryToSvg(
     const badgeText = isActive ? themeColors.activeBadgeText : themeColors.badgeText;
     const badgeBorder = isActive ? themeColors.lineActive : themeColors.badgeBorder;
 
-    svgContent += `  <g class="ds-activity" id="${escapeXml(act.id)}" opacity="${opacity}" ${isActive ? 'filter="url(#ds-glow)"' : ''}>
-    <!-- 活动连线 -->
-    <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" />
+    // 收集活动连线 (Layer 2)
+    activitiesLinesSvg += `  <path class="ds-activity-line" id="line-${escapeXml(act.id)}" d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" opacity="${opacity}" ${isActive ? 'filter="url(#ds-glow)"' : ''} />\n`;
 
-    <!-- 序号圆圈与动作文本标签 -->
+    // 收集活动标牌 (Layer 4)
+    activitiesBadgesSvg += `  <g class="ds-activity" id="${escapeXml(act.id)}" opacity="${opacity}" ${isActive ? 'filter="url(#ds-glow)"' : ''}>
     <g transform="translate(${labelX}, ${labelY})">
       <!-- 阴影与底牌 -->
       <rect x="${-boxW / 2}" y="-24" width="${boxW}" height="48" rx="10" fill="${themeColors.actorBg}" stroke="${badgeBorder}" stroke-width="1.3" opacity="0.96" />
@@ -1130,7 +1252,10 @@ export function renderDomainStoryToSvg(
   </g>\n`;
   });
 
-  // 4. 渲染 Actors 角色节点 (顶层卡片)
+  // Layer 2: 渲染活动连线
+  svgContent += activitiesLinesSvg;
+
+  // Layer 3: 渲染 Actors 角色节点
   for (const a of model.actors) {
     const ax = a.x || 0;
     const ay = a.y || 0;
@@ -1177,6 +1302,9 @@ export function renderDomainStoryToSvg(
     <text x="0" y="27" fill="${themeColors.actorSubText}" font-size="9.5" font-weight="500" text-anchor="middle">${escapeXml(a.type.toUpperCase())}</text>
   </g>\n`;
   }
+
+  // Layer 4: 渲染活动标牌 (置于 Actors 之上最顶层，永不被卡片遮挡)
+  svgContent += activitiesBadgesSvg;
 
   // 5. 水印与标题
   if (model.info?.name) {
