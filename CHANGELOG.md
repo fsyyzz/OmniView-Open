@@ -8,7 +8,27 @@
 
 ---
 
-## [1.4.43] - 2026-11-11 (当前最新发布)
+## [1.4.44] - 2026-11-11 (当前最新发布)
+
+> [!TIP] v1.4.44 核心升级亮点
+> **全面结合项目演进重构升级 Markdown 现代创作技能库 (`skills:omniview-markdown-authoring`) 与插件构建全量同步**：
+> 1. **全景技能规约与决策树深度重构 (`.codex/skills/omniview-markdown-authoring/SKILL.md`)**：
+>    - 全面纳入 DDD 五大视图套件（`domainstory`、`event-storming`、`context-map`、`core-domain`、`context-canvas`），规范横向阶段流矩阵排布与 Alberto Brandolini 标准色板；
+>    - 整合 PlantUML 企业级时序/用例/脑图规范，明确 14 大主题高保真调色盘联动与原生 `<style>` 自动注入机制；
+>    - 整合 Graphviz 7 大布局引擎与原生矢量固化器 `solidifyGraphvizSvg`；
+>    - 整合 Typst 科学排版引擎与 Excalidraw 交互白板支持，确立图片管道修饰符（如 `![说明|680](./pic.png)`）规范；
+> 2. **参考规范与反模式防线扩充 (`references/`)**：
+>    - 升级至十五大易错反模式指南，严厉排查单列接龙、暴力反转滤镜、无主色调漂移等典型缺陷；
+>    - 扩充领域建模与附件嵌入全景案例集 (`examples/domain-modeling-and-attachments.md`)；
+> 3. **全局用户配置无缝同步**：
+>    - 同步更新至宿主环境全局技能库，保障跨会话与独立工程规范一致性；
+> 4. **生产构建产物全量同步 (`npm run build:plugin`)**：
+>    - 重新编译 Webview 与 VS Code 扩展产物，确保生产构建完整包含多 Group 阶段流排布与 0 遮盖碰撞防御；
+>    - 全量 101/101 项单元测试、TypeScript 类型检查与 4 大物理门禁 100% 绿灯通过。
+
+---
+
+## [1.4.43] - 2026-11-11
 
 > [!TIP] v1.4.43 核心升级亮点
 > **彻底重构领域故事图 (Domain Storytelling) 布局与渲染引擎，实现多 Group 阶段流分列与 0 遮盖碰撞防御**：
