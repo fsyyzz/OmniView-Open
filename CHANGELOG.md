@@ -8,7 +8,23 @@
 
 ---
 
-## [1.4.44] - 2026-11-11 (当前最新发布)
+## [1.4.45] - 2026-11-11 (当前最新发布)
+
+> [!TIP] v1.4.45 核心升级亮点
+> **中英文根目录 README 结构重构精简与深层技术规格下沉收敛至 docs/**：
+> 1. **README.md 与 README.en.md 结构轻量化与高密度重塑**：
+>    - 将原本近 200 行臃肿的 19 个详细子节，高度提炼归纳为 4 大领域分类矩阵表（专业文档与学术、图表与架构建模、现代办公与数据洞察、云原生与配置）；
+>    - 突出三大核心痛点杀手级场景（Word/WPS 剪贴板清洗无损粘贴、DOCX/PPTX/XLSX 秒开、配置转思维导图与拓扑）；
+>    - 显著精简全文行数逾 50%，排版清爽，极大提升开源首屏可读性与上手速度；
+> 2. **深层技术规格下沉收敛至技术文档库 (`docs/`)**：
+>    - 将所有 23+ 格式驱动的技术细节、参数配置、底层流水线与渲染机制全面对齐并补充至 [`docs/features-capabilities.md`](./docs/features-capabilities.md)；
+>    - 补充云原生三合一工作台（Dockerfile 多阶段 DAG、Compose 拓扑与 K8s 引力图）与 HTML5 安全沙箱两项深度能力章节；
+> 3. **全流程自动化验证与物理门禁 100% 绿灯**：
+>    - `check:doc-code-consistency`、`lint:codex`、`check:structure`、`check:react-governance`、`lint` (tsc) 与全量 101/101 套自动化测试 100% 绿灯通过。
+
+---
+
+## [1.4.44] - 2026-11-11
 
 > [!TIP] v1.4.44 核心升级亮点
 > **全面结合项目演进重构升级 Markdown 现代创作技能库 (`skills:omniview-markdown-authoring`) 与插件构建全量同步**：
@@ -604,7 +620,7 @@
 > 1. **解析 Antigravity / Cursor 无 `<<<<<<<` 标记却同时出现「改前」与「改后」的底层机制并实现三路协同识别 (`editorProvider.ts` / `markdownDiffEngine.ts`)**：
 >    - Antigravity 与 Cursor 在执行 AI 内联修改等待用户 Accept / Reject 时，不会写入 `<<<<<<<` 冲突标记字符，而是将「改前（待删除行）」与「改后（新插入行）」直接拼接在同一个内存 `vscode.TextDocument` (`openDoc.getText()`) 中，依靠 Monaco Line Decoration 在代码编辑器内染为红底/绿底；
 >    - `editorProvider.ts` 新增 `resolveDocumentBaseline` 与双态采集：自动采集内存态 `content` (`openDoc.getText()`)、磁盘物理态 `diskContent` (`fs.readFile`)，以及宿主内存中的 AI 会话快照模型（如 `chat-editing-snapshot-text-model:` 等非 `file:` 影子文档）、`git show HEAD` 基线与会话初始快照 `baseContent`；
->    - 新增纯函数引擎 `markdownDiffEngine.ts`：联合比对 `content`、`diskContent` 与 `baseContent`（同时兼容 `<<<<<<< ... ======= ... >>>>>>>` 冲突标记与 `{--...--}` / `{++...++}` / `{~~...~>...~~}` CriticMarkup），精准识别出无标记拼接态中的「改前 (`[!AI_BEFORE]`)」与「改后 (`[!AI_AFTER]`)」段落，并通过 `lineMap` 保持 100% 原始行号对齐；
+>    - 新增纯函数引擎 `markdownDiffEngine.ts`：联合比对 `content`、`diskContent` 与 `baseContent`（同时兼容 `<<<<<<< ... ======= ... >>>>>>>` 冲突标记与 `` / `...` / `...` CriticMarkup），精准识别出无标记拼接态中的「改前 (`[!AI_BEFORE]`)」与「改后 (`[!AI_AFTER]`)」段落，并通过 `lineMap` 保持 100% 原始行号对齐；
 > 2. **Markdown 渲染「改前 / 改后」高辨识度语义卡片与三态视图切换栏 (`useMarkdownAstPipeline.ts` / `MarkdownViewer.tsx` / `src/index.css`)**：
 >    - 渲染层基于 `--ov-*` 与 `--vscode-diffEditor-*` 语义令牌，将「改前」渲染为玫瑰红左边框 + 删除线徽标卡片（`.ov-ai-diff-before`），将「改后」渲染为翡翠绿左边框 + 新增徽标卡片（`.ov-ai-diff-after`）；
 >    - 检测到 AI 修改时，顶部自动展示 `AI 修改对比` 控制栏，支持一键切换 **「区分改前/改后」**、**「仅看改后（自动剥离改前残留）」**、**「仅看改前」** 三种视图，并支持一键 **「采纳改后」** 清理文档中拼接的改前段落。

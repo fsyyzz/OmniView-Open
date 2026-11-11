@@ -591,7 +591,55 @@ OmniView 现已包含 **23 类专属文件格式驱动 (Viewer Drivers)**、**1 
 
 ---
 
-### 功能 20：工作台底座与通用平台子系统 (Workbench Platform & Subsystems)
+### 功能 20：云原生基础设施三合一工作台 (`DockerfileViewer`, `ComposeViewer`, `K8sViewer`)
+
+* **驱动定位**: 云原生微服务编排、容器镜像构建与 Kubernetes 多资源清单的全景可视化与静态体检中心。
+* **文件支持**: `Dockerfile`, `*.dockerfile`, `docker-compose.yml`, `docker-compose.yaml`, `*.k8s.yaml`, `*.k8s.yml` 以及含 `apiVersion/kind` 的多文档 Kubernetes YAML。
+* **底层引擎与技术栈**: `js-yaml` 纯前端多文档切分 + 领域专用 AST 解析引擎 + 引力网络与 DAG 拓扑图。
+* **核心能力清单**:
+  1. **Dockerfile 多阶段构建流水线 (`DockerfileViewer`)**:
+     * 自动解析多阶段构建依赖流向（如 `base -> builder -> runner`）；
+     * 分类透视指令层级（基础镜像、构建步骤、环境配置、开放端口与运行时命令）；
+     * 静态质量体检：检测 `:latest` 浮动标签漂移、多余 RUN 层碎屑与容器非 root 权限合规性；
+     * 源码与结构化视图分屏协同。
+  2. **Docker Compose 微服务拓扑工作台 (`ComposeViewer`)**:
+     * 自动提取服务定义，构建 `depends_on` 依赖关系有向拓扑；
+     * 网络隔离簇 (Networks) 与数据卷挂载 (Volumes) 拓扑图谱；
+     * 配置透视矩阵：集中检视镜像版本、环境变量、端口映射与重启策略；
+     * 敏感环境变量自动脱敏 (Secret Masking)，支持悬浮临时透视；
+     * 静态体检：探测端口冲突、悬空依赖服务与未声明网络。
+  3. **Kubernetes 清单四层依赖拓扑 (`K8sViewer`)**:
+     * 离线解析单文件内多文档 YAML 清单（`---` 自动切分并归类）；
+     * 四层架构拓扑映射：`Ingress / Gateway` → `Service` → `Workload (Deployment/StatefulSet/Pod/Job)` → `Config/Storage (ConfigMap/Secret/PVC)`；
+     * 跨资源 Selector 自动连线：基于 `matchLabels` 关联 Service 与 Deployment，基于 `volumeMounts` 关联存储与配置；
+     * 资源概览看板：分类卡片快速过滤与统计检索；
+     * 最佳实践体检：缺失 Liveness/Readiness 探针警示、缺少 CPU/Memory 限制告警、Service 悬空断链提示与一键修复建议。
+* **交互特性**:
+  * 拓扑图节点平移缩放，点击节点自动滚动并高亮右侧 YAML 源码对应行；
+  * 一键导出拓扑图为高精度 SVG 或 PNG。
+
+---
+
+### 功能 21：HTML5 安全沙箱工作台 (`HtmlViewer`)
+
+* **驱动定位**: 本地 HTML5 网页组件、数据大屏、交互脚本与原型原生的安全隔离预览器。
+* **文件支持**: `.html`, `.htm`, `.xhtml`。
+* **底层引擎与技术栈**: 受控 `iframe` 安全沙箱 + DOMPurify 安全预检 + 响应式视口仿真器。
+* **核心能力清单**:
+  1. **双层安全隔离沙箱**:
+     * 禁用 `allow-same-origin` 与 `allow-top-navigation`，彻底杜绝恶意脚本跨域逃逸与宿主样式污染；
+     * 离线运行模式，拦截未授权的外部遥测与外联数据回传；
+  2. **多终端视口模拟**:
+     * 一键切换 **桌面全宽 (100%)**、**iPad 平板 (768px)** 与 **iPhone 手机 (375px)** 标准仿真视口，自动居中留白排版；
+     * 视口宽度与缩放比例实时指示；
+  3. **四态画布底色**:
+     * 支持纯白、深色、透明棋盘格 (Checkerboard) 与宿主主题四态无缝切换，轻松验证深浅色适配；
+  4. **源码分屏双向协同**:
+     * 左侧集成代码编辑器（支持 Undo/Redo 历史栈与骨架模板快速插入），右侧沙箱防抖实时无刷新预览。
+
+---
+
+### 功能 22：工作台底座与通用平台子系统 (Workbench Platform & Subsystems)
 
 * **模块定位**: 驱动调度、窗口管理、持久化配置与 VS Code 宿主通信的总体操作系统。
 * **核心组成部分**:
