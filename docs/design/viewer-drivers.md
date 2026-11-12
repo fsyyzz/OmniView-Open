@@ -176,3 +176,110 @@ flowchart TD
    - **实体书本对开模式的封面偏移 (Cover Page Spread Offset)**: 通常图书刊物第 1 页为独立封面，支持首页单独居中，第 2/3、4/5 页作为成对内页对开显示，还原实体书刊真实阅读习惯；
    - **缩略图侧栏拖拽重排与单页提取/导出 (Page Reordering & Split)**: 在左侧缩略图抽屉中支持拖拽调整页面物理顺序、单页删除或一键导出为独立单页 PDF；
    - **离线轻量 OCR 文本图层增强 (Scanned PDF OCR)**: 针对纯图片扫描件或无文字层的 PDF 文档，挂载端侧离线轻量 OCR 引擎补充生成可检索与选词的 TextLayer。
+
+---
+
+## 7. Office 纯离线三件套驱动架构 (Office Offline Suite Drivers)
+
+OmniView 为桌面端办公文档提供零外部依赖、100% 本地沙箱离线解析与高保真呈现能力：
+
+### 7.1 XlsxViewer 纯前端专业电子表格工作台
+- **离线解包管道 (`xlsxEngine.ts`)**: 基于 Open Packaging Conventions (OOXML) 标准，纯端侧解压读取 `xl/workbook.xml`、`xl/worksheets/sheet*.xml` 与 `xl/sharedStrings.xml`，构建响应式内存工作簿模型；
+- **多工作表毫秒级切换 (Multi-Sheet Tabs)**: 底部常驻工作表标签栏，点击平滑切换激活 Sheet，内存按需懒解析与缓存；
+- **公式表达式与计算值自由切换**: 支持一键切换「显示计算结果」与「显示原始 Excel 公式 (`fx`)」，辅以数字列右对齐、日期与布尔值规范化；
+- **字段画像透视分析 (Profiling)**: 一键激活列特征分析抽屉，即时推导各列有效率、缺失率、唯一值基数、均值与极值区间；
+- **自研列宽自由拖拽与持久化 (`xlsxColumnWidthStorage.ts`)**:
+  - 用户可鼠标拖拽表头右边缘自由调节列宽；
+  - 依托 `localStorage` 细粒度记忆各文件、各工作表的自定义列宽配置，重新打开自动精准复原；
+  - 表头动态计算吸顶偏移量 (`stickyTop`)，横向大表滚动时表头紧密固定，永不与工具栏发生视觉重叠；
+- **多格式互转导出**: 支持将当前工作表秒级导出为标准 CSV、格式化 JSON 以及规范 Markdown 表格。
+
+### 7.2 DocxViewer 纯前端 Word 高保真拟真工作台
+- **离线渲染流水线 (`docxEngine.ts`)**: 依托 `docx-preview` 纯前端内核，直接在浏览器 DOM 解析 OOXML 样式表、段落属性、列表缩进与复杂嵌套表格；
+- **A4 拟真版式与视口漫游**: 50%~200% 平滑缩放，支持暗黑模式对比度智能反转（文档底色反转与反差色文字映射，消除夜间刺眼感）；
+- **动态大纲提取与目录树 (`DocxTocSidebar`)**: 自动遍历 DOM 解析 H1~H6 标题，支持双向平滑滚动定位与层级折叠；
+- **全文检索高亮与跨节聚合 (`aggregateSearchMatchesByToc`)**: 检索关键词在页面中黄色高亮，并在左侧大纲树直观显示各章节匹配数量；
+- **Word DOM 转 Markdown 导出 (`docxDomToMarkdown`)**: 一键将 Word 页面提取为清晰规范的 Markdown 文本并复制到剪贴板；
+- **工业级系统打印桥接 (`requestPrintHtml`)**: 发起无损打印命令，调用系统打印机直接输出高精度纸质文档。
+
+### 7.3 PptxViewer 矢量幻灯片只读演播工作台
+- **离线形状与图元提取 (`pptxEngine.ts`)**: 解析幻灯片 XML，重构文本框、矢量几何形状、排版样式与多媒体图片；
+- **自适应视口与沉浸放映**: 提供标准 16:9 与 4:3 比例自适应缩放，支持全屏沉浸演播模式 (`PresentationMode`) 与键盘 `PageUp`/`PageDown`/方向键切页；
+- **缩略图大纲与演讲者备注抽屉**: 底部/左侧提供缩略图快速导航，支持展开演讲者专属备忘笔记抽屉；
+- **零外部网络调用**: 杜绝将商业机密 PPT 上传至第三方转码服务器，确保安全合规。
+
+---
+
+## 8. 云原生三合一工作台与 HTML5 沙箱驱动架构 (Cloud-Native & Web Sandbox Drivers)
+
+针对现代化容器化与云原生开发场景，OmniView 构建了原生的结构化分析与安全呈现工作台：
+
+### 8.1 DockerfileViewer 镜像构建流水线工作台
+- **多阶段构建流水线 DAG 图形化拓扑**: 自动解析 `FROM ... AS <stage>`，推导各阶段间的依赖关系并渲染为清晰的构建拓扑图；
+- **容器资产三维矩阵提取**: 一键提取并归纳整份 Dockerfile 中的暴露端口 (`EXPOSE`)、环境变量 (`ENV`) 与持久化挂载卷 (`VOLUME`)；
+- **非 root 安全基线体检**: 静态合规扫描末尾执行用户身份，若缺少 `USER` 指令或以 root 身份运行，即时弹出安全预警；
+- **双栏分屏协同**: 左侧实时编辑指令，右侧动态更新构建阶段拓扑与体检报告。
+
+### 8.2 ComposeViewer 微服务编排拓扑工作台
+- **微服务依赖拓扑有向图**: 基于 `depends_on` 语法自动生成微服务启动顺序与网络连通有向图；
+- **隔离网络与存储卷拓扑图谱**: 直观呈现各服务加入的桥接网络 (`networks`) 以及挂载的主机目录/数据卷 (`volumes`)；
+- **敏感环境变量自动星号打码脱敏**: 自动识别包含 `PASSWORD`、`SECRET`、`KEY`、`TOKEN` 等敏感字段的环境变量，默认以 `••••••••` 打码，支持点击临时眼球解密；
+- **端口冲突静态体检**: 自动检测多服务绑定相同主机端口的隐患，标红阻断部署故障。
+
+### 8.3 K8sViewer Kubernetes 声明式架构引力拓扑工作台
+- **多 YAML 文档流式智能切分**: 原生支持单文件内以 `---` 分割的数十个 K8s 资源清单，自动按命名空间与资源种类归类；
+- **4 层云原生引力拓扑图**:
+  - 第一层：入口网关与路由 (`Ingress`)；
+  - 第二层：服务负载均衡 (`Service`)；
+  - 第三层：核心工作负载 (`Deployment`, `StatefulSet`, `DaemonSet`, `Job`)；
+  - 第四层：运行时实例与配置 (`Pod`, `ConfigMap`, `Secret`, `PVC`)；
+- **Selector 与 Label 全自动反向拓扑推导**: 深度遍历各资源的标签选择器，全自动推导并渲染资源间的引力连线；
+- **孤儿资源与断链健康体检**: 实时探测未关联到有效 Pod 的空 Service，以及引用了不存在 ConfigMap/Secret 的悬挂工作负载。
+
+### 8.4 HtmlViewer 独立安全沙箱工作台
+- **双层受控 iframe 沙箱**: 强制使用 `sandbox="allow-scripts"` 严格隔离环境，剥除 `allow-same-origin`，彻底隔绝访问 VS Code 宿主 API 与上层父窗口的能力；
+- **响应式设备视口仿真器**: 提供桌面级 (1920×1080)、轻薄本 (1366×768)、平板 (768×1024)、手机移动端 (375×667) 一键切换，并支持横竖屏 90° 旋转与缩放适配；
+- **纯端侧实时热重载**: 源码修改后 0 延迟局部刷新，支持纯本地 HTML 打印。
+
+---
+
+## 9. 专业架构建模与多图表驱动架构 (Diagram & Architecture Drivers)
+
+### 9.1 PlantUmlViewer 14 大渲染主题深度融合
+- 针对 PlantUML 默认单调蓝白配色的缺陷，自研 `<style>` 标签样式注入器；
+- 无论采用本地离线引擎还是远程服务代理，自动将当前激活的 14 大渲染主题（如 Catppuccin, Tokyo Night, Dracula, Sepia 等）的背景色、线条色与文本色注入 SVG，达成 100% 视觉风格一体化；
+- 提供 300+ DPI 矢量光栅化复制，一键直出适合 Word/PPT 的高清晰度图件。
+
+### 9.2 GraphvizViewer 专业布局与 SVG 固化引擎
+- **7 大布局引擎矩阵**: 原生支持 `dot` (有向分层图)、`neato` (弹簧模型)、`fdp` (力导向布局)、`sfdp` (超大规模力导向)、`twopi` (放射状环形图)、`circo` (圆形拓扑) 与 `osage` (矩形打包)；
+- **双通道调度与异常自愈**: 优先由 Web Worker 异步计算，在沙箱受限环境下无缝降级至主线程 WASM 内存执行；
+- **暗黑主题下 SVG 智能固化 (`solidifyGraphvizSvg`)**: 针对 Graphviz 生成的透明底黑字 SVG，自动重置背景并固化文字反差色，根治深色背景下线条隐形的视觉缺陷。
+
+### 9.3 DomainStoryViewer 业务故事与统一 DDD 5 视图
+- **业务故事建模规范**: 100% 遵循 egon.io 规范，支持参与者 (Actor)、工作对象 (Work Object) 与业务活动 (Activity) 建模；
+- **逐帧步进演播**: 底部提供时间轴控制器，支持从第 1 步到末步连续自动播放或手动步进，用于业务领域事件风暴推演；
+- **DDD 5 大视图模型矩阵**: 支持业务故事图、事件风暴模型、领域全景图、限界上下文映射图与聚合根实体图；
+- **Polyglot 双向无损导出**: 将业务模型无损序列化并内嵌至 SVG 元数据中，导出后的 SVG 可作为常规图片插入文档，也可重新拖入 OmniView 还原为可编辑的 DDD 模型。
+
+### 9.4 MindmapViewer 与 ExcalidrawViewer
+- **MindmapViewer**: 基于 Markmap 与 D3.js 矢量树引擎，双向分屏编辑，节点平滑折叠展开，并与左侧 Markdown 目录结构双向映射；
+- **ExcalidrawViewer**: 基于纯前端手绘矢量画布，内置手绘图元工具栏与图形素材库，支持可视化绘制与底层 `.excalidraw` JSON 代码双向同步修改。
+
+---
+
+## 10. 现代出版与科学计算驱动架构 (Publishing & Scientific Computing Drivers)
+
+### 10.1 TypstViewer 现代排版编译器
+- **纯端侧 AST 增量编译器**: 摆脱对远程重量级 Rust 编译服务的依赖，在 Webview 纯端侧实现 Typst 标记语言增量解析；
+- **A4 2.0 工业级排版引擎**: 精确实现物理级毫米版心、双栏排版、KaTeX 数学公式混排与页眉页脚页码注入；
+- **一键排版导出**: 支持一键调用系统打印机打印高保真 A4 论文/技术文档，或无损导出为 SVG/PDF。
+
+### 10.2 NotebookViewer Jupyter 科学计算离线分析器
+- **Jupyter Notebook v4 协议解析**: 纯前端解构 `.ipynb` JSON 结构，将 Markdown 单元格与 Code 单元格交错排版；
+- **多态富媒体执行输出**: 原生解析 `text/plain`、`text/html`、`image/png` (Matplotlib 图表) 与 `application/json`；
+- **ANSI 终端彩色高亮**: 单元格发生运行时错误时，原生解析 ANSI 控制序列（如 `\u001b[31m`），高保真复现彩色错误调用栈。
+
+### 10.3 EpubViewer 现代流式电子书阅读器
+- **解包与流式排版**: 基于 JSZip 纯前端离线解开 EPUB 容器，流式排布 XHTML 章节内容；
+- **三重阅读视口自由切换**: 支持双叶并排跨页 (Two-Page Spread)、单页流式 (Single-Page Flow) 与连续滚动 (Continuous Scroll)；
+- **3D 拟真翻书与进度记忆**: 配备平滑 3D 翻书卷页动画，并在本地存储中持久化各书籍的阅读百分比与当前章节断点，下次打开瞬间续读。

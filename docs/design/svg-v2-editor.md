@@ -2,7 +2,7 @@
 
 > **文档标识**: `docs/design/svg-v2-editor.md`
 > **所属子系统**: `src/features/viewers/components/drivers/svg/`（v2 部分）
-> **关联 ADR**: [ADR-0001 SVG 编辑引擎 v2 — 引入文档模型与命令管线](../adr/0001-svg-edit-engine-v2-document-model.md)
+> **设计基准**: 基于不可变文档模型与命令管线架构
 > **标准状态**: 已交付（v1 与 v2 双轨运行；用户通过 `omniview.svg.engine` 切换）
 
 ---

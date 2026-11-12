@@ -1,8 +1,8 @@
 # OmniView 云原生基础设施文件支持规划提案 (RFC: Cloud-Native Viewers Plan)
 
-> **版本**：v1.0.0  
-> **状态**：规划评审中 (Planning / In Review)  
-> **涵盖文件**：`Dockerfile`、`docker-compose.yml`、`Kubernetes YAML (k8s manifests)`  
+> **版本**：v1.2.0  
+> **状态**：已交付落地 (Delivered & In Production)  
+> **涵盖文件**：`Dockerfile`、`docker-compose.yml`、`Kubernetes YAML (k8s manifests)`、`HTML5 沙箱`  
 > **主导角色**：`architect-reviewer` + `innovation-consultant` + `render-engineer`
 
 ---
@@ -65,7 +65,7 @@ flowchart TB
 
 ### 2.1 嗅探与识别策略 (File Sniffing Strategy)
 
-在 [driverRegistry.ts](file:///Users/zhouna/zhouzan/OmniView/src/features/viewers/lib/driverRegistry.ts) 与 `package.json` 中建立精准的分级嗅探规则，杜绝误判：
+在 `src/features/viewers/lib/driverRouting.ts` 与 `package.json` 中建立精准的分级嗅探规则，杜绝误判：
 
 | 目标格式 | 规则 1：文件名/扩展名断言 | 规则 2：内容特征嗅探（首 2KB 内容兜底） | 匹配优先级 |
 |---|---|---|---|
@@ -158,21 +158,20 @@ flowchart LR
 
 ## 5. 分阶段演进实施路线图 (Implementation Roadmap)
 
-| 阶段 | 交付里程碑 | 涉及核心产物与改动面 | 质量验收标准 |
-|---|---|---|---|
-| **Phase 1: 嗅探识别与模型抽象** | 扩展驱动注册中心与文件特征嗅探，定义统一解析数据模型 | [driverRegistry.ts](file:///Users/zhouna/zhouzan/OmniView/src/features/viewers/lib/driverRegistry.ts), [types.ts](file:///Users/zhouna/zhouzan/OmniView/src/shared/types.ts), `fileSniffer.ts` | 3 种格式命中率 100%，无普通 YAML 误伤 |
-| **Phase 2: Dockerfile 驱动** | 实现阶段 DAG、指令层级卡片、基础最佳实践体检与分屏协同 | `DockerfileViewer.tsx`, `dockerfileParser.ts`, 样例文档 | 覆盖多阶段构建用例与单测 |
-| **Phase 3: Docker Compose 驱动** | 实现微服务拓扑图、端口网络矩阵、环境变量检视与服务卡片 | `ComposeViewer.tsx`, `composeParser.ts`, 样例 compose.yml | 复杂多网络与多卷拓扑正常连线 |
-| **Phase 4: Kubernetes Manifest 驱动** | 实现多文档切分、4 层资源引力图、跨资源 Selector 自动连线与断链诊断 | `K8sViewer.tsx`, `k8sParser.ts`, 样例 k8s.yaml | 支持 Ingress $\to$ Service $\to$ Pod 连线与断链预警 |
-| **Phase 5: VS Code 扩展集成与模板库** | 在 VS Code `package.json` 注册文件关联、右键菜单、新建云原生模板 | `package.json`, 模板脚手架, VSIX 打包回归 | 全量门禁验收通过，打出全新 VSIX |
+| 阶段 | 交付里程碑 | 涉及核心产物与改动面 | 质量验收标准 | 实施状态 |
+|---|---|---|---|---|
+| **Phase 1: 嗅探识别与模型抽象** | 扩展驱动注册中心与文件特征嗅探，定义统一解析数据模型 | `src/features/viewers/lib/driverRouting.ts`, `src/shared/types.ts` | 3 种格式命中率 100%，无普通 YAML 误伤 | ✅ **已交付 (v1.3.40)** |
+| **Phase 2: Dockerfile 驱动** | 实现阶段 DAG、指令层级卡片、基础最佳实践体检与分屏协同 | `DockerfileViewer.tsx`, `dockerfileParser.ts`, 样例文档 | 覆盖多阶段构建用例与单测 | ✅ **已交付 (v1.3.41)** |
+| **Phase 3: Docker Compose 驱动** | 实现微服务拓扑图、端口网络矩阵、环境变量检视与服务卡片 | `ComposeViewer.tsx`, `composeParser.ts`, 样例 compose.yml | 复杂多网络与多卷拓扑正常连线 | ✅ **已交付 (v1.3.42)** |
+| **Phase 4: Kubernetes Manifest 驱动** | 实现多文档切分、4 层资源引力图、跨资源 Selector 自动连线与断链诊断 | `K8sViewer.tsx`, `k8sParser.ts`, 样例 k8s.yaml | 支持 Ingress $\to$ Service $\to$ Pod 连线与断链预警 | ✅ **已交付 (v1.3.43)** |
+| **Phase 5: VS Code 扩展集成与模板库** | 在 VS Code `package.json` 注册文件关联、右键菜单、新建云原生模板 | `package.json`, 模板脚手架, VSIX 打包回归 | 全量门禁验收通过，打出全新 VSIX | ✅ **已交付 (v1.4.0)** |
 
 ---
 
-## 6. 核心方案决策与确认项 (Decisions to Align)
+## 6. 核心方案决策与确认记录 (Decisions Log)
 
-在推进具体编码之前，请您审阅并裁决以下两点设计细节：
-1. **驱动挂载形态**：
-   - **方案 A (推荐)**：统一作为独立专业驱动（`DockerfileViewer`、`ComposeViewer`、`K8sViewer`），在顶部工具栏提供【架构拓扑】、【结构化表格】、【纯代码分屏】3 种视图一键切换；
-   - **方案 B**：将 Compose 与 K8s 整合进现有的 `StructuredDataViewer` 内部作为一个新的 Tab（例如除了“树形视图”、“表格视图”外增加“云原生拓扑”Tab）。
-2. **实施节奏推进**：
-   - 是否按照：**`Dockerfile` $\to$ `Docker Compose` $\to$ `Kubernetes`** 循序渐进依次开发与验证交付？
+本提案已通过架构委员会评审并全量落地：
+1. **驱动挂载形态 (采用方案 A)**：
+   - 统一作为独立专业驱动（`DockerfileViewer`、`ComposeViewer`、`K8sViewer`），在顶部工具栏提供【架构拓扑】、【结构化表格】、【纯代码分屏】3 种视图一键切换；保持与 `StructuredDataViewer` 的清晰边界；
+2. **实施节奏落地**：
+   - 严格按照：**`Dockerfile` $\to$ `Docker Compose` $\to$ `Kubernetes`** 节奏交付，且补充了 `HtmlViewer` 双层受控安全沙箱工作台，完成云原生与 Web 沙箱四位一体闭环。

@@ -183,6 +183,76 @@ sequenceDiagram
 ### 8.2 管道修饰符与主题感知
 - **尺寸与排版修饰符**: 语法如 `![Alt|400x300|center|rounded|caption](url)`；
 - **透明底反差衬板**: `|bg-light`、`|bg-dark`、`|bg-checker`，解决深色主题下透明背景图表“隐形”的顽疾；
-- **GitHub 模式感知**: `#gh-dark-mode-only` 与 `#gh-light-mode-only` 联动全量 16 套主题自动切换图片。
+- **GitHub 模式感知**: `#gh-dark-mode-only` 与 `#gh-light-mode-only` 联动全量 14 套主题自动切换图片。
+
+---
+
+## 9. AI 无标记内联修改协同识别与三态对比控制栏 (AI Diff Engine & Tri-State Toolbar)
+
+为适应 AI 辅助编程与多人协作中常见的代码/文档审查场景，OmniView 在 Markdown 渲染流水线中前置挂载了轻量级差异感知引擎：
+
+### 9.1 差异分词与启发式比对核心 (`markdownDiffEngine.ts`)
+- **多模态修改标记自动解析**:
+  - 行内差异标记：识别 `~~删除内容~~` 与 `<mark>新增内容</mark>` / `++新增内容++`；
+  - 行级 Diff 语法块：解析 ````diff` 代码块中的 `+` 增加行与 `-` 删除行；
+  - 零侵入纯函数管道：输入原始 Markdown 文本，输出包含统计元数据 (`additions`, `deletions`, `modifications`) 与三态 AST 投影；
+- **零外部依赖与微秒级响应**: 算法基于高效双指针字符扫描，在处理数万字长文时耗时控制在 5ms 以内，完全不阻塞主渲染帧。
+
+### 9.2 吸顶三态对比控制栏 (`MarkdownDiffToolbar`)
+当检测到文档包含修改标记时，预览窗口顶部自动唤出半透明毛玻璃吸顶控制栏，提供三态无缝切换：
+1. **最终修改后视图 (Result)**: 自动剥除所有删除内容，呈现变更应用后的纯净最新文档版式；
+2. **原始修改前视图 (Original)**: 自动剥除所有新增与替换内容，还原修改前的初始历史全貌；
+3. **内联对比视图 (Inline Diff)**: 红色删除线背景标注废弃内容，绿色高亮底色标注新增内容，直观对照修改细节；
+4. **一键采纳与放弃**: 支持一键将“修改后”纯净文本直接回写源文件或复制到剪贴板。
+
+---
+
+## 10. 源码编辑光标像素级坐标定位与智能悬浮快速插入体系 (Caret Coordinates & Quick Inserter)
+
+在 Markdown 源码编辑模式（分屏预览或全源码视图）下，如何让辅助工具栏如影随形贴近用户打字位置，是提升编辑心流体验的关键：
+
+### 10.1 镜像 DOM 像素级光标定位核心 (`getCaretCoordinates.ts`)
+- **彻底杜绝粗暴固定与线性估算**: 传统编辑器常将快捷栏固定在视口最右侧，或根据物理 `\n` 换行数乘以固定行高。这种算法在遇到长文本自动折行 (Word Wrap)、不同行高内联公式或缩进列表时会发生严重的像素脱节；
+- **不可见镜像容器 (Mirror Div) 计算模型**:
+  ```mermaid
+  flowchart LR
+      TA["Textarea 活跃输入框"] --> Clone["复制计算样式 (ComputedStyle)<br/>padding, border, font-family, line-height, wrap"]
+      Clone --> Mirror["不可见镜像 DOM 容器 (Mirror Div)"]
+      TA --> Substr["截取当前输入位置文本 (0 ~ selectionStart)"]
+      Substr --> Mirror
+      Mirror --> Marker["末尾插入测量标记 <span>|</span>"]
+      Marker --> Measure["marker.getBoundingClientRect()"]
+      Measure --> Result["输出精准 (caretLeft, caretTop) 绝对坐标"]
+  ```
+- **实时同步与性能预算**: 仅在光标移动 (`onSelect`)、按键抬起 (`onKeyUp`) 与滚动 (`onScroll`) 时以 `requestAnimationFrame` 防抖计算，单次测量控制在 0.3ms 极速水准。
+
+### 10.2 智能跟随与自适应停靠 (`MarkdownQuickInserter`)
+- **紧密贴合光标字符**: 悬浮快速插入胶囊默认吸附在光标字符右侧 `10px` 处，打字走到哪，工具栏跟到哪；
+- **视口右边缘碰撞避让**: 当光标靠近文本框最右边界时，自动切换为停靠在光标左侧，永不出界或被侧边栏裁剪；
+- **丰富工具与组件模板生态**:
+  - **GitHub Alert 5 大标准框**: 一键插入 `[!NOTE]`、`[!TIP]`、`[!IMPORTANT]`、`[!WARNING]`、`[!CAUTION]`；
+  - **交互式排版组件**: 一键插入 `[!TABS]` 多标签、`[!STEPS]` 步骤条、`[!COMPARE]` 方案对比、`[!TIMELINE]` 时间线；
+  - **图表与公式**: 一键插入 Mermaid 流程图/时序图、PlantUML 架构图、SVG 矢量画布与 KaTeX 独立数学公式；
+  - **排版结构**: 一键插入 H1~H3 标题、待办复选框、3×3 数据表格、代码块与分割线；
+- **智能插入调度与历史撤销**:
+  - 当前行为纯空行时，直接就地替换；
+  - 当前有选中文本时，将组件容器自动包裹到所选内容外侧；
+  - 当前行有文本且未选中时，自动在下方空行新建插入，光标瞬间就位；
+  - 完整接入原生 Undo/Redo 历史栈，支持 `Ctrl+Z` / `Cmd+Z` 瞬时撤销。
+
+---
+
+## 11. DDD 领域驱动设计 5 大视图矩阵与 14 大渲染主题深度融合
+
+### 11.1 5 大核心业务视图建模
+OmniView 将复杂业务架构规范转化为 5 种统一的高级视图矩阵：
+1. **业务故事图 (Business Domain Story)**: 呈现 Actor、Work Object 与操作行为链路；
+2. **事件风暴图 (Event Storming Canvas)**: 领域事件 (Domain Events)、命令 (Commands) 与聚合根便利贴板；
+3. **领域全景图 (Domain Landscape)**: 核心子域、通用子域与支撑子域的分区全景映射；
+4. **限界上下文映射 (Bounded Context Map)**: 上下游依赖 (Upstream/Downstream)、防腐层 (ACL) 与合作关系拓扑；
+5. **聚合实体模型 (Aggregate Entity Model)**: 实体、值对象与聚合根的不可变状态变迁图。
+
+### 11.2 14 大渲染主题的统一语义令牌驱动
+系统预置 14 套现代化渲染主题（VS Code 原生、GitHub 极客、Catppuccin 莫兰迪、Tokyo Night 霓虹夜、Notion 极简、深色极夜、明亮象牙、Nord 极地、Dracula 吸血鬼、Forest 森系、Solarized 柔和、复古牛皮纸、午夜深蓝、赛博朋克）。所有 Markdown 扩展组件、DDD 业务卡片与嵌入式图表均严格依托 `--ov-*` 语义设计令牌动态重绘，实现无缝暗黑/明亮无感切换。
 
 

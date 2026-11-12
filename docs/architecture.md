@@ -82,7 +82,7 @@ sequenceDiagram
 flowchart TB
     Host["宿主适配层 (Host Layer)<br/>src/extension/"]
     App["应用中枢层 (App Layer)<br/>src/app/"]
-    Features["特性驱动层 (Feature Layer)<br/>src/features/viewers, workbench, docs, drivers, scaffold"]
+    Features["特性驱动层 (Feature Layer)<br/>src/features/viewers, workbench, scaffold"]
     Shared["共享基座层 (Shared Layer)<br/>src/shared/data, docs, lib, types"]
 
     Host -->|"通过 postMessage"| App
@@ -93,11 +93,9 @@ flowchart TB
 - **宿主适配层 (`src/extension/`)**: 负责 VS Code Custom Editor Provider 注册、命令挂载、Webview Panel 创建与宿主事件监听；
 - **应用中枢层 (`src/app/`)**: 负责应用唯一入口 (`App.tsx`)，解析 URL Query、初始化主题设计令牌、分发全局事件；
 - **特性驱动层 (`src/features/`)**:
-  - `viewers/`: 18+ 格式驱动核心组件与关联 Hook/Lib；
-  - `workbench/`: 工作台外壳、侧边栏、多标签页管理器、状态栏与设置面板；
-  - `docs/`: 内置工程规范与技术文档中心 (DocCenter)；
-  - `drivers/`: 驱动能力矩阵管理中心 (DriversManager)；
-  - `scaffold/`: 扩展脚手架导出中心 (ScaffoldExporter)；
+  - `viewers/`: 23+ 格式驱动核心组件与关联 Hook/Lib（涵盖专业文档、图表架构、现代办公、云原生配置与科学计算）；
+  - `workbench/`: 工作台外壳、侧边栏、多标签页管理器、状态栏、设置面板与多格式文件浏览器；
+  - `scaffold/`: 扩展脚手架与自定义导出中心 (ScaffoldExporter)；
 - **共享基座层 (`src/shared/`)**:
   - `lib/`: 配置持久化 (`settingsStorage`)、文件存储 (`fileStorage`)、原生主题 (`nativeTheme`)、打印桥接 (`printBridge`)、i18n 多语言体系；
   - `data/`: 内置示例文件池与 Driver 注册元数据；
@@ -152,21 +150,31 @@ flowchart LR
 ### 5.1 Markdown 增强型块级管道 (Markdown Pipeline)
 ```mermaid
 flowchart TD
-    Src["Markdown 源码"] --> Lex["Marked Lexer 分词"]
+    Src["Markdown 源码"] --> DiffCheck{"AI 内联协同修改探测<br/>(markdownDiffEngine)"}
+    DiffCheck -->|"存在修改标记"| DiffBar["三态对比控制栏 (修改后/修改前/内联差异)"]
+    DiffCheck -->|"标准源码"| Lex["Marked Lexer 分词"]
+    DiffBar --> Lex
     Lex --> B1["KaTeX 数学公式 ($$)"]
-    Lex --> B2["嵌入式矢量图表 (Mermaid / PlantUML / Graphviz / SVG / DomainStory)"]
+    Lex --> B2["嵌入式矢量图表 (Mermaid / PlantUML / Graphviz / SVG / DDD 5视图)"]
     Lex --> B3["高交互响应式表格 (排序 / 列宽调整 / 导出)"]
     Lex --> B4["语法高亮代码块 (Prism.js + Word 2 列表格复制)"]
     
     B1 & B2 & B3 & B4 --> Lazy["可卸载懒视口 (LazyViewportBlock)"]
     Lazy --> Sanitize["DOMPurify 白名单净化"]
     Sanitize --> View["挂载至 DOM 容器"]
+    View --> CaretTrack["镜像 DOM 光标像素级定位 (getCaretCoordinates)"]
+    CaretTrack --> QuickAct["悬浮快速插入控制胶囊"]
 ```
+
+- **AI 协同修改无标记识别与三态对比 (`markdownDiffEngine.ts`)**: 自动解析并高亮 AI 生成或协作产生的新增、删除与内联替换，顶部常驻吸顶控制条支持在「修改后视图」、「修改前视图」与「带删除线/高亮对比视图」间瞬间切换；
+- **镜像 DOM 像素级光标定位与智能悬浮胶囊 (`getCaretCoordinates`)**: 彻底解决长篇源码中物理行与排版折行脱节问题，利用不可见镜像计算出光标字符的 `(caretLeft, caretTop)` 绝对坐标，让插入胶囊随写随走，并在右侧边界自适应停靠；
+- **DDD 领域驱动设计 5 大视图矩阵**: 原生支持业务故事、事件风暴、领域全景图、限界上下文映射与聚合根实体建模，并全面融入全套 14 种渲染主题。
 
 ### 5.2 矢量图表引擎与沙箱自愈调度
 - **Mermaid.js**: 统一注入主题配置 (`mermaidConfig.ts`)，针对明亮/暗黑主题进行高对比度色值矫正，并包裹双击全屏沉浸灯箱 (`LightboxModal`)；
-- **Graphviz DOT**: 采用主线程与 Web Worker 双通道混合调度，在 Worker 失败时无缝自动降级至内存 WASM 执行；
-- **PlantUML**: 支持自建私有服务与官方代理无缝切换，提供 300+ DPI 矢量光栅化入剪贴板；
+- **Graphviz DOT**: 采用主线程与 Web Worker 双通道混合调度，在 Worker 失败时无缝自动降级至内存 WASM 执行；集成 7 种专业布局引擎（dot、neato、fdp、sfdp、twopi、circo、osage），并利用 `solidifyGraphvizSvg` 在暗色主题下固化透明边框与文字对比度；
+- **PlantUML**: 支持自建私有服务与官方代理无缝切换，基于 `<style>` 标签在渲染树注入 14 大主题配色，并提供 300+ DPI 矢量光栅化入剪贴板；
+- **Excalidraw 白板**: 纯前端手绘矢量画布，支持图形拖拽与底层 JSON 代码双向同步；
 - **Domain Storytelling**: 100% 遵循 egon.io 业务建模规范，支持逐帧步进演播与 Polyglot SVG 双向无损导入导出。
 
 ### 5.3 现代排版与电子出版引擎
@@ -177,7 +185,13 @@ flowchart TD
 ### 5.4 Office 离线无服务工作台
 - **Word (.docx)**: 基于 OOXML 标准与 `docx-preview` 纯前端离线流水线，支持 A4 拟真排版、缩放与夜间对比度反转；
 - **PowerPoint (.pptx)**: 纯离线解包与矢量自适应画布，支持 16:9 / 4:3 沉浸放映与演讲者备注；
-- **Excel (.xlsx)**: 多工作表毫秒级切换、公式计算值解析、列特征画像分析 (Profiling) 与迷你走势图。
+- **Excel (.xlsx)**: 多工作表毫秒级切换、公式计算值与原始表达式无缝切换检视、列特征画像分析 (Profiling) 与迷你走势图；集成自研列宽自由拖拽与按工作表持久化 (`xlsxColumnWidthStorage.ts`)，并自适应计算表头吸顶偏移 (`stickyTop`)。
+
+### 5.5 云原生三合一工作台与 HTML5 沙箱
+- **Dockerfile 流水线工作台 (`DockerfileViewer`)**: 多阶段构建流水线 DAG 图形化拓扑、基础镜像继承树、端口/环境变量/数据卷三维矩阵，以及非 root 安全基准合规体检；
+- **Docker Compose 微服务工作台 (`ComposeViewer`)**: 服务依赖拓扑有向图、隔离网络与持久化卷拓扑、端口冲突预警，以及敏感环境变量自动星号打码脱敏；
+- **Kubernetes 架构拓扑工作台 (`K8sViewer`)**: 多资源文档 YAML 智能切分、4 层云原生引力拓扑图 (Ingress → Service → Workload → Pod/Config)、Label/Selector 连线推导与孤儿断链健康体检；
+- **HTML5 独立安全沙箱 (`HtmlViewer`)**: 双层受控沙箱 iframe (`sandbox="allow-scripts"` 严格隔离)、Desktop/Laptop/Tablet/Mobile 4 大响应式设备仿真与横竖屏旋转，支持纯端侧实时热重载。
 
 ---
 
@@ -221,18 +235,18 @@ flowchart LR
     G2 --> G3["check:doc-code-consistency<br/>(文档事实一致性)"]
     G3 --> G4["check:react-governance<br/>(Hook 依赖治理)"]
     G4 --> G5["lint<br/>(tsc --noEmit)"]
-    G5 --> G6["test<br/>(86 组全链路单测)"]
+    G5 --> G6["test<br/>(101 组全链路单测)"]
     G6 --> G7["build:plugin<br/>(Webview + Extension 构建)"]
     G7 --> Pass["✅ 合格准入"]
 ```
 
-### 8.1 86 组自动化测试套件全覆盖矩阵
-- **图表与矢量渲染 (18 组)**: Mermaid 配置/状态/步骤播放、PlantUML URL/代理/高分辨率、Graphviz WASM/多布局引擎、SVG v2 核心模型/命令管线/形状绘制工具/高级交互/视口滚轮平滑缩放、思维导图、Domain Storytelling 业务建模/Polyglot 导出、Excalidraw 白板、图表诊断降级、图表缓存、图表安全清洗、KaTeX 数学公式；
-- **文档与版式引擎 (16 组)**: Markdown 选区替换、Markdown 大纲提取、Markdown 脚注、Markdown WikiLinks、Markdown Callout、Markdown Pandoc 扩展、Markdown 原地块级 CRUD 与撤销浮条、Markdown 打印导出、Word 富文本剪贴板清洗、A4 打印分页、A4 工业排版引擎、Typst 排版编译器；
-- **现代格式与电子书 (14 组)**: EPUB 流式解析引擎、PDF 阅读与标注引擎、Word DOCX 引擎、PowerPoint PPTX 引擎、Excel XLSX 引擎、现代图像引擎、Jupyter Notebook 离线分析器；
-- **云原生与结构化配置 (12 组)**: Dockerfile DAG 流水线解析、Docker Compose 微服务拓扑、Kubernetes 引力拓扑分析、HTML5 网页沙箱隔离、统一结构化 AST 序列化、JSON/YAML/TOML/XML 跨格式无损互转；
-- **数据分析与工作台 (13 组)**: RFC 4180 CSV 解析、CSV 数据画像分析、结构化数据多态视图、Google OKF 知识卡片、DOM 搜索高亮器、双向滚动同步、视口懒加载、历史撤销重做；
-- **工程与基础设施 (12 组)**: 驱动路由分发、原生主题自适应、配置持久化与迁移、i18n 国际化字典、打印桥接、版本自动自增、VSIX 产物内容核对、Webview 回写保存。
+### 8.1 101 组自动化测试套件全覆盖矩阵
+- **图表与矢量渲染 (20 组)**: Mermaid 配置/状态/步骤播放、PlantUML URL/代理/高分辨率/主题样式注入、Graphviz WASM/7 大布局引擎/SVG 固化、SVG v2 核心模型/命令管线/形状绘制工具/高级交互/视口滚轮平滑缩放、思维导图、Domain Storytelling 业务建模/Polyglot 导出、Excalidraw 白板、图表诊断降级、图表缓存、图表安全清洗、KaTeX 数学公式；
+- **文档与版式引擎 (22 组)**: Markdown 选区替换、Markdown 大纲提取、Markdown 脚注、Markdown WikiLinks、Markdown Callout、Markdown Pandoc 扩展、Markdown 原地块级 CRUD 与撤销浮条、Markdown 打印导出、Word 富文本剪贴板清洗、A4 打印分页、A4 工业排版引擎、Typst 排版编译器、AI 无标记差异比对引擎、源码编辑光标镜像 DOM 坐标计算与悬浮快速插入；
+- **现代格式与电子书 (16 组)**: EPUB 流式解析引擎与阅读进度持久化、PDF 阅读与标注引擎、Word DOCX 离线引擎、PowerPoint PPTX 矢量放映引擎、Excel XLSX 解析与列宽拖拽持久化、现代图像引擎、Jupyter Notebook 离线分析器；
+- **云原生与结构化配置 (16 组)**: Dockerfile DAG 流水线解析与安全基线体检、Docker Compose 微服务拓扑与网络拓扑推导、Kubernetes 4 层引力拓扑与断链健康诊断、HTML5 网页沙箱隔离与设备仿真、统一结构化 AST 序列化、JSON/YAML/TOML/XML 跨格式无损互转；
+- **数据分析与工作台 (14 组)**: RFC 4180 CSV 解析、CSV 数据画像分析、结构化数据多态视图、Google OKF 知识卡片、DOM 搜索高亮器、双向滚动同步、视口懒加载、历史撤销重做；
+- **工程与基础设施 (13 组)**: 驱动路由分发、原生主题自适应与 14 大渲染主题预设、配置持久化与迁移、i18n 国际化字典、打印桥接、版本自动自增、VSIX 产物内容核对、Webview 回写保存。
 
 ---
 

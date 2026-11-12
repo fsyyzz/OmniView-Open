@@ -11,7 +11,7 @@
 
 ## 文档导航图谱
 
-下图为 docs 目录的阅读路径总览：从「系统架构」入口出发，按需下钻至「设计子系统」「决策记录 (ADR)」与「营销推广」各分支，新人可沿箭头顺序建立全局认知：
+下图为 docs 目录的阅读路径总览：从「系统架构」入口出发，按需下钻至「格式驱动」与各「设计子系统」，新人可沿箭头顺序建立全局认知：
 
 ```mermaid
 flowchart LR
@@ -30,19 +30,8 @@ flowchart LR
         Persist["design/persistence-storage.md<br/>持久化与存储子系统"]
     end
 
-    subgraph ADR ["决策记录面"]
-        ADR0001["adr/0001<br/>SVG v2 文档模型与命令管线"]
-    end
-
-    subgraph Marketing ["营销推广面"]
-        Launch["marketing/github-launch-guide.md<br/>开源推广实战指南"]
-    end
-
     Entry --> Core
     Core --> Design
-    Core --> ADR
-    Entry -. 运营同学 .-> Marketing
-    Design --> ADR
 ```
 
 ## 本目录
@@ -56,9 +45,6 @@ flowchart LR
 | [design/svg-v2-editor.md](./design/svg-v2-editor.md) | **SVG v2 编辑引擎规范**：不可变 Document + 8 核心矢量工具 + 命令管线 + Tool 状态机 + 鼠标拖拽绘制与折线演化体系 |
 | [design/cloud-native-viewers-plan.md](./design/cloud-native-viewers-plan.md) | **云原生与结构化格式驱动演化方案**：Dockerfile、Compose、K8s 引力拓扑与 HTML 沙箱设计 |
 | [design/persistence-storage.md](./design/persistence-storage.md) | **持久化与存储子系统规范**：配置 Schema v2、跨版本迁移、安全钳位与容量度量 |
-| [marketing/github-launch-guide.md](./marketing/github-launch-guide.md) | **GitHub 曝光与开源推广实战指南**：多渠道宣发文案（阮一峰周刊/HelloGitHub/V2EX）、SEO 标签与运营清单 |
-| [adr/0001-svg-edit-engine-v2-document-model.md](./adr/0001-svg-edit-engine-v2-document-model.md) | **ADR-0001**：SVG 编辑引擎 v2 — 引入文档模型与命令管线（已交付落地） |
-| [rfc/README.md](./rfc/README.md) | **技术与产品 RFC 提案库**：重大特性演进、底层渲染协议变更与架构方案论证 (RFC-0001) |
 
 ## 后续规划扩展
 
