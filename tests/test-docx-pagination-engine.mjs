@@ -257,7 +257,53 @@ async function runTests() {
   assert(res3.totalPages >= 8 && res3.totalPages <= 12, `总页数应贴近 10 页，当前: ${res3.totalPages}`);
   console.log(`✅ 复合章节超长正文节成功切分，总页数: ${res3.totalPages}`);
 
-  console.log('\n🎉 全部 4 项 docx 物理页面排版与自然分页引擎测试 100% 通过！\n');
+  // --- 测试 5: 超长跨页表格按行切分并在续页重复表头 ---
+  console.log('--- 测试 5: 超长跨页表格按行切分与表头重复 ---');
+  const container4 = createMockElement('div');
+  const tableSec = createMockElement('section', {
+    className: 'docx-rendered-wrapper docx',
+    style: { minHeight: '1123px', width: '794px' },
+    scrollHeight: 2600,
+    offsetHeight: 2600,
+  });
+  const tableArt = createMockElement('article');
+  const hugeTable = createMockElement('table', {
+    className: 'docx-data-table',
+    offsetHeight: 2200,
+  });
+  const headerTr = createMockElement('tr', { offsetHeight: 40 });
+  headerTr.appendChild(createMockElement('th', { textContent: '指标名称' }));
+  headerTr.appendChild(createMockElement('th', { textContent: '数值' }));
+  hugeTable.appendChild(headerTr);
+
+  for (let r = 1; r <= 36; r++) {
+    const bodyTr = createMockElement('tr', { offsetHeight: 60 });
+    bodyTr.appendChild(createMockElement('td', { textContent: `指标 #${r}` }));
+    bodyTr.appendChild(createMockElement('td', { textContent: `${r * 10} ms` }));
+    hugeTable.appendChild(bodyTr);
+  }
+  tableArt.appendChild(hugeTable);
+  tableSec.appendChild(tableArt);
+  container4.appendChild(tableSec);
+
+  const res4 = paginateDocxContainer(container4, { locale: 'en-US' });
+  assert.strictEqual(res4.paginated, true, '超长表格必须触发跨页切分');
+  assert(res4.totalPages >= 2, `超长表格应至少切分为 2 页，当前: ${res4.totalPages}`);
+  const pagedSheets4 = container4.querySelectorAll('section');
+  assert.strictEqual(pagedSheets4.length, res4.totalPages);
+  // 校验续页同样具备 table 且首行重复了表头
+  const secondSheetArticle = pagedSheets4[1].querySelector('article');
+  const secondSheetTable = secondSheetArticle.children.find(c => c.tagName === 'TABLE');
+  assert(secondSheetTable, '第 2 页必须包含续接表格片段');
+  const secondTbody = secondSheetTable.children.find(c => c.tagName === 'TBODY') || secondSheetTable;
+  assert.strictEqual(secondTbody.children[0].children[0].tagName, 'TH', '续页表格首行必须重复表头 <th>');
+  // 校验英文角标文案
+  const firstBadge = pagedSheets4[0].querySelector('.docx-page-number-badge');
+  const firstBadgeText = firstBadge?.querySelector('.docx-badge-text')?.textContent || firstBadge?.innerHTML || '';
+  assert(firstBadgeText.includes('Page 1 / '), `英文分页角标异常: ${firstBadgeText}`);
+  console.log(`✅ 超长跨页表格成功拆分为 ${res4.totalPages} 页并自动延续表头与英文角标`);
+
+  console.log('\n🎉 全部 5 项 docx 物理页面排版与自然分页引擎测试 100% 通过！\n');
 }
 
 runTests().catch(err => {

@@ -186,4 +186,101 @@ await it('演讲者备注抽屉、Ctrl+F 搜索高亮与损坏数据降级提示
   container.remove();
 });
 
+await it('VS Code Webview 禁用 Fullscreen API 时，可通过底部 HUD 退出、右上角退出、F5 与 Esc 安全退出放映', async () => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  let root;
+
+  // 模拟 VS Code Webview iframe 环境：requestFullscreen 返回 Promise reject，document.fullscreenElement 始终为 null
+  const origRequestFs = HTMLElement.prototype.requestFullscreen;
+  HTMLElement.prototype.requestFullscreen = () => Promise.reject(new Error('Fullscreen blocked in Webview'));
+
+  try {
+    await act(async () => {
+      root = createRoot(container);
+      root.render(
+        React.createElement(PptxViewer, {
+          binaryUrl: sampleBase64,
+          fileName: 'webview-present-exit.pptx',
+          locale: 'zh-CN',
+        })
+      );
+    });
+    await flushUi(120);
+
+    const findPresentBtn = () =>
+      Array.from(container.querySelectorAll('header button')).find(b => b.textContent?.includes('放映'));
+
+    // 1. 点击「放映」进入演播模式，再点击底部 HUD「退出」按钮退出
+    const presentBtn = findPresentBtn();
+    assert.ok(presentBtn, '应渲染顶部放映按钮');
+    await act(async () => {
+      presentBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushUi(40);
+
+    assert.strictEqual(container.querySelector('header'), null, '进入放映后顶部主工具栏应隐藏');
+    const cornerExit = container.querySelector('[data-testid="pptx-exit-presentation-corner"]');
+    assert.ok(cornerExit, '进入放映后应渲染右上角常驻安全退出按钮');
+    const hudExitBtn = Array.from(container.querySelectorAll('main button')).find(
+      b => b !== cornerExit && b.textContent?.trim() === '退出'
+    );
+    assert.ok(hudExitBtn, '进入放映后应渲染底部 HUD 退出按钮');
+
+    await act(async () => {
+      hudExitBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushUi(40);
+    assert.ok(container.querySelector('header'), '在 document.fullscreenElement 为 null 时，点击 HUD 退出必须成功退出放映并恢复顶部工具栏');
+
+    // 2. 通过 F5 进入放映，再按 Escape 退出
+    await act(async () => {
+      window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'F5', bubbles: true }));
+    });
+    await flushUi(40);
+    assert.strictEqual(container.querySelector('header'), null, '按 F5 应进入放映模式');
+
+    await act(async () => {
+      window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    await flushUi(40);
+    assert.ok(container.querySelector('header'), '按 Escape 必须安全退出放映模式并恢复顶部工具栏');
+
+    // 3. 再次点击放映，通过右上角常驻退出按钮退出，并验证 F5 双向切换
+    await act(async () => {
+      findPresentBtn().dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushUi(40);
+    assert.strictEqual(container.querySelector('header'), null, '再次点击放映应隐藏顶部栏');
+
+    const cornerExitAgain = container.querySelector('[data-testid="pptx-exit-presentation-corner"]');
+    assert.ok(cornerExitAgain, '应再次渲染右上角退出按钮');
+    await act(async () => {
+      cornerExitAgain.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushUi(40);
+    assert.ok(container.querySelector('header'), '点击右上角退出按钮必须安全退出放映');
+
+    await act(async () => {
+      window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'F5', bubbles: true }));
+    });
+    await flushUi(40);
+    assert.strictEqual(container.querySelector('header'), null, 'F5 再次进入放映');
+
+    await act(async () => {
+      window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'F5', bubbles: true }));
+    });
+    await flushUi(40);
+    assert.ok(container.querySelector('header'), '再次按 F5 必须支持双向切换退出放映');
+  } finally {
+    HTMLElement.prototype.requestFullscreen = origRequestFs;
+    if (root) {
+      await act(async () => {
+        root.unmount();
+      });
+    }
+    container.remove();
+  }
+});
+
 console.log('\n🎉 全部 PptxViewer Headless DOM 组件交互验证测试通过！\n');

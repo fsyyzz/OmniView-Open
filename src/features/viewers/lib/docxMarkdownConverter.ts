@@ -129,6 +129,11 @@ function nodeToMarkdown(node: Element): string {
     case 'p': {
       const text = inlineToMarkdown(node).trim();
       if (!text) return '';
+      // 检测以复选框符号开头的任务段落 (☐ / ☑ / ☒)
+      const uncheckedTask = text.match(/^\u2610\s*(.+)$/);
+      if (uncheckedTask) return `- [ ] ${uncheckedTask[1].trim()}`;
+      const checkedTask = text.match(/^[\u2611\u2612]\s*(.+)$/);
+      if (checkedTask) return `- [x] ${checkedTask[1].trim()}`;
       return text;
     }
 
@@ -158,6 +163,11 @@ function nodeToMarkdown(node: Element): string {
 
     case 'hr':
       return '---';
+
+    case 'math': {
+      const mathText = (node.textContent || '').replace(/\s+/g, ' ').trim();
+      return mathText ? `$$${mathText}$$` : '';
+    }
 
     default:
       return inlineToMarkdown(node).trim();
@@ -284,6 +294,28 @@ function inlineToMarkdown(el: Element | Text | unknown): string {
     case 'strike':
       return wrapMd(inlineChildrenToMd(nodeEl), '~~');
 
+    case 'ins':
+      return inlineChildrenToMd(nodeEl);
+
+    case 'mark':
+      return wrapMd(inlineChildrenToMd(nodeEl), '==');
+
+    case 'input': {
+      const inputType = (nodeEl.getAttribute?.('type') || '').toLowerCase();
+      if (inputType === 'checkbox') {
+        const isChecked =
+          Boolean((nodeEl as unknown as { checked?: boolean }).checked) ||
+          nodeEl.getAttribute?.('checked') !== null;
+        return isChecked ? '[x] ' : '[ ] ';
+      }
+      return '';
+    }
+
+    case 'math': {
+      const mathText = (nodeEl.textContent || '').replace(/\s+/g, ' ').trim();
+      return mathText ? `$${mathText}$` : '';
+    }
+
     case 'code':
       return wrapMd((nodeEl.textContent || '').trim(), '`');
 
@@ -315,9 +347,22 @@ function inlineToMarkdown(el: Element | Text | unknown): string {
     }
 
     default: {
-      // 检查 docx-preview 广泛采用的 span 内联样式 (fontWeight / fontStyle / textDecoration / fontFamily)
+      // 检查 docx-preview 广泛采用的 span 内联样式与修订/高亮类名
+      const className = String((nodeEl as unknown as { className?: unknown }).className || nodeEl.getAttribute?.('class') || '');
+      if (/\b(docx[-_]math)\b/i.test(className)) {
+        const mathText = (nodeEl.textContent || '').replace(/\s+/g, ' ').trim();
+        return mathText ? `$${mathText}$` : '';
+      }
+
       const text = inlineChildrenToMd(nodeEl);
       if (!text) return '';
+
+      if (/\b(docx[-_]del)\b/i.test(className)) {
+        return wrapMd(text, '~~');
+      }
+      if (/\b(docx[-_]ins)\b/i.test(className)) {
+        return text;
+      }
 
       const style = getElementStyle(nodeEl);
       let formatted = text;
@@ -326,6 +371,7 @@ function inlineToMarkdown(el: Element | Text | unknown): string {
       const isItalic = style.fontStyle === 'italic';
       const isStrike = style.textDecoration?.includes('line-through');
       const isMonospace = /\b(monospace|consolas|courier)\b/i.test(style.fontFamily || '');
+      const hasHighlightBg = Boolean(style.backgroundColor && !/^(transparent|none|initial|inherit|#fff(fff)?|rgb\(255,\s*255,\s*255\))$/i.test(style.backgroundColor.trim()));
 
       if (isMonospace && !formatted.includes('`')) {
         formatted = `\`${formatted.trim()}\``;
@@ -338,6 +384,9 @@ function inlineToMarkdown(el: Element | Text | unknown): string {
       }
       if (isStrike) {
         formatted = wrapMd(formatted, '~~');
+      }
+      if (hasHighlightBg && !isMonospace) {
+        formatted = wrapMd(formatted, '==');
       }
 
       return formatted;
@@ -378,7 +427,7 @@ function inlineChildrenToMd(el: Element): string {
 }
 
 /** 获取元素的内联样式对象（支持真实 DOM 与 Mock） */
-function getElementStyle(el: Element): { fontWeight?: string; fontStyle?: string; textDecoration?: string; fontFamily?: string } {
+function getElementStyle(el: Element): { fontWeight?: string; fontStyle?: string; textDecoration?: string; fontFamily?: string; backgroundColor?: string } {
   if (!el || typeof el !== 'object') return {};
   const e = el as unknown as { style?: Record<string, string>; getAttribute?: (name: string) => string | null };
   const styleObj: Record<string, string> = {};

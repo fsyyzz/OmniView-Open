@@ -16,6 +16,8 @@ export interface DocxPaginationOptions {
   pageHeight?: number;
   /** 是否强制应用分页拆分 */
   force?: boolean;
+  /** 界面语言，用于页码角标文案 */
+  locale?: 'zh-CN' | 'en-US';
 }
 
 export interface DocxPaginationResult {
@@ -32,8 +34,19 @@ export const A4_DEFAULT_MARGIN_V_PX = 96; // 上下边距默认 25.4mm (1 inch)
 export const A4_CONTENT_HEIGHT_PX = A4_HEIGHT_PX - A4_DEFAULT_MARGIN_V_PX * 2; // 可用正文高度约 931px
 
 /**
+ * 格式化页码角标文本
+ */
+function formatPageBadgeText(pageNum: number, total: number, locale: 'zh-CN' | 'en-US' = 'zh-CN'): string {
+  if (locale === 'en-US') {
+    return `Page ${pageNum} / ${total}`;
+  }
+  return `第 ${pageNum} 页 / 共 ${total} 页`;
+}
+
+/**
  * 对已渲染的 docx DOM 容器执行智能物理分页
- * 将超长的大 section 切分为对应真实物理页数的独立 A4 纸张页面
+ * 将超长的大 section 切分为对应真实物理页数的独立 A4 纸张页面，
+ * 并支持跨页长表格按行拆分及表头行自动延续重复。
  */
 export function paginateDocxContainer(
   container: HTMLElement | null,
@@ -42,6 +55,8 @@ export function paginateDocxContainer(
   if (!container) {
     return { totalPages: 1, paginated: false };
   }
+
+  const locale = options.locale || 'zh-CN';
 
   // 1. 查找容器内的顶层 section 页面
   const sections = Array.from(container.querySelectorAll<HTMLElement>('section.docx-rendered-wrapper, section.docx, section'));
@@ -68,9 +83,9 @@ export function paginateDocxContainer(
   // 2. 遍历每个 Section，检测是否超出单页高度或需要基于 expectedPageCount 拆分
   for (const section of topSections) {
     // 提取该 section 声明的纸张高度与宽度
-    const styleWidth = parseFloat(section.style.width) || A4_WIDTH_PX;
-    const styleHeight = parseFloat(section.style.minHeight) || parseFloat(section.style.height) || A4_HEIGHT_PX;
-    
+    const styleWidth = parseFloat(section.style.width) || options.pageWidth || A4_WIDTH_PX;
+    const styleHeight = parseFloat(section.style.minHeight) || parseFloat(section.style.height) || options.pageHeight || A4_HEIGHT_PX;
+
     // 计算内边距
     let padTop = 36;
     let padBottom = 36;
@@ -97,7 +112,7 @@ export function paginateDocxContainer(
       totalGeneratedPages++;
       section.classList.add('docx-paged-sheet');
       section.setAttribute('data-page-number', String(totalGeneratedPages));
-      injectPageFooter(section, totalGeneratedPages, expectedPageCount || topSections.length);
+      injectPageFooter(section, totalGeneratedPages, expectedPageCount || topSections.length, locale);
       continue;
     }
 
@@ -120,7 +135,6 @@ export function paginateDocxContainer(
     // 计算当前 section 预期的切分页数
     let targetPagesForSection = 1;
     if (expectedPageCount > 0) {
-      // 若有明确预期页数，扣除其他单页 section 占用的数量
       const otherSectionsCount = topSections.length - 1;
       targetPagesForSection = Math.max(1, expectedPageCount - otherSectionsCount);
     } else {
@@ -136,8 +150,8 @@ export function paginateDocxContainer(
     const fragment = document.createDocumentFragment();
 
     let currentPageNum = 1;
-    let currentSheet = createPageSheetElement({
-      pageNumber: totalGeneratedPages + currentPageNum,
+    const buildSheet = (pageOffset: number) => createPageSheetElement({
+      pageNumber: totalGeneratedPages + pageOffset,
       sectionClass,
       inlineStyle: sectionInlineStyle,
       width: styleWidth,
@@ -146,38 +160,53 @@ export function paginateDocxContainer(
       padBottom,
       header: originalHeader,
       footer: originalFooter,
+      locale,
     });
+
+    let currentSheet = buildSheet(currentPageNum);
     let currentArticle = currentSheet.querySelector<HTMLElement>('article')!;
     let currentAccumulatedHeight = 0;
 
+    const sealCurrentPageAndStartNext = () => {
+      fragment.appendChild(currentSheet);
+      currentPageNum++;
+      currentSheet = buildSheet(currentPageNum);
+      currentArticle = currentSheet.querySelector<HTMLElement>('article')!;
+      currentAccumulatedHeight = 0;
+    };
+
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
+      const tag = child.tagName?.toLowerCase();
       // 测量或估算子节点渲染高度
       let itemHeight = child.offsetHeight || child.getBoundingClientRect?.().height || 0;
       if (itemHeight === 0) {
-        // 环境不支持测量时（如离线单元测试），按文本字符与标签类型智能加权估算
         itemHeight = estimateNodeHeight(child);
+      }
+
+      // 超长表格按行跨页切分（保留表头）
+      if (tag === 'table') {
+        const tableRows = collectDirectTableRows(child);
+        if (tableRows.length >= 2 && (itemHeight > effectiveContentBudget || (currentAccumulatedHeight > 0 && currentAccumulatedHeight + itemHeight > effectiveContentBudget && itemHeight > effectiveContentBudget * 0.55))) {
+          const tableSplitResult = splitTableAcrossPages({
+            tableEl: child,
+            rows: tableRows,
+            currentArticle,
+            currentAccumulatedHeight,
+            effectiveContentBudget,
+            sealCurrentPageAndStartNext: () => {
+              sealCurrentPageAndStartNext();
+              return currentArticle;
+            },
+          });
+          currentAccumulatedHeight = tableSplitResult.accumulatedHeight;
+          continue;
+        }
       }
 
       // 如果当前页已有内容，且放入该元素将超出本页预算高度
       if (currentAccumulatedHeight > 0 && (currentAccumulatedHeight + itemHeight > effectiveContentBudget)) {
-        // 封存当前页，开启新页
-        fragment.appendChild(currentSheet);
-        currentPageNum++;
-
-        currentSheet = createPageSheetElement({
-          pageNumber: totalGeneratedPages + currentPageNum,
-          sectionClass,
-          inlineStyle: sectionInlineStyle,
-          width: styleWidth,
-          height: styleHeight,
-          padTop,
-          padBottom,
-          header: originalHeader,
-          footer: originalFooter,
-        });
-        currentArticle = currentSheet.querySelector<HTMLElement>('article')!;
-        currentAccumulatedHeight = 0;
+        sealCurrentPageAndStartNext();
       }
 
       // 放入当前页 article
@@ -203,13 +232,148 @@ export function paginateDocxContainer(
   allFinalSheets.forEach((sheet, idx) => {
     const pageNum = idx + 1;
     sheet.setAttribute('data-page-number', String(pageNum));
-    updatePageFooterText(sheet, pageNum, finalTotal);
+    updatePageFooterText(sheet, pageNum, finalTotal, locale);
   });
 
   return {
     totalPages: finalTotal,
     paginated: didPaginateAny,
   };
+}
+
+/**
+ * 递归安全收集表格内的直属行节点 (兼容真实 DOM 与轻量 Mock 对象)
+ */
+function collectDirectTableRows(tableEl: HTMLElement): HTMLElement[] {
+  const rows: HTMLElement[] = [];
+  const children = Array.from(tableEl.children || []) as HTMLElement[];
+  for (const child of children) {
+    const tag = child.tagName?.toLowerCase();
+    if (tag === 'tr') {
+      rows.push(child);
+    } else if (tag === 'thead' || tag === 'tbody' || tag === 'tfoot') {
+      const nested = Array.from(child.children || []) as HTMLElement[];
+      for (const n of nested) {
+        if (n.tagName?.toLowerCase() === 'tr') {
+          rows.push(n);
+        }
+      }
+    }
+  }
+  return rows;
+}
+
+/**
+ * 判断表格行是否为表头行（位于 <thead> 中或首行包含 <th>）
+ */
+function isTableHeaderRow(row: HTMLElement): boolean {
+  if (row.parentElement?.tagName?.toLowerCase() === 'thead') return true;
+  const cells = Array.from(row.children || []) as HTMLElement[];
+  return cells.some(c => c.tagName?.toLowerCase() === 'th');
+}
+
+/**
+ * 复制表格外框节点样式，生成可承载分段行的轻量 table 壳
+ */
+function cloneTableShell(tableEl: HTMLElement): HTMLElement {
+  const newTable = document.createElement('table');
+  if (tableEl.className) {
+    newTable.className = tableEl.className;
+  }
+  const inlineStyle = tableEl.getAttribute?.('style');
+  if (inlineStyle) {
+    newTable.setAttribute('style', inlineStyle);
+  }
+  // 继承 colgroup（如 docx-preview 生成的列宽约束）
+  const children = Array.from(tableEl.children || []) as HTMLElement[];
+  for (const child of children) {
+    if (child.tagName?.toLowerCase() === 'colgroup' && typeof child.cloneNode === 'function') {
+      newTable.appendChild(child.cloneNode(true));
+    }
+  }
+  return newTable;
+}
+
+/**
+ * 将超长表格按行切分至多个页面，并在续页自动重复表头行
+ */
+function splitTableAcrossPages(params: {
+  tableEl: HTMLElement;
+  rows: HTMLElement[];
+  currentArticle: HTMLElement;
+  currentAccumulatedHeight: number;
+  effectiveContentBudget: number;
+  sealCurrentPageAndStartNext: () => HTMLElement;
+}): { accumulatedHeight: number } {
+  const {
+    tableEl,
+    rows,
+    effectiveContentBudget,
+    sealCurrentPageAndStartNext,
+  } = params;
+
+  let activeArticle = params.currentArticle;
+  let accumulated = params.currentAccumulatedHeight;
+
+  const firstRow = rows[0];
+  const hasHeaderRow = firstRow ? isTableHeaderRow(firstRow) : false;
+  const headerTemplate = hasHeaderRow ? firstRow : null;
+  const headerHeight = headerTemplate ? measureRowHeight(headerTemplate) : 0;
+
+  let activeTable = cloneTableShell(tableEl);
+  let activeTbody = document.createElement('tbody');
+  activeTable.appendChild(activeTbody);
+  let hasAppendedActiveTable = false;
+
+  const flushActiveTableIfNonEmpty = () => {
+    if (hasAppendedActiveTable || activeTbody.children.length === 0) return;
+    activeArticle.appendChild(activeTable);
+    hasAppendedActiveTable = true;
+  };
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    const rowHeight = measureRowHeight(row);
+
+    // 若当前页剩余空间不足以容纳首行（且已有前置正文内容），先翻页再放表格
+    if (accumulated > 0 && activeTbody.children.length === 0 && accumulated + rowHeight > effectiveContentBudget) {
+      activeArticle = sealCurrentPageAndStartNext();
+      accumulated = 0;
+    } else if (activeTbody.children.length > 0 && accumulated + rowHeight > effectiveContentBudget) {
+      // 当前表格分片写满本页，落盘当前分片并翻页新建续接分片
+      flushActiveTableIfNonEmpty();
+      activeArticle = sealCurrentPageAndStartNext();
+      accumulated = 0;
+
+      activeTable = cloneTableShell(tableEl);
+      activeTbody = document.createElement('tbody');
+      activeTable.appendChild(activeTbody);
+      hasAppendedActiveTable = false;
+
+      // 在续页顶部重复表头行
+      if (headerTemplate && r > 0 && typeof headerTemplate.cloneNode === 'function') {
+        const clonedHeader = headerTemplate.cloneNode(true) as HTMLElement;
+        activeTbody.appendChild(clonedHeader);
+        accumulated += headerHeight;
+      }
+    }
+
+    activeTbody.appendChild(row);
+    accumulated += rowHeight;
+  }
+
+  flushActiveTableIfNonEmpty();
+  accumulated += 12;
+
+  return { accumulatedHeight: accumulated };
+}
+
+function measureRowHeight(row: HTMLElement): number {
+  const measured = row.offsetHeight || row.getBoundingClientRect?.().height || 0;
+  if (measured > 0) return measured;
+  const textLen = row.textContent?.trim().length || 0;
+  const estimatedLines = Math.max(1, Math.ceil(textLen / 45));
+  return Math.max(28, estimatedLines * 22 + 10);
 }
 
 /**
@@ -225,10 +389,11 @@ function createPageSheetElement(params: {
   padBottom: number;
   header: HTMLElement | null;
   footer: HTMLElement | null;
+  locale: 'zh-CN' | 'en-US';
 }): HTMLElement {
   const sheet = document.createElement('section');
   sheet.className = `${params.sectionClass} docx_page docx-paged-sheet`;
-  
+
   // 保留原始 inline style，确保单页自适应且绝不吞字截断
   sheet.setAttribute(
     'style',
@@ -256,7 +421,7 @@ function createPageSheetElement(params: {
   // 注入标准页码底栏角标
   const pageFooterBar = document.createElement('div');
   pageFooterBar.className = 'docx-page-number-badge';
-  pageFooterBar.innerHTML = `<span class="docx-badge-text">第 ${params.pageNumber} 页</span>`;
+  pageFooterBar.innerHTML = `<span class="docx-badge-text">${params.locale === 'en-US' ? `Page ${params.pageNumber}` : `第 ${params.pageNumber} 页`}</span>`;
   sheet.appendChild(pageFooterBar);
 
   return sheet;
@@ -265,22 +430,22 @@ function createPageSheetElement(params: {
 /**
  * 注入或更新页底角标
  */
-function injectPageFooter(section: HTMLElement, pageNum: number, total: number) {
+function injectPageFooter(section: HTMLElement, pageNum: number, total: number, locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   let badge = section.querySelector<HTMLElement>('.docx-page-number-badge');
   if (!badge) {
     badge = document.createElement('div');
     badge.className = 'docx-page-number-badge';
     section.appendChild(badge);
   }
-  badge.innerHTML = `<span class="docx-badge-text">第 ${pageNum} 页 / 共 ${total} 页</span>`;
+  badge.innerHTML = `<span class="docx-badge-text">${formatPageBadgeText(pageNum, total, locale)}</span>`;
 }
 
-function updatePageFooterText(section: HTMLElement, pageNum: number, total: number) {
+function updatePageFooterText(section: HTMLElement, pageNum: number, total: number, locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   const badgeText = section.querySelector<HTMLElement>('.docx-badge-text');
   if (badgeText) {
-    badgeText.textContent = `第 ${pageNum} 页 / 共 ${total} 页`;
+    badgeText.textContent = formatPageBadgeText(pageNum, total, locale);
   } else {
-    injectPageFooter(section, pageNum, total);
+    injectPageFooter(section, pageNum, total, locale);
   }
 }
 
@@ -295,7 +460,8 @@ function estimateNodeHeight(el: HTMLElement): number {
   if (tag === 'h2') return 44;
   if (tag === 'h3') return 36;
   if (tag === 'table') {
-    const rows = el.querySelectorAll ? el.querySelectorAll('tr').length : 3;
+    const directRows = collectDirectTableRows(el).length;
+    const rows = directRows || (el.querySelectorAll ? el.querySelectorAll('tr').length : 3) || 3;
     return Math.max(60, rows * 32);
   }
   if (tag === 'img' || (el.querySelector && el.querySelector('img'))) {

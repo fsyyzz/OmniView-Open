@@ -54,10 +54,41 @@ async function runTests() {
   const corruptInput = new Uint8Array([0x00, 0x11, 0x22, 0x33, 0x44]);
   const parsedCorrupt = await parseDocx(corruptInput);
   assert.strictEqual(parsedCorrupt.isValid, false, '损坏文件应标记为非完全有效');
+  assert.strictEqual(parsedCorrupt.isFallbackUsed, true, '损坏文件应标记已触发降级样例');
   assert(parsedCorrupt.rawBytes && parsedCorrupt.rawBytes.length > 0, '自愈降级应提供内置可用样例文档');
   console.log('✅ 异常数据自愈降级机制验证通过');
 
-  console.log('\n🎉 全部 5 项 Word (.docx) 引擎解析与自愈测试 100% 通过！\n');
+  // --- 测试 6: XML 实体解码与扩展元数据 AST 解析 ---
+  console.log('--- 测试 6: XML 实体解码与扩展元数据 AST 解析 ---');
+  const customZip = new JSZip();
+  customZip.file(
+    'docProps/core.xml',
+    `<?xml version="1.0" encoding="UTF-8"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>R&amp;D &lt;Architecture&gt; Spec</dc:title>
+  <dc:creator><![CDATA[OmniView & Co.]]></dc:creator>
+</cp:coreProperties>`
+  );
+  customZip.file(
+    'docProps/app.xml',
+    `<?xml version="1.0" encoding="UTF-8"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Pages>12</Pages>
+  <Words>4850</Words>
+  <Characters>26400</Characters>
+  <Company>OmniView Lab &amp; Studio</Company>
+</Properties>`
+  );
+  const customMeta = await extractDocxMetadata(customZip);
+  assert.strictEqual(customMeta.title, 'R&D <Architecture> Spec', 'core.xml 标题应准确解码 &amp; 和 &lt;/&gt;');
+  assert.strictEqual(customMeta.creator, 'OmniView & Co.', 'core.xml 作者应准确支持 CDATA');
+  assert.strictEqual(customMeta.pageCount, 12, 'app.xml 页数应为 12');
+  assert.strictEqual(customMeta.wordCount, 4850, 'app.xml 字数应为 4850');
+  assert.strictEqual(customMeta.characterCount, 26400, 'app.xml 字符数应为 26400');
+  assert.strictEqual(customMeta.company, 'OmniView Lab & Studio', 'app.xml 公司名应准确解码实体');
+  console.log('✅ XML 实体解码与扩展元数据 AST 解析通过');
+
+  console.log('\n🎉 全部 6 项 Word (.docx) 引擎解析与自愈测试 100% 通过！\n');
 }
 
 runTests().catch(err => {

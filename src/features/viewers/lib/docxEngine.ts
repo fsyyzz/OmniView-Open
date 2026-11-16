@@ -4,6 +4,7 @@
  */
 import JSZip from 'jszip';
 import { renderAsync, type DocxOptions } from 'docx-preview';
+import { parseXmlTree, findDescendant, collectNodeText } from './pptxXmlUtils';
 
 export interface DocxMetadata {
   title?: string;
@@ -13,6 +14,8 @@ export interface DocxMetadata {
   modified?: string;
   pageCount?: number;
   wordCount?: number;
+  characterCount?: number;
+  company?: string;
 }
 
 export interface DocxTocItem {
@@ -26,6 +29,7 @@ export interface ParsedDocxDocument {
   rawBytes: Uint8Array;
   metadata: DocxMetadata;
   isValid: boolean;
+  isFallbackUsed?: boolean;
 }
 
 /**
@@ -163,27 +167,41 @@ export async function extractDocxMetadata(zip: JSZip): Promise<DocxMetadata> {
     const coreFile = zip.file('docProps/core.xml');
     if (coreFile) {
       const xml = await coreFile.async('text');
-      const titleMatch = xml.match(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i);
-      if (titleMatch) metadata.title = titleMatch[1].trim();
+      const coreTree = parseXmlTree(xml);
+      const titleText = collectNodeText(findDescendant(coreTree, 'title')).trim();
+      if (titleText) metadata.title = titleText;
 
-      const creatorMatch = xml.match(/<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/i);
-      if (creatorMatch) metadata.creator = creatorMatch[1].trim();
+      const creatorText = collectNodeText(findDescendant(coreTree, 'creator')).trim();
+      if (creatorText) metadata.creator = creatorText;
 
-      const descMatch = xml.match(/<dc:description[^>]*>([\s\S]*?)<\/dc:description>/i);
-      if (descMatch) metadata.description = descMatch[1].trim();
+      const descText = collectNodeText(findDescendant(coreTree, 'description')).trim();
+      if (descText) metadata.description = descText;
 
-      const createdMatch = xml.match(/<dcterms:created[^>]*>([\s\S]*?)<\/dcterms:created>/i);
-      if (createdMatch) metadata.created = createdMatch[1].trim();
+      const createdText = collectNodeText(findDescendant(coreTree, 'created')).trim();
+      if (createdText) metadata.created = createdText;
+
+      const modifiedText = collectNodeText(findDescendant(coreTree, 'modified')).trim();
+      if (modifiedText) metadata.modified = modifiedText;
     }
 
     const appFile = zip.file('docProps/app.xml');
     if (appFile) {
       const xml = await appFile.async('text');
-      const pagesMatch = xml.match(/<Pages>(\d+)<\/Pages>/i);
-      if (pagesMatch) metadata.pageCount = parseInt(pagesMatch[1], 10);
+      const appTree = parseXmlTree(xml);
+      const pagesText = collectNodeText(findDescendant(appTree, 'Pages')).trim();
+      const pagesNum = parseInt(pagesText, 10);
+      if (Number.isFinite(pagesNum) && pagesNum > 0) metadata.pageCount = pagesNum;
 
-      const wordsMatch = xml.match(/<Words>(\d+)<\/Words>/i);
-      if (wordsMatch) metadata.wordCount = parseInt(wordsMatch[1], 10);
+      const wordsText = collectNodeText(findDescendant(appTree, 'Words')).trim();
+      const wordsNum = parseInt(wordsText, 10);
+      if (Number.isFinite(wordsNum) && wordsNum >= 0) metadata.wordCount = wordsNum;
+
+      const charsText = collectNodeText(findDescendant(appTree, 'Characters')).trim();
+      const charsNum = parseInt(charsText, 10);
+      if (Number.isFinite(charsNum) && charsNum >= 0) metadata.characterCount = charsNum;
+
+      const companyText = collectNodeText(findDescendant(appTree, 'Company')).trim();
+      if (companyText) metadata.company = companyText;
     }
   } catch (err) {
     console.warn('[DocxEngine] 元数据解析警告:', err);
@@ -687,6 +705,7 @@ export async function parseDocx(data: Uint8Array | ArrayBuffer | string): Promis
       rawBytes,
       metadata,
       isValid: true,
+      isFallbackUsed: false,
     };
   } catch (err) {
     console.warn('[DocxEngine] 加载 docx 失败，降级至样例文档:', err);
@@ -697,17 +716,20 @@ export async function parseDocx(data: Uint8Array | ArrayBuffer | string): Promis
       rawBytes: fallbackBytes,
       metadata,
       isValid: false,
+      isFallbackUsed: true,
     };
   }
 }
 
 /**
  * 纯前端高保真渲染 docx 到指定 DOM 容器
+ * 支持传入独立的 styleContainer 以隔离多标签页样式注入，避免污染全局 document.head
  */
 export async function renderDocxToContainer(
   bytes: Uint8Array | ArrayBuffer,
   container: HTMLElement,
-  options: Partial<DocxOptions> = {}
+  options: Partial<DocxOptions> = {},
+  styleContainer?: HTMLElement
 ): Promise<void> {
   const mergedOptions: DocxOptions = {
     className: 'docx-rendered-wrapper',
@@ -726,6 +748,9 @@ export async function renderDocxToContainer(
   };
 
   container.innerHTML = '';
-  await renderAsync(bytes, container, undefined, mergedOptions);
+  if (styleContainer) {
+    styleContainer.innerHTML = '';
+  }
+  await renderAsync(bytes, container, styleContainer, mergedOptions);
 }
 

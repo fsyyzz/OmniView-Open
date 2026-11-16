@@ -275,17 +275,34 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
     return () => clearInterval(timer);
   }, [isFullscreen]);
 
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
-      setHudVisible(true);
-    } else {
+  const enterPresentation = useCallback(() => {
+    setIsFullscreen(true);
+    setHudVisible(true);
+    containerRef.current?.requestFullscreen?.().catch(() => {});
+  }, []);
+
+  const exitPresentation = useCallback(() => {
+    setIsFullscreen(false);
+    setLaserActive(false);
+    setElapsedSeconds(0);
+    setHudVisible(true);
+    if (hudTimerRef.current) {
+      clearTimeout(hudTimerRef.current);
+      hudTimerRef.current = null;
+    }
+    if (document.fullscreenElement) {
       document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
     }
   }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (isFullscreen || document.fullscreenElement) {
+      exitPresentation();
+    } else {
+      enterPresentation();
+    }
+  }, [isFullscreen, enterPresentation, exitPresentation]);
 
   const bumpHudVisibility = useCallback(() => {
     if (!isFullscreen) return;
@@ -334,6 +351,11 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
           setShowNotes(false);
           return;
         }
+        if (isFullscreen) {
+          e.preventDefault();
+          exitPresentation();
+          return;
+        }
       }
 
       if (isInputFocused) return;
@@ -364,7 +386,7 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToPrev, goToNext, totalSlides, toggleFullscreen, showSearch, showGrid, showInfo, showNotes]);
+  }, [goToPrev, goToNext, totalSlides, toggleFullscreen, exitPresentation, isFullscreen, showSearch, showGrid, showInfo, showNotes]);
 
   const handleCopyMarkdown = useCallback(async () => {
     if (!data) return;
@@ -900,6 +922,32 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
             </div>
           )}
 
+          {/* 放映模式右上角常驻安全退出入口（防止 Webview 中 HUD 自动隐藏或禁用全屏 API 时无法退出） */}
+          {isFullscreen && (
+            <button
+              type="button"
+              onClick={exitPresentation}
+              data-testid="pptx-exit-presentation-corner"
+              aria-label={isEn ? 'Exit Presentation (Esc)' : '退出放映 (Esc)'}
+              title={isEn ? 'Exit Presentation (Esc)' : '退出放映 (Esc)'}
+              className="absolute top-4 right-4 z-40 px-2.5 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 shadow-lg backdrop-blur-md opacity-85 hover:opacity-100 transition-opacity"
+              style={{
+                backgroundColor: 'var(--ov-surface-header)',
+                borderColor: 'var(--ov-border)',
+                color: 'var(--ov-text)',
+              }}
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>{isEn ? 'Exit Show' : '退出放映'}</span>
+              <kbd
+                className="text-[10px] font-mono opacity-65 px-1 py-0.5 rounded border"
+                style={{ borderColor: 'var(--ov-border)' }}
+              >
+                Esc
+              </kbd>
+            </button>
+          )}
+
           {/* 全屏沉浸演播 HUD 控制条 */}
           {isFullscreen && (
             <div
@@ -970,7 +1018,7 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
 
               <button
                 type="button"
-                onClick={toggleFullscreen}
+                onClick={exitPresentation}
                 className="px-2 py-1 rounded-md border text-xs flex items-center gap-1 hover:opacity-85"
                 style={{
                   backgroundColor: 'var(--ov-surface)',

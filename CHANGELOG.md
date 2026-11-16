@@ -8,7 +8,41 @@
 
 ---
 
-## [1.4.46] - 2026-11-16 (当前最新发布)
+## [1.4.48] - 2026-11-16 (当前最新发布)
+
+> [!TIP] v1.4.48 核心修复亮点
+> **修复 VS Code 插件 Webview 中 PPTX 演播放映与 DOCX 全屏模式无法退出的阻断性问题**：
+> 1. **Webview 无原生 Fullscreen API 兼容与状态解耦 (`PptxViewer.tsx`, `DocxViewer.tsx`)**：
+>    - 修复 `toggleFullscreen` 仅判断 `!document.fullscreenElement` 的缺陷：当 VS Code Webview iframe 禁止 `Element.requestFullscreen()` 时，`document.fullscreenElement` 恒为 `null`，导致点击底部 HUD「退出」或按 `F5` 反复重新进入放映而无法退出；
+>    - 改为同时以组件态 `isFullscreen` 与 `document.fullscreenElement` 双重判定，并显式拆分 `enterPresentation` / `exitPresentation`，退出时立即重置 `isFullscreen`、激光笔与计时器状态。
+> 2. **多通道安全退出保障 (`Esc` / `F5` / 常驻退出按钮)**：
+>    - 在 `PptxViewer.tsx` 与 `DocxViewer.tsx` 全局键盘监听中补充 `Escape` 退出逻辑（优先关闭搜索框、总览、信息面板与备注浮层，随后立即退出放映/全屏）；
+>    - 在 `PptxViewer.tsx` 放映模式下新增右上角常驻轻量「退出放映 (`Esc`)」按钮（依托 `--ov-*` 主题令牌），彻底避免底部 HUD 自动隐藏后用户找不到退出入口；
+>    - 在 `tests/test-pptx-viewer-ui.mjs` 补充 VS Code Webview 拦截 `requestFullscreen` 场景下的 Headless DOM 回归测试。
+
+---
+
+## [1.4.47] - 2026-11-16
+
+> [!TIP] v1.4.47 核心升级亮点
+> **Word (`.docx`) 渲染引擎与阅读工作台全面深度优化：盒模型缩放、语义化暗夜护眼主题、长表跨页表头重复与全链路工程打磨**：
+> 1. **缩放与视口盒模型重构 (`DocxViewer.tsx`)**：
+>    - 依托 `ResizeObserver` 动态测量自然文档尺寸与滚动视口宽度，以真实 `scale` 占位外框消除大倍率下的左右裁切与缩小时的底部大块留白；
+>    - 新增 **「适宽 (Fit Width)」** 模式与 `Ctrl + 滚轮` 平滑缩放，支持流式 / A4 分页模式无缝切换（自动保持阅读滚动比例与搜索高亮状态）。
+> 2. **语义化纸张主题与样式隔离 (`DocxViewer.tsx`, `docxEngine.ts`)**：
+>    - 废除全容器 `filter: invert()` 暴力反色与强制覆盖正文字体颜色的规则，基于 `data-paper-theme` 提供原纸、羊皮纸与暗夜三大语义纸张，完整保留嵌入插图、图表原彩与原有标题强调色；
+>    - 通过 `renderAsync` 第三参数传入独立隔离的 `styleContainer`，彻底防止多标签页打开不同 `.docx` 时样式污染全局 `document.head`（并同步注入系统级打印管道）。
+> 3. **智能分页、纯 TS 元数据解析与富媒体交互 (`docxPaginationEngine.ts`, `docxMarkdownConverter.ts`, `DocxTocSidebar.tsx`)**：
+>    - `docxPaginationEngine.ts` 新增超长表格跨页按 `<tr>` 拆分并在续页自动重复表头行 (`<th>` / `<thead>`)；
+>    - `docxEngine.ts` 使用纯 TS XML AST 解析器替换正则提取 `core.xml`/`app.xml` 元数据，精确解码 XML 实体与 CDATA，并扩展自愈降级 `role="alert"` 告警横幅；
+>    - 文档内点击任意插图即可呼出 `LightboxModal` 全屏大图切换浏览；新增全屏沉浸自动隐藏 HUD、`docxDomToMarkdown` 对修订痕迹 (`<del>`/`<ins>`)、高亮 (`<mark>`)、任务复选框与公式的支持；
+>    - `DocxViewer` 与 `DocxTocSidebar` 全面接入 `--ov-*` 语义设计令牌与完整 `zh-CN` / `en-US` 双语本地化。
+> 4. **全链路自动化测试与门禁覆盖 (`tests/test-docx-*.mjs`)**：
+>    - 扩充引擎、分页、Markdown 转换测试，新增 `tests/test-docx-viewer-ui.mjs` Headless DOM React 19 组件交互测试套件，并通过所有工程门禁与构建校验。
+
+---
+
+## [1.4.46] - 2026-11-16
 
 > [!TIP] v1.4.46 核心升级亮点
 > **PowerPoint (`.pptx`) 演播工作台全面架构级升级 (方案 C)：纯 TS OOXML AST 内核、1:1 等比自适应舞台、原生图表与专业演播套件**：

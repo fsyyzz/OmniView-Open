@@ -27,7 +27,7 @@ OmniView 采用轻量化、按需加载的微内核驱动架构。整个系统�
 | **11** | `NotebookViewer` | `.ipynb` (Jupyter v4) | 纯前端离线 Notebook 语法与流式解析 | Markdown 单元格富文本渲染、代码高亮、ANSI 错误栈 | HTML 报表导出、Markdown 转换导出 |
 | **12** | `TypstViewer` | `.typ`, `.typst` | 纯端侧 AST 增量编译器 + A4 2.0 引擎 | 双向分屏编辑、KaTeX 公式混排、多版心切换、语法片段插入 | 工业级 A4 打印、无损 SVG / PDF 导出 |
 | **13** | `StructuredDataViewer`| `.json`, `.yaml`, `.yml`, `.toml`, `.xml` | 统一结构化 AST 中间表示层 | 折叠树视图、导图全景投影、同构表格下钻、敏感配置脱敏 | 跨格式无损互转、美化压缩格式化 |
-| **14** | `DocxViewer` | `.docx` | OOXML 标准解包 + `docx-preview` | Word 高保真拟真排版、50%~200% 平滑缩放、复杂表格单元格合并 | 原生打印、夜间暗色对比度反转 |
+| **14** | `DocxViewer` | `.docx` | OOXML AST + `docx-preview` + 智能分页引擎 | 盒模型缩放/适宽/Ctrl+滚轮、长表格跨页表头重复、语义暗夜主题（保真插图）、插图灯箱、全屏 HUD | Markdown 导出（含修订/高亮/任务）、系统级 PDF 打印 |
 | **15** | `PptxViewer` | `.pptx` | 纯 TS XML AST + 母版继承 + OOXML 图表引擎 | 1:1 等比自适应舞台、真实缩略图、平铺总览、Ctrl+F 搜索高亮、F5 全屏激光笔 HUD | Markdown 结构化导出、系统级 PDF 分页打印 |
 | **16** | `XlsxViewer` | `.xlsx`, `.xls` | 纯前端 OOXML 解析 + JSZip 离线流 | 多工作表 (Multi-Sheet Tabs)、公式/计算值检视、列特征画像 | CSV/JSON/Markdown 导出、迷你走势图 |
 | **17** | `ImageViewer` | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.ico` | Canvas 2D 硬件加速引擎 | 10%~3200% 极清矢量缩放、16x 放大镜十字取色、EXIF 透视 | 多色彩空间复制、图片格式无损转换 |
@@ -195,12 +195,11 @@ OmniView 为桌面端办公文档提供零外部依赖、100% 本地沙箱离线
 - **多格式互转导出**: 支持将当前工作表秒级导出为标准 CSV、格式化 JSON 以及规范 Markdown 表格。
 
 ### 7.2 DocxViewer 纯前端 Word 高保真拟真工作台
-- **离线渲染流水线 (`docxEngine.ts`)**: 依托 `docx-preview` 纯前端内核，直接在浏览器 DOM 解析 OOXML 样式表、段落属性、列表缩进与复杂嵌套表格；
-- **A4 拟真版式与视口漫游**: 50%~200% 平滑缩放，支持暗黑模式对比度智能反转（文档底色反转与反差色文字映射，消除夜间刺眼感）；
-- **动态大纲提取与目录树 (`DocxTocSidebar`)**: 自动遍历 DOM 解析 H1~H6 标题，支持双向平滑滚动定位与层级折叠；
-- **全文检索高亮与跨节聚合 (`aggregateSearchMatchesByToc`)**: 检索关键词在页面中黄色高亮，并在左侧大纲树直观显示各章节匹配数量；
-- **Word DOM 转 Markdown 导出 (`docxDomToMarkdown`)**: 一键将 Word 页面提取为清晰规范的 Markdown 文本并复制到剪贴板；
-- **工业级系统打印桥接 (`requestPrintHtml`)**: 发起无损打印命令，调用系统打印机直接输出高精度纸质文档。
+- **离线渲染与样式隔离流水线 (`docxEngine.ts`)**: 依托纯 TS XML AST 元数据解码（`core.xml`/`app.xml`）与 `docx-preview` 独立 `styleContainer` 样式隔离挂载，杜绝多标签页全局样式污染；损坏输入触发离线样例自愈降级并呈现可关闭告警横幅；
+- **真实盒模型缩放与长表跨页分页 (`docxPaginationEngine.ts`)**: 基于 `ResizeObserver` 同步外层盒模型占位宽高，支持 50%~200% 缩放、适合宽度 (`Fit Width`) 与 `Ctrl+滚轮`；分页模式下支持超长表格按 `<tr>` 跨页拆分并在续页自动重复表头行；
+- **语义化三重纸张主题与插图灯箱 (`LightboxModal`)**: 废除全容器 `invert()` 暴力反色，采用 `data-paper-theme` 语义深色/羊皮纸适配以保护图片与图表原彩；文档内点击任意插图即可呼出灯箱全屏浏览；
+- **动态大纲与全文热力聚合 (`DocxTocSidebar` / `aggregateSearchMatchesByToc`)**: 自动提取 H1~H6 标题（过滤原生目录页干扰），支持 `Ctrl+F` 搜索高亮、章节分布统计、全屏悬浮 HUD 及流式/分页无感切换；
+- **Word DOM 转 Markdown 导出 (`docxDomToMarkdown`)**: 支持标题、列表、表格、修订痕迹 (`<del>`/`<ins>`)、高亮 (`<mark>`)、任务复选框与公式提取，并支持隔离 `requestPrintHtml` 系统打印导出 PDF。
 
 ### 7.3 PptxViewer 原生矢量幻灯片演播工作台
 - **纯 TS XML AST 与母版继承内核 (`pptxXmlUtils.ts` / `pptxEngine.ts`)**: 零 `DOMParser` 依赖，支持 `slideMaster`/`slideLayout` 背景与占位符样式继承、`<p:sldIdLst>` 真实页序与隐藏页 (`show="0"`) 识别、`<p:grpSp>` 嵌套组合图形子坐标矩阵变换与 `<p:cxnSp>` 连线箭头；

@@ -286,7 +286,38 @@ function testBasicMarkdown() {
   assert(result12.includes('正式正文内容'), `正文应当被保留`);
   console.log('✅ 测试 12: 冗余页眉页脚过滤通过');
 
-  console.log('\n🎉 全部 12 组 docxMarkdownConverter 单元测试 100% 通过！\n');
+  // 测试 13: 修订痕迹 (<del>/<ins>)、高亮 (<mark>)、复选框与公式提取
+  const delEl = { tagName: 'DEL', childNodes: ['旧方案'], textContent: '旧方案', getAttribute: () => null };
+  const insEl = { tagName: 'INS', childNodes: ['新方案'], textContent: '新方案', getAttribute: () => null };
+  const markEl = { tagName: 'MARK', childNodes: ['核心亮点'], textContent: '核心亮点', getAttribute: () => null };
+  const revisionP = {
+    tagName: 'P',
+    childNodes: [delEl, { nodeType: 3, textContent: ' -> ' }, insEl, { nodeType: 3, textContent: ' · ' }, markEl],
+    getAttribute: () => null,
+  };
+  const taskUncheckedP = {
+    tagName: 'P',
+    childNodes: ['\u2610 待完成校验'],
+    textContent: '\u2610 待完成校验',
+    getAttribute: () => null,
+  };
+  const taskCheckedP = {
+    tagName: 'P',
+    childNodes: ['\u2611 已通过评审'],
+    textContent: '\u2611 已通过评审',
+    getAttribute: () => null,
+  };
+  const mathNode = { tagName: 'MATH', childNodes: [], textContent: 'E = mc^2', getAttribute: () => null };
+  const result13 = docxDomToMarkdown(makeContainer([makeSection([revisionP, taskUncheckedP, taskCheckedP, mathNode])]));
+  assert(result13.includes('~~旧方案~~'), `修订删除线转换失败，实际: ${JSON.stringify(result13)}`);
+  assert(result13.includes('新方案'), `修订新增转换失败`);
+  assert(result13.includes('==核心亮点=='), `高亮转换失败`);
+  assert(result13.includes('- [ ] 待完成校验'), `未勾选任务段落转换失败`);
+  assert(result13.includes('- [x] 已通过评审'), `已勾选任务段落转换失败`);
+  assert(result13.includes('$$E = mc^2$$'), `公式提取失败`);
+  console.log('✅ 测试 13: 修订痕迹/高亮/任务复选框/公式转换通过');
+
+  console.log('\n🎉 全部 13 组 docxMarkdownConverter 单元测试 100% 通过！\n');
 }
 
 testBasicMarkdown();
