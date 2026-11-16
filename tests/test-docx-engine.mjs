@@ -218,10 +218,21 @@ async function runTests() {
     assert.ok(!badStyle.textContent.includes('line-height: 18pt'), '样式表中被 docx-preview 误转的 18pt 应被修复为倍数行高');
     assert.ok(badStyle.textContent.includes('max(1.22em, 20pt)'), '样式表中 calc(100% + 20pt) 应被修复为 max(1.22em, 20pt)');
 
+    const fidelityStyle = styleHost.querySelector('style[data-docx-fidelity-style="true"]');
+    assert.ok(fidelityStyle, '应注入 data-docx-fidelity-style 样式表');
+    assert.ok(
+      fidelityStyle.textContent.includes(':where(.docx-rendered-wrapper) p'),
+      '基准样式必须使用 :where(.docx-rendered-wrapper) p 保持零特异度，禁止覆盖 Title/Heading 样式'
+    );
+    assert.ok(
+      fidelityStyle.textContent.includes('.docx-rendered-wrapper_bodycustom'),
+      'styleId 必须转小写匹配 docx-preview 的 escapeClassName() 规则'
+    );
+
     const pOmitted = domHost.querySelector('#p-omitted');
     const pAtLeast = domHost.querySelector('#p-atleast');
     const pExact = domHost.querySelector('#p-exact');
-    assert.strictEqual(pOmitted.style.lineHeight, '1.73', '省略 lineRule 的行内 18pt 应修复为 1.73 倍行高');
+    assert.strictEqual(pOmitted.style.lineHeight, '1.5', '省略 lineRule (w:line="360") 的行内 18pt 应忠实修复为 1.5 倍行高（绝不叠加 1.15x 虚高成 1.73）');
     assert.strictEqual(pOmitted.style.minHeight, '', 'auto 行高应清除残留 min-height');
     assert.ok(
       !pAtLeast.style.lineHeight.includes('100%') &&
@@ -242,7 +253,61 @@ async function runTests() {
   }
   console.log('✅ OOXML 行高规则与页面属性高保真解析及 DOM/CSS 修补验证通过');
 
-  console.log('\n🎉 全部 8 项 Word (.docx) 引擎解析与排版测试 100% 通过！\n');
+  // --- 测试 9: 首页页眉/标题防护 (titlePg header flexShrink / vAlign safe center / spacingQueue 不错配标题) ---
+  console.log('--- 测试 9: 首页页眉与 Title 标题防护验证 ---');
+  const p1Zip = new JSZip();
+  p1Zip.file(
+    'word/document.xml',
+    `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:spacing w:line="360"/></w:pPr><w:r><w:t>前置隐藏说明段落</w:t></w:r></w:p>
+    <w:p><w:r><w:t>首页核心主标题</w:t></w:r></w:p>
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="500" w:right="1440" w:bottom="1440" w:left="1440" w:header="851" w:footer="992"/>
+      <w:vAlign w:val="center"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
+  );
+  const p1Profile = await extractDocxFormattingProfile(p1Zip);
+  const win3 = new Window();
+  const doc3 = win3.document;
+  const origDoc3 = global.document;
+  global.document = doc3;
+  try {
+    const styleHost3 = doc3.createElement('div');
+    const domHost3 = doc3.createElement('div');
+    domHost3.innerHTML = `
+      <section class="docx-rendered-wrapper docx">
+        <header style="margin-top: -18pt;"><p>首页页眉标题</p></header>
+        <article>
+          <p id="cover-title" class="docx-rendered-wrapper_title" style="line-height: 18pt;">首页核心主标题</p>
+        </article>
+      </section>
+    `;
+    applyDocxFormattingAndPageFidelity(domHost3, styleHost3, p1Profile);
+
+    const hdr = domHost3.querySelector('header');
+    assert.strictEqual(hdr.style.flexShrink, '0', '页眉必须设置 flexShrink: 0 防止被 flex 容器压扁');
+    assert.strictEqual(hdr.style.marginTop, '0px', '当 topPt < headerPt 时页眉必须钳位 marginTop 防止移出上边界');
+
+    const art = domHost3.querySelector('article');
+    assert.ok(
+      art.style.justifyContent === 'safe center' || art.style.justifyContent === 'center',
+      `vAlign="center" 应设为 safe center 或 center，实际: ${art.style.justifyContent}`
+    );
+
+    const coverTitle = domHost3.querySelector('#cover-title');
+    assert.strictEqual(coverTitle.style.lineHeight, '18pt', 'spacingQueue 严禁因 lineHeight 相同而将前文样式错配给文本不同的首页标题');
+  } finally {
+    global.document = origDoc3;
+    await win3.close();
+  }
+  console.log('✅ 首页页眉与 Title 标题防护验证通过');
+
+  console.log('\n🎉 全部 9 项 Word (.docx) 引擎解析与排版测试 100% 通过！\n');
 }
 
 runTests().catch(err => {

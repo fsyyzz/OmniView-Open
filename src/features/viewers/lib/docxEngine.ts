@@ -672,8 +672,12 @@ function parseSpacingNode(node: XmlNode | undefined): DocxSpacingSpec | undefine
 
 function resolveAutoLineHeightRatio(lineUnits: number, defaultFontSizePt = 10.5, linePitchPt?: number): number {
   const ratio = lineUnits / 240;
-  // Microsoft Word single-line spacing renders at ~1.15x font em metrics (vs CSS 1.0 clipping CJK/Latin)
-  const wordNaturalRatio = ratio >= 0.99 ? Math.max(1.15, ratio * 1.15) : Math.max(0.9, ratio * 1.1);
+  // Microsoft Word 单倍行距 (w:line=240, ratio≈1.0) 按 ~1.15x 视觉行盒渲染以防中英文上下裁切；
+  // 多倍行距 (如 1.15x / 1.5x / 2.0x) 直接忠实映射倍率，避免叠加 *1.15 造成全文虚高跨页膨胀
+  const wordNaturalRatio =
+    ratio <= 1.05
+      ? Math.max(1.15, ratio >= 0.99 ? 1.15 : ratio * 1.1)
+      : Math.max(1.15, ratio);
   if (linePitchPt && linePitchPt > 0 && defaultFontSizePt > 0 && ratio >= 0.98 && ratio <= 1.05) {
     const gridRatio = linePitchPt / defaultFontSizePt;
     if (gridRatio > wordNaturalRatio && gridRatio <= 2.2) {
@@ -1104,15 +1108,23 @@ export function applyDocxFormattingAndPageFidelity(
       ? `margin-bottom: ${Number((profile.defaultSpacing.afterLines * (primaryPitchPt || profile.defaultFontSizePt * 1.25)).toFixed(2))}pt;`
       : '';
 
+  // 使用 :where(.className) p 保持零特异度基线，避免覆盖 docx-preview 生成的 p.docx-rendered-wrapper_title / heading1 等样式
   cssLines.push(
-    `.${className} { font-size: ${profile.defaultFontSizePt}pt; line-height: ${profile.defaultLineHeightCss}; ${fontFamDecl} }`,
-    `.${className} p { line-height: ${profile.defaultLineHeightCss}; ${defaultBeforeDecl} ${defaultAfterDecl} }`
+    `:where(.${className}) { font-size: ${profile.defaultFontSizePt}pt; line-height: ${profile.defaultLineHeightCss}; ${fontFamDecl} }`,
+    `:where(.${className}) p { line-height: ${profile.defaultLineHeightCss}; ${defaultBeforeDecl} ${defaultAfterDecl} }`,
+    `section.${className} > header, section.${className} > footer { flex-shrink: 0; position: relative; z-index: 2; }`,
+    `section.${className} svg:has(foreignObject) { overflow: visible; }`
   );
 
   for (const st of Object.values(profile.styles)) {
     const sp = st.spacing;
     if (!sp) continue;
-    const escapedId = st.styleId.replace(/[^a-zA-Z0-9_-]/g, '');
+    // 对齐 docx-preview escapeClassName()：转小写并替换空格/点号与 & 符号
+    const escapedId = st.styleId
+      .replace(/[ .]+/g, '-')
+      .replace(/[&]+/g, 'and')
+      .replace(/[^a-zA-Z0-9_-]/g, '')
+      .toLowerCase();
     if (!escapedId) continue;
     const decls: string[] = [];
     const lh = formatSpacingLineHeightCss(sp, st.fontSizePt || profile.defaultFontSizePt, primaryPitchPt);
@@ -1174,7 +1186,9 @@ export function applyDocxFormattingAndPageFidelity(
       const cand = spacingQueue[idx];
       const expectedWrongPt = cand.spacing.line !== undefined ? `${cand.spacing.line / 20}pt` : '';
       const textMatch = Boolean(cand.textHint && pCleanText && (pCleanText === cand.textHint || pCleanText.startsWith(cand.textHint.slice(0, 12))));
-      const lhMatch = Boolean(expectedWrongPt && (inlineLh === expectedWrongPt || inlineLh.includes(expectedWrongPt)));
+      // 严禁在两边文本明确不同时仅凭 lineHeight 错配（防止误伤首页标题/Heading1）
+      const bothHaveDifferentText = Boolean(cand.textHint && pCleanText && !textMatch);
+      const lhMatch = !bothHaveDifferentText && Boolean(expectedWrongPt && (inlineLh === expectedWrongPt || inlineLh.includes(expectedWrongPt)));
       if (textMatch || lhMatch) {
         matchedSpec = cand.spacing;
         queueCursor = idx + 1;
@@ -1219,7 +1233,7 @@ export function applyDocxFormattingAndPageFidelity(
     }
   }
 
-  // 4. 补全与校准每个 <section> 的 OOXML 页面属性（pgSz 尺寸/方向、pgMar 边距/装订线、pgBorders 边框、cols 分栏、vAlign 垂直对齐）
+  // 4. 补全与校准每个 <section> 的 OOXML 页面属性（pgSz 尺寸/方向、pgMar 边距/装订线、pgBorders 边框、cols 分栏、vAlign 垂直对齐与页眉防护）
   const sections = Array.from(container.querySelectorAll<HTMLElement>(`section.${className}, section.docx`));
   let sectIdx = 0;
 
@@ -1260,14 +1274,34 @@ export function applyDocxFormattingAndPageFidelity(
       }
     }
 
+    // 防护首页页眉 (如 titlePg 第一页标题页眉)：防止 flex 压缩至 0 或负 marginTop 将页眉拉出顶部裁切边界
+    const directChildren = Array.from(sec.children || []) as HTMLElement[];
+    for (const child of directChildren) {
+      const childTag = child.tagName?.toLowerCase();
+      if (childTag === 'header') {
+        child.style.flexShrink = '0';
+        child.style.position = 'relative';
+        child.style.zIndex = '2';
+        // 若 pgMar.top 小于 header 高度偏移导致页眉上移至 section 外侧，兜底限制上移量
+        if (pageSpec.margins.topPt < pageSpec.margins.headerPt) {
+          child.style.marginTop = '0px';
+          child.style.minHeight = 'auto';
+        }
+      } else if (childTag === 'footer') {
+        child.style.flexShrink = '0';
+        child.style.position = 'relative';
+        child.style.zIndex = '2';
+      }
+    }
+
     // 页面边框 (w:pgBorders)
     if (pageSpec.borders.top && !sec.style.borderTop) sec.style.borderTop = pageSpec.borders.top;
     if (pageSpec.borders.right && !sec.style.borderRight) sec.style.borderRight = pageSpec.borders.right;
     if (pageSpec.borders.bottom && !sec.style.borderBottom) sec.style.borderBottom = pageSpec.borders.bottom;
     if (pageSpec.borders.left && !sec.style.borderLeft) sec.style.borderLeft = pageSpec.borders.left;
 
-    // 节分栏 (w:cols) 与垂直对齐 (w:vAlign) 施加于内部 article
-    const articles = Array.from(sec.children || []).filter(
+    // 节分栏 (w:cols) 与垂直对齐 (w:vAlign) 施加于内部 article（采用 safe center 防止封面/首页标题向上溢出裁切）
+    const articles = directChildren.filter(
       (c): c is HTMLElement => c.tagName?.toLowerCase() === 'article'
     );
     for (const art of articles) {
@@ -1280,12 +1314,17 @@ export function applyDocxFormattingAndPageFidelity(
       } else if (pageSpec.verticalAlign !== 'top') {
         art.style.display = 'flex';
         art.style.flexDirection = 'column';
-        art.style.justifyContent =
+        const rawAlign =
           pageSpec.verticalAlign === 'center'
             ? 'center'
             : pageSpec.verticalAlign === 'bottom'
             ? 'flex-end'
             : 'space-between';
+        const safeAlign = rawAlign === 'space-between' ? 'space-between' : `safe ${rawAlign}`;
+        art.style.justifyContent = safeAlign;
+        if (!art.style.justifyContent) {
+          art.style.justifyContent = rawAlign;
+        }
       }
     }
 
@@ -1367,11 +1406,12 @@ export async function generateSampleDocxBytes(): Promise<Uint8Array> {
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
 </Types>`
   );
 
-  // 2. _rels/.rels
+  // 2. _rels/.rels & word/_rels/document.xml.rels
   zip.file(
     '_rels/.rels',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1379,6 +1419,49 @@ export async function generateSampleDocxBytes(): Promise<Uint8Array> {
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
   <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
 </Relationships>`
+  );
+
+  zip.file(
+    'word/_rels/document.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`
+  );
+
+  // 2b. word/styles.xml (提供标准 docDefaults、Normal、Heading1/2、TOCHeading、TOC1 样式基准)
+  zip.file(
+    'word/styles.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault><w:rPr><w:rFonts w:ascii="Segoe UI" w:eastAsia="Microsoft YaHei"/><w:sz w:val="21"/></w:rPr></w:rPrDefault>
+    <w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault>
+  </w:docDefaults>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="heading 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="240" w:after="120" w:line="276" w:lineRule="auto"/><w:outlineLvl w:val="0"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2">
+    <w:name w:val="heading 2"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="180" w:after="80" w:line="276" w:lineRule="auto"/><w:outlineLvl w:val="1"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="TOCHeading">
+    <w:name w:val="TOC Heading"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="TOC1">
+    <w:name w:val="toc 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="40" w:after="40" w:line="276" w:lineRule="auto"/></w:pPr>
+  </w:style>
+</w:styles>`
   );
 
   // 3. docProps/core.xml

@@ -314,6 +314,10 @@ await it('DocxViewer 默认启用原生一页一页分页渲染，并支持单�
   assert.ok(viewportRoot?.classList.contains('mode-paged'), '默认打开 Word 文档必须处于 mode-paged 原生分页模式');
   const sheets = container.querySelectorAll('.docx-paged-sheet');
   assert.strictEqual(sheets.length, 5, `5 页样例文档应原生渲染为 5 张独立物理页面 (.docx-paged-sheet)，当前: ${sheets.length}`);
+  assert.ok(
+    sheets[0]?.textContent?.includes('OmniView Word (.docx) 高保真离线文档'),
+    '第 1 页 (.docx-paged-sheet[data-page-number="1"]) 必须清晰呈现首页主标题，绝不能丢失或被挤出页面'
+  );
   sheets.forEach((sheet, idx) => {
     assert.strictEqual(sheet.getAttribute('data-page-width'), '794', `第 ${idx + 1} 页声明宽度必须为标准 794px`);
     assert.strictEqual(sheet.getAttribute('data-page-height'), '1123', `第 ${idx + 1} 页声明高度必须为标准 1123px`);
@@ -531,7 +535,7 @@ await it('OOXML 行高规则 (省略 lineRule / atLeast / beforeLines) 与横版
   const secondP = pEls.find(p => p.textContent?.includes('第二段最小值行距'));
   assert.ok(firstP && secondP, '应渲染两条行距测试段落');
   assert.notStrictEqual(firstP.style.lineHeight, '18pt', '省略 lineRule 时绝不能退化为固定 18pt');
-  assert.strictEqual(firstP.style.lineHeight, '1.73', 'line=360 且省略 lineRule 应换算为 1.73 倍行距');
+  assert.strictEqual(firstP.style.lineHeight, '1.5', 'line=360 且省略 lineRule 应忠实换算为 1.5 倍行距（绝不虚高为 1.73）');
   assert.ok(firstP.style.marginTop, 'w:beforeLines="50" 应换算并设置段前 marginTop');
   assert.ok(!secondP.style.lineHeight.includes('100%'), 'atLeast 行距绝不能为 calc(100% + 20pt)');
   assert.ok(
@@ -549,6 +553,90 @@ await it('OOXML 行高规则 (省略 lineRule / atLeast / beforeLines) 与横版
   await flushUi(40);
   assert.ok(container.textContent?.includes('A4 横向'), '元数据抽屉应显示 A4 横向');
   assert.ok(container.textContent?.includes('20 / 20 / 20 / 20 mm'), '元数据抽屉应显示 20mm 页边距');
+
+  await act(async () => {
+    root.unmount();
+  });
+  container.remove();
+});
+
+await it('titlePg 首页独立页眉 + Word Title 样式 + vAlign="center" 场景必须完整呈现第 1 页页眉与标题且不虚增页数', async () => {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>
+</Types>`);
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+  zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rIdH1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
+</Relationships>`);
+  zip.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault><w:rPr><w:sz w:val="21"/></w:rPr></w:rPrDefault>
+    <w:pPrDefault><w:pPr><w:spacing w:line="276"/></w:pPr></w:pPrDefault>
+  </w:docDefaults>
+  <w:style w:type="paragraph" w:styleId="Title">
+    <w:name w:val="Title"/>
+    <w:rPr><w:b/><w:sz w:val="44"/></w:rPr>
+  </w:style>
+</w:styles>`);
+  zip.file('word/header1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p><w:r><w:t>CONFIDENTIAL FIRST PAGE HEADER</w:t></w:r></w:p>
+</w:hdr>`);
+  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    <w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>首页核心文档主标题</w:t></w:r></w:p>
+    <w:p><w:r><w:t>这是首页紧随主标题之后的正文摘要内容。</w:t></w:r></w:p>
+    <w:sectPr>
+      <w:headerReference w:type="first" r:id="rIdH1"/>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="500" w:right="1440" w:bottom="1440" w:left="1440" w:header="851" w:footer="992"/>
+      <w:titlePg/>
+      <w:vAlign w:val="center"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`);
+
+  const bytes = await zip.generateAsync({ type: 'uint8array' });
+  const b64 = bytesToBase64(bytes);
+
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  let root;
+
+  await act(async () => {
+    root = createRoot(container);
+    root.render(
+      React.createElement(DocxViewer, {
+        binaryUrl: b64,
+        fileName: 'titlepg-header.docx',
+        locale: 'zh-CN',
+      })
+    );
+  });
+  await waitForDocxReady(container);
+
+  const sheets = container.querySelectorAll('.docx-paged-sheet');
+  assert.strictEqual(sheets.length, 1, `单页含 titlePg 页眉与 Title 文档必须渲染为严格 1 页，当前: ${sheets.length}`);
+  const sheet = sheets[0];
+  const headerEl = sheet.querySelector('header');
+  assert.ok(headerEl, '第 1 页必须渲染 <w:titlePg/> 首页页眉 <header>');
+  assert.ok(headerEl.textContent?.includes('CONFIDENTIAL FIRST PAGE HEADER'), '第 1 页页眉文字必须完整呈现');
+  assert.strictEqual(headerEl.style.flexShrink, '0', '第 1 页 <header> 必须具备 flexShrink="0" 防止被压扁');
+  assert.ok(sheet.textContent?.includes('首页核心文档主标题'), '第 1 页 Title 样式主标题必须完整显示');
 
   await act(async () => {
     root.unmount();

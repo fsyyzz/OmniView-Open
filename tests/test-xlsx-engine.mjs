@@ -9,6 +9,7 @@ import {
   parseCellRef,
   parseSharedStrings,
   parseXlsx,
+  parseWorksheetXml,
   serializeXlsxWorkbook,
   generateSampleXlsxZip,
   exportSheetToCsv,
@@ -346,7 +347,8 @@ async function testColumnResizingAndPersistence() {
 
   // 3. convertOmniWorkbookToUniver 映射 columnData
   const univerData = convertOmniWorkbookToUniver(updatedWb, 'TestWB');
-  assert.equal(univerData.sheets['s1'].columnData?.[1]?.w, 220, 'Univer columnData 应包含列宽 220px');
+  const firstSheetKey = univerData.sheetOrder[0];
+  assert.equal(univerData.sheets[firstSheetKey]?.columnData?.[1]?.w, 220, 'Univer columnData 应包含列宽 220px');
 
   // 4. 解析 XML <col min="1" max="1" width="18.5"/> 标签提取列宽
   const sampleSheetXml = `<?xml version="1.0" encoding="UTF-8"?>

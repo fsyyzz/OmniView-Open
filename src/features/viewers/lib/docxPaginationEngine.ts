@@ -280,6 +280,62 @@ function collectSectionContentChildren(section: HTMLElement): {
 }
 
 /**
+ * 读取子节点实际垂直外边距（优先读取真实 DOM computedStyle，回退行内 style，无布局时返回 0 避免虚增幻影间距）
+ */
+function measureChildVerticalMargins(el: HTMLElement): { top: number; bottom: number } {
+  const s = el.style as CSSStyleDeclaration | undefined;
+  let top = s?.marginTop ? parseCssLengthToPx(s.marginTop, 0) : 0;
+  let bottom = s?.marginBottom ? parseCssLengthToPx(s.marginBottom, 0) : 0;
+  if ((el.offsetHeight || 0) > 0 && typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+    try {
+      const cs = window.getComputedStyle(el);
+      if (cs) {
+        const ct = parseFloat(cs.marginTop);
+        const cb = parseFloat(cs.marginBottom);
+        if (Number.isFinite(ct) && ct > 0) top = Math.round(ct);
+        if (Number.isFinite(cb) && cb > 0) bottom = Math.round(cb);
+      }
+    } catch {
+      // 忽略无布局 mock 环境 getComputedStyle 异常
+    }
+  }
+  return { top, bottom };
+}
+
+/**
+ * 判断节点是否为空白占位符（无文本、无图片/SVG/表格/画布），避免其在跨页边缘制造空白多余页
+ */
+function isMeaninglessSpacerNode(el: HTMLElement | null | undefined): boolean {
+  if (!el) return true;
+  if ((el.textContent || '').trim().length > 0) return false;
+  if (el.querySelector && el.querySelector('img, svg, table, canvas, hr, iframe')) return false;
+  return true;
+}
+
+/**
+ * 测量 section 内 header/footer 超出页面上下留白的净高度，避免正文预算高度与页眉/页脚冲突
+ */
+function measureHeaderFooterOverflow(section: HTMLElement, padTop: number, padBottom: number): number {
+  let extra = 0;
+  const kids = Array.from(section.children || []) as HTMLElement[];
+  for (const kid of kids) {
+    const tag = kid.tagName?.toLowerCase();
+    if (tag === 'header') {
+      const h = kid.offsetHeight || 0;
+      if (h > padTop && padTop > 0) {
+        extra += Math.min(80, h - padTop);
+      }
+    } else if (tag === 'footer') {
+      const h = kid.offsetHeight || 0;
+      if (h > padBottom && padBottom > 0) {
+        extra += Math.min(80, h - padBottom);
+      }
+    }
+  }
+  return extra;
+}
+
+/**
  * 对已渲染的 docx DOM 容器执行智能物理分页
  * 将超长的大 section 切分为对应真实物理页数的独立 A4 纸张页面，
  * 并支持跨页长表格按行拆分及表头行自动延续重复。
@@ -316,8 +372,10 @@ export function paginateDocxContainer(
   let totalGeneratedPages = 0;
   let didPaginateAny = false;
 
-  // 2. 遍历每个 Section，检测是否超出单页高度或需要基于 expectedPageCount / 显式分页符拆分
-  for (const section of topSections) {
+  // 2. 遍历每个 Section，检测是否超出单页高度或存在未处理的显式分页符
+  for (let sIdx = 0; sIdx < topSections.length; sIdx++) {
+    const section = topSections[sIdx];
+    const sectionGroupId = `sec-${sIdx}`;
     // 提取并标准化该 section 的物理纸张高度与宽度（默认 A4 794×1123）
     const { width: styleWidth, height: styleHeight } = resolveStandardPageDimensions(section, options);
 
@@ -335,18 +393,24 @@ export function paginateDocxContainer(
       // 忽略计算样式异常
     }
 
-    const bottomBadgeReserve = Math.max(0, 28 - padBottom);
-    const availableContentHeight = Math.max(400, styleHeight - padTop - padBottom - bottomBadgeReserve);
+    const headerFooterExtra = measureHeaderFooterOverflow(section, padTop, padBottom);
+    const bottomBadgeReserve = Math.max(0, 24 - padBottom);
+    const availableContentHeight = Math.max(360, styleHeight - padTop - padBottom - bottomBadgeReserve - headerFooterExtra);
     const { children, primaryArticleStyle } = collectSectionContentChildren(section);
 
     // 测量真实滚动高度；若处于无布局树环境 (scrollHeight === 0)，则回退累加子节点估算高度
     const rawScrollHeight = section.scrollHeight || section.offsetHeight || 0;
     let estimatedChildrenHeight = 0;
     if (rawScrollHeight === 0 && children.length > 0) {
+      let prevEstBottom = 0;
       for (const child of children) {
         const ch = child.offsetHeight || child.getBoundingClientRect?.().height || estimateNodeHeight(child);
-        estimatedChildrenHeight += ch + 12;
+        const margins = measureChildVerticalMargins(child);
+        const gap = Math.max(prevEstBottom, margins.top);
+        estimatedChildrenHeight += ch + gap;
+        prevEstBottom = margins.bottom;
       }
+      estimatedChildrenHeight += prevEstBottom;
     }
     const sectionScrollHeight = rawScrollHeight > 0
       ? rawScrollHeight
@@ -356,12 +420,13 @@ export function paginateDocxContainer(
       child => isStandalonePageBreakNode(child) || hasExplicitPageBreakBefore(child) || hasExplicitPageBreakAfter(child)
     );
 
-    // 判定是否需要切分：存在显式分页符、内容高度超出单页标准高度，或总节数小于预期页数且内容饱满
+    // 判定是否需要切分：仅在存在显式分页符或真实溢出单页高度 (+12px 抗字体微差容差) 时切分；
+    // 若 docx-preview 已按原生分页符拆成独立页面且当前页高度未超出物理纸张，严禁因陈旧 <Pages> 元数据重复二次切分
     const needsPagination = Boolean(
       options.force ||
       hasExplicitDomBreak ||
-      sectionScrollHeight > styleHeight + 2 ||
-      (expectedPageCount > topSections.length && sectionScrollHeight > availableContentHeight * 1.02)
+      sectionScrollHeight > styleHeight + 12 ||
+      (rawScrollHeight === 0 && expectedPageCount > topSections.length && sectionScrollHeight > availableContentHeight * 1.05)
     );
 
     if (!needsPagination || children.length === 0) {
@@ -370,8 +435,14 @@ export function paginateDocxContainer(
       section.classList.add('docx_page');
       section.classList.add('docx-paged-sheet');
       section.setAttribute('data-page-number', String(totalGeneratedPages));
+      section.setAttribute('data-section-group', sectionGroupId);
       applyStandardSheetGeometry(section, styleWidth, styleHeight);
-      injectPageFooter(section, totalGeneratedPages, expectedPageCount || topSections.length, locale);
+      // 防止 vAlign="center" 在微溢时将首页标题推至顶部外侧裁切
+      const innerArt = section.querySelector<HTMLElement>('article');
+      if (innerArt && innerArt.scrollHeight > (innerArt.clientHeight || availableContentHeight) + 6 && innerArt.style?.justifyContent?.includes('center')) {
+        innerArt.style.justifyContent = 'flex-start';
+      }
+      injectPageFooter(section, totalGeneratedPages, Math.max(expectedPageCount, topSections.length), locale);
       continue;
     }
 
@@ -382,18 +453,8 @@ export function paginateDocxContainer(
     const sectionInlineStyle = section.getAttribute?.('style') || serializeMockStyle(section.style);
     const sectionAttributes = extractPreservedPageAttributes(section);
 
-    // 计算当前 section 预期的切分页数（防止 app.xml 中陈旧的 <Pages>1</Pages> 压制真实多页切分）
-    const naturalPagesByHeight = Math.max(1, Math.ceil(sectionScrollHeight / availableContentHeight));
-    let targetPagesForSection = naturalPagesByHeight;
-    if (expectedPageCount > topSections.length) {
-      const otherSectionsCount = topSections.length - 1;
-      targetPagesForSection = Math.max(1, expectedPageCount - otherSectionsCount);
-    }
-
-    // 动态校准单页预算高度，使切分出来的页数精准贴合原始 docx 页数
-    const effectiveContentBudget = expectedPageCount > topSections.length && sectionScrollHeight > 0
-      ? Math.max(300, Math.min(availableContentHeight, (sectionScrollHeight / targetPagesForSection) * 1.04))
-      : availableContentHeight;
+    // 直接采用物理页面真实可用高度作为预算，杜绝因陈旧 <Pages> 数值偏大而人为缩小预算产生大量半空页
+    const effectiveContentBudget = availableContentHeight;
 
     const parentNode = section.parentNode;
     const fragment = document.createDocumentFragment();
@@ -401,6 +462,7 @@ export function paginateDocxContainer(
     let currentPageNum = 1;
     const buildSheet = (pageOffset: number) => createPageSheetElement({
       pageNumber: totalGeneratedPages + pageOffset,
+      sectionGroupId,
       sectionClass,
       inlineStyle: sectionInlineStyle,
       width: styleWidth,
@@ -417,6 +479,7 @@ export function paginateDocxContainer(
     let currentSheet = buildSheet(currentPageNum);
     let currentArticle = currentSheet.querySelector<HTMLElement>('article')!;
     let currentAccumulatedHeight = 0;
+    let prevMarginBottom = 0;
 
     const sealCurrentPageAndStartNext = () => {
       fragment.appendChild(currentSheet);
@@ -424,6 +487,7 @@ export function paginateDocxContainer(
       currentSheet = buildSheet(currentPageNum);
       currentArticle = currentSheet.querySelector<HTMLElement>('article')!;
       currentAccumulatedHeight = 0;
+      prevMarginBottom = 0;
     };
 
     for (let i = 0; i < children.length; i++) {
@@ -432,7 +496,8 @@ export function paginateDocxContainer(
 
       // 独立分页符节点：若当前页已有内容则直接翻页，并不再向新页塞入空占位符
       if (isStandalonePageBreakNode(child)) {
-        if (currentAccumulatedHeight > 0 && i < children.length - 1) {
+        const hasRemainingRealContent = children.slice(i + 1).some(c => !isStandalonePageBreakNode(c) && !isMeaninglessSpacerNode(c));
+        if (currentAccumulatedHeight > 0 && hasRemainingRealContent) {
           sealCurrentPageAndStartNext();
         }
         continue;
@@ -443,16 +508,18 @@ export function paginateDocxContainer(
         sealCurrentPageAndStartNext();
       }
 
-      // 测量或估算子节点渲染高度
+      // 测量或估算子节点渲染高度与真实折叠边距
       let itemHeight = child.offsetHeight || child.getBoundingClientRect?.().height || 0;
       if (itemHeight === 0) {
         itemHeight = estimateNodeHeight(child);
       }
+      const margins = measureChildVerticalMargins(child);
+      const collapsedTopGap = currentAccumulatedHeight > 0 ? Math.max(prevMarginBottom, margins.top) : margins.top;
 
       // 超长表格按行跨页切分（保留表头）
       if (tag === 'table') {
         const tableRows = collectDirectTableRows(child);
-        if (tableRows.length >= 2 && (itemHeight > effectiveContentBudget || (currentAccumulatedHeight > 0 && currentAccumulatedHeight + itemHeight > effectiveContentBudget && itemHeight > effectiveContentBudget * 0.55))) {
+        if (tableRows.length >= 2 && (itemHeight > effectiveContentBudget || (currentAccumulatedHeight > 0 && currentAccumulatedHeight + collapsedTopGap + itemHeight > effectiveContentBudget && itemHeight > effectiveContentBudget * 0.55))) {
           const tableSplitResult = splitTableAcrossPages({
             tableEl: child,
             rows: tableRows,
@@ -465,27 +532,41 @@ export function paginateDocxContainer(
             },
           });
           currentAccumulatedHeight = tableSplitResult.accumulatedHeight;
+          prevMarginBottom = margins.bottom;
           continue;
         }
       }
 
       // 如果当前页已有内容，且放入该元素将超出本页预算高度
-      if (currentAccumulatedHeight > 0 && (currentAccumulatedHeight + itemHeight > effectiveContentBudget)) {
+      if (currentAccumulatedHeight > 0 && (currentAccumulatedHeight + collapsedTopGap + itemHeight > effectiveContentBudget)) {
+        // 避免纯粹的空白间距段落在下一页单独催生一张空白页
+        const trailingOnlyEmpty = isMeaninglessSpacerNode(child) && children.slice(i + 1).every(c => isMeaninglessSpacerNode(c));
+        if (trailingOnlyEmpty) {
+          break;
+        }
         sealCurrentPageAndStartNext();
       }
 
-      // 放入当前页 article
+      const topSpacingThisPage = currentAccumulatedHeight > 0 ? collapsedTopGap : margins.top;
       currentArticle.appendChild(child);
-      currentAccumulatedHeight += itemHeight + 12; // 计入段间距 margin
+      currentAccumulatedHeight += topSpacingThisPage + itemHeight;
+      prevMarginBottom = margins.bottom;
 
-      // 后置显式分页样式：放入当前节点后立即翻页
-      if (hasExplicitPageBreakAfter(child) && i < children.length - 1) {
-        sealCurrentPageAndStartNext();
+      // 后置显式分页样式：放入当前节点后立即翻页（仅当后方确有非空正文内容时才新建续页）
+      if (hasExplicitPageBreakAfter(child)) {
+        const hasRemainingRealContent = children.slice(i + 1).some(c => !isStandalonePageBreakNode(c) && !isMeaninglessSpacerNode(c));
+        if (hasRemainingRealContent) {
+          sealCurrentPageAndStartNext();
+        }
       }
     }
 
-    // 将最后一页放入 fragment
-    fragment.appendChild(currentSheet);
+    // 若最后一页仅含空占位符且前已有有效页，裁剪掉尾随空白页
+    if (currentPageNum > 1 && Array.from(currentArticle.children || []).every(c => isMeaninglessSpacerNode(c as HTMLElement))) {
+      currentPageNum--;
+    } else {
+      fragment.appendChild(currentSheet);
+    }
 
     // 用切分后的 pages 替换原先的超长 section
     if (parentNode) {
@@ -496,10 +577,10 @@ export function paginateDocxContainer(
     didPaginateAny = true;
   }
 
-  // 4. 在真实浏览器布局树下执行二次溢出重排：若单页实际渲染高度超出固定纸张高度，自动顺延至下一页避免截断
+  // 4. 在真实浏览器布局树下执行二次溢出重排：仅在同一节边界内温和顺延，绝不跨分节/分页符串页或产生空白页
   rebalanceOverflowingSheets(container, locale);
 
-  // 5. 全局回填与更新所有页面的总页数标注（如 "第 X 页 / 共 56 页"）
+  // 5. 全局回填与更新所有页面的总页数标注（如 "第 X 页 / 共 5 页"）
   const allFinalSheets = Array.from(container.querySelectorAll<HTMLElement>('.docx-paged-sheet'));
   const finalTotal = allFinalSheets.length || totalGeneratedPages;
   allFinalSheets.forEach((sheet, idx) => {
@@ -515,8 +596,8 @@ export function paginateDocxContainer(
 }
 
 /**
- * 真实浏览器渲染后，若某页因字体行高导致正文略微超出标准纸张固定高度，
- * 将末尾溢出元素自动顺延至下一页（或新建标准空白页），既保住固定 A4 尺寸又绝不吞字截断。
+ * 真实浏览器渲染后，若某页因字体行高导致正文超出标准纸张固定高度，
+ * 仅在所属原始章节/分节组内温和顺延（绝不跨硬分页符污染下一章封面或内容），既保住固定纸张尺寸又绝不吞字截断或虚增空白页。
  */
 function rebalanceOverflowingSheets(container: HTMLElement, locale: 'zh-CN' | 'en-US'): void {
   let sheets = Array.from(container.querySelectorAll<HTMLElement>('.docx-paged-sheet'));
@@ -524,18 +605,25 @@ function rebalanceOverflowingSheets(container: HTMLElement, locale: 'zh-CN' | 'e
 
   for (let i = 0; i < sheets.length && i < 120; i++) {
     const sheet = sheets[i];
+    const currentGroup = sheet.getAttribute('data-section-group') || '';
     const targetH = parseInt(sheet.getAttribute('data-page-height') || '0', 10) || A4_HEIGHT_PX;
     const targetW = parseInt(sheet.getAttribute('data-page-width') || '0', 10) || A4_WIDTH_PX;
     const article = sheet.querySelector<HTMLElement>('.docx-page-article') || sheet.querySelector<HTMLElement>('article');
 
     const isOverflowing = () => {
-      const sheetOver = (sheet.scrollHeight || 0) > targetH + 2;
+      const sheetOver = (sheet.scrollHeight || 0) > targetH + 8;
       const articleClientH = article?.clientHeight || 0;
-      const articleOver = Boolean(article && articleClientH > 0 && (article.scrollHeight || 0) > articleClientH + 2);
+      const articleOver = Boolean(article && articleClientH > 0 && (article.scrollHeight || 0) > articleClientH + 6);
       return sheetOver || articleOver;
     };
 
     if (!isOverflowing()) continue;
+
+    // 若垂直居中在溢出状态下会把第一页标题顶出可视区，立即切回顶部对齐
+    if (article && article.style?.justifyContent?.includes('center')) {
+      article.style.justifyContent = 'flex-start';
+    }
+
     if (!article || article.children.length <= 1) continue;
 
     let padTop = parseCssLengthToPx(sheet.style?.paddingTop, 36);
@@ -559,7 +647,15 @@ function rebalanceOverflowingSheets(container: HTMLElement, locale: 'zh-CN' | 'e
     const inheritedArticleStyle = extractArticleStyleProps(article);
 
     let guard = 0;
-    let nextSheet: HTMLElement | null = sheets[i + 1] || null;
+    const candidateNext = sheets[i + 1] || null;
+    // 仅当下一页同属一个连续分节组且宽高一致时才允许并入，防止污染下一章起始页或独立横竖版分节
+    const canReuseNextSheet = Boolean(
+      candidateNext &&
+      currentGroup &&
+      candidateNext.getAttribute('data-section-group') === currentGroup &&
+      (parseInt(candidateNext.getAttribute('data-page-width') || '0', 10) || A4_WIDTH_PX) === targetW
+    );
+    let nextSheet: HTMLElement | null = canReuseNextSheet ? candidateNext : null;
     let nextArticle: HTMLElement | null =
       nextSheet?.querySelector<HTMLElement>('.docx-page-article') ||
       nextSheet?.querySelector<HTMLElement>('article') ||
@@ -570,9 +666,16 @@ function rebalanceOverflowingSheets(container: HTMLElement, locale: 'zh-CN' | 'e
       const lastChild = article.lastElementChild as HTMLElement | null;
       if (!lastChild) break;
 
+      // 末尾如果是毫无内容的空间距段落，直接裁剪而不催生多余溢出页
+      if (isMeaninglessSpacerNode(lastChild)) {
+        lastChild.parentNode?.removeChild(lastChild);
+        continue;
+      }
+
       if (!nextSheet || !nextArticle) {
         const clonedEmpty = createPageSheetElement({
           pageNumber: i + 2,
+          sectionGroupId: currentGroup,
           sectionClass: inheritedClass,
           inlineStyle: inheritedStyle,
           width: targetW,
@@ -754,7 +857,6 @@ function splitTableAcrossPages(params: {
   }
 
   flushActiveTableIfNonEmpty();
-  accumulated += 12;
 
   return { accumulatedHeight: accumulated };
 }
@@ -786,6 +888,7 @@ function serializeMockStyle(style: CSSStyleDeclaration | Record<string, string> 
  */
 function createPageSheetElement(params: {
   pageNumber: number;
+  sectionGroupId?: string;
   sectionClass: string;
   inlineStyle: string;
   width: number;
@@ -823,21 +926,30 @@ function createPageSheetElement(params: {
 
   applyStandardSheetGeometry(sheet, params.width, params.height);
   sheet.setAttribute('data-page-number', String(params.pageNumber));
+  if (params.sectionGroupId) {
+    sheet.setAttribute('data-section-group', params.sectionGroupId);
+  }
   if (params.sectionAttributes) {
     for (const [attrKey, attrVal] of Object.entries(params.sectionAttributes)) {
       sheet.setAttribute(attrKey, attrVal);
     }
   }
 
-  // 克隆 header
+  // 克隆 header 并确保不被 flexbox 压缩
   if (params.header) {
-    sheet.appendChild(params.header.cloneNode(true));
+    const hdr = params.header.cloneNode(true) as HTMLElement;
+    if (hdr.style) {
+      hdr.style.flexShrink = '0';
+      hdr.style.position = 'relative';
+      hdr.style.zIndex = '2';
+    }
+    sheet.appendChild(hdr);
   }
 
-  // 创建正文容器，限定最大宽度防止长内容撑破纸张宽度，并保留多栏与垂直对齐属性
+  // 创建正文容器：使用弹性自适应高度 (flex: 1 1 auto; min-height: 0) 替代刚性 height 锁死，保护首页页眉/页脚不被挤压
   const article = document.createElement('article');
   article.className = 'docx-page-article';
-  const badgeReserve = Math.max(0, 28 - params.padBottom);
+  const badgeReserve = Math.max(0, 24 - params.padBottom);
   const articleMaxH = Math.max(200, params.height - params.padTop - params.padBottom - badgeReserve);
   if (params.articleStyle?.inlineStyle) {
     const cleanArtStyle = params.articleStyle.inlineStyle
@@ -857,15 +969,22 @@ function createPageSheetElement(params: {
     article.style.flexDirection = params.articleStyle.flexDirection || 'column';
     article.style.justifyContent = params.articleStyle.justifyContent;
   }
-  article.style.height = `${articleMaxH}px`;
+  article.style.flex = '1 1 auto';
+  article.style.minHeight = '0';
   article.style.maxHeight = `${articleMaxH}px`;
   article.style.maxWidth = '100%';
   article.style.boxSizing = 'border-box';
   sheet.appendChild(article);
 
-  // 克隆 footer
+  // 克隆 footer 并确保不被 flexbox 压缩
   if (params.footer) {
-    sheet.appendChild(params.footer.cloneNode(true));
+    const ftr = params.footer.cloneNode(true) as HTMLElement;
+    if (ftr.style) {
+      ftr.style.flexShrink = '0';
+      ftr.style.position = 'relative';
+      ftr.style.zIndex = '2';
+    }
+    sheet.appendChild(ftr);
   }
 
   // 注入标准页码底栏角标

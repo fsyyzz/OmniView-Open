@@ -8,7 +8,22 @@
 
 ---
 
-## [1.4.51] - 2026-11-16 (当前最新发布)
+## [1.4.52] - 2026-11-16 (当前最新发布)
+
+> [!TIP] v1.4.52 核心升级亮点
+> **Word (`.docx`) 过分页膨胀治理、第 1 页标题/页眉高保真防丢失修复与 VS Code 离线安装包正式发布**：
+> 1. **消除多倍行高 `1.15×` 叠加虚高与幻影 `+12px` 过分页膨胀 (`docxEngine.ts`, `docxPaginationEngine.ts`)**：
+>    - 修正 `resolveAutoLineHeightRatio` 仅对单倍行距 (`ratio ≤ 1.05`) 施加 Word `1.15×` 视觉缓冲，多倍行距 (`1.15×` / `1.5×` / `2.0×`) 直映原始倍数（不再错算为 `1.32` / `1.73` / `2.30`）；
+>    - 废除分页累加时的固定 `+12px` 幻影间距并改为真实折叠外边距 (`measureChildVerticalMargins`)，将已分页 `<section>` 切分阈值收紧为 `styleHeight + 12px` 亚像素容差，停止因陈旧 `<Pages>` 元数据缩减单页预算，并在切分及顺延重排阶段裁除尾随无意义空段落，彻底杜绝页数虚增与尾随空白页。
+> 2. **全链路守卫第 1 页标题、`<w:titlePg/>` 首页页眉与窄面板左侧可见性 (`docxEngine.ts`, `docxPaginationEngine.ts`, `DocxViewer.tsx`)**：
+>    - 将注入基线样式降为零特异度 `:where(.docx-rendered-wrapper)` / `:where(.docx-rendered-wrapper) p`，避免覆盖 Word `Title` / `Heading` 样式；`escapedId` 统一转小写精准对齐 `docx-preview` 的 `escapeClassName()` 规则；并在 `spacingQueue` 匹配中拦截跨文本错配；
+>    - 强制 `<header>` / `<footer>` 锁定 `flex-shrink: 0` 与页眉负外边距上界钳位；`vAlign="center"` 采用 `safe center` 并在溢出时回退 `flex-start` 防顶出裁切；为 VML `<svg:has(foreignObject)>` 开放可见溢出；按 `data-section-group` 严格隔离跨节溢出顺延，并将 `DocxViewer` 外框 `flex justify-center` 替换为 `mx-auto` 消除 VS Code 窄侧栏左边缘裁切。
+> 3. **样例文档刷新、回归测试补强与 VSIX 发布打包 (`scripts/generate-office-samples.mjs`, `tests/test-docx-*.mjs`, `omniview-1.4.52.vsix`)**：
+>    - 重建规范化 `examples/docx/omniview-architecture-guide.docx`（含完整 `word/styles.xml` 与 `word/_rels/document.xml.rels`），补充行高、页眉、Title 样式、抗过分页及 `titlePg` UI 回归测试，并完成全量门禁校验与 `omniview-1.4.52.vsix` 构建验收。
+
+---
+
+## [1.4.51] - 2026-11-16
 
 > [!TIP] v1.4.51 核心升级亮点
 > **PPTX 矢量多边形几何重塑、页面元素层级结构梳理、多配色/画幅尺寸预设与 Word (`.docx`) 文内目录导航精准跳转全面交付**：
@@ -170,21 +185,5 @@
 
 ---
 
-## [1.4.39] - 2026-11-10
-
-> [!TIP] v1.4.39 核心升级亮点
-> **彻底修复 PlantUML 用例图 (Use Case) 与思维脑图 (Mindmap) 节点文字与背景同为白色的对比度异常**：
-> 1. **全景样式注入引擎重构 (`src/shared/lib/plantuml.ts`)**：
->    - 脑图与 WBS 原生 `<style>` 规范覆盖：针对 `@startmindmap` / `@startwbs` 注入自适应原生 `<style>` 块，深色模式下显式定义 `#111827` 节点底色、`#38bdf8` 边框与 `#f8fafc` 文字，浅色模式下定义 `#f8fafc` 节点底色与 `#0f172a` 文字，彻底解决 PlantUML 默认浅灰白底色与全局白字冲突导致的不可读现象；
->    - 工业级 UML 图元全面补全：为用例图 `usecase` 以及各类架构图元（`rectangle`, `agent`, `database`, `queue`, `collections`, `cloud`, `node`, `storage`, `card`, `boundary`, `control`, `entity`, `interface`）补齐多主题高对比度的 `skinparam` 背景色、边框色与字体颜色契约；
-> 2. **独立驱动与缓存快照平滑演进**：
->    - `PlantUmlViewer` 驱动支持 `isDarkTheme` 属性与深浅色模式动态透传；
->    - Markdown AST 渲染管道 `PlantUmlBlock` 缓存版本升至 `plantuml:v2`，自动使历史白底白字离线缓存失效并无缝更新；
-> 3. **自动化测试与门禁验证**：
->    - `tests/test-plantuml-url.mjs` 增补对用例图 `usecase` 皮肤和思维脑图 `mindmapDiagram` 原生 `<style>` 注入的双向断言；
->    - 全量 101/101 套自动化测试与文档代码一致性门禁 100% 绿灯通过。
-
----
-
 > [!NOTE] 历史版本归档提示
-> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认滚动保留最近 **10 次**版本变更记录。`v1.4.38` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。
+> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认滚动保留最近 **10 次**版本变更记录。`v1.4.39` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。

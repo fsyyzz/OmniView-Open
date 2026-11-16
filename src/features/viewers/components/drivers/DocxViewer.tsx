@@ -1418,7 +1418,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           ref={scrollAreaRef}
           onScroll={handleMainScroll}
           onWheel={handleViewportWheel}
-          className="flex-1 overflow-auto p-4 sm:p-8 pb-20 flex justify-center items-start relative bg-[var(--ov-bg)]"
+          className="flex-1 overflow-auto p-4 sm:p-8 pb-20 relative bg-[var(--ov-bg)]"
         >
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 m-auto py-16 bg-[var(--ov-bg)]/85 z-20">
@@ -1440,9 +1440,9 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
               </button>
             </div>
           ) : (
-            /* 外层缩放占位盒子：真实同步 scale 后的布局尺寸，消除左右裁切与底部大块空白 */
+            /* 外层缩放占位盒子：真实同步 scale 后的布局尺寸，采用 mx-auto 避免窄屏下 flex justify-center 导致左侧内容裁切 */
             <div
-              className="docx-scale-frame relative shrink-0"
+              className="docx-scale-frame relative shrink-0 mx-auto"
               style={{
                 width: naturalSize.width > 0 ? `${Math.round(naturalSize.width * effectiveZoom)}px` : '100%',
                 height: naturalSize.height > 0 ? `${Math.round(naturalSize.height * effectiveZoom)}px` : undefined,
@@ -1590,6 +1590,12 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                     overflow: hidden !important;
                     flex-shrink: 0 !important;
                   }
+                  .docx-viewport-root.mode-paged section > header,
+                  .docx-viewport-root.mode-paged section > footer {
+                    flex-shrink: 0 !important;
+                    position: relative;
+                    z-index: 2;
+                  }
                   .docx-viewport-root.mode-paged .docx-paged-sheet > article,
                   .docx-viewport-root.mode-paged .docx-paged-sheet .docx-page-article {
                     max-width: 100% !important;
@@ -1637,6 +1643,11 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                     padding: 36px 48px !important;
                     border-radius: 6px !important;
                     margin-bottom: 24px !important;
+                  }
+                  .docx-viewport-root.mode-fluid section > header {
+                    margin-top: 0 !important;
+                    min-height: auto !important;
+                    margin-bottom: 16px;
                   }
                   .docx-viewport-root.mode-fluid .docx_page {
                     width: 100% !important;

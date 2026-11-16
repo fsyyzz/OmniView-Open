@@ -416,7 +416,111 @@ async function runTests() {
   }
   console.log('✅ 分页与溢出续页完整保留边距/边框/多栏属性验证通过');
 
-  console.log('\n🎉 全部 8 项 docx 物理页面排版与自然分页引擎测试 100% 通过！\n');
+  // --- 测试 9: 抗过分页膨胀（亚像素容差 / 无幻影 +12px / 尾空裁除 / 同节边界隔离 / 页眉弹性护栏） ---
+  console.log('--- 测试 9: 抗过分页膨胀与跨节隔离、尾空裁除及页眉护栏验证 ---');
+  const hWin9 = new HappyWindow();
+  const hDoc9 = hWin9.document;
+  const savedDoc9 = global.document;
+  const savedWin9 = global.window;
+  global.document = hDoc9;
+  global.window = hWin9;
+  try {
+    // 9a: 已分页 section 在 styleHeight + 12px 亚像素容差内（即使 docProps/app.xml 虚报更多页数），绝不二次拆分
+    const c9a = hDoc9.createElement('div');
+    const s9a = hDoc9.createElement('section');
+    s9a.className = 'docx-rendered-wrapper docx';
+    s9a.setAttribute('style', 'width: 794px; min-height: 1123px; padding: 36px;');
+    const art9a = hDoc9.createElement('article');
+    art9a.appendChild(hDoc9.createElement('p')).textContent = '紧贴物理纸张底部的单页内容';
+    s9a.appendChild(art9a);
+    Object.defineProperty(s9a, 'scrollHeight', { value: 1131, configurable: true });
+    c9a.appendChild(s9a);
+
+    const res9a = paginateDocxContainer(c9a, { expectedPageCount: 3 });
+    assert.strictEqual(res9a.totalPages, 1, 'scrollHeight=1131 (<= 1123+12) 且 expectedPageCount=3 虚高时绝不可二次拆成多页');
+
+    // 9b: 20 行无外边距紧排文本 (20 × 50px = 1000px <= 1051px 可用高度)，强制切分时无幻影 +12px，严格保持 1 页且不生成空白尾页
+    const c9b = hDoc9.createElement('div');
+    const s9b = hDoc9.createElement('section');
+    s9b.className = 'docx-rendered-wrapper docx';
+    s9b.setAttribute('style', 'width: 794px; min-height: 1123px; padding: 36px 48px;');
+    const hdr9b = hDoc9.createElement('header');
+    hdr9b.textContent = '第 1 页重要页眉';
+    s9b.appendChild(hdr9b);
+    const art9b = hDoc9.createElement('article');
+    for (let i = 1; i <= 20; i++) {
+      const p = hDoc9.createElement('p');
+      p.textContent = `紧凑行 #${i}`;
+      p.style.marginTop = '0px';
+      p.style.marginBottom = '0px';
+      Object.defineProperty(p, 'offsetHeight', { value: 50, configurable: true });
+      art9b.appendChild(p);
+    }
+    const emptyTail = hDoc9.createElement('p');
+    emptyTail.textContent = '   ';
+    Object.defineProperty(emptyTail, 'offsetHeight', { value: 24, configurable: true });
+    art9b.appendChild(emptyTail);
+    s9b.appendChild(art9b);
+    c9b.appendChild(s9b);
+
+    const res9b = paginateDocxContainer(c9b, { force: true, expectedPageCount: 2 });
+    assert.strictEqual(res9b.totalPages, 1, '20×50px=1000px 内容加尾部空白段落不得因幻影 +12px 溢出为 2 页');
+    const sheet9b = c9b.querySelector('.docx-paged-sheet');
+    const clonedArt9b = sheet9b.querySelector('article');
+    assert.strictEqual(clonedArt9b.style.height, '', 'article 不应写死刚性 height 以免压扁 header');
+    assert.strictEqual(clonedArt9b.style.flex, '1 1 auto', 'article 必须设置 flex: 1 1 auto 弹性填充');
+    assert.strictEqual(sheet9b.querySelector('header')?.style.flexShrink, '0', '克隆的 header 必须锁定 flexShrink: 0');
+
+    // 9c: rebalanceOverflowingSheets 严禁跨分节组 (data-section-group) 挤入下一章页面，且溢出的 vAlign="center" 切回 flex-start
+    const c9c = hDoc9.createElement('div');
+    const sec1 = hDoc9.createElement('section');
+    sec1.className = 'docx-rendered-wrapper docx';
+    sec1.setAttribute('style', 'width: 794px; min-height: 1123px; padding: 36px;');
+    const art1 = hDoc9.createElement('article');
+    art1.style.display = 'flex';
+    art1.style.flexDirection = 'column';
+    art1.style.justifyContent = 'center';
+    const p1Title = hDoc9.createElement('p');
+    p1Title.textContent = '第一分节核心标题';
+    Object.defineProperty(p1Title, 'offsetHeight', { value: 600, configurable: true });
+    const p1Sub = hDoc9.createElement('p');
+    p1Sub.textContent = '第一分节溢出副段落';
+    Object.defineProperty(p1Sub, 'offsetHeight', { value: 600, configurable: true });
+    art1.appendChild(p1Title);
+    art1.appendChild(p1Sub);
+    Object.defineProperty(art1, 'clientHeight', { value: 1051, configurable: true });
+    Object.defineProperty(art1, 'scrollHeight', { value: 1200, configurable: true });
+    sec1.appendChild(art1);
+    Object.defineProperty(sec1, 'scrollHeight', { value: 1250, configurable: true });
+
+    const sec2 = hDoc9.createElement('section');
+    sec2.className = 'docx-rendered-wrapper docx';
+    sec2.setAttribute('style', 'width: 794px; min-height: 1123px; padding: 36px;');
+    const art2 = hDoc9.createElement('article');
+    const p2Start = hDoc9.createElement('p');
+    p2Start.textContent = '第二分节独立起始标题';
+    art2.appendChild(p2Start);
+    sec2.appendChild(art2);
+    Object.defineProperty(sec2, 'scrollHeight', { value: 1123, configurable: true });
+
+    c9c.appendChild(sec1);
+    c9c.appendChild(sec2);
+    const res9c = paginateDocxContainer(c9c);
+    assert.strictEqual(res9c.totalPages, 3, '第一分节溢出应自建第 2 页而非挤入第二分节');
+    const sheets9c = Array.from(c9c.querySelectorAll('.docx-paged-sheet'));
+    assert.strictEqual(sheets9c[0].getAttribute('data-section-group'), 'sec-0');
+    assert.strictEqual(sheets9c[1].getAttribute('data-section-group'), 'sec-0');
+    assert.strictEqual(sheets9c[2].getAttribute('data-section-group'), 'sec-1');
+    assert.ok(sheets9c[2].textContent.includes('第二分节独立起始标题'), '第二分节内容必须保持完整隔离');
+    assert.ok(!sheets9c[2].textContent.includes('第一分节溢出副段落'), '第一分节溢出段落绝不能污染第二分节');
+  } finally {
+    global.document = savedDoc9;
+    global.window = savedWin9;
+    await hWin9.close();
+  }
+  console.log('✅ 抗过分页膨胀与跨节隔离、尾空裁除及页眉护栏验证通过');
+
+  console.log('\n🎉 全部 9 项 docx 物理页面排版与自然分页引擎测试 100% 通过！\n');
 }
 
 runTests().catch(err => {
