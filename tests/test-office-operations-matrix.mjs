@@ -106,9 +106,13 @@ async function testPptxOperations() {
   assert(hasNotes, '幻灯片必须提取到演讲者备注');
   console.log(`✅ 2. 演讲者备注提取验证通过：首页备注: "${parsed.slides[0].notes?.substring(0, 30)}..."`);
 
-  // 2. 静态断言 PptxViewer.tsx 源码关键交互事件与能力覆盖
+  // 2. 静态断言 PptxViewer.tsx 与 PptxSlideStage.tsx 源码关键交互事件与能力覆盖
   const pptxViewerSource = fs.readFileSync(
     path.join(rootDir, 'src/features/viewers/components/drivers/PptxViewer.tsx'),
+    'utf-8'
+  );
+  const pptxStageSource = fs.readFileSync(
+    path.join(rootDir, 'src/features/viewers/components/drivers/pptx/PptxSlideStage.tsx'),
     'utf-8'
   );
 
@@ -120,30 +124,34 @@ async function testPptxOperations() {
   assert(pptxViewerSource.includes('Home') && pptxViewerSource.includes('End'), '缺失 Home/End 跳转快捷键');
   console.log('✅ 3. 多维度翻页导航控制器 (按钮 + 键盘 ←/→/Space/PageUp/PageDown/Home/End) 完备');
 
-  // 缩略图抽屉
+  // 缩略图抽屉与平铺总览
   assert(pptxViewerSource.includes('setShowThumbnails'), '缺失缩略图列表切换');
   assert(pptxViewerSource.includes('aspect-video'), '缩略图需保持 16:9 等比卡片');
-  console.log('✅ 4. 幻灯片等比缩略图大纲列表抽屉完备');
+  assert(pptxViewerSource.includes('PptxGridOverview'), '缺失平铺总览视图组件');
+  console.log('✅ 4. 幻灯片等比缩略图大纲与平铺总览完备');
 
   // 演讲者备注抽屉与友好兜底
   assert(pptxViewerSource.includes('showNotes'), '缺失备注抽屉控制');
   assert(pptxViewerSource.includes('当前幻灯片暂无演播提词与备注'), '缺失无备注友好兜底提示');
   console.log('✅ 5. 演讲者备注 (Speaker Notes) 浮动抽屉与兜底提示完备');
 
-  // 全屏演播放映
+  // 全屏演播放映与导出打印
   assert(pptxViewerSource.includes('toggleFullscreen'), '缺失全屏演播放映');
-  console.log('✅ 6. 全屏演播放映 (Fullscreen Slide Presentation) 完备');
+  assert(pptxViewerSource.includes('pptxToMarkdown'), '缺失 Markdown 导出能力');
+  assert(pptxViewerSource.includes('buildPptxPrintHtml'), '缺失打印 PDF 导出能力');
+  console.log('✅ 6. 全屏演播放映 (HUD + 激光笔) 与 Markdown/PDF 导出完备');
 
   // 重新载入与刷新
   assert(pptxViewerSource.includes('loadPresentation()'), '缺失重新载入操作');
   console.log('✅ 7. 重新载入与解析刷新 (Refresh) 操作完备');
 
-  // 四类矢量元素渲染覆盖
-  assert(pptxViewerSource.includes("el.type === 'image'"), '缺失图片图元渲染');
-  assert(pptxViewerSource.includes("el.type === 'table'"), '缺失表格矩阵渲染');
-  assert(pptxViewerSource.includes("el.type === 'shape'"), '缺失纯几何形状渲染');
-  assert(pptxViewerSource.includes('el.paragraphs'), '缺失富文本框排版渲染');
-  console.log('✅ 8. 四大核心矢量图元 (图片/表格/几何形状/富文本) 渲染逻辑完备');
+  // 五类矢量元素渲染覆盖 (图片/表格/几何形状/富文本/原生图表)
+  assert(pptxStageSource.includes("el.type === 'image'"), '缺失图片图元渲染');
+  assert(pptxStageSource.includes("el.type === 'table'"), '缺失表格矩阵渲染');
+  assert(pptxStageSource.includes("el.type === 'shape'"), '缺失纯几何形状渲染');
+  assert(pptxStageSource.includes("el.type === 'chart'"), '缺失原生图表渲染');
+  assert(pptxStageSource.includes('el.paragraphs'), '缺失富文本框排版渲染');
+  console.log('✅ 8. 五大核心矢量图元 (图片/表格/几何形状/原生图表/富文本) 渲染逻辑完备');
 }
 
 async function testXlsxOperations() {

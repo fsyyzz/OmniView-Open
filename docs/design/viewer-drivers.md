@@ -28,7 +28,7 @@ OmniView 采用轻量化、按需加载的微内核驱动架构。整个系统�
 | **12** | `TypstViewer` | `.typ`, `.typst` | 纯端侧 AST 增量编译器 + A4 2.0 引擎 | 双向分屏编辑、KaTeX 公式混排、多版心切换、语法片段插入 | 工业级 A4 打印、无损 SVG / PDF 导出 |
 | **13** | `StructuredDataViewer`| `.json`, `.yaml`, `.yml`, `.toml`, `.xml` | 统一结构化 AST 中间表示层 | 折叠树视图、导图全景投影、同构表格下钻、敏感配置脱敏 | 跨格式无损互转、美化压缩格式化 |
 | **14** | `DocxViewer` | `.docx` | OOXML 标准解包 + `docx-preview` | Word 高保真拟真排版、50%~200% 平滑缩放、复杂表格单元格合并 | 原生打印、夜间暗色对比度反转 |
-| **15** | `PptxViewer` | `.pptx` | 纯离线 OOXML 形状与层级解析器 | 16:9 / 4:3 矢量自适应幻灯片演播、全屏沉浸放映、备注抽屉 | 缩略图大纲跳转、逐页快速放映 |
+| **15** | `PptxViewer` | `.pptx` | 纯 TS XML AST + 母版继承 + OOXML 图表引擎 | 1:1 等比自适应舞台、真实缩略图、平铺总览、Ctrl+F 搜索高亮、F5 全屏激光笔 HUD | Markdown 结构化导出、系统级 PDF 分页打印 |
 | **16** | `XlsxViewer` | `.xlsx`, `.xls` | 纯前端 OOXML 解析 + JSZip 离线流 | 多工作表 (Multi-Sheet Tabs)、公式/计算值检视、列特征画像 | CSV/JSON/Markdown 导出、迷你走势图 |
 | **17** | `ImageViewer` | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.ico` | Canvas 2D 硬件加速引擎 | 10%~3200% 极清矢量缩放、16x 放大镜十字取色、EXIF 透视 | 多色彩空间复制、图片格式无损转换 |
 | **18** | `CodeViewer` | `.js`, `.ts`, `.py`, `.go`, `.rs`, `.java`, `.cpp`, `.css` 等 | Prism.js 语法解析管道 | 60+ 主流编程语言语法着色、行号高亮、代码折叠 | 原生纯净复制代码、Word 2 列表格复制 |
@@ -202,11 +202,11 @@ OmniView 为桌面端办公文档提供零外部依赖、100% 本地沙箱离线
 - **Word DOM 转 Markdown 导出 (`docxDomToMarkdown`)**: 一键将 Word 页面提取为清晰规范的 Markdown 文本并复制到剪贴板；
 - **工业级系统打印桥接 (`requestPrintHtml`)**: 发起无损打印命令，调用系统打印机直接输出高精度纸质文档。
 
-### 7.3 PptxViewer 矢量幻灯片只读演播工作台
-- **离线形状与图元提取 (`pptxEngine.ts`)**: 解析幻灯片 XML，重构文本框、矢量几何形状、排版样式与多媒体图片；
-- **自适应视口与沉浸放映**: 提供标准 16:9 与 4:3 比例自适应缩放，支持全屏沉浸演播模式 (`PresentationMode`) 与键盘 `PageUp`/`PageDown`/方向键切页；
-- **缩略图大纲与演讲者备注抽屉**: 底部/左侧提供缩略图快速导航，支持展开演讲者专属备忘笔记抽屉；
-- **零外部网络调用**: 杜绝将商业机密 PPT 上传至第三方转码服务器，确保安全合规。
+### 7.3 PptxViewer 原生矢量幻灯片演播工作台
+- **纯 TS XML AST 与母版继承内核 (`pptxXmlUtils.ts` / `pptxEngine.ts`)**: 零 `DOMParser` 依赖，支持 `slideMaster`/`slideLayout` 背景与占位符样式继承、`<p:sldIdLst>` 真实页序与隐藏页 (`show="0"`) 识别、`<p:grpSp>` 嵌套组合图形子坐标矩阵变换与 `<p:cxnSp>` 连线箭头；
+- **完整主题色彩修饰符与富媒体渲染**: 支持 `tint`/`shade`/`lumMod`/`lumOff`/`satMod`/`alpha` 色彩计算、`gradFill` 渐变背景、跨行跨列合并表格 (`gridSpan`/`rowSpan`)、项目符号与多类型自动编号 (`buAutoNum`) 以及 `ppt/charts/chart*.xml` 原生内嵌图表；
+- **1:1 等比舞台与演播工作台 (`PptxSlideStage` / `PptxGridOverview`)**: 基于 `ResizeObserver` 计算物理舞台缩放比，提供左侧真实微缩缩略图、平铺总览 (`G`)、全文搜索与 `<mark>` 高亮 (`Ctrl+F`)、F5 全屏自动隐藏 HUD（含计时器与红点激光笔 `L`）、演讲者备注抽屉、Markdown 一键复制及分页 PDF 打印；
+- **零外部网络调用**: 100% 纯前端离线解析与 `DOMPurify` 安全过滤，损坏包触发自动降级演播并附带可控提示横幅。
 
 ---
 

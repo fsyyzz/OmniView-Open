@@ -31,8 +31,6 @@ import dockerCompose from '../../../../examples/docker/docker-compose.yml?raw';
 import dockerDockerfile from '../../../../examples/docker/Dockerfile?raw';
 
 // Domain Story & DDD Modeling
-import domainStoryEcommerceDdd from '../../../../examples/domainstory/ecommerce-fulfillment.ddd?raw';
-import domainStoryLeaveDdd from '../../../../examples/domainstory/leave-approval.ddd?raw';
 import dddOrderEventStorming from '../../../../examples/domainstory/order-event-storming.ddd?raw';
 import dddRetailContextMap from '../../../../examples/domainstory/retail-context-map.ddd?raw';
 import dddRetailCoreDomain from '../../../../examples/domainstory/retail-core-domain.ddd?raw';
@@ -199,8 +197,6 @@ export const INITIAL_FILES: FileItem[] = [
   makeFile('docker/Dockerfile', 'Dockerfile', dockerDockerfile),
 
   // Domain Story & DDD Modeling (统一收敛至 .ddd 架构视图模型)
-  makeFile('domainstory/ecommerce-fulfillment.ddd', 'ecommerce-fulfillment.ddd', domainStoryEcommerceDdd),
-  makeFile('domainstory/leave-approval.ddd', 'leave-approval.ddd', domainStoryLeaveDdd),
   makeFile('domainstory/order-event-storming.ddd', 'order-event-storming.ddd', dddOrderEventStorming),
   makeFile('domainstory/retail-context-map.ddd', 'retail-context-map.ddd', dddRetailContextMap),
   makeFile('domainstory/retail-core-domain.ddd', 'retail-core-domain.ddd', dddRetailCoreDomain),

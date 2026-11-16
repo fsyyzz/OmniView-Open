@@ -232,4 +232,45 @@ const sampleDoc = [
   console.log('  ✅ 9. MarkdownBlockActionBar 默认二按钮（编辑 + 更多）渐进披露契约测试通过');
 }
 
-console.log('🎉 Markdown 块级原地专注编辑与块级 CRUD 引擎全部 9 项测试 100% 通过！');
+// 10. 测试 Markdown 悬浮操作统一全量靠最左侧显示定位契约（杜绝横向到处漂移与位置跳变）
+{
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const actionBarSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/features/viewers/components/drivers/markdown/MarkdownBlockActionBar.tsx'),
+    'utf8'
+  );
+  assert.match(
+    actionBarSource,
+    /position\s*=\s*'left'/,
+    'MarkdownBlockActionBar 默认对齐位置应为 left'
+  );
+  assert.match(
+    actionBarSource,
+    /leftOffsetPx\s*=\s*8/,
+    'MarkdownBlockActionBar 默认左侧固定偏移量应为 8px'
+  );
+  assert.match(
+    actionBarSource,
+    /left:\s*isLeftAligned\s*\?\s*`\$\{effectiveLeftOffsetPx\}px`/,
+    'MarkdownBlockActionBar 应依托 left 属性固定在最左侧渲染'
+  );
+
+  const viewerSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/features/viewers/components/drivers/MarkdownViewer.tsx'),
+    'utf8'
+  );
+  assert.match(
+    viewerSource,
+    /<MarkdownBlockActionBar[\s\S]*?position="left"[\s\S]*?leftOffsetPx=\{8\}/,
+    'MarkdownViewer 中渲染的块级悬浮操作胶囊应明确指定 position="left" 与 leftOffsetPx={8}'
+  );
+  assert.doesNotMatch(
+    viewerSource,
+    /computeBlockContentRightOffset\(e\.currentTarget\)/,
+    'MarkdownViewer 不应在 onMouseEnter 中计算动态右偏移，彻底杜绝到处跳变'
+  );
+  console.log('  ✅ 10. Markdown 悬浮操作全量靠最左侧固定展示契约测试通过');
+}
+
+console.log('🎉 Markdown 块级原地专注编辑与块级 CRUD 引擎全部 10 项测试 100% 通过！');

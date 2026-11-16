@@ -1,14 +1,24 @@
 /**
  * OmniView 原生 PowerPoint (.pptx) 解析与离线矢量渲染核心引擎
- * 基于 OOXML (ECMA-376) 标准与 JSZip 纯前端轻量流水线
- * 支持幻灯片母版、绝对定位矢量画布、文本框、形状、内嵌图片、表格与演讲者备注
+ * 基于 OOXML (ECMA-376) 标准、纯 TS XML AST 解析与 JSZip 纯前端流水线
+ * 支持：母版/版式继承 (Master/Layout)、真实页序与关系表解析、组合图形子坐标变换、
+ * 主题色运算 (tint/shade/lumMod/alpha)、渐变背景、项目符号与编号、合并单元格表格、
+ * 原生内嵌图表 (chart*.xml) 与演讲者备注。
  */
 import JSZip from 'jszip';
 import DOMPurify from 'dompurify';
+import {
+  type XmlNode,
+  parseXmlTree,
+  findChild,
+  findChildren,
+  findDescendant,
+  findDescendants,
+  collectNodeText,
+  resolveColorFromNode,
+  resolveGradientCss,
+} from './pptxXmlUtils';
 
-/**
- * 安全文本清洗器（浏览器环境调用 DOMPurify，Node 环境使用严密正则过滤，杜绝环境不兼容崩溃）
- */
 function sanitizeText(raw: string): string {
   if (!raw) return '';
   if (typeof window !== 'undefined' && DOMPurify && typeof (DOMPurify as any).sanitize === 'function') {
@@ -31,6 +41,8 @@ export interface PptxMetadata {
   width: number;
   height: number;
   aspectRatio: '16:9' | '4:3' | 'custom';
+  notesCount?: number;
+  chartCount?: number;
 }
 
 export interface PptxTextRun {
@@ -38,9 +50,12 @@ export interface PptxTextRun {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  strikethrough?: boolean;
+  baseline?: number; // >0 上标, <0 下标
   fontSize?: number; // pt
-  color?: string; // hex
+  color?: string;
   fontFamily?: string;
+  href?: string;
 }
 
 export interface PptxParagraph {
@@ -48,6 +63,15 @@ export interface PptxParagraph {
   align?: 'left' | 'center' | 'right' | 'justify';
   level?: number;
   bullet?: boolean;
+  bulletChar?: string;
+  autoNumType?: string;
+  autoNumIndex?: number;
+  bulletColor?: string;
+  marginLeft?: number; // pt
+  indent?: number; // pt
+  spaceBefore?: number; // pt
+  spaceAfter?: number; // pt
+  lineHeight?: number;
 }
 
 export interface PptxTableCell {
@@ -56,41 +80,102 @@ export interface PptxTableCell {
   background?: string;
   color?: string;
   align?: 'left' | 'center' | 'right';
+  vAlign?: 'top' | 'middle' | 'bottom';
   bold?: boolean;
   fontSize?: number;
+  colSpan?: number;
+  rowSpan?: number;
+  mergedSkip?: boolean;
+  borderColor?: string;
 }
+
+export interface PptxChartSeries {
+  name: string;
+  values: number[];
+  color?: string;
+}
+
+export interface PptxChartData {
+  chartType: 'bar' | 'col' | 'line' | 'area' | 'pie' | 'doughnut' | 'scatter' | 'unknown';
+  title?: string;
+  categories: string[];
+  series: PptxChartSeries[];
+}
+
+export type PptxShapeType =
+  | 'rect'
+  | 'roundRect'
+  | 'ellipse'
+  | 'line'
+  | 'arrow'
+  | 'rightArrow'
+  | 'leftArrow'
+  | 'upArrow'
+  | 'downArrow'
+  | 'triangle'
+  | 'rtTriangle'
+  | 'diamond'
+  | 'pentagon'
+  | 'hexagon'
+  | 'star'
+  | 'chevron'
+  | 'callout'
+  | 'connector'
+  | 'custom';
 
 export interface PptxElement {
   id: string;
-  type: 'text' | 'shape' | 'image' | 'table';
+  type: 'text' | 'shape' | 'image' | 'table' | 'chart';
   x: number; // pt
   y: number;
   width: number;
   height: number;
-  rotation?: number; // 角度 0-360
+  rotation?: number; // 0-360
+  flipH?: boolean;
+  flipV?: boolean;
+  opacity?: number;
+  hasShadow?: boolean;
+  isFromMaster?: boolean;
   // 文本专属
   paragraphs?: PptxParagraph[];
   backgroundColor?: string;
+  backgroundGradient?: string;
   borderColor?: string;
   borderWidth?: number;
+  verticalAlign?: 'top' | 'middle' | 'bottom';
+  padding?: { top: number; right: number; bottom: number; left: number };
   // 形状专属
-  shapeType?: 'rect' | 'roundRect' | 'ellipse' | 'line' | 'arrow' | 'custom';
+  shapeType?: PptxShapeType;
   fillColor?: string;
+  fillGradient?: string;
   strokeColor?: string;
   strokeWidth?: number;
+  strokeDash?: 'solid' | 'dash' | 'dot' | 'dashDot';
+  headArrow?: boolean;
+  tailArrow?: boolean;
   // 图片专属
   imageDataUrl?: string;
   imageAlt?: string;
+  imageCrop?: { l?: number; t?: number; r?: number; b?: number };
   // 表格专属
   tableRows?: PptxTableCell[][];
+  colWidthsPct?: number[];
+  rowHeightsPt?: number[];
+  // 图表专属
+  chartData?: PptxChartData;
 }
 
 export interface PptxSlide {
   index: number;
+  slideNumber?: number;
   title: string;
   elements: PptxElement[];
   backgroundColor?: string;
+  backgroundGradient?: string;
+  backgroundImage?: string;
   notes?: string;
+  isHidden?: boolean;
+  layoutName?: string;
   rawXml?: string;
 }
 
@@ -98,18 +183,14 @@ export interface ParsedPptxPresentation {
   metadata: PptxMetadata;
   slides: PptxSlide[];
   isValid: boolean;
+  isFallbackUsed?: boolean;
+  parseWarnings?: string[];
 }
 
-/**
- * 将 EMU (English Metric Units, 1 pt = 12700 EMU, 1 inch = 914400 EMU) 转为标准 pt
- */
 export function emuToPt(emu: number): number {
   return Math.round((emu / 12700) * 10) / 10;
 }
 
-/**
- * 将 Base64 字符串快速还原为 Uint8Array
- */
 export function base64ToBytes(base64: string): Uint8Array {
   const clean = base64.replace(/^data:.*?;base64,/, '').replace(/\s+/g, '');
   if (typeof atob === 'function') {
@@ -124,9 +205,6 @@ export function base64ToBytes(base64: string): Uint8Array {
   return Uint8Array.from(Buffer.from(clean, 'base64'));
 }
 
-/**
- * 根据文件路径后缀获取 MIME 类型
- */
 function getMimeTypeByPath(path: string): string {
   const lower = path.toLowerCase();
   if (lower.endsWith('.png')) return 'image/png';
@@ -138,568 +216,1256 @@ function getMimeTypeByPath(path: string): string {
   return 'image/png';
 }
 
-/**
- * Office 默认标准调色板 fallback
- */
 const DEFAULT_THEME_COLORS: Record<string, string> = {
-  dk1: '#000000',
-  lt1: '#ffffff',
-  dk2: '#1f497d',
-  lt2: '#eeece1',
-  accent1: '#4f81bd',
-  accent2: '#c0504d',
-  accent3: '#9bbb59',
-  accent4: '#8064a2',
-  accent5: '#4bacc6',
-  accent6: '#f79646',
-  hlink: '#0000ff',
-  folhlink: '#800080',
-  bg1: '#ffffff',
-  tx1: '#000000',
-  bg2: '#eeece1',
-  tx2: '#1f497d',
+  dk1: '#0F172A',
+  lt1: '#FFFFFF',
+  dk2: '#1E293B',
+  lt2: '#F8FAFC',
+  accent1: '#3B82F6',
+  accent2: '#10B981',
+  accent3: '#8B5CF6',
+  accent4: '#F59E0B',
+  accent5: '#EC4899',
+  accent6: '#06B6D4',
+  hlink: '#2563EB',
+  folhlink: '#7C3AED',
+  bg1: '#FFFFFF',
+  tx1: '#0F172A',
+  bg2: '#F8FAFC',
+  tx2: '#1E293B',
 };
 
-/**
- * 从 ppt/theme/theme1.xml 解析主题颜色方案
- */
-function parseThemeColors(themeXml?: string): Record<string, string> {
-  const colors: Record<string, string> = { ...DEFAULT_THEME_COLORS };
-  if (!themeXml) return colors;
+const DEFAULT_COLOR_MAP: Record<string, string> = {
+  bg1: 'lt1',
+  tx1: 'dk1',
+  bg2: 'lt2',
+  tx2: 'dk2',
+  accent1: 'accent1',
+  accent2: 'accent2',
+  accent3: 'accent3',
+  accent4: 'accent4',
+  accent5: 'accent5',
+  accent6: 'accent6',
+  hlink: 'hlink',
+  folHlink: 'folhlink',
+  folhlink: 'folhlink',
+};
 
-  const clrSchemeMatch = themeXml.match(/<a:clrScheme\b[\s\S]*?<\/a:clrScheme>/i);
-  if (!clrSchemeMatch) return colors;
-
-  const schemeXml = clrSchemeMatch[0];
-  const colorKeys = ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink'];
-
-  for (const key of colorKeys) {
-    const tagRegex = new RegExp(`<a:${key}\\b[\\s\\S]*?<\\/a:${key}>`, 'i');
-    const tagMatch = schemeXml.match(tagRegex);
-    if (tagMatch) {
-      const tagContent = tagMatch[0];
-      const srgb = tagContent.match(/<a:srgbClr\b[^>]*\bval=["']([0-9a-fA-F]{6})["']/i);
-      if (srgb) {
-        colors[key.toLowerCase()] = `#${srgb[1]}`;
-        continue;
-      }
-      const sys = tagContent.match(/<a:sysClr\b[^>]*\blastClr=["']([0-9a-fA-F]{6})["']/i);
-      if (sys) {
-        colors[key.toLowerCase()] = `#${sys[1]}`;
-      }
-    }
-  }
-
-  return colors;
+interface RelEntry {
+  id: string;
+  type: string;
+  target: string;
+  targetMode?: string;
 }
 
-/**
- * 从节点 XML 片段中提取颜色（优先 srgbClr，其次 schemeClr 查找主题色）
- */
-function extractColor(nodeXml: string, themeColors: Record<string, string>): string | undefined {
-  const srgbMatch = nodeXml.match(/<a:srgbClr\b[^>]*\bval=["']([0-9a-fA-F]{6})["']/i);
-  if (srgbMatch) {
-    return `#${srgbMatch[1]}`;
+function resolveZipPath(baseFilePath: string, relativeTarget: string): string {
+  if (!relativeTarget) return '';
+  if (relativeTarget.startsWith('/')) return relativeTarget.slice(1);
+  const baseDirParts = baseFilePath.split('/').slice(0, -1);
+  const targetParts = relativeTarget.split('/');
+  const combined = [...baseDirParts];
+  for (const part of targetParts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (combined.length > 0) combined.pop();
+    } else {
+      combined.push(part);
+    }
   }
+  return combined.join('/');
+}
 
-  const schemeMatch = nodeXml.match(/<a:schemeClr\b[^>]*\bval=["']([^"']+)["']/i);
-  if (schemeMatch) {
-    const schemeKey = schemeMatch[1].toLowerCase();
-    if (themeColors[schemeKey]) {
-      return themeColors[schemeKey];
+async function readRelsMap(zip: JSZip, partPath: string): Promise<Map<string, RelEntry>> {
+  const map = new Map<string, RelEntry>();
+  const lastSlash = partPath.lastIndexOf('/');
+  const dir = lastSlash === -1 ? '' : partPath.slice(0, lastSlash + 1);
+  const file = lastSlash === -1 ? partPath : partPath.slice(lastSlash + 1);
+  const relsPath = `${dir}_rels/${file}.rels`;
+  const relsFile = zip.file(relsPath);
+  if (!relsFile) return map;
+
+  const relsXml = await relsFile.async('text');
+  const tree = parseXmlTree(relsXml);
+  for (const rel of findDescendants(tree, 'Relationship')) {
+    const id = rel.attrs.Id || '';
+    const type = rel.attrs.Type || '';
+    const target = rel.attrs.Target || '';
+    const targetMode = rel.attrs.TargetMode;
+    if (id && target) {
+      map.set(id, {
+        id,
+        type,
+        target: targetMode === 'External' ? target : resolveZipPath(partPath, target),
+        targetMode,
+      });
+    }
+  }
+  return map;
+}
+
+async function buildMediaDataMap(zip: JSZip, relsMap: Map<string, RelEntry>): Promise<Map<string, string>> {
+  const mediaMap = new Map<string, string>();
+  for (const [rId, rel] of relsMap.entries()) {
+    if (rel.targetMode === 'External') continue;
+    if (!rel.type.toLowerCase().includes('image') && !rel.target.toLowerCase().includes('/media/')) {
+      continue;
+    }
+    const mediaFile = zip.file(rel.target);
+    if (mediaFile) {
+      const mimeType = getMimeTypeByPath(rel.target);
+      const base64 = await mediaFile.async('base64');
+      mediaMap.set(rId, `data:${mimeType};base64,${base64}`);
+    }
+  }
+  return mediaMap;
+}
+
+function parseThemeColorsFromXml(themeXml?: string): {
+  colors: Record<string, string>;
+  majorFont?: string;
+  minorFont?: string;
+} {
+  const colors: Record<string, string> = { ...DEFAULT_THEME_COLORS };
+  if (!themeXml) return { colors };
+
+  const tree = parseXmlTree(themeXml);
+  const clrScheme = findDescendant(tree, 'clrScheme');
+  if (clrScheme) {
+    for (const child of clrScheme.children) {
+      const key = child.localName.toLowerCase();
+      const resolved = resolveColorFromNode(child, colors);
+      if (resolved) {
+        colors[key] = resolved;
+      }
     }
   }
 
-  const sysMatch = nodeXml.match(/<a:sysClr\b[^>]*\blastClr=["']([0-9a-fA-F]{6})["']/i);
-  if (sysMatch) {
-    return `#${sysMatch[1]}`;
+  const fontScheme = findDescendant(tree, 'fontScheme');
+  const majorFont = findDescendant(findChild(fontScheme, 'majorFont'), 'latin')?.attrs.typeface;
+  const minorFont = findDescendant(findChild(fontScheme, 'minorFont'), 'latin')?.attrs.typeface;
+  return { colors, majorFont, minorFont };
+}
+
+interface CoordTransform {
+  offsetX: number;
+  offsetY: number;
+  scaleX: number;
+  scaleY: number;
+}
+
+const IDENTITY_TRANSFORM: CoordTransform = { offsetX: 0, offsetY: 0, scaleX: 1, scaleY: 1 };
+
+interface GeometryBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  flipH?: boolean;
+  flipV?: boolean;
+  hasExplicitGeometry: boolean;
+}
+
+function extractGeometryFromXfrm(xfrmNode: XmlNode | undefined, tx: CoordTransform = IDENTITY_TRANSFORM): GeometryBox {
+  if (!xfrmNode) {
+    return { x: 40, y: 40, width: 200, height: 100, hasExplicitGeometry: false };
+  }
+  const off = findChild(xfrmNode, 'off');
+  const ext = findChild(xfrmNode, 'ext');
+
+  const hasOff = Boolean(off && off.attrs.x !== undefined && off.attrs.y !== undefined);
+  const hasExt = Boolean(ext && ext.attrs.cx !== undefined && ext.attrs.cy !== undefined);
+
+  const rawX = hasOff ? emuToPt(parseInt(off!.attrs.x, 10)) : 40;
+  const rawY = hasOff ? emuToPt(parseInt(off!.attrs.y, 10)) : 40;
+  const rawW = hasExt ? emuToPt(parseInt(ext!.attrs.cx, 10)) : 200;
+  const rawH = hasExt ? emuToPt(parseInt(ext!.attrs.cy, 10)) : 100;
+
+  let rotation: number | undefined;
+  if (xfrmNode.attrs.rot) {
+    rotation = Math.round(parseInt(xfrmNode.attrs.rot, 10) / 60000);
+  }
+  const flipH = xfrmNode.attrs.flipH === '1' || xfrmNode.attrs.flipH === 'true';
+  const flipV = xfrmNode.attrs.flipV === '1' || xfrmNode.attrs.flipV === 'true';
+
+  return {
+    x: Math.round((tx.offsetX + rawX * tx.scaleX) * 10) / 10,
+    y: Math.round((tx.offsetY + rawY * tx.scaleY) * 10) / 10,
+    width: Math.round(rawW * tx.scaleX * 10) / 10,
+    height: Math.round(rawH * tx.scaleY * 10) / 10,
+    rotation,
+    flipH: flipH || undefined,
+    flipV: flipV || undefined,
+    hasExplicitGeometry: hasOff || hasExt,
+  };
+}
+
+function mapPresetShapeType(prst?: string, isConnector = false): PptxShapeType {
+  if (isConnector && (!prst || prst.includes('Connector') || prst === 'line')) {
+    return 'connector';
+  }
+  if (!prst) return 'rect';
+  const val = prst.toLowerCase();
+  if (val === 'roundrect' || val === 'round1rect' || val === 'round2same' || val === 'sniproundrect') return 'roundRect';
+  if (val === 'ellipse') return 'ellipse';
+  if (val === 'line') return 'line';
+  if (val === 'rightarrow') return 'rightArrow';
+  if (val === 'leftarrow') return 'leftArrow';
+  if (val === 'uparrow') return 'upArrow';
+  if (val === 'downarrow') return 'downArrow';
+  if (val.includes('arrow')) return 'arrow';
+  if (val === 'triangle') return 'triangle';
+  if (val === 'rttriangle') return 'rtTriangle';
+  if (val === 'diamond' || val === 'flowchartdecision') return 'diamond';
+  if (val === 'pentagon' || val === 'homeplate') return 'pentagon';
+  if (val === 'hexagon') return 'hexagon';
+  if (val.startsWith('star')) return 'star';
+  if (val === 'chevron') return 'chevron';
+  if (val.includes('callout')) return 'callout';
+  if (val.includes('connector')) return 'connector';
+  if (val === 'rect' || val === 'flowchartprocess') return 'rect';
+  return 'custom';
+}
+
+interface PlaceholderTemplate {
+  key: string;
+  geometry?: GeometryBox;
+  defaultFontSize?: number;
+  defaultColor?: string;
+  defaultBold?: boolean;
+  defaultAlign?: 'left' | 'center' | 'right' | 'justify';
+  defaultBullet?: boolean;
+}
+
+interface MasterOrLayoutContext {
+  backgroundColor?: string;
+  backgroundGradient?: string;
+  backgroundImage?: string;
+  colorMap: Record<string, string>;
+  placeholders: Map<string, PlaceholderTemplate>;
+  decorativeElements: PptxElement[];
+  titleDefaultFontSize?: number;
+  bodyDefaultFontSize?: number;
+  layoutName?: string;
+}
+
+function extractPlaceholderMeta(spNode: XmlNode): { phType?: string; phIdx?: string } {
+  const nvPr = findDescendant(spNode, 'nvPr');
+  const ph = findChild(nvPr, 'ph');
+  if (!ph) return {};
+  return {
+    phType: ph.attrs.type,
+    phIdx: ph.attrs.idx,
+  };
+}
+
+function parseColorMapNode(node: XmlNode | undefined, base: Record<string, string>): Record<string, string> {
+  if (!node) return base;
+  const map = { ...base };
+  for (const [k, v] of Object.entries(node.attrs)) {
+    if (!k.includes(':') && v) {
+      map[k] = v;
+      map[k.toLowerCase()] = v;
+    }
+  }
+  return map;
+}
+
+function parseBackgroundFromCsld(
+  cSldNode: XmlNode | undefined,
+  themeColors: Record<string, string>,
+  colorMap: Record<string, string>,
+  mediaMap: Map<string, string>
+): { backgroundColor?: string; backgroundGradient?: string; backgroundImage?: string } {
+  if (!cSldNode) return {};
+  const bgNode = findChild(cSldNode, 'bg');
+  if (!bgNode) return {};
+
+  const bgPr = findChild(bgNode, 'bgPr');
+  if (bgPr) {
+    const solidFill = findChild(bgPr, 'solidFill');
+    if (solidFill) {
+      return { backgroundColor: resolveColorFromNode(solidFill, themeColors, colorMap) };
+    }
+    const gradFill = findChild(bgPr, 'gradFill');
+    if (gradFill) {
+      const gradCss = resolveGradientCss(gradFill, themeColors, colorMap);
+      return { backgroundGradient: gradCss };
+    }
+    const blipFill = findChild(bgPr, 'blipFill');
+    if (blipFill) {
+      const blip = findChild(blipFill, 'blip');
+      const rId = blip?.attrs['r:embed'] || blip?.attrs.embed;
+      if (rId && mediaMap.has(rId)) {
+        return { backgroundImage: mediaMap.get(rId) };
+      }
+    }
   }
 
+  const bgRef = findChild(bgNode, 'bgRef');
+  if (bgRef) {
+    const refClr = resolveColorFromNode(bgRef, themeColors, colorMap);
+    if (refClr) return { backgroundColor: refClr };
+  }
+
+  return {};
+}
+
+function parseFillAndStroke(
+  spPrNode: XmlNode | undefined,
+  themeColors: Record<string, string>,
+  colorMap: Record<string, string>,
+  styleNode?: XmlNode
+): {
+  fillColor?: string;
+  fillGradient?: string;
+  strokeColor?: string;
+  strokeWidth?: number;
+  strokeDash?: 'solid' | 'dash' | 'dot' | 'dashDot';
+  headArrow?: boolean;
+  tailArrow?: boolean;
+  hasShadow?: boolean;
+} {
+  let fillColor: string | undefined;
+  let fillGradient: string | undefined;
+  let strokeColor: string | undefined;
+  let strokeWidth: number | undefined;
+  let strokeDash: 'solid' | 'dash' | 'dot' | 'dashDot' | undefined;
+  let headArrow = false;
+  let tailArrow = false;
+  let hasShadow = false;
+
+  if (spPrNode) {
+    if (findChild(spPrNode, 'noFill')) {
+      fillColor = 'transparent';
+    } else {
+      const solidFill = findChild(spPrNode, 'solidFill');
+      if (solidFill) {
+        fillColor = resolveColorFromNode(solidFill, themeColors, colorMap);
+      } else {
+        const gradFill = findChild(spPrNode, 'gradFill');
+        if (gradFill) {
+          fillGradient = resolveGradientCss(gradFill, themeColors, colorMap);
+        }
+      }
+    }
+
+    const ln = findChild(spPrNode, 'ln');
+    if (ln && !findChild(ln, 'noFill')) {
+      const lnSolid = findChild(ln, 'solidFill');
+      if (lnSolid) {
+        strokeColor = resolveColorFromNode(lnSolid, themeColors, colorMap);
+      }
+      if (ln.attrs.w) {
+        strokeWidth = Math.max(1, emuToPt(parseInt(ln.attrs.w, 10)));
+      } else if (strokeColor) {
+        strokeWidth = 1;
+      }
+      const prstDash = findChild(ln, 'prstDash')?.attrs.val?.toLowerCase();
+      if (prstDash) {
+        if (prstDash.includes('dashdot')) strokeDash = 'dashDot';
+        else if (prstDash.includes('dot')) strokeDash = 'dot';
+        else if (prstDash.includes('dash')) strokeDash = 'dash';
+        else strokeDash = 'solid';
+      }
+      const headEnd = findChild(ln, 'headEnd');
+      if (headEnd?.attrs.type && headEnd.attrs.type !== 'none') headArrow = true;
+      const tailEnd = findChild(ln, 'tailEnd');
+      if (tailEnd?.attrs.type && tailEnd.attrs.type !== 'none') tailArrow = true;
+    }
+
+    const effectLst = findChild(spPrNode, 'effectLst');
+    if (effectLst && findChild(effectLst, 'outerShdw')) {
+      hasShadow = true;
+    }
+  }
+
+  if (!fillColor && !fillGradient && styleNode) {
+    const fillRef = findChild(styleNode, 'fillRef');
+    if (fillRef && fillRef.attrs.idx !== '0') {
+      fillColor = resolveColorFromNode(fillRef, themeColors, colorMap);
+    }
+  }
+  if (!strokeColor && styleNode) {
+    const lnRef = findChild(styleNode, 'lnRef');
+    if (lnRef && lnRef.attrs.idx !== '0') {
+      strokeColor = resolveColorFromNode(lnRef, themeColors, colorMap);
+      strokeWidth = strokeWidth || 1;
+    }
+  }
+
+  return {
+    fillColor,
+    fillGradient,
+    strokeColor,
+    strokeWidth,
+    strokeDash,
+    headArrow: headArrow || undefined,
+    tailArrow: tailArrow || undefined,
+    hasShadow: hasShadow || undefined,
+  };
+}
+
+function resolveAlign(algn?: string): 'left' | 'center' | 'right' | 'justify' | undefined {
+  if (!algn) return undefined;
+  const val = algn.toLowerCase();
+  if (val === 'ctr' || val === 'center') return 'center';
+  if (val === 'r' || val === 'right') return 'right';
+  if (val === 'just' || val === 'justify') return 'justify';
+  if (val === 'l' || val === 'left') return 'left';
   return undefined;
 }
 
-/**
- * 提取坐标几何变换
- */
-function extractGeometry(xmlSegment: string): { x: number; y: number; width: number; height: number; rotation?: number } {
-  let x = 40;
-  let y = 40;
-  let width = 200;
-  let height = 100;
-  let rotation: number | undefined;
-
-  const offMatch = xmlSegment.match(/<a:off\b[^>]*\bx=["'](-?\d+)["'][^>]*\by=["'](-?\d+)["']/i);
-  if (offMatch) {
-    x = emuToPt(parseInt(offMatch[1], 10));
-    y = emuToPt(parseInt(offMatch[2], 10));
-  }
-
-  const extMatch = xmlSegment.match(/<a:ext\b[^>]*\bcx=["'](\d+)["'][^>]*\bcy=["'](\d+)["']/i);
-  if (extMatch) {
-    width = emuToPt(parseInt(extMatch[1], 10));
-    height = emuToPt(parseInt(extMatch[2], 10));
-  }
-
-  const rotMatch = xmlSegment.match(/<[ap]:(?:spPr|xfrm)\b[^>]*\brot=["'](-?\d+)["']/i) || xmlSegment.match(/\brot=["'](-?\d+)["']/i);
-  if (rotMatch) {
-    const rawRot = parseInt(rotMatch[1], 10);
-    rotation = Math.round(rawRot / 60000);
-  }
-
-  return { x, y, width, height, rotation };
-}
-
-/**
- * 提取形状几何类型
- */
-function extractShapeType(spXml: string): 'rect' | 'roundRect' | 'ellipse' | 'line' | 'arrow' | 'custom' {
-  const prstMatch = spXml.match(/<a:prstGeom\b[^>]*\bprst=["']([^"']+)["']/i);
-  if (prstMatch) {
-    const val = prstMatch[1].toLowerCase();
-    if (val === 'roundrect' || val === 'round1rect') return 'roundRect';
-    if (val === 'ellipse') return 'ellipse';
-    if (val === 'line') return 'line';
-    if (val.includes('arrow')) return 'arrow';
-    if (val === 'rect') return 'rect';
-  }
-  return 'rect';
-}
-
-/**
- * 解析 `<p:sp>` 节点（文本框或几何形状）
- */
-function parseSpNode(
-  spXml: string,
+function parseSpNodeFromXml(
+  spNode: XmlNode,
   elementId: string,
   themeColors: Record<string, string>,
-  coordOffset = { x: 0, y: 0 }
+  colorMap: Record<string, string>,
+  relsMap: Map<string, RelEntry>,
+  tx: CoordTransform,
+  layoutCtx?: MasterOrLayoutContext,
+  masterCtx?: MasterOrLayoutContext,
+  isFromMaster = false
 ): PptxElement | null {
-  const geom = extractGeometry(spXml);
-  const x = geom.x + coordOffset.x;
-  const y = geom.y + coordOffset.y;
-  const width = geom.width;
-  const height = geom.height;
-  const rotation = geom.rotation;
+  const isConnector = spNode.localName === 'cxnSp';
+  const spPr = findChild(spNode, 'spPr');
+  const styleNode = findChild(spNode, 'style');
+  const xfrm = findChild(spPr, 'xfrm');
+  let geom = extractGeometryFromXfrm(xfrm, tx);
 
-  // 形状属性 <p:spPr>
-  let fillColor: string | undefined;
-  let strokeColor: string | undefined;
-  let strokeWidth: number | undefined;
+  // 占位符继承 (<p:ph>)，按 Layout -> Master 逐级合并属性
+  const { phType, phIdx } = extractPlaceholderMeta(spNode);
+  const phLookupKeys: string[] = [];
+  if (phType && phIdx) phLookupKeys.push(`type:${phType}:idx:${phIdx}`);
+  if (phType) phLookupKeys.push(`type:${phType}`);
+  if (phIdx) phLookupKeys.push(`idx:${phIdx}`);
 
-  const spPrMatch = spXml.match(/<p:spPr\b[\s\S]*?<\/p:spPr>/i);
-  if (spPrMatch) {
-    const spPrXml = spPrMatch[0];
-    const fillMatch = spPrXml.match(/<a:solidFill\b[\s\S]*?<\/a:solidFill>/i);
-    if (fillMatch) {
-      fillColor = extractColor(fillMatch[0], themeColors);
-    }
-    const lnMatch = spPrXml.match(/<a:ln\b[\s\S]*?<\/a:ln>/i);
-    if (lnMatch) {
-      const lnXml = lnMatch[0];
-      const lnFillMatch = lnXml.match(/<a:solidFill\b[\s\S]*?<\/a:solidFill>/i);
-      if (lnFillMatch) {
-        strokeColor = extractColor(lnFillMatch[0], themeColors);
-      }
-      const wMatch = lnXml.match(/\bw=["'](\d+)["']/i);
-      if (wMatch) {
-        strokeWidth = Math.max(1, emuToPt(parseInt(wMatch[1], 10)));
-      }
-    }
+  let layoutPh: PlaceholderTemplate | undefined;
+  let masterPh: PlaceholderTemplate | undefined;
+  for (const key of phLookupKeys) {
+    if (!layoutPh) layoutPh = layoutCtx?.placeholders.get(key);
+    if (!masterPh) masterPh = masterCtx?.placeholders.get(key);
+  }
+  const phTemplate: PlaceholderTemplate | undefined =
+    layoutPh || masterPh
+      ? {
+          key: layoutPh?.key || masterPh!.key,
+          geometry: layoutPh?.geometry || masterPh?.geometry,
+          defaultFontSize: layoutPh?.defaultFontSize ?? masterPh?.defaultFontSize,
+          defaultColor: layoutPh?.defaultColor || masterPh?.defaultColor,
+          defaultBold: layoutPh?.defaultBold ?? masterPh?.defaultBold,
+          defaultAlign: layoutPh?.defaultAlign || masterPh?.defaultAlign,
+          defaultBullet: layoutPh?.defaultBullet ?? masterPh?.defaultBullet,
+        }
+      : undefined;
+
+  if (!geom.hasExplicitGeometry && phTemplate?.geometry) {
+    geom = {
+      ...phTemplate.geometry,
+      x: Math.round((tx.offsetX + phTemplate.geometry.x * tx.scaleX) * 10) / 10,
+      y: Math.round((tx.offsetY + phTemplate.geometry.y * tx.scaleY) * 10) / 10,
+      width: Math.round(phTemplate.geometry.width * tx.scaleX * 10) / 10,
+      height: Math.round(phTemplate.geometry.height * tx.scaleY * 10) / 10,
+    };
   }
 
-  const shapeType = extractShapeType(spXml);
+  const prstGeom = findChild(spPr, 'prstGeom');
+  const shapeType = mapPresetShapeType(prstGeom?.attrs.prst, isConnector);
+  const {
+    fillColor,
+    fillGradient,
+    strokeColor,
+    strokeWidth,
+    strokeDash,
+    headArrow,
+    tailArrow,
+    hasShadow,
+  } = parseFillAndStroke(spPr, themeColors, colorMap, styleNode);
 
-  // 文本内容 <p:txBody>
+  // 文本框正文 <p:txBody>
+  const txBody = findChild(spNode, 'txBody');
   const paragraphs: PptxParagraph[] = [];
-  const txBodyMatch = spXml.match(/<p:txBody\b[\s\S]*?<\/p:txBody>/i);
 
-  if (txBodyMatch) {
-    const txBodyXml = txBodyMatch[0];
-    const pRegex = /<a:p\b[\s\S]*?<\/a:p>/gi;
-    let pMatch: RegExpExecArray | null;
+  let verticalAlign: 'top' | 'middle' | 'bottom' | undefined;
+  let padding: { top: number; right: number; bottom: number; left: number } | undefined;
 
-    while ((pMatch = pRegex.exec(txBodyXml)) !== null) {
-      const pXml = pMatch[0];
-      const runs: PptxTextRun[] = [];
+  if (txBody) {
+    const bodyPr = findChild(txBody, 'bodyPr');
+    if (bodyPr) {
+      if (bodyPr.attrs.anchor === 'ctr') verticalAlign = 'middle';
+      else if (bodyPr.attrs.anchor === 'b') verticalAlign = 'bottom';
+      else if (bodyPr.attrs.anchor === 't') verticalAlign = 'top';
 
-      let align: 'left' | 'center' | 'right' | 'justify' = 'left';
-      const algnMatch = pXml.match(/<a:pPr\b[^>]*\balgn=["'](\w+)["']/i);
-      if (algnMatch) {
-        const val = algnMatch[1].toLowerCase();
-        if (val === 'ctr' || val === 'center') align = 'center';
-        else if (val === 'r' || val === 'right') align = 'right';
-        else if (val === 'just' || val === 'justify') align = 'justify';
+      if (
+        bodyPr.attrs.lIns !== undefined ||
+        bodyPr.attrs.tIns !== undefined ||
+        bodyPr.attrs.rIns !== undefined ||
+        bodyPr.attrs.bIns !== undefined
+      ) {
+        padding = {
+          left: bodyPr.attrs.lIns ? emuToPt(parseInt(bodyPr.attrs.lIns, 10)) : 7,
+          top: bodyPr.attrs.tIns ? emuToPt(parseInt(bodyPr.attrs.tIns, 10)) : 4,
+          right: bodyPr.attrs.rIns ? emuToPt(parseInt(bodyPr.attrs.rIns, 10)) : 7,
+          bottom: bodyPr.attrs.bIns ? emuToPt(parseInt(bodyPr.attrs.bIns, 10)) : 4,
+        };
+      }
+    }
+
+    const lstStyle = findChild(txBody, 'lstStyle');
+    const levelDefaults = new Map<number, { fontSize?: number; color?: string; bold?: boolean; align?: 'left' | 'center' | 'right' | 'justify' }>();
+    if (lstStyle) {
+      for (let lvl = 1; lvl <= 9; lvl++) {
+        const lvlNode = findChild(lstStyle, `lvl${lvl}pPr`);
+        if (lvlNode) {
+          const defRPr = findChild(lvlNode, 'defRPr');
+          const defFill = defRPr ? findChild(defRPr, 'solidFill') : undefined;
+          levelDefaults.set(lvl - 1, {
+            fontSize: defRPr?.attrs.sz ? Math.round(parseInt(defRPr.attrs.sz, 10) / 100) : undefined,
+            color: defFill ? resolveColorFromNode(defFill, themeColors, colorMap) : undefined,
+            bold: defRPr?.attrs.b === '1' || defRPr?.attrs.b === 'true',
+            align: resolveAlign(lvlNode.attrs.algn),
+          });
+        }
+      }
+    }
+
+    const isTitlePh = phType === 'title' || phType === 'ctrTitle';
+    const isSubTitlePh = phType === 'subTitle';
+    const fallbackFontSize =
+      phTemplate?.defaultFontSize ||
+      (isTitlePh ? masterCtx?.titleDefaultFontSize || 32 : isSubTitlePh ? 22 : masterCtx?.bodyDefaultFontSize || 16);
+
+    let autoNumCounter = 1;
+
+    for (const pNode of findChildren(txBody, 'p')) {
+      const pPr = findChild(pNode, 'pPr');
+      const level = pPr?.attrs.lvl ? parseInt(pPr.attrs.lvl, 10) : 0;
+      const lvlDefault = levelDefaults.get(level);
+
+      const align = resolveAlign(pPr?.attrs.algn) || lvlDefault?.align || phTemplate?.defaultAlign || (phType === 'ctrTitle' ? 'center' : 'left');
+      const marginLeft = pPr?.attrs.marL ? emuToPt(parseInt(pPr.attrs.marL, 10)) : level > 0 ? level * 18 : undefined;
+      const indent = pPr?.attrs.indent ? emuToPt(parseInt(pPr.attrs.indent, 10)) : undefined;
+
+      let bullet = false;
+      let bulletChar: string | undefined;
+      let autoNumType: string | undefined;
+      let autoNumIndex: number | undefined;
+      let bulletColor: string | undefined;
+
+      if (pPr) {
+        const buNone = findChild(pPr, 'buNone');
+        const buCharNode = findChild(pPr, 'buChar');
+        const buAutoNumNode = findChild(pPr, 'buAutoNum');
+        const buClrNode = findChild(pPr, 'buClr');
+        if (buClrNode) {
+          bulletColor = resolveColorFromNode(buClrNode, themeColors, colorMap);
+        }
+        if (!buNone) {
+          if (buCharNode?.attrs.char) {
+            bullet = true;
+            bulletChar = buCharNode.attrs.char;
+          } else if (buAutoNumNode) {
+            bullet = true;
+            autoNumType = buAutoNumNode.attrs.type || 'arabicPeriod';
+            const startAt = buAutoNumNode.attrs.startAt ? parseInt(buAutoNumNode.attrs.startAt, 10) : undefined;
+            if (startAt !== undefined && autoNumCounter === 1) autoNumCounter = startAt;
+            autoNumIndex = autoNumCounter++;
+          } else if (phTemplate?.defaultBullet) {
+            bullet = true;
+            bulletChar = '•';
+          }
+        }
+      } else if (phTemplate?.defaultBullet) {
+        bullet = true;
+        bulletChar = '•';
       }
 
-      const rRegex = /<a:r\b[\s\S]*?<\/a:r>/gi;
-      let rMatch: RegExpExecArray | null;
+      let spaceBefore: number | undefined;
+      let spaceAfter: number | undefined;
+      let lineHeight: number | undefined;
+      const spcBef = findDescendant(findChild(pPr, 'spcBef'), 'spcPts');
+      if (spcBef?.attrs.val) spaceBefore = Math.round(parseInt(spcBef.attrs.val, 10) / 100);
+      const spcAft = findDescendant(findChild(pPr, 'spcAft'), 'spcPts');
+      if (spcAft?.attrs.val) spaceAfter = Math.round(parseInt(spcAft.attrs.val, 10) / 100);
+      const lnSpc = findDescendant(findChild(pPr, 'lnSpc'), 'spcPct');
+      if (lnSpc?.attrs.val) lineHeight = Math.round((parseInt(lnSpc.attrs.val, 10) / 100000) * 100) / 100;
 
-      while ((rMatch = rRegex.exec(pXml)) !== null) {
-        const rXml = rMatch[0];
-        const tMatch = rXml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/i);
-        if (tMatch) {
-          const rawText = tMatch[1];
+      const runs: PptxTextRun[] = [];
+      for (const child of pNode.children) {
+        if (child.localName === 'r' || child.localName === 'fld') {
+          const rPr = findChild(child, 'rPr');
+          const tNode = findChild(child, 't');
+          const rawText = collectNodeText(tNode);
+          if (!rawText) continue;
           const text = sanitizeText(rawText);
-          const isBold = /<a:rPr\b[^>]*\bb=["']1["']/i.test(rXml);
-          const isItalic = /<a:rPr\b[^>]*\bi=["']1["']/i.test(rXml);
-          const isUnderline = /<a:rPr\b[^>]*\bu=["'][^"']+["']/i.test(rXml);
+          if (!text) continue;
 
-          let fontSize = 16;
-          const szMatch = rXml.match(/<a:rPr\b[^>]*\bsz=["'](\d+)["']/i);
-          if (szMatch) {
-            fontSize = Math.round(parseInt(szMatch[1], 10) / 100);
-          }
+          const isBold = rPr?.attrs.b !== undefined
+            ? rPr.attrs.b === '1' || rPr.attrs.b === 'true'
+            : lvlDefault?.bold ?? phTemplate?.defaultBold ?? isTitlePh;
+          const isItalic = rPr?.attrs.i === '1' || rPr?.attrs.i === 'true';
+          const isUnderline = Boolean(rPr?.attrs.u && rPr.attrs.u !== 'none');
+          const isStrike = Boolean(rPr?.attrs.strike && rPr.attrs.strike !== 'noStrike');
+          const baseline = rPr?.attrs.baseline ? parseInt(rPr.attrs.baseline, 10) : undefined;
+          const fontSize = rPr?.attrs.sz
+            ? Math.round(parseInt(rPr.attrs.sz, 10) / 100)
+            : lvlDefault?.fontSize || fallbackFontSize;
 
           let color: string | undefined;
-          const rFillMatch = rXml.match(/<a:solidFill\b[\s\S]*?<\/a:solidFill>/i);
-          if (rFillMatch) {
-            color = extractColor(rFillMatch[0], themeColors);
-          } else {
-            const clrMatch = rXml.match(/<a:srgbClr\b[^>]*\bval=["']([0-9a-fA-F]{6})["']/i);
-            if (clrMatch) color = `#${clrMatch[1]}`;
+          if (rPr) {
+            const rSolidFill = findChild(rPr, 'solidFill');
+            if (rSolidFill) {
+              color = resolveColorFromNode(rSolidFill, themeColors, colorMap);
+            }
+          }
+          if (!color) color = lvlDefault?.color || phTemplate?.defaultColor;
+
+          const latin = findChild(rPr, 'latin')?.attrs.typeface;
+          const ea = findChild(rPr, 'ea')?.attrs.typeface;
+          const fontFamily = ea || latin;
+
+          let href: string | undefined;
+          const hlink = findChild(rPr, 'hlinkClick');
+          const hRelId = hlink?.attrs['r:id'] || hlink?.attrs.id;
+          if (hRelId && relsMap.has(hRelId)) {
+            href = relsMap.get(hRelId)!.target;
           }
 
           runs.push({
             text,
-            bold: isBold,
-            italic: isItalic,
-            underline: isUnderline,
+            bold: isBold || undefined,
+            italic: isItalic || undefined,
+            underline: isUnderline || undefined,
+            strikethrough: isStrike || undefined,
+            baseline,
             fontSize,
             color,
+            fontFamily,
+            href,
           });
-        }
-      }
-
-      // 容错：直接找 <a:t>
-      if (runs.length === 0) {
-        const directT = pXml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/i);
-        if (directT) {
-          const cleanT = sanitizeText(directT[1]);
-          if (cleanT) {
-            runs.push({ text: cleanT, fontSize: 16 });
-          }
+        } else if (child.localName === 'br') {
+          runs.push({ text: '\n', fontSize: fallbackFontSize });
         }
       }
 
       if (runs.length > 0) {
-        paragraphs.push({ runs, align });
+        paragraphs.push({
+          runs,
+          align,
+          level,
+          bullet: bullet || undefined,
+          bulletChar,
+          autoNumType,
+          autoNumIndex,
+          bulletColor,
+          marginLeft,
+          indent,
+          spaceBefore,
+          spaceAfter,
+          lineHeight,
+        });
       }
     }
   }
 
-  // 如果有文字，视为 text 类型（也可带有背景/边框）
+  if (isFromMaster && phType) {
+    return null;
+  }
+
+  const effectiveBg = fillColor && fillColor !== 'transparent' ? fillColor : undefined;
+  const hasVisibleShape = Boolean(effectiveBg || fillGradient || strokeColor || shapeType !== 'rect');
+
   if (paragraphs.length > 0) {
     return {
       id: elementId,
       type: 'text',
-      x,
-      y,
-      width,
-      height,
-      rotation,
+      x: geom.x,
+      y: geom.y,
+      width: geom.width,
+      height: geom.height,
+      rotation: geom.rotation,
+      flipH: geom.flipH,
+      flipV: geom.flipV,
+      hasShadow,
+      isFromMaster: isFromMaster || undefined,
+      shapeType: hasVisibleShape ? shapeType : undefined,
       paragraphs,
-      backgroundColor: fillColor,
+      backgroundColor: effectiveBg,
+      backgroundGradient: fillGradient,
       borderColor: strokeColor,
       borderWidth: strokeWidth,
+      strokeDash,
+      verticalAlign,
+      padding,
     };
   }
 
-  // 如果没有文字，但有形状填充或描边或为非纯矩形，视为 shape 类型保留
-  if (fillColor || strokeColor || shapeType !== 'rect') {
+  if (hasVisibleShape || isConnector) {
     return {
       id: elementId,
       type: 'shape',
-      x,
-      y,
-      width,
-      height,
-      rotation,
+      x: geom.x,
+      y: geom.y,
+      width: geom.width,
+      height: geom.height,
+      rotation: geom.rotation,
+      flipH: geom.flipH,
+      flipV: geom.flipV,
+      hasShadow,
+      isFromMaster: isFromMaster || undefined,
       shapeType,
       fillColor: fillColor || 'transparent',
-      strokeColor,
-      strokeWidth,
+      fillGradient,
+      strokeColor: strokeColor || (isConnector ? themeColors.tx1 || '#64748B' : undefined),
+      strokeWidth: strokeWidth || (isConnector ? 1.5 : undefined),
+      strokeDash,
+      headArrow,
+      tailArrow,
     };
   }
 
   return null;
 }
 
-/**
- * 解析 `<p:pic>` 节点（内嵌图片）
- */
-function parsePicNode(
-  picXml: string,
+function parsePicNodeFromXml(
+  picNode: XmlNode,
   elementId: string,
   mediaMap: Map<string, string>,
-  coordOffset = { x: 0, y: 0 }
+  tx: CoordTransform,
+  isFromMaster = false
 ): PptxElement | null {
-  const geom = extractGeometry(picXml);
-  const x = geom.x + coordOffset.x;
-  const y = geom.y + coordOffset.y;
-  const width = geom.width;
-  const height = geom.height;
-  const rotation = geom.rotation;
+  const spPr = findChild(picNode, 'spPr');
+  const xfrm = findChild(spPr, 'xfrm');
+  const geom = extractGeometryFromXfrm(xfrm, tx);
 
-  // 查找引用的 r:embed="rIdX"
-  const blipMatch = picXml.match(/<a:blip\b[^>]*\b(?:r:embed|embed)=["']([^"']+)["']/i);
-  if (!blipMatch) return null;
+  const blipFill = findChild(picNode, 'blipFill');
+  const blip = findChild(blipFill, 'blip');
+  const rId = blip?.attrs['r:embed'] || blip?.attrs.embed;
+  if (!rId) return null;
 
-  const rId = blipMatch[1];
   const imageDataUrl = mediaMap.get(rId);
   if (!imageDataUrl) return null;
 
-  // 提取图片描述
-  let imageAlt = 'PPT 演示文稿图片';
-  const cNvPrMatch = picXml.match(/<p:cNvPr\b[^>]*\bname=["']([^"']+)["']/i);
-  if (cNvPrMatch) {
-    imageAlt = cNvPrMatch[1];
-  }
+  const cNvPr = findDescendant(picNode, 'cNvPr');
+  const imageAlt = cNvPr?.attrs.descr || cNvPr?.attrs.name || 'PPT 演示文稿图片';
+
+  const srcRect = findChild(blipFill, 'srcRect');
+  const imageCrop = srcRect
+    ? {
+        l: srcRect.attrs.l ? parseInt(srcRect.attrs.l, 10) / 1000 : undefined,
+        t: srcRect.attrs.t ? parseInt(srcRect.attrs.t, 10) / 1000 : undefined,
+        r: srcRect.attrs.r ? parseInt(srcRect.attrs.r, 10) / 1000 : undefined,
+        b: srcRect.attrs.b ? parseInt(srcRect.attrs.b, 10) / 1000 : undefined,
+      }
+    : undefined;
 
   return {
     id: elementId,
     type: 'image',
-    x,
-    y,
-    width,
-    height,
-    rotation,
+    x: geom.x,
+    y: geom.y,
+    width: geom.width,
+    height: geom.height,
+    rotation: geom.rotation,
+    flipH: geom.flipH,
+    flipV: geom.flipV,
+    isFromMaster: isFromMaster || undefined,
     imageDataUrl,
     imageAlt,
+    imageCrop,
   };
 }
 
-/**
- * 解析 `<p:graphicFrame>` 节点（表格或图表）
- */
-function parseGraphicFrameNode(
-  gfXml: string,
-  elementId: string,
+function parseChartXml(
+  chartXml: string,
   themeColors: Record<string, string>,
-  coordOffset = { x: 0, y: 0 }
-): PptxElement | null {
-  const geom = extractGeometry(gfXml);
-  const x = geom.x + coordOffset.x;
-  const y = geom.y + coordOffset.y;
-  const width = geom.width;
-  const height = geom.height;
-  const rotation = geom.rotation;
+  colorMap: Record<string, string>
+): PptxChartData | null {
+  const tree = parseXmlTree(chartXml);
+  const plotArea = findDescendant(tree, 'plotArea');
+  if (!plotArea) return null;
 
-  // 提取表格 <a:tbl>
-  const tblMatch = gfXml.match(/<a:tbl\b[\s\S]*?<\/a:tbl>/i);
-  if (!tblMatch) return null;
+  const chartTitleTexts = findDescendants(findDescendant(tree, 'title'), 't')
+    .map(n => sanitizeText(collectNodeText(n)).trim())
+    .filter(Boolean);
+  const title = chartTitleTexts.join(' ') || undefined;
 
-  const tblXml = tblMatch[0];
+  let chartType: PptxChartData['chartType'] = 'unknown';
+  let chartNode: XmlNode | undefined;
+
+  for (const child of plotArea.children) {
+    const name = child.localName;
+    if (name === 'barChart' || name === 'bar3DChart') {
+      const barDir = findChild(child, 'barDir')?.attrs.val;
+      chartType = barDir === 'bar' ? 'bar' : 'col';
+      chartNode = child;
+      break;
+    } else if (name === 'lineChart' || name === 'line3DChart') {
+      chartType = 'line';
+      chartNode = child;
+      break;
+    } else if (name === 'areaChart' || name === 'area3DChart') {
+      chartType = 'area';
+      chartNode = child;
+      break;
+    } else if (name === 'pieChart' || name === 'pie3DChart') {
+      chartType = 'pie';
+      chartNode = child;
+      break;
+    } else if (name === 'doughnutChart') {
+      chartType = 'doughnut';
+      chartNode = child;
+      break;
+    } else if (name === 'scatterChart') {
+      chartType = 'scatter';
+      chartNode = child;
+      break;
+    }
+  }
+
+  if (!chartNode) return null;
+
+  const serNodes = findChildren(chartNode, 'ser');
+  if (serNodes.length === 0) return null;
+
+  let categories: string[] = [];
+  const series: PptxChartSeries[] = [];
+  const paletteOrder = ['accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6'];
+
+  serNodes.forEach((ser, sIdx) => {
+    const txNode = findChild(ser, 'tx');
+    const serName =
+      sanitizeText(collectNodeText(findDescendant(txNode, 'v'))).trim() ||
+      sanitizeText(collectNodeText(findDescendant(txNode, 't'))).trim() ||
+      `Series ${sIdx + 1}`;
+
+    if (categories.length === 0) {
+      const catNode = findChild(ser, 'cat') || findChild(ser, 'xVal');
+      const ptNodes = findDescendants(catNode, 'pt');
+      if (ptNodes.length > 0) {
+        categories = ptNodes.map(pt => sanitizeText(collectNodeText(findChild(pt, 'v'))).trim());
+      }
+    }
+
+    const valNode = findChild(ser, 'val') || findChild(ser, 'yVal');
+    const valPts = findDescendants(valNode, 'pt');
+    const values = valPts.map(pt => {
+      const num = parseFloat(collectNodeText(findChild(pt, 'v')));
+      return Number.isFinite(num) ? num : 0;
+    });
+
+    const spPr = findChild(ser, 'spPr');
+    const solidFill = findChild(spPr, 'solidFill');
+    const color =
+      (solidFill ? resolveColorFromNode(solidFill, themeColors, colorMap) : undefined) ||
+      themeColors[paletteOrder[sIdx % paletteOrder.length]];
+
+    if (values.length > 0) {
+      series.push({ name: serName, values, color });
+    }
+  });
+
+  if (series.length === 0) return null;
+  if (categories.length === 0) {
+    categories = series[0].values.map((_, i) => `#${i + 1}`);
+  }
+
+  return {
+    chartType,
+    title,
+    categories,
+    series,
+  };
+}
+
+async function parseGraphicFrameNodeFromXml(
+  gfNode: XmlNode,
+  elementId: string,
+  zip: JSZip,
+  relsMap: Map<string, RelEntry>,
+  themeColors: Record<string, string>,
+  colorMap: Record<string, string>,
+  tx: CoordTransform,
+  isFromMaster = false
+): Promise<PptxElement | null> {
+  const xfrm = findChild(gfNode, 'xfrm');
+  const geom = extractGeometryFromXfrm(xfrm, tx);
+
+  const chartRef = findDescendant(gfNode, 'chart');
+  if (chartRef) {
+    const rId = chartRef.attrs['r:id'] || chartRef.attrs.id;
+    const rel = rId ? relsMap.get(rId) : undefined;
+    if (rel && !rel.targetMode) {
+      const chartFile = zip.file(rel.target);
+      if (chartFile) {
+        const chartXml = await chartFile.async('text');
+        const chartData = parseChartXml(chartXml, themeColors, colorMap);
+        if (chartData) {
+          return {
+            id: elementId,
+            type: 'chart',
+            x: geom.x,
+            y: geom.y,
+            width: geom.width,
+            height: geom.height,
+            rotation: geom.rotation,
+            isFromMaster: isFromMaster || undefined,
+            chartData,
+          };
+        }
+      }
+    }
+  }
+
+  const tbl = findDescendant(gfNode, 'tbl');
+  if (!tbl) return null;
+
+  const tblPr = findChild(tbl, 'tblPr');
+  const hasFirstRowStyle = tblPr?.attrs.firstRow === '1' || tblPr?.attrs.firstRow === 'true';
+  const hasBandRowStyle = tblPr?.attrs.bandRow === '1' || tblPr?.attrs.bandRow === 'true';
+
+  const tblGrid = findChild(tbl, 'tblGrid');
+  const gridCols = findChildren(tblGrid, 'gridCol').map(c => parseInt(c.attrs.w || '0', 10));
+  const totalGridW = gridCols.reduce((a, b) => a + b, 0);
+  const colWidthsPct =
+    totalGridW > 0 ? gridCols.map(w => Math.round((w / totalGridW) * 1000) / 10) : undefined;
+
   const rows: PptxTableCell[][] = [];
+  const rowHeightsPt: number[] = [];
+  const trNodes = findChildren(tbl, 'tr');
 
-  const trRegex = /<a:tr\b[\s\S]*?<\/a:tr>/gi;
-  let trMatch: RegExpExecArray | null;
-  let rowIndex = 0;
+  trNodes.forEach((trNode, rowIndex) => {
+    const hEmu = trNode.attrs.h ? parseInt(trNode.attrs.h, 10) : 0;
+    if (hEmu > 0) rowHeightsPt.push(emuToPt(hEmu));
 
-  while ((trMatch = trRegex.exec(tblXml)) !== null) {
-    const trXml = trMatch[0];
     const cells: PptxTableCell[] = [];
+    for (const tcNode of findChildren(trNode, 'tc')) {
+      const hMerge = tcNode.attrs.hMerge === '1' || tcNode.attrs.hMerge === 'true';
+      const vMerge = tcNode.attrs.vMerge === '1' || tcNode.attrs.vMerge === 'true';
+      const colSpan = tcNode.attrs.gridSpan ? parseInt(tcNode.attrs.gridSpan, 10) : undefined;
+      const rowSpan = tcNode.attrs.rowSpan ? parseInt(tcNode.attrs.rowSpan, 10) : undefined;
 
-    const tcRegex = /<a:tc\b[\s\S]*?<\/a:tc>/gi;
-    let tcMatch: RegExpExecArray | null;
+      if (hMerge || vMerge) {
+        cells.push({ text: '', mergedSkip: true });
+        continue;
+      }
 
-    while ((tcMatch = tcRegex.exec(trXml)) !== null) {
-      const tcXml = tcMatch[0];
-
-      // 提取单元格文本
-      const textMatches = tcXml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/gi) || [];
-      const cellText = textMatches
-        .map(t => t.replace(/<[^>]+>/g, '').trim())
+      const cellParagraphs = findDescendants(findChild(tcNode, 'txBody'), 'p');
+      const cellText = cellParagraphs
+        .map(p =>
+          findDescendants(p, 't')
+            .map(t => sanitizeText(collectNodeText(t)))
+            .join('')
+            .trim()
+        )
         .filter(Boolean)
-        .join(' ');
-      const cleanText = sanitizeText(cellText);
+        .join('\n');
 
-      // 单元格背景
+      const tcPr = findChild(tcNode, 'tcPr');
       let bg: string | undefined;
-      const tcPrMatch = tcXml.match(/<a:tcPr\b[\s\S]*?<\/a:tcPr>/i);
-      if (tcPrMatch) {
-        const solidFill = tcPrMatch[0].match(/<a:solidFill\b[\s\S]*?<\/a:solidFill>/i);
+      if (tcPr) {
+        const solidFill = findChild(tcPr, 'solidFill');
         if (solidFill) {
-          bg = extractColor(solidFill[0], themeColors);
+          bg = resolveColorFromNode(solidFill, themeColors, colorMap);
+        }
+      }
+      if (!bg) {
+        if (rowIndex === 0 && hasFirstRowStyle) {
+          bg = themeColors.accent1 ? `${themeColors.accent1}22` : '#EFF6FF';
+        } else if (rowIndex > 0 && hasBandRowStyle && rowIndex % 2 === 1) {
+          bg = '#F8FAFC';
         }
       }
 
-      // 单元格文字颜色与字号
+      let vAlign: 'top' | 'middle' | 'bottom' | undefined;
+      if (tcPr?.attrs.anchor === 't') vAlign = 'top';
+      else if (tcPr?.attrs.anchor === 'b') vAlign = 'bottom';
+      else if (tcPr?.attrs.anchor === 'ctr') vAlign = 'middle';
+
       let textColor: string | undefined;
       let isBold = rowIndex === 0;
       let fontSize = 14;
-
-      const rPrMatch = tcXml.match(/<a:rPr\b[\s\S]*?<\/a:rPr>/i);
-      if (rPrMatch) {
-        const rPrXml = rPrMatch[0];
-        const rFill = rPrXml.match(/<a:solidFill\b[\s\S]*?<\/a:solidFill>/i);
-        if (rFill) textColor = extractColor(rFill[0], themeColors);
-        if (/<a:rPr\b[^>]*\bb=["']1["']/i.test(rPrXml)) isBold = true;
-        const sz = rPrXml.match(/\bsz=["'](\d+)["']/i);
-        if (sz) fontSize = Math.round(parseInt(sz[1], 10) / 100);
-      }
-
-      // 对齐
       let align: 'left' | 'center' | 'right' = 'left';
-      const algnMatch = tcXml.match(/<a:pPr\b[^>]*\balgn=["'](\w+)["']/i);
-      if (algnMatch) {
-        const val = algnMatch[1].toLowerCase();
-        if (val === 'ctr' || val === 'center') align = 'center';
-        else if (val === 'r' || val === 'right') align = 'right';
+
+      const firstP = cellParagraphs[0];
+      if (firstP) {
+        const pPr = findChild(firstP, 'pPr');
+        const resolved = resolveAlign(pPr?.attrs.algn);
+        if (resolved && resolved !== 'justify') align = resolved;
+        const firstRPr = findDescendant(firstP, 'rPr');
+        if (firstRPr) {
+          const rFill = findChild(firstRPr, 'solidFill');
+          if (rFill) textColor = resolveColorFromNode(rFill, themeColors, colorMap);
+          if (firstRPr.attrs.b === '1' || firstRPr.attrs.b === 'true') isBold = true;
+          if (firstRPr.attrs.sz) fontSize = Math.round(parseInt(firstRPr.attrs.sz, 10) / 100);
+        }
       }
 
       cells.push({
-        text: cleanText,
+        text: cellText,
         isHeader: rowIndex === 0,
         background: bg,
         color: textColor,
         align,
+        vAlign,
         bold: isBold,
         fontSize,
+        colSpan: colSpan && colSpan > 1 ? colSpan : undefined,
+        rowSpan: rowSpan && rowSpan > 1 ? rowSpan : undefined,
       });
     }
 
     if (cells.length > 0) {
       rows.push(cells);
-      rowIndex++;
     }
-  }
+  });
 
   if (rows.length === 0) return null;
 
   return {
     id: elementId,
     type: 'table',
-    x,
-    y,
-    width,
-    height,
-    rotation,
+    x: geom.x,
+    y: geom.y,
+    width: geom.width,
+    height: geom.height,
+    rotation: geom.rotation,
+    isFromMaster: isFromMaster || undefined,
     tableRows: rows,
+    colWidthsPct,
+    rowHeightsPt: rowHeightsPt.length === rows.length ? rowHeightsPt : undefined,
   };
 }
 
-/**
- * 递归遍历解析组合图形 `<p:grpSp>`
- */
-function parseGroupNode(
-  grpXml: string,
-  baseId: string,
-  mediaMap: Map<string, string>,
-  themeColors: Record<string, string>,
-  parentOffset = { x: 0, y: 0 }
-): PptxElement[] {
-  const results: PptxElement[] = [];
-
-  // 获取群组自身的外框与内部偏移
-  const geom = extractGeometry(grpXml);
-  const currentOffset = {
-    x: parentOffset.x + geom.x,
-    y: parentOffset.y + geom.y,
-  };
-
-  // 递归提取内部的 sp、pic、graphicFrame
-  results.push(...parseSlideElements(grpXml, baseId, mediaMap, themeColors, currentOffset));
-  return results;
+function unwrapAlternateContent(children: XmlNode[]): XmlNode[] {
+  const out: XmlNode[] = [];
+  for (const child of children) {
+    if (child.localName === 'AlternateContent') {
+      const fallback = findChild(child, 'Fallback');
+      const choice = findChild(child, 'Choice');
+      const chosen = fallback || choice;
+      if (chosen) out.push(...unwrapAlternateContent(chosen.children));
+    } else {
+      out.push(child);
+    }
+  }
+  return out;
 }
 
-/**
- * 统一解析 XML 片段中所有可视元素，保持在文档树中的图层 z-index 相对顺序
- */
-function parseSlideElements(
-  containerXml: string,
+async function parseContainerElements(
+  spTreeNode: XmlNode | undefined,
   idPrefix: string,
+  zip: JSZip,
+  relsMap: Map<string, RelEntry>,
   mediaMap: Map<string, string>,
   themeColors: Record<string, string>,
-  coordOffset = { x: 0, y: 0 }
-): PptxElement[] {
+  colorMap: Record<string, string>,
+  tx: CoordTransform,
+  layoutCtx?: MasterOrLayoutContext,
+  masterCtx?: MasterOrLayoutContext,
+  isFromMaster = false
+): Promise<PptxElement[]> {
+  if (!spTreeNode) return [];
   const elements: PptxElement[] = [];
-
-  // 综合匹配各类子节点：<p:sp>, <p:pic>, <p:graphicFrame>, <p:grpSp>
-  const tagRegex = /<p:(sp|pic|graphicFrame|grpSp)\b[\s\S]*?<\/p:\1>/gi;
-  let match: RegExpExecArray | null;
   let idx = 0;
 
-  while ((match = tagRegex.exec(containerXml)) !== null) {
-    const tagName = match[1].toLowerCase();
-    const nodeXml = match[0];
-    const elId = `${idPrefix}-${tagName}-${idx++}`;
+  const nodes = unwrapAlternateContent(spTreeNode.children);
+  for (const node of nodes) {
+    const name = node.localName;
+    const elId = `${idPrefix}-${name}-${idx++}`;
 
-    if (tagName === 'sp') {
-      const el = parseSpNode(nodeXml, elId, themeColors, coordOffset);
+    if (name === 'sp' || name === 'cxnSp') {
+      const el = parseSpNodeFromXml(
+        node,
+        elId,
+        themeColors,
+        colorMap,
+        relsMap,
+        tx,
+        layoutCtx,
+        masterCtx,
+        isFromMaster
+      );
       if (el) elements.push(el);
-    } else if (tagName === 'pic') {
-      const el = parsePicNode(nodeXml, elId, mediaMap, coordOffset);
+    } else if (name === 'pic') {
+      const el = parsePicNodeFromXml(node, elId, mediaMap, tx, isFromMaster);
       if (el) elements.push(el);
-    } else if (tagName === 'graphicframe') {
-      const el = parseGraphicFrameNode(nodeXml, elId, themeColors, coordOffset);
+    } else if (name === 'graphicFrame') {
+      const el = await parseGraphicFrameNodeFromXml(
+        node,
+        elId,
+        zip,
+        relsMap,
+        themeColors,
+        colorMap,
+        tx,
+        isFromMaster
+      );
       if (el) elements.push(el);
-    } else if (tagName === 'grpsp') {
-      const subElements = parseGroupNode(nodeXml, elId, mediaMap, themeColors, coordOffset);
-      elements.push(...subElements);
+    } else if (name === 'grpSp') {
+      const grpSpPr = findChild(node, 'grpSpPr');
+      const xfrm = findChild(grpSpPr, 'xfrm');
+      const grpGeom = extractGeometryFromXfrm(xfrm, tx);
+      const chOff = findChild(xfrm, 'chOff');
+      const chExt = findChild(xfrm, 'chExt');
+
+      let childTransform = tx;
+      if (xfrm && chOff && chExt) {
+        const off = findChild(xfrm, 'off');
+        const ext = findChild(xfrm, 'ext');
+        const gX = off?.attrs.x ? emuToPt(parseInt(off.attrs.x, 10)) : 0;
+        const gY = off?.attrs.y ? emuToPt(parseInt(off.attrs.y, 10)) : 0;
+        const gW = ext?.attrs.cx ? emuToPt(parseInt(ext.attrs.cx, 10)) : 1;
+        const gH = ext?.attrs.cy ? emuToPt(parseInt(ext.attrs.cy, 10)) : 1;
+
+        const chX = chOff.attrs.x ? emuToPt(parseInt(chOff.attrs.x, 10)) : 0;
+        const chY = chOff.attrs.y ? emuToPt(parseInt(chOff.attrs.y, 10)) : 0;
+        const chW = chExt.attrs.cx ? emuToPt(parseInt(chExt.attrs.cx, 10)) : gW;
+        const chH = chExt.attrs.cy ? emuToPt(parseInt(chExt.attrs.cy, 10)) : gH;
+
+        const localScaleX = chW > 0 ? (gW / chW) * tx.scaleX : tx.scaleX;
+        const localScaleY = chH > 0 ? (gH / chH) * tx.scaleY : tx.scaleY;
+
+        childTransform = {
+          offsetX: tx.offsetX + gX * tx.scaleX - chX * localScaleX,
+          offsetY: tx.offsetY + gY * tx.scaleY - chY * localScaleY,
+          scaleX: localScaleX,
+          scaleY: localScaleY,
+        };
+      } else if (grpGeom.hasExplicitGeometry) {
+        childTransform = {
+          ...tx,
+          offsetX: grpGeom.x,
+          offsetY: grpGeom.y,
+        };
+      }
+
+      const subEls = await parseContainerElements(
+        node,
+        elId,
+        zip,
+        relsMap,
+        mediaMap,
+        themeColors,
+        colorMap,
+        childTransform,
+        layoutCtx,
+        masterCtx,
+        isFromMaster
+      );
+      elements.push(...subEls);
     }
   }
 
   return elements;
 }
 
-/**
- * 解析幻灯片背景色
- */
-function parseSlideBackground(slideXml: string, themeColors: Record<string, string>): string | undefined {
-  const bgMatch = slideXml.match(/<p:bg\b[\s\S]*?<\/p:bg>/i) || slideXml.match(/<p:bgPr\b[\s\S]*?<\/p:bgPr>/i);
-  if (bgMatch) {
-    const fillMatch = bgMatch[0].match(/<a:solidFill\b[\s\S]*?<\/a:solidFill>/i);
-    if (fillMatch) {
-      return extractColor(fillMatch[0], themeColors);
+async function loadMasterOrLayoutContext(
+  zip: JSZip,
+  partPath: string,
+  themeColors: Record<string, string>,
+  inheritedColorMap: Record<string, string>,
+  parentCtx?: MasterOrLayoutContext
+): Promise<MasterOrLayoutContext | undefined> {
+  const file = zip.file(partPath);
+  if (!file) return undefined;
+
+  const xml = await file.async('text');
+  const tree = parseXmlTree(xml);
+  const rootEl = findChild(tree, 'sldMaster') || findChild(tree, 'sldLayout');
+  if (!rootEl) return undefined;
+
+  const relsMap = await readRelsMap(zip, partPath);
+  const mediaMap = await buildMediaDataMap(zip, relsMap);
+
+  const clrMapNode = findChild(rootEl, 'clrMap') || findDescendant(rootEl, 'clrMapOvr');
+  const colorMap = parseColorMapNode(
+    clrMapNode?.localName === 'clrMapOvr' ? findChild(clrMapNode, 'overrideClrMapping') : clrMapNode,
+    inheritedColorMap
+  );
+
+  const cSld = findChild(rootEl, 'cSld');
+  const layoutName = cSld?.attrs.name;
+  const bg = parseBackgroundFromCsld(cSld, themeColors, colorMap, mediaMap);
+
+  const txStyles = findChild(rootEl, 'txStyles');
+  let titleDefaultFontSize = parentCtx?.titleDefaultFontSize;
+  let bodyDefaultFontSize = parentCtx?.bodyDefaultFontSize;
+  if (txStyles) {
+    const titleLvl1 = findChild(findChild(txStyles, 'titleStyle'), 'lvl1pPr');
+    const titleSz = findChild(titleLvl1, 'defRPr')?.attrs.sz;
+    if (titleSz) titleDefaultFontSize = Math.round(parseInt(titleSz, 10) / 100);
+
+    const bodyLvl1 = findChild(findChild(txStyles, 'bodyStyle'), 'lvl1pPr');
+    const bodySz = findChild(bodyLvl1, 'defRPr')?.attrs.sz;
+    if (bodySz) bodyDefaultFontSize = Math.round(parseInt(bodySz, 10) / 100);
+  }
+
+  const placeholders = new Map<string, PlaceholderTemplate>();
+  const spTree = findChild(cSld, 'spTree');
+
+  if (spTree) {
+    for (const sp of findChildren(spTree, 'sp')) {
+      const { phType, phIdx } = extractPlaceholderMeta(sp);
+      if (!phType && !phIdx) continue;
+      const spPr = findChild(sp, 'spPr');
+      const xfrm = findChild(spPr, 'xfrm');
+      const geom = extractGeometryFromXfrm(xfrm);
+      const txBody = findChild(sp, 'txBody');
+      const lstStyle = findChild(txBody, 'lstStyle');
+      const lvl1 = findChild(lstStyle, 'lvl1pPr') || findDescendant(txBody, 'pPr');
+      const defRPr = findChild(lvl1, 'defRPr') || findDescendant(txBody, 'rPr');
+      const defFill = defRPr ? findChild(defRPr, 'solidFill') : undefined;
+
+      const tpl: PlaceholderTemplate = {
+        key: phType ? `type:${phType}` : `idx:${phIdx}`,
+        geometry: geom.hasExplicitGeometry ? geom : undefined,
+        defaultFontSize: defRPr?.attrs.sz ? Math.round(parseInt(defRPr.attrs.sz, 10) / 100) : undefined,
+        defaultColor: defFill ? resolveColorFromNode(defFill, themeColors, colorMap) : undefined,
+        defaultBold: defRPr?.attrs.b === '1' || defRPr?.attrs.b === 'true',
+        defaultAlign: resolveAlign(lvl1?.attrs.algn),
+        defaultBullet: Boolean(lvl1 && findChild(lvl1, 'buChar')),
+      };
+
+      if (phType && phIdx) placeholders.set(`type:${phType}:idx:${phIdx}`, tpl);
+      if (phType) placeholders.set(`type:${phType}`, tpl);
+      if (phIdx) placeholders.set(`idx:${phIdx}`, tpl);
     }
   }
-  return undefined;
-}
 
-/**
- * 解析单个 slide XML 节点内容
- */
-function parseSlideXml(
-  xmlContent: string,
-  slideIndex: number,
-  mediaMap: Map<string, string>,
-  themeColors: Record<string, string>
-): PptxSlide {
-  let slideTitle = `幻灯片 ${slideIndex + 1}`;
-
-  // 提取背景色
-  const backgroundColor = parseSlideBackground(xmlContent, themeColors);
-
-  // 提取所有元素
-  const elements = parseSlideElements(xmlContent, `el-${slideIndex}`, mediaMap, themeColors);
-
-  // 尝试自动识别第一条作为标题
-  for (const el of elements) {
-    if (el.type === 'text' && el.paragraphs && el.paragraphs.length > 0) {
-      const text = el.paragraphs[0].runs.map(r => r.text).join('').trim();
-      if (text) {
-        slideTitle = text.slice(0, 30);
-        break;
-      }
-    }
-  }
+  const decorativeElements = await parseContainerElements(
+    spTree,
+    `master-${partPath.replace(/[^a-zA-Z0-9]/g, '')}`,
+    zip,
+    relsMap,
+    mediaMap,
+    themeColors,
+    colorMap,
+    IDENTITY_TRANSFORM,
+    undefined,
+    parentCtx,
+    true
+  );
 
   return {
-    index: slideIndex,
-    title: slideTitle,
-    elements,
-    backgroundColor,
-    rawXml: xmlContent,
+    backgroundColor: bg.backgroundColor || parentCtx?.backgroundColor,
+    backgroundGradient: bg.backgroundGradient || parentCtx?.backgroundGradient,
+    backgroundImage: bg.backgroundImage || parentCtx?.backgroundImage,
+    colorMap,
+    placeholders,
+    decorativeElements,
+    titleDefaultFontSize,
+    bodyDefaultFontSize,
+    layoutName,
   };
 }
 
 /**
- * 动态生成规范的样例 PPTX 电子幻灯片包 (包含 3 页精美矢量幻灯片)
+ * 动态生成规范的样例 PPTX 电子幻灯片包 (含母版、渐变、组合箭头、图片、矩阵表格、原生图表与备注)
  */
 export async function generateSamplePptxBytes(): Promise<Uint8Array> {
   const zip = new JSZip();
 
-  // 1. [Content_Types].xml
   zip.file(
     '[Content_Types].xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -709,9 +1475,12 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
   <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
   <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
   <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
   <Override PartName="/ppt/slides/slide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
   <Override PartName="/ppt/slides/slide3.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+  <Override PartName="/ppt/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>
   <Override PartName="/ppt/notesSlides/notesSlide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>
   <Override PartName="/ppt/notesSlides/notesSlide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>
   <Override PartName="/ppt/notesSlides/notesSlide3.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>
@@ -719,7 +1488,6 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
 </Types>`
   );
 
-  // 2. _rels/.rels
   zip.file(
     '_rels/.rels',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -729,18 +1497,16 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
 </Relationships>`
   );
 
-  // 3. docProps/core.xml
   zip.file(
     'docProps/core.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <dc:title>OmniView PowerPoint 架构演示文稿</dc:title>
   <dc:creator>OmniView Architecture Team</dc:creator>
-  <dc:description>OmniView 纯离线 PPTX 矢量幻灯片渲染引擎演示</dc:description>
+  <dc:description>OmniView 纯离线 OOXML 矢量演播引擎 (支持母版继承、矢量形状与原生图表)</dc:description>
 </cp:coreProperties>`
   );
 
-  // 4. ppt/presentation.xml
   zip.file(
     'ppt/presentation.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -754,7 +1520,18 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
 </p:presentation>`
   );
 
-  // 5. ppt/theme/theme1.xml (标准主题调色板)
+  zip.file(
+    'ppt/_rels/presentation.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide2.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide3.xml"/>
+  <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+  <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
+</Relationships>`
+  );
+
   zip.file(
     'ppt/theme/theme1.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -778,21 +1555,88 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
 </a:theme>`
   );
 
-  // 嵌入一张最小合法 1x1 蓝点 PNG 图标用于单测与离线验证
+  zip.file(
+    'ppt/slideMasters/slideMaster1.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <p:cSld>
+    <p:bg>
+      <p:bgPr>
+        <a:gradFill>
+          <a:gsLst>
+            <a:gs pos="0"><a:srgbClr val="FFFFFF"/></a:gs>
+            <a:gs pos="100000"><a:srgbClr val="F8FAFC"/></a:gs>
+          </a:gsLst>
+          <a:lin ang="5400000" scaled="1"/>
+        </a:gradFill>
+      </p:bgPr>
+    </p:bg>
+    <p:spTree>
+      <p:sp>
+        <p:nvSpPr><p:cNvPr id="2" name="Title Placeholder"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
+        <p:spPr><a:xfrm><a:off x="762000" y="508000"/><a:ext cx="10668000" cy="762000"/></a:xfrm></p:spPr>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+  <p:txStyles>
+    <p:titleStyle><a:lvl1pPr algn="l"><a:defRPr sz="3200" b="1"/></a:lvl1pPr></p:titleStyle>
+    <p:bodyStyle><a:lvl1pPr algn="l"><a:defRPr sz="1800"/></a:lvl1pPr></p:bodyStyle>
+  </p:txStyles>
+</p:sldMaster>`
+  );
+
+  zip.file(
+    'ppt/slideLayouts/slideLayout1.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" type="title">
+  <p:cSld name="标准母版版式">
+    <p:spTree/>
+  </p:cSld>
+</p:sldLayout>`
+  );
+
+  zip.file(
+    'ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+</Relationships>`
+  );
+
   const sampleDotPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkWPjfDwAEfQHzD1RmbwAAAABJRU5ErkJggg==';
   zip.file('ppt/media/image1.png', sampleDotPngBase64, { base64: true });
 
-  // 6. ppt/slides/_rels/slide2.xml.rels (关联媒体图片)
+  zip.file(
+    'ppt/slides/_rels/slide1.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdLayout" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+  <Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/>
+</Relationships>`
+  );
+
   zip.file(
     'ppt/slides/_rels/slide2.xml.rels',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdLayout" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
   <Relationship Id="rIdImg1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
+  <Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide2.xml"/>
 </Relationships>`
   );
 
-  // 7. ppt/slides/slide1.xml (封面页：标题 + 副标题 + 装饰色块形状)
+  zip.file(
+    'ppt/slides/_rels/slide3.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdLayout" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+  <Relationship Id="rIdChart1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>
+  <Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide3.xml"/>
+</Relationships>`
+  );
+
   zip.file(
     'ppt/slides/slide1.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -801,7 +1645,7 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
     <p:spTree>
       <p:sp>
         <p:spPr>
-          <a:xfrm><a:off x="1016000" y="1651000"/><a:ext cx="10160000" cy="1524000"/></a:xfrm>
+          <a:xfrm><a:off x="1016000" y="1651000"/><a:ext cx="10160000" cy="1420000"/></a:xfrm>
         </p:spPr>
         <p:txBody>
           <a:p>
@@ -814,31 +1658,41 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
       </p:sp>
       <p:sp>
         <p:spPr>
-          <a:xfrm><a:off x="1016000" y="3429000"/><a:ext cx="10160000" cy="762000"/></p:xfrm>
+          <a:xfrm><a:off x="1016000" y="3300000"/><a:ext cx="10160000" cy="762000"/></a:xfrm>
         </p:spPr>
         <p:txBody>
           <a:p>
             <a:r>
-              <a:rPr sz="2200"><a:solidFill><a:srgbClr val="64748B"/></a:solidFill></a:rPr>
-              <a:t>纯前端离线 OOXML 矢量解析，高保真还原形状、插图与矩阵表格</a:t>
+              <a:rPr sz="2100"><a:solidFill><a:srgbClr val="475569"/></a:solidFill></a:rPr>
+              <a:t>纯前端离线 OOXML AST 解析引擎 · 母版继承 · 组合箭头 · 原生图表高保真演播</a:t>
             </a:r>
           </a:p>
         </p:txBody>
       </p:sp>
-      <!-- 封面底部装饰色条形状 (测试纯形状无文字保留) -->
       <p:sp>
         <p:spPr>
-          <a:xfrm><a:off x="1016000" y="5500000"/><a:ext cx="10160000" cy="76200"/></a:xfrm>
+          <a:xfrm><a:off x="1016000" y="5400000"/><a:ext cx="10160000" cy="95250"/></a:xfrm>
           <a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>
           <a:solidFill><a:schemeClr val="accent1"/></a:solidFill>
         </p:spPr>
+      </p:sp>
+      <p:sp>
+        <p:spPr>
+          <a:xfrm><a:off x="1016000" y="4550000"/><a:ext cx="2600000" cy="520000"/></a:xfrm>
+          <a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>
+          <a:solidFill><a:schemeClr val="accent1"><a:alpha val="14000"/></a:schemeClr></a:solidFill>
+          <a:ln w="12700"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:ln>
+        </p:spPr>
+        <p:txBody>
+          <a:bodyPr anchor="ctr"/>
+          <a:p><a:pPr algn="ctr"/><a:r><a:rPr b="1" sz="1400"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:rPr><a:t>ECMA-376 Vector Engine</a:t></a:r></a:p>
+        </p:txBody>
       </p:sp>
     </p:spTree>
   </p:cSld>
 </p:sld>`
   );
 
-  // 8. ppt/slides/slide2.xml (核心架构：文本 + 插图图片)
   zip.file(
     'ppt/slides/slide2.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -846,9 +1700,7 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
   <p:cSld>
     <p:spTree>
       <p:sp>
-        <p:spPr>
-          <a:xfrm><a:off x="762000" y="508000"/><a:ext cx="10668000" cy="762000"/></p:xfrm>
-        </p:spPr>
+        <p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
         <p:txBody>
           <a:p>
             <a:r>
@@ -860,54 +1712,82 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
       </p:sp>
       <p:sp>
         <p:spPr>
-          <a:xfrm><a:off x="762000" y="1524000"/><a:ext cx="7500000" cy="4572000"/></p:xfrm>
+          <a:xfrm><a:off x="762000" y="1460000"/><a:ext cx="7400000" cy="3600000"/></a:xfrm>
         </p:spPr>
         <p:txBody>
           <a:p>
-            <a:r>
-              <a:rPr b="1" sz="2000"><a:solidFill><a:srgbClr val="3B82F6"/></a:solidFill></a:rPr>
-              <a:t>• 纯离线微内核解析：</a:t>
-            </a:r>
-            <a:r>
-              <a:rPr sz="1800"/>
-              <a:t> 基于 JSZip 直接提取 OOXML XML 节点，无需任何外网或云服务转换。</a:t>
-            </a:r>
+            <a:pPr marL="228600"><a:buChar char="•"/></a:pPr>
+            <a:r><a:rPr b="1" sz="1900"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:rPr><a:t>纯离线 AST 内核解析：</a:t></a:r>
+            <a:r><a:rPr sz="1700"><a:solidFill><a:srgbClr val="334155"/></a:solidFill></a:rPr><a:t>精确还原嵌套组合图形、母版版式继承与主题色调运算。</a:t></a:r>
           </a:p>
           <a:p>
-            <a:r>
-              <a:rPr b="1" sz="2000"><a:solidFill><a:srgbClr val="10B981"/></a:solidFill></a:rPr>
-              <a:t>• 绝对坐标矢量视口：</a:t>
-            </a:r>
-            <a:r>
-              <a:rPr sz="1800"/>
-              <a:t> 无论在 4K 宽屏还是侧边栏，自适应 16:9/4:3 完美等比居中缩放。</a:t>
-            </a:r>
+            <a:pPr marL="228600"><a:buChar char="•"/></a:pPr>
+            <a:r><a:rPr b="1" sz="1900"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:rPr><a:t>等比物理舞台缩放：</a:t></a:r>
+            <a:r><a:rPr sz="1700"><a:solidFill><a:srgbClr val="334155"/></a:solidFill></a:rPr><a:t>自适应 16:9 / 4:3 画幅，文字与图元 1:1 比例零错位。</a:t></a:r>
           </a:p>
           <a:p>
-            <a:r>
-              <a:rPr b="1" sz="2000"><a:solidFill><a:srgbClr val="8B5CF6"/></a:solidFill></a:rPr>
-              <a:t>• 演播级交互体验：</a:t>
-            </a:r>
-            <a:r>
-              <a:rPr sz="1800"/>
-              <a:t> 支持全屏沉浸演播、快捷键左右翻页、缩略图大纲列表与演讲者备注抽屉。</a:t>
-            </a:r>
+            <a:pPr marL="228600"><a:buChar char="•"/></a:pPr>
+            <a:r><a:rPr b="1" sz="1900"><a:solidFill><a:schemeClr val="accent3"/></a:solidFill></a:rPr><a:t>专业演播工作台：</a:t></a:r>
+            <a:r><a:rPr sz="1700"><a:solidFill><a:srgbClr val="334155"/></a:solidFill></a:rPr><a:t>支持真实缩略图、全文搜索、平铺总览、激光笔与 PDF 打印。</a:t></a:r>
           </a:p>
         </p:txBody>
       </p:sp>
-      <!-- 插图图片测试节点 -->
+      <p:grpSp>
+        <p:grpSpPr>
+          <a:xfrm>
+            <a:off x="762000" y="5200000"/>
+            <a:ext cx="7400000" cy="960000"/>
+            <a:chOff x="0" y="0"/>
+            <a:chExt cx="7400000" cy="960000"/>
+          </a:xfrm>
+        </p:grpSpPr>
+        <p:sp>
+          <p:spPr>
+            <a:xfrm><a:off x="0" y="100000"/><a:ext cx="2100000" cy="760000"/></a:xfrm>
+            <a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:schemeClr val="accent1"><a:tint val="20000"/></a:schemeClr></a:solidFill>
+            <a:ln w="12700"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:ln>
+          </p:spPr>
+          <p:txBody><a:bodyPr anchor="ctr"/><a:p><a:pPr algn="ctr"/><a:r><a:rPr b="1" sz="1400"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:rPr><a:t>JSZip OOXML 解包</a:t></a:r></a:p></a:txBody>
+        </p:sp>
+        <p:sp>
+          <p:spPr>
+            <a:xfrm><a:off x="2250000" y="340000"/><a:ext cx="420000" cy="280000"/></a:xfrm>
+            <a:prstGeom prst="rightArrow"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:schemeClr val="accent1"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+        <p:sp>
+          <p:spPr>
+            <a:xfrm><a:off x="2820000" y="100000"/><a:ext cx="2100000" cy="760000"/></a:xfrm>
+            <a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:schemeClr val="accent2"><a:tint val="20000"/></a:schemeClr></a:solidFill>
+            <a:ln w="12700"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:ln>
+          </p:spPr>
+          <p:txBody><a:bodyPr anchor="ctr"/><a:p><a:pPr algn="ctr"/><a:r><a:rPr b="1" sz="1400"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:rPr><a:t>XML AST + 母版合并</a:t></a:r></a:p></a:txBody>
+        </p:sp>
+        <p:sp>
+          <p:spPr>
+            <a:xfrm><a:off x="5070000" y="340000"/><a:ext cx="420000" cy="280000"/></a:xfrm>
+            <a:prstGeom prst="rightArrow"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:schemeClr val="accent2"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+        <p:sp>
+          <p:spPr>
+            <a:xfrm><a:off x="5640000" y="100000"/><a:ext cx="1760000" cy="760000"/></a:xfrm>
+            <a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>
+            <a:solidFill><a:schemeClr val="accent3"><a:tint val="20000"/></a:schemeClr></a:solidFill>
+            <a:ln w="12700"><a:solidFill><a:schemeClr val="accent3"/></a:solidFill></a:ln>
+          </p:spPr>
+          <p:txBody><a:bodyPr anchor="ctr"/><a:p><a:pPr algn="ctr"/><a:r><a:rPr b="1" sz="1400"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:rPr><a:t>1:1 等比舞台</a:t></a:r></a:p></a:txBody>
+        </p:sp>
+      </p:grpSp>
       <p:pic>
-        <p:nvPicPr>
-          <p:cNvPr id="5" name="架构示意图"/>
-          <p:cNvPicPr/>
-          <p:nvPr/>
-        </p:nvPicPr>
-        <p:blipFill>
-          <a:blip r:embed="rIdImg1"/>
-          <a:stretch><a:fillRect/></a:stretch>
-        </p:blipFill>
+        <p:nvPicPr><p:cNvPr id="5" name="架构示意图"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>
+        <p:blipFill><a:blip r:embed="rIdImg1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
         <p:spPr>
-          <a:xfrm><a:off x="8800000" y="1800000"/><a:ext cx="2600000" cy="2600000"/></a:xfrm>
+          <a:xfrm><a:off x="8750000" y="1700000"/><a:ext cx="2680000" cy="2680000"/></a:xfrm>
           <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
         </p:spPr>
       </p:pic>
@@ -916,79 +1796,60 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
 </p:sld>`
   );
 
-  // 9. ppt/slides/slide3.xml (对比表格页：包含标题与 <p:graphicFrame> 标准表格)
   zip.file(
     'ppt/slides/slide3.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart">
   <p:cSld>
     <p:spTree>
       <p:sp>
-        <p:spPr>
-          <a:xfrm><a:off x="762000" y="508000"/><a:ext cx="10668000" cy="762000"/></p:xfrm>
-        </p:spPr>
+        <p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
         <p:txBody>
           <a:p>
             <a:r>
               <a:rPr b="1" sz="3200"><a:solidFill><a:srgbClr val="0F172A"/></a:solidFill></a:rPr>
-              <a:t>特性支持矩阵</a:t>
+              <a:t>特性支持矩阵与性能指标</a:t>
             </a:r>
           </a:p>
         </p:txBody>
       </p:sp>
-      <!-- 标准表格框架 -->
       <p:graphicFrame>
-        <p:nvGraphicFramePr>
-          <p:cNvPr id="6" name="支持矩阵表格"/>
-          <p:cNvGraphicFramePr/>
-          <p:nvPr/>
-        </p:nvGraphicFramePr>
-        <p:xfrm><a:off x="762000" y="1524000"/><a:ext cx="10668000" cy="3800000"/></p:xfrm>
+        <p:nvGraphicFramePr><p:cNvPr id="6" name="支持矩阵表格"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
+        <p:xfrm><a:off x="762000" y="1480000"/><a:ext cx="5400000" cy="3900000"/></p:xfrm>
         <a:graphic>
           <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/main">
             <a:tbl>
+              <a:tblPr firstRow="1" bandRow="1"/>
               <a:tblGrid>
-                <a:gridCol w="3000000"/>
-                <a:gridCol w="4000000"/>
-                <a:gridCol w="3668000"/>
+                <a:gridCol w="1600000"/>
+                <a:gridCol w="2000000"/>
+                <a:gridCol w="1800000"/>
               </a:tblGrid>
-              <a:tr h="600000">
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:rPr b="1" sz="1600"/><a:t>格式类型</a:t></a:r></a:p></a:txBody>
-                  <a:tcPr><a:solidFill><a:srgbClr val="F1F5F9"/></a:solidFill></a:tcPr>
-                </a:tc>
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:rPr b="1" sz="1600"/><a:t>渲染引擎模式</a:t></a:r></a:p></a:txBody>
-                  <a:tcPr><a:solidFill><a:srgbClr val="F1F5F9"/></a:solidFill></a:tcPr>
-                </a:tc>
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:rPr b="1" sz="1600"/><a:t>离线安全性</a:t></a:r></a:p></a:txBody>
-                  <a:tcPr><a:solidFill><a:srgbClr val="F1F5F9"/></a:solidFill></a:tcPr>
-                </a:tc>
+              <a:tr h="560000">
+                <a:tc><a:txBody><a:p><a:r><a:rPr b="1" sz="1400"/><a:t>格式类型</a:t></a:r></a:p></a:txBody><a:tcPr><a:solidFill><a:srgbClr val="EFF6FF"/></a:solidFill></a:tcPr></a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr b="1" sz="1400"/><a:t>渲染引擎模式</a:t></a:r></a:p></a:txBody><a:tcPr><a:solidFill><a:srgbClr val="EFF6FF"/></a:solidFill></a:tcPr></a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr b="1" sz="1400"/><a:t>离线安全性</a:t></a:r></a:p></a:txBody><a:tcPr><a:solidFill><a:srgbClr val="EFF6FF"/></a:solidFill></a:tcPr></a:tc>
               </a:tr>
               <a:tr h="500000">
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:t>PowerPoint (.pptx)</a:t></a:r></a:p></a:txBody>
-                </a:tc>
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:t>原生 OOXML 矢量排版引擎</a:t></a:r></a:p></a:txBody>
-                </a:tc>
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:t>100% 纯前端零网络依赖</a:t></a:r></a:p></a:txBody>
-                </a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr sz="1300"/><a:t>PowerPoint (.pptx)</a:t></a:r></a:p></a:txBody></a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr sz="1300"/><a:t>OOXML AST 矢量引擎</a:t></a:r></a:p></a:txBody></a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr sz="1300"/><a:t>100% 离线沙箱</a:t></a:r></a:p></a:txBody></a:tc>
               </a:tr>
               <a:tr h="500000">
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:t>Word (.docx)</a:t></a:r></a:p></a:txBody>
-                </a:tc>
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:t>高保真流式文档排版</a:t></a:r></a:p></a:txBody>
-                </a:tc>
-                <a:tc>
-                  <a:txBody><a:p><a:r><a:t>DOMPurify 严格过滤</a:t></a:r></a:p></a:txBody>
-                </a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr sz="1300"/><a:t>Word (.docx)</a:t></a:r></a:p></a:txBody></a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr sz="1300"/><a:t>流式与 A4 分页引擎</a:t></a:r></a:p></a:txBody></a:tc>
+                <a:tc><a:txBody><a:p><a:r><a:rPr sz="1300"/><a:t>DOMPurify 清洗</a:t></a:r></a:p></a:txBody></a:tc>
               </a:tr>
             </a:tbl>
+          </a:graphicData>
+        </a:graphic>
+      </p:graphicFrame>
+      <p:graphicFrame>
+        <p:nvGraphicFramePr><p:cNvPr id="7" name="解析性能图表"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
+        <p:xfrm><a:off x="6460000" y="1480000"/><a:ext cx="5000000" cy="3900000"/></p:xfrm>
+        <a:graphic>
+          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
+            <c:chart r:id="rIdChart1"/>
           </a:graphicData>
         </a:graphic>
       </p:graphicFrame>
@@ -997,24 +1858,39 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
 </p:sld>`
   );
 
-  // 10. 演讲者备注 (Speaker Notes)
+  zip.file(
+    'ppt/charts/chart1.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <c:chart>
+    <c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>各格式解包耗时对比 (ms)</a:t></a:r></a:p></c:rich></c:tx></c:title>
+    <c:plotArea>
+      <c:barChart>
+        <c:barDir val="col"/>
+        <c:ser>
+          <c:idx val="0"/><c:order val="0"/>
+          <c:tx><c:strRef><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>AST 解析引擎</c:v></c:pt></c:strCache></c:strRef></c:tx>
+          <c:spPr><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></c:spPr>
+          <c:cat><c:strRef><c:strCache><c:ptCount val="3"/><c:pt idx="0"><c:v>PPTX</c:v></c:pt><c:pt idx="1"><c:v>DOCX</c:v></c:pt><c:pt idx="2"><c:v>XLSX</c:v></c:pt></c:strCache></c:strRef></c:cat>
+          <c:val><c:numRef><c:numCache><c:ptCount val="3"/><c:pt idx="0"><c:v>18</c:v></c:pt><c:pt idx="1"><c:v>24</c:v></c:pt><c:pt idx="2"><c:v>15</c:v></c:pt></c:numCache></c:numRef></c:val>
+        </c:ser>
+        <c:ser>
+          <c:idx val="1"/><c:order val="1"/>
+          <c:tx><c:strRef><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>传统转换服务</c:v></c:pt></c:strCache></c:strRef></c:tx>
+          <c:spPr><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></c:spPr>
+          <c:val><c:numRef><c:numCache><c:ptCount val="3"/><c:pt idx="0"><c:v>85</c:v></c:pt><c:pt idx="1"><c:v>96</c:v></c:pt><c:pt idx="2"><c:v>64</c:v></c:pt></c:numCache></c:numRef></c:val>
+        </c:ser>
+      </c:barChart>
+    </c:plotArea>
+  </c:chart>
+</c:chartSpace>`
+  );
+
   zip.file(
     'ppt/notesSlides/notesSlide1.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:cSld>
-    <p:spTree>
-      <p:sp>
-        <p:txBody>
-          <a:p>
-            <a:r>
-              <a:t>【开场演讲提示】欢迎体验 OmniView 原生 PPTX 矢量幻灯片工作台！本演示文稿由本地纯前端 OOXML 引擎实时解构并渲染，支持 16:9 宽屏自适应、全屏放映与演讲者提词备注。</a:t>
-            </a:r>
-          </a:p>
-        </p:txBody>
-      </p:sp>
-    </p:spTree>
-  </p:cSld>
+  <p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>【开场演讲提示】欢迎体验 OmniView 原生 PPTX 矢量幻灯片工作台！本演示文稿由纯 TS OOXML AST 引擎实时解构，支持母版继承、原生图表、真实缩略图与全屏激光笔演播。</a:t></a:r></p:txBody></p:sp></p:spTree></p:cSld>
 </p:notes>`
   );
 
@@ -1022,19 +1898,7 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
     'ppt/notesSlides/notesSlide2.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:cSld>
-    <p:spTree>
-      <p:sp>
-        <p:txBody>
-          <a:p>
-            <a:r>
-              <a:t>【架构讲解要点】重点向受众介绍零外部网络依赖与本地沙箱安全：解析流水线不通过任何云端中转，完全在本地 WebAssembly 与内存完成解压与矢量绘制，兼顾性能与商业机密安全。</a:t>
-            </a:r>
-          </a:p>
-        </p:txBody>
-      </p:sp>
-    </p:spTree>
-  </p:cSld>
+  <p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>【架构讲解要点】重点展示嵌套组合图形 (grpSp)、右向箭头矢量图形与项目符号列表的 1:1 比例还原能力。</a:t></a:r></p:txBody></p:sp></p:spTree></p:cSld>
 </p:notes>`
   );
 
@@ -1042,19 +1906,7 @@ export async function generateSamplePptxBytes(): Promise<Uint8Array> {
     'ppt/notesSlides/notesSlide3.xml',
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:cSld>
-    <p:spTree>
-      <p:sp>
-        <p:txBody>
-          <a:p>
-            <a:r>
-              <a:t>【收尾互动建议】引导观众尝试键盘快捷键（←/→/Space 翻页、F5 全屏放映、Home/End 跳转首尾），并展示多页表格与自适应缩略图的联动能力。</a:t>
-            </a:r>
-          </a:p>
-        </p:txBody>
-      </p:sp>
-    </p:spTree>
-  </p:cSld>
+  <p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>【数据与互动建议】可按下 Ctrl+F 检索幻灯片与备注内容，点击「平铺总览」快速定位任意页面，或按下 F5 进入全屏演播模式。</a:t></a:r></p:txBody></p:sp></p:spTree></p:cSld>
 </p:notes>`
   );
 
@@ -1075,10 +1927,12 @@ export async function parsePptx(
       try {
         rawBytes = base64ToBytes(data);
       } catch {
-        return parsePptx(await generateSamplePptxBytes(), true);
+        const res = await parsePptx(await generateSamplePptxBytes(), true);
+        return { ...res, isFallbackUsed: true };
       }
     } else {
-      return parsePptx(await generateSamplePptxBytes(), true);
+      const res = await parsePptx(await generateSamplePptxBytes(), true);
+      return { ...res, isFallbackUsed: true };
     }
   } else if (data instanceof ArrayBuffer) {
     rawBytes = new Uint8Array(data);
@@ -1088,35 +1942,46 @@ export async function parsePptx(
 
   try {
     const zip = await JSZip.loadAsync(rawBytes);
+    const parseWarnings: string[] = [];
 
-    // 1. 元数据
     const metadata: PptxMetadata = {
       title: 'PowerPoint 演示文稿',
       slideCount: 0,
       width: 960,
       height: 540,
       aspectRatio: '16:9',
+      notesCount: 0,
+      chartCount: 0,
     };
 
     const coreFile = zip.file('docProps/core.xml');
     if (coreFile) {
       const xml = await coreFile.async('text');
-      const titleM = xml.match(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i);
-      if (titleM) metadata.title = titleM[1].trim();
-      const creatorM = xml.match(/<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/i);
-      if (creatorM) metadata.creator = creatorM[1].trim();
-      const descM = xml.match(/<dc:description[^>]*>([\s\S]*?)<\/dc:description>/i);
-      if (descM) metadata.description = descM[1].trim();
+      const coreTree = parseXmlTree(xml);
+      const titleNode = findDescendant(coreTree, 'title');
+      const creatorNode = findDescendant(coreTree, 'creator');
+      const descNode = findDescendant(coreTree, 'description');
+      if (titleNode) {
+        const t = sanitizeText(collectNodeText(titleNode)).trim();
+        if (t) metadata.title = t;
+      }
+      if (creatorNode) metadata.creator = sanitizeText(collectNodeText(creatorNode)).trim();
+      if (descNode) metadata.description = sanitizeText(collectNodeText(descNode)).trim();
     }
 
-    // 2. 幻灯片尺寸 (ppt/presentation.xml)
-    const presFile = zip.file('ppt/presentation.xml');
+    const presPath = 'ppt/presentation.xml';
+    const presFile = zip.file(presPath);
+    const presRels = await readRelsMap(zip, presPath);
+    let orderedSlidePaths: string[] = [];
+    let defaultColorMap = { ...DEFAULT_COLOR_MAP };
+
     if (presFile) {
-      const xml = await presFile.async('text');
-      const szMatch = xml.match(/<p:sldSz\b[^>]*\bcx=["'](\d+)["'][^>]*\bcy=["'](\d+)["']/i);
-      if (szMatch) {
-        const cx = emuToPt(parseInt(szMatch[1], 10));
-        const cy = emuToPt(parseInt(szMatch[2], 10));
+      const presXml = await presFile.async('text');
+      const presTree = parseXmlTree(presXml);
+      const sldSz = findDescendant(presTree, 'sldSz');
+      if (sldSz?.attrs.cx && sldSz?.attrs.cy) {
+        const cx = emuToPt(parseInt(sldSz.attrs.cx, 10));
+        const cy = emuToPt(parseInt(sldSz.attrs.cy, 10));
         if (cx > 0 && cy > 0) {
           metadata.width = cx;
           metadata.height = cy;
@@ -1126,82 +1991,235 @@ export async function parsePptx(
           else metadata.aspectRatio = 'custom';
         }
       }
+
+      const defaultClrMapNode = findDescendant(presTree, 'defaultTextStyle')
+        ? undefined
+        : findDescendant(presTree, 'clrMap');
+      defaultColorMap = parseColorMapNode(defaultClrMapNode, defaultColorMap);
+
+      const sldIdLst = findDescendant(presTree, 'sldIdLst');
+      if (sldIdLst) {
+        for (const sldId of findChildren(sldIdLst, 'sldId')) {
+          const rId = sldId.attrs['r:id'] || sldId.attrs.id;
+          const relKey = sldId.attrs['r:id'] || (rId && presRels.has(rId) ? rId : undefined);
+          if (relKey && presRels.has(relKey)) {
+            const target = presRels.get(relKey)!.target;
+            if (zip.file(target)) orderedSlidePaths.push(target);
+          }
+        }
+      }
     }
 
-    // 3. 主题色彩 (ppt/theme/theme1.xml)
+    if (orderedSlidePaths.length === 0) {
+      orderedSlidePaths = Object.keys(zip.files)
+        .filter(name => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+        .sort((a, b) => parseInt(a.match(/\d+/)![0], 10) - parseInt(b.match(/\d+/)![0], 10));
+    }
+
+    let themePath = 'ppt/theme/theme1.xml';
+    for (const rel of presRels.values()) {
+      if (rel.type.toLowerCase().includes('/theme') && zip.file(rel.target)) {
+        themePath = rel.target;
+        break;
+      }
+    }
     let themeColors = { ...DEFAULT_THEME_COLORS };
-    const themeFile = zip.file('ppt/theme/theme1.xml');
+    const themeFile = zip.file(themePath);
     if (themeFile) {
-      const themeXml = await themeFile.async('text');
-      themeColors = parseThemeColors(themeXml);
+      const parsedTheme = parseThemeColorsFromXml(await themeFile.async('text'));
+      themeColors = parsedTheme.colors;
     }
 
-    // 4. 收集并排序所有幻灯片 ppt/slides/slide{N}.xml
-    const slideFiles = Object.keys(zip.files)
-      .filter(name => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
-      .sort((a, b) => {
-        const numA = parseInt(a.match(/\d+/)![0], 10);
-        const numB = parseInt(b.match(/\d+/)![0], 10);
-        return numA - numB;
-      });
-
+    const masterCache = new Map<string, MasterOrLayoutContext | undefined>();
+    const layoutCache = new Map<string, MasterOrLayoutContext | undefined>();
     const slides: PptxSlide[] = [];
 
-    for (let i = 0; i < slideFiles.length; i++) {
-      const slidePath = slideFiles[i];
-      const slideXml = await zip.file(slidePath)!.async('text');
+    for (let i = 0; i < orderedSlidePaths.length; i++) {
+      const slidePath = orderedSlidePaths[i];
+      const slideFile = zip.file(slidePath);
+      if (!slideFile) continue;
 
-      // 提取幻灯片关系表 ppt/slides/_rels/slide{N}.xml.rels
-      const relsPath = slidePath.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
-      const relsFile = zip.file(relsPath);
-      const mediaMap = new Map<string, string>();
+      const slideXml = await slideFile.async('text');
+      const slideTree = parseXmlTree(slideXml);
+      const sldNode = findChild(slideTree, 'sld');
+      const relsMap = await readRelsMap(zip, slidePath);
+      const mediaMap = await buildMediaDataMap(zip, relsMap);
 
-      if (relsFile) {
-        const relsXml = await relsFile.async('text');
-        const relRegex = /<Relationship\b[^>]*\bId=["']([^"']+)["'][^>]*\bTarget=["']([^"']+)["']/gi;
-        let relMatch: RegExpExecArray | null;
+      let layoutCtx: MasterOrLayoutContext | undefined;
+      let masterCtx: MasterOrLayoutContext | undefined;
 
-        while ((relMatch = relRegex.exec(relsXml)) !== null) {
-          const rId = relMatch[1];
-          const rawTarget = relMatch[2];
+      let layoutPath: string | undefined;
+      for (const rel of relsMap.values()) {
+        if (rel.type.toLowerCase().includes('/slidelayout')) {
+          layoutPath = rel.target;
+          break;
+        }
+      }
 
-          // 规范化媒体目标路径 (通常为 ../media/image1.png 或 media/image1.png)
-          let resolvedTarget = rawTarget.replace(/^\.\.\//, 'ppt/');
-          if (!resolvedTarget.startsWith('ppt/')) {
-            resolvedTarget = 'ppt/' + resolvedTarget;
+      if (layoutPath) {
+        if (!layoutCache.has(layoutPath)) {
+          const layoutRels = await readRelsMap(zip, layoutPath);
+          let masterPath: string | undefined;
+          for (const rel of layoutRels.values()) {
+            if (rel.type.toLowerCase().includes('/slidemaster')) {
+              masterPath = rel.target;
+              break;
+            }
           }
-
-          const mediaFile = zip.file(resolvedTarget);
-          if (mediaFile) {
-            const mimeType = getMimeTypeByPath(resolvedTarget);
-            const base64 = await mediaFile.async('base64');
-            mediaMap.set(rId, `data:${mimeType};base64,${base64}`);
+          if (masterPath) {
+            if (!masterCache.has(masterPath)) {
+              masterCache.set(
+                masterPath,
+                await loadMasterOrLayoutContext(zip, masterPath, themeColors, defaultColorMap)
+              );
+            }
+            masterCtx = masterCache.get(masterPath);
+          }
+          layoutCache.set(
+            layoutPath,
+            await loadMasterOrLayoutContext(
+              zip,
+              layoutPath,
+              themeColors,
+              masterCtx?.colorMap || defaultColorMap,
+              masterCtx
+            )
+          );
+        }
+        layoutCtx = layoutCache.get(layoutPath);
+        if (!masterCtx) {
+          const layoutRels = await readRelsMap(zip, layoutPath);
+          for (const rel of layoutRels.values()) {
+            if (rel.type.toLowerCase().includes('/slidemaster')) {
+              masterCtx = masterCache.get(rel.target);
+              break;
+            }
           }
         }
       }
 
-      const slide = parseSlideXml(slideXml, i, mediaMap, themeColors);
+      const clrMapOvr = findChild(sldNode, 'clrMapOvr');
+      const slideColorMap = parseColorMapNode(
+        findChild(clrMapOvr, 'overrideClrMapping'),
+        layoutCtx?.colorMap || masterCtx?.colorMap || defaultColorMap
+      );
 
-      // 尝试提取配套备注 ppt/notesSlides/notesSlide{N}.xml
-      const notePath = `ppt/notesSlides/notesSlide${i + 1}.xml`;
-      const noteFile = zip.file(notePath);
+      const cSld = findChild(sldNode, 'cSld');
+      const slideBg = parseBackgroundFromCsld(cSld, themeColors, slideColorMap, mediaMap);
+      const backgroundColor =
+        slideBg.backgroundColor || (!slideBg.backgroundGradient && !slideBg.backgroundImage ? layoutCtx?.backgroundColor : undefined);
+      const backgroundGradient =
+        slideBg.backgroundGradient || (!slideBg.backgroundColor && !slideBg.backgroundImage ? layoutCtx?.backgroundGradient : undefined);
+      const backgroundImage =
+        slideBg.backgroundImage || (!slideBg.backgroundColor && !slideBg.backgroundGradient ? layoutCtx?.backgroundImage : undefined);
+
+      const showMasterSp = sldNode?.attrs.showMasterSp !== '0' && sldNode?.attrs.showMasterSp !== 'false';
+      const inheritedDecorations: PptxElement[] = [];
+      if (showMasterSp) {
+        if (masterCtx?.decorativeElements.length) {
+          inheritedDecorations.push(
+            ...masterCtx.decorativeElements.map((el, idx) => ({ ...el, id: `s${i}-m-${idx}-${el.id}` }))
+          );
+        }
+        if (layoutCtx?.decorativeElements.length) {
+          inheritedDecorations.push(
+            ...layoutCtx.decorativeElements.map((el, idx) => ({ ...el, id: `s${i}-l-${idx}-${el.id}` }))
+          );
+        }
+      }
+
+      const spTree = findChild(cSld, 'spTree');
+      const slideElements = await parseContainerElements(
+        spTree,
+        `el-${i}`,
+        zip,
+        relsMap,
+        mediaMap,
+        themeColors,
+        slideColorMap,
+        IDENTITY_TRANSFORM,
+        layoutCtx,
+        masterCtx,
+        false
+      );
+
+      const elements = [...slideElements, ...inheritedDecorations].sort((a, b) => {
+        if (a.isFromMaster && !b.isFromMaster) return -1;
+        if (!a.isFromMaster && b.isFromMaster) return 1;
+        return 0;
+      });
+
+      metadata.chartCount = (metadata.chartCount || 0) + elements.filter(e => e.type === 'chart').length;
+
+      let slideTitle = `幻灯片 ${i + 1}`;
+      for (const el of slideElements) {
+        if (el.type === 'text' && el.paragraphs && el.paragraphs.length > 0) {
+          const text = el.paragraphs[0].runs.map(r => r.text).join('').trim();
+          if (text) {
+            slideTitle = text.slice(0, 42);
+            break;
+          }
+        }
+      }
+
+      let notes: string | undefined;
+      let notesTargetPath: string | undefined;
+      for (const rel of relsMap.values()) {
+        if (rel.type.toLowerCase().includes('/notesslide')) {
+          notesTargetPath = rel.target;
+          break;
+        }
+      }
+      if (!notesTargetPath) {
+        notesTargetPath = `ppt/notesSlides/notesSlide${i + 1}.xml`;
+      }
+      const noteFile = zip.file(notesTargetPath);
       if (noteFile) {
         const noteXml = await noteFile.async('text');
-        const noteTexts = noteXml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/gi);
-        if (noteTexts) {
-          slide.notes = noteTexts.map(t => t.replace(/<[^>]+>/g, '')).join('\n').trim();
+        const noteTree = parseXmlTree(noteXml);
+        const noteParas: string[] = [];
+        for (const sp of findDescendants(noteTree, 'sp')) {
+          const { phType } = extractPlaceholderMeta(sp);
+          if (phType === 'sldImg' || phType === 'sldNum') continue;
+          const txBody = findChild(sp, 'txBody');
+          if (!txBody) continue;
+          for (const p of findChildren(txBody, 'p')) {
+            const pText = findChildren(p, 'r')
+              .map(r => sanitizeText(collectNodeText(findChild(r, 't'))))
+              .join('')
+              .trim();
+            if (pText) noteParas.push(pText);
+          }
+        }
+        if (noteParas.length > 0) {
+          notes = noteParas.join('\n');
+          metadata.notesCount = (metadata.notesCount || 0) + 1;
         }
       }
 
-      slides.push(slide);
+      const isHidden = sldNode?.attrs.show === '0' || sldNode?.attrs.show === 'false';
+
+      slides.push({
+        index: i,
+        slideNumber: i + 1,
+        title: slideTitle,
+        elements,
+        backgroundColor,
+        backgroundGradient,
+        backgroundImage,
+        notes,
+        isHidden: isHidden || undefined,
+        layoutName: layoutCtx?.layoutName,
+        rawXml: slideXml,
+      });
     }
 
     metadata.slideCount = slides.length;
 
-    // 容错保护：若未解析到有效幻灯片，降级到内置样例
     if (slides.length === 0) {
       if (!isFallback) {
-        return parsePptx(await generateSamplePptxBytes(), true);
+        const res = await parsePptx(await generateSamplePptxBytes(), true);
+        return { ...res, isFallbackUsed: true, parseWarnings };
       }
     }
 
@@ -1209,16 +2227,209 @@ export async function parsePptx(
       metadata,
       slides,
       isValid: true,
+      isFallbackUsed: isFallback || undefined,
+      parseWarnings: parseWarnings.length > 0 ? parseWarnings : undefined,
     };
   } catch (err) {
     console.warn('[PptxEngine] 加载 PPTX 异常，降级至样例文稿:', err);
     if (!isFallback) {
-      return parsePptx(await generateSamplePptxBytes(), true);
+      const res = await parsePptx(await generateSamplePptxBytes(), true);
+      return { ...res, isFallbackUsed: true };
     }
     return {
       metadata: { title: 'PowerPoint 演示文稿', slideCount: 0, width: 960, height: 540, aspectRatio: '16:9' },
       slides: [],
       isValid: false,
+      isFallbackUsed: true,
     };
   }
+}
+
+/**
+ * 将解析后的 PPTX 演示文稿导出为结构化 Markdown 文本（含标题、要点、表格、图表数据与演讲者备注）
+ */
+export function pptxToMarkdown(presentation: ParsedPptxPresentation): string {
+  const lines: string[] = [];
+  const docTitle = presentation.metadata.title || 'PowerPoint 演示文稿';
+  lines.push(`# ${docTitle}`);
+  if (presentation.metadata.creator) {
+    lines.push(`> 作者：${presentation.metadata.creator}`);
+  }
+  lines.push('');
+
+  for (const slide of presentation.slides) {
+    lines.push(`---`);
+    lines.push(`## ${slide.index + 1}. ${slide.title}`);
+    lines.push('');
+
+    for (const el of slide.elements) {
+      if (el.isFromMaster) continue;
+      if (el.type === 'text' && el.paragraphs) {
+        for (const p of el.paragraphs) {
+          const text = p.runs.map(r => r.text).join('').trim();
+          if (!text) continue;
+          const indent = '  '.repeat(Math.max(0, p.level || 0));
+          if (p.autoNumIndex !== undefined) {
+            lines.push(`${indent}${p.autoNumIndex}. ${text}`);
+          } else if (p.bullet) {
+            lines.push(`${indent}- ${text}`);
+          } else {
+            lines.push(text);
+          }
+        }
+        lines.push('');
+      } else if (el.type === 'table' && el.tableRows && el.tableRows.length > 0) {
+        const visibleRows = el.tableRows.map(r => r.filter(c => !c.mergedSkip));
+        if (visibleRows.length > 0 && visibleRows[0].length > 0) {
+          const header = visibleRows[0].map(c => c.text.replace(/\n/g, ' '));
+          lines.push(`| ${header.join(' | ')} |`);
+          lines.push(`| ${header.map(() => '---').join(' | ')} |`);
+          for (let rIdx = 1; rIdx < visibleRows.length; rIdx++) {
+            const rowVals = visibleRows[rIdx].map(c => c.text.replace(/\n/g, ' '));
+            lines.push(`| ${rowVals.join(' | ')} |`);
+          }
+          lines.push('');
+        }
+      } else if (el.type === 'chart' && el.chartData) {
+        lines.push(`**📊 图表：${el.chartData.title || el.chartData.chartType}**`);
+        const cols = ['类别', ...el.chartData.series.map(s => s.name)];
+        lines.push(`| ${cols.join(' | ')} |`);
+        lines.push(`| ${cols.map(() => '---').join(' | ')} |`);
+        el.chartData.categories.forEach((cat, idx) => {
+          const vals = el.chartData!.series.map(s => String(s.values[idx] ?? ''));
+          lines.push(`| ${cat} | ${vals.join(' | ')} |`);
+        });
+        lines.push('');
+      }
+    }
+
+    if (slide.notes) {
+      lines.push(`> **演讲者备注**：${slide.notes.replace(/\n/g, '\n> ')}`);
+      lines.push('');
+    }
+  }
+
+  return lines.join('\n').trim() + '\n';
+}
+
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * 构建用于浏览器 / VS Code 打印或导出 PDF 的自包含静态 HTML 文档
+ */
+export function buildPptxPrintHtml(
+  presentation: ParsedPptxPresentation,
+  options?: { includeNotes?: boolean }
+): string {
+  const { metadata, slides } = presentation;
+  const w = metadata.width || 960;
+  const h = metadata.height || 540;
+  const includeNotes = options?.includeNotes ?? false;
+  const safeTitle = escapeHtml(metadata.title || 'OmniView PPTX');
+
+  const slideHtmls = slides
+    .map((slide, idx) => {
+      const bgStyle = slide.backgroundImage
+        ? `background-image: url(${slide.backgroundImage}); background-size: cover; background-position: center;`
+        : slide.backgroundGradient
+        ? `background: ${slide.backgroundGradient};`
+        : `background: ${slide.backgroundColor || '#ffffff'};`;
+
+      const elementsHtml = slide.elements
+        .map(el => {
+          const basePos = `position:absolute; left:${el.x}px; top:${el.y}px; width:${el.width}px; height:${el.height}px;${
+            el.rotation ? ` transform:rotate(${el.rotation}deg);` : ''
+          }`;
+          if (el.type === 'image' && el.imageDataUrl) {
+            return `<div style="${basePos} overflow:hidden; display:flex; align-items:center; justify-content:center;"><img src="${el.imageDataUrl}" alt="${escapeHtml(el.imageAlt || '')}" style="width:100%; height:100%; object-fit:contain;" /></div>`;
+          }
+          if (el.type === 'table' && el.tableRows) {
+            const trs = el.tableRows
+              .map(
+                row =>
+                  `<tr>${row
+                    .filter(c => !c.mergedSkip)
+                    .map(
+                      c =>
+                        `<td${c.colSpan ? ` colspan="${c.colSpan}"` : ''}${
+                          c.rowSpan ? ` rowspan="${c.rowSpan}"` : ''
+                        } style="border:1px solid #cbd5e1; padding:4px 6px; background:${c.background || 'transparent'}; color:${c.color || '#0f172a'}; text-align:${c.align || 'left'}; font-weight:${c.bold || c.isHeader ? '600' : '400'}; font-size:${c.fontSize ? Math.max(10, c.fontSize * 0.85) : 12}px;">${escapeHtml(c.text)}</td>`
+                    )
+                    .join('')}</tr>`
+              )
+              .join('');
+            return `<div style="${basePos} overflow:hidden;"><table style="width:100%; height:100%; border-collapse:collapse; table-layout:fixed;"><tbody>${trs}</tbody></table></div>`;
+          }
+          if (el.type === 'shape') {
+            const radius =
+              el.shapeType === 'ellipse' ? 'border-radius:9999px;' : el.shapeType === 'roundRect' ? 'border-radius:8px;' : '';
+            const bg = el.fillGradient ? `background:${el.fillGradient};` : `background:${el.fillColor || 'transparent'};`;
+            const border = el.strokeColor ? `border:${el.strokeWidth || 1}px solid ${el.strokeColor};` : '';
+            return `<div style="${basePos} ${bg} ${border} ${radius}"></div>`;
+          }
+          if (el.type === 'chart' && el.chartData) {
+            return `<div style="${basePos} border:1px solid #e2e8f0; border-radius:8px; padding:12px; background:#fff; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:13px; color:#334155;"><strong>${escapeHtml(el.chartData.title || 'Chart')}</strong><div style="margin-top:6px; font-size:11px; color:#64748b;">${escapeHtml(el.chartData.categories.join(' · '))}</div></div>`;
+          }
+          if (el.paragraphs) {
+            const pHtml = el.paragraphs
+              .map(p => {
+                const prefix = p.autoNumIndex !== undefined ? `${p.autoNumIndex}. ` : p.bullet ? `${p.bulletChar || '•'} ` : '';
+                const runsHtml = p.runs
+                  .map(
+                    r =>
+                      `<span style="font-weight:${r.bold ? '700' : '400'}; font-style:${r.italic ? 'italic' : 'normal'}; text-decoration:${r.underline ? 'underline' : 'none'}; font-size:${r.fontSize || 15}px; color:${r.color || '#0f172a'};">${escapeHtml(r.text)}</span>`
+                  )
+                  .join('');
+                return `<p style="margin:2px 0; text-align:${p.align || 'left'}; padding-left:${p.marginLeft || 0}px;">${escapeHtml(prefix)}${runsHtml}</p>`;
+              })
+              .join('');
+            const bg = el.backgroundGradient ? `background:${el.backgroundGradient};` : el.backgroundColor ? `background:${el.backgroundColor};` : '';
+            const border = el.borderColor ? `border:${el.borderWidth || 1}px solid ${el.borderColor};` : '';
+            return `<div style="${basePos} ${bg} ${border} box-sizing:border-box; padding:4px 6px;">${pHtml}</div>`;
+          }
+          return '';
+        })
+        .join('\n');
+
+      const notesHtml =
+        includeNotes && slide.notes
+          ? `<div style="width:${w}px; margin:8px auto 0; padding:10px 14px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; font-size:12px; color:#334155;"><strong>备注 #${idx + 1}：</strong>${escapeHtml(slide.notes)}</div>`
+          : '';
+
+      return `<section class="print-slide-wrap">
+        <div class="print-slide" style="position:relative; width:${w}px; height:${h}px; overflow:hidden; border:1px solid #e2e8f0; ${bgStyle}">
+          ${elementsHtml}
+        </div>
+        ${notesHtml}
+      </section>`;
+    })
+    .join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>${safeTitle} - 打印预览</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .print-slide-wrap { margin: 0 auto 24px; width: fit-content; page-break-after: always; break-after: page; }
+    .print-slide-wrap:last-child { page-break-after: auto; break-after: auto; }
+    @media print {
+      @page { size: landscape; margin: 8mm; }
+      body { margin: 0; padding: 0; background: #fff; }
+      .print-slide { border: none !important; margin: 0 auto; zoom: 0.94; }
+    }
+  </style>
+</head>
+<body>
+  ${slideHtmls}
+</body>
+</html>`;
 }

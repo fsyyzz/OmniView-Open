@@ -1,11 +1,17 @@
 /**
- * textarea 光标精确像素坐标计算工具 (Caret Position Coordinates)
- * 基于镜像 DOM (Mirror Div) 计算光标在视口中的精确 (x, y) 像素位置
- * 兼容软换行 (Word Wrap)、自定义字体、行高与滚动偏移
+ * 计算 textarea 中光标的像素级坐标 (Caret Coordinates)
+ * 通过镜像隐藏 DOM 测量光标相对于可视视口的坐标位置
  */
 
-// 需要精确从 textarea 复制到镜像容器的样式属性
-const PROPERTIES_TO_COPY = [
+export interface CaretCoordinates {
+  top: number;
+  left: number;
+  height: number;
+  viewportTop: number;
+  viewportLeft: number;
+}
+
+const properties: (keyof CSSStyleDeclaration)[] = [
   'direction',
   'boxSizing',
   'width',
@@ -37,99 +43,57 @@ const PROPERTIES_TO_COPY = [
   'wordSpacing',
   'tabSize',
   'MozTabSize',
-  'whiteSpace',
-  'wordWrap',
-  'lineBreak',
-] as const;
-
-export interface CaretCoordinates {
-  top: number; // 相对于 textarea 内容区域顶部的像素
-  left: number; // 相对于 textarea 内容区域左侧的像素
-  height: number; // 光标高度 (行高)
-  viewportTop: number; // 扣除 scrollTop 后相对于 textarea 可视区域的 top
-  viewportLeft: number; // 扣除 scrollLeft 后相对于 textarea 可视区域的 left
-}
+] as any[];
 
 let mirrorDiv: HTMLDivElement | null = null;
 
-function getMirrorDiv(): HTMLDivElement {
-  if (typeof document === 'undefined') {
-    return {} as HTMLDivElement;
-  }
-  if (!mirrorDiv) {
-    mirrorDiv = document.createElement('div');
-    mirrorDiv.id = 'ov-textarea-caret-position-mirror';
-    mirrorDiv.style.position = 'absolute';
-    mirrorDiv.style.top = '-9999px';
-    mirrorDiv.style.left = '-9999px';
-    mirrorDiv.style.visibility = 'hidden';
-    mirrorDiv.style.pointerEvents = 'none';
-    mirrorDiv.style.zIndex = '-9999';
-    document.body.appendChild(mirrorDiv);
-  }
-  return mirrorDiv;
-}
-
-/**
- * 计算 textarea 中指定字符下标光标的精确像素坐标
- * @param element HTMLTextAreaElement
- * @param position 字符下标 (如 selectionStart)
- */
 export function getCaretCoordinates(
-  element: HTMLTextAreaElement | null,
+  element: HTMLTextAreaElement,
   position: number
 ): CaretCoordinates {
-  if (!element || typeof window === 'undefined') {
+  if (typeof window === 'undefined') {
     return { top: 0, left: 0, height: 20, viewportTop: 0, viewportLeft: 0 };
   }
 
-  const mirror = getMirrorDiv();
-  const computed = window.getComputedStyle(element);
-
-  // 复制几何与字体样式
-  for (const prop of PROPERTIES_TO_COPY) {
-    (mirror.style as any)[prop] = computed.getPropertyValue(
-      prop.replace(/([A-Z])/g, '-$1').toLowerCase()
-    );
+  if (!mirrorDiv) {
+    mirrorDiv = document.createElement('div');
+    mirrorDiv.id = 'input-textarea-caret-position-mirror-div';
+    document.body.appendChild(mirrorDiv);
   }
 
-  // 必须保持与 textarea 一致的宽度与盒模型
-  mirror.style.width = `${element.clientWidth}px`;
-  mirror.style.overflow = 'hidden';
+  const style = mirrorDiv.style;
+  const computed = window.getComputedStyle(element);
 
-  // 截取光标前后的文本
-  const textBefore = element.value.substring(0, position);
-  const textAfter = element.value.substring(position);
+  style.whiteSpace = 'pre-wrap';
+  style.wordWrap = 'break-word';
+  style.position = 'absolute';
+  style.visibility = 'hidden';
+  style.top = '0px';
+  style.left = '-9999px';
 
-  mirror.textContent = '';
+  properties.forEach((prop) => {
+    // @ts-expect-error dynamic style assignment
+    style[prop] = computed[prop];
+  });
 
-  const spanBefore = document.createTextNode(textBefore);
-  const marker = document.createElement('span');
-  marker.textContent = '\u200b'; // 零宽字符
-  const spanAfter = document.createTextNode(textAfter);
+  mirrorDiv.textContent = element.value.substring(0, position);
 
-  mirror.appendChild(spanBefore);
-  mirror.appendChild(marker);
-  mirror.appendChild(spanAfter);
+  const span = document.createElement('span');
+  span.textContent = element.value.substring(position) || '.';
+  mirrorDiv.appendChild(span);
 
-  const markerOffsetTop = marker.offsetTop;
-  const markerOffsetLeft = marker.offsetLeft;
-  const parsedLineHeight = parseFloat(computed.lineHeight);
-  const lineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 0
-    ? parsedLineHeight
-    : parseFloat(computed.fontSize) * 1.5 || 20;
+  const top = span.offsetTop + parseInt(computed.borderTopWidth, 10);
+  const left = span.offsetLeft + parseInt(computed.borderLeftWidth, 10);
+  const height = parseInt(computed.lineHeight, 10) || span.offsetHeight || 20;
 
-  const top = markerOffsetTop;
-  const left = markerOffsetLeft;
   const viewportTop = top - element.scrollTop;
   const viewportLeft = left - element.scrollLeft;
 
   return {
     top,
     left,
-    height: marker.offsetHeight || lineHeight,
+    height,
     viewportTop,
     viewportLeft,
   };
 }
-

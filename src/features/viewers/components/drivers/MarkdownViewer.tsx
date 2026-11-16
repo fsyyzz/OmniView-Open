@@ -27,7 +27,6 @@ import { MarkdownFocusedBlockEditor } from './markdown/MarkdownFocusedBlockEdito
 import {
   MarkdownBlockActionBar,
   MarkdownBlockUndoToast,
-  computeBlockContentRightOffset,
   type DeletedBlockSnapshot,
 } from './markdown/MarkdownBlockActionBar';
 import { applyMarkdownSelectionFormat, MarkdownFormatAction } from '../../lib/markdownSelectionReplacer';
@@ -166,7 +165,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   const [deletedBlockSnapshot, setDeletedBlockSnapshot] =
     React.useState<DeletedBlockSnapshot | null>(null);
   const [pendingFocusLine, setPendingFocusLine] = React.useState<number | null>(null);
-  const [blockRightOffsets, setBlockRightOffsets] = React.useState<Record<string, number>>({});
 
   // 当插入新块并触发 AST 重新计算后，自动根据新块行号聚焦打开专注编辑器
   useEffect(() => {
@@ -1643,12 +1641,6 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             className={`ov-editable-block-wrapper group/ov-block relative transition-opacity duration-200 ${
               isDimmedBySpotlight ? 'opacity-35 hover:opacity-80' : ''
             }`}
-            onMouseEnter={e => {
-              const offset = computeBlockContentRightOffset(e.currentTarget);
-              setBlockRightOffsets(prev =>
-                prev[block.id] === offset ? prev : { ...prev, [block.id]: offset }
-              );
-            }}
             onDoubleClick={e => {
               if (e.altKey) {
                 e.preventDefault();
@@ -1659,14 +1651,15 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
               }
             }}
           >
-            {/* 块右上角渐进式悬浮动作胶囊 (局部编辑 / 下方插入 / 克隆 / 上下移动 / 删除) */}
+            {/* 块最左侧固定渐进式悬浮动作胶囊 (统一靠最左侧显示，彻底杜绝到处跳变) */}
             <MarkdownBlockActionBar
               blockId={block.id}
               startLine={block.startLine!}
               endLine={block.endLine}
               canMoveUp={Boolean(prevEditableBlock)}
               canMoveDown={Boolean(nextEditableBlock)}
-              rightOffsetPx={blockRightOffsets[block.id] ?? 8}
+              position="left"
+              leftOffsetPx={8}
               locale={locale}
               onEdit={() => {
                 window.getSelection()?.removeAllRanges();

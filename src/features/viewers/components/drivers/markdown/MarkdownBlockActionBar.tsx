@@ -3,8 +3,8 @@
  *
  * 核心特性：
  * 1. 二段式极简渐进披露 (Two-Stage Progressive Disclosure)：默认悬浮仅展示「编辑」与「更多」两个紧凑小按钮，点击「更多」后才展开「下方插入」「克隆块」「上移/下移」「删除块」等进阶操作
- * 2. 智能正文右侧贴合定位：当段落、标题、居中图件框 ([!FIGURE]) 或图片未铺满整行时，自动贴合实际正文/图件右侧边缘，免去鼠标长距离横跨空白区；展开更多操作时自动防左溢钳制
- * 3. 防误触双保险：支持行内二次确认态 (Inline Confirm) + 删除后底部 6 秒非阻塞「一键撤销 (Undo)」浮条
+ * 2. 统一固定靠最左侧显示 (Fixed Left-Rail Alignment)：全量块级悬浮操作统一固定显示在块级最左侧 (left: 8px)，杜绝根据文字/图表宽度动态计算导致的水平到处漂移与视线疲劳；展开「更多」时向右自然舒展
+ * 3. 防误触双保险：支持行内二次确认态 (Inline Confirm) + 删除后底部非阻塞「一键撤销 (Undo)」浮条
  * 4. 100% 遵循 --ov-* 语义化设计令牌，且全量标记 data-clipboard-ignore="true" 杜绝复制污染
  */
 import React, { useState, useEffect, useRef } from 'react';
@@ -23,8 +23,8 @@ import {
 import type { Locale } from '../../../../../shared/lib/i18n';
 
 /**
- * 测量块级容器内部实际正文或独立视觉盒子的右边界偏移量（相对于 wrapper 右侧的距离 px）
- * 若内容未铺满整行（如短标题、短段落、居中 [!FIGURE] 图件框、独立窄图/窄表），让悬浮胶囊贴合内容右侧
+ * 测量块级容器内部实际正文或独立视觉盒子的右边界偏移量（仅保留用于兼容旧模式）
+ * @deprecated 默认已全面推行左侧固定对齐 (position="left")，避免鼠标移动时横向到处跳变
  */
 export function computeBlockContentRightOffset(
   wrapperEl: HTMLElement | null,
@@ -71,7 +71,6 @@ export function computeBlockContentRightOffset(
     range.selectNodeContents(textTarget);
     const rangeRect = range.getBoundingClientRect();
     if (rangeRect.width > 0 && rangeRect.right < wrapperRect.right - 24) {
-      // 将胶囊置于文字右端附近（若文字极短则紧邻文字右侧展开，不超出容器左界）
       const desiredRightEdge = Math.max(
         wrapperRect.left + barWidth + 8,
         Math.min(wrapperRect.right - 8, rangeRect.right + Math.min(barWidth * 0.75, 84))
@@ -92,6 +91,11 @@ export interface MarkdownBlockActionBarProps {
   endLine?: number;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  /** 对齐位置：默认为 'left'（全量固定靠最左侧显示，彻底解决位置漂移跳变） */
+  position?: 'left' | 'right';
+  /** 左侧固定偏移量（单位 px，默认 8px） */
+  leftOffsetPx?: number;
+  /** 右侧偏移量（仅当 position='right' 兼容旧模式时生效） */
   rightOffsetPx?: number;
   locale?: Locale;
   onEdit: () => void;
@@ -107,6 +111,8 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
   endLine,
   canMoveUp,
   canMoveDown,
+  position = 'left',
+  leftOffsetPx = 8,
   rightOffsetPx = 8,
   locale = 'zh-CN',
   onEdit,
@@ -133,8 +139,12 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
   const lineRangeText =
     endLine && endLine > startLine ? `L${startLine}–L${endLine}` : `L${startLine}`;
 
-  // 当展开「更多」或处于「删除确认」时胶囊变宽，自动钳制 rightOffset 防止在极短标题/段落上向左溢出容器
+  const isLeftAligned = position === 'left';
+  const effectiveLeftOffsetPx = leftOffsetPx;
+
+  // 当处于 legacy right 模式时才需要计算 dynamic offset
   const effectiveRightOffsetPx = (() => {
+    if (isLeftAligned) return undefined;
     if (!isMoreOpen && !confirmingDelete) return rightOffsetPx;
     const parentWidth = barRef.current?.parentElement?.clientWidth ?? 0;
     if (parentWidth <= 0) return rightOffsetPx;
@@ -154,7 +164,8 @@ export const MarkdownBlockActionBar: React.FC<MarkdownBlockActionBarProps> = ({
       onClick={e => e.stopPropagation()}
       onDoubleClick={e => e.stopPropagation()}
       style={{
-        right: `${effectiveRightOffsetPx}px`,
+        left: isLeftAligned ? `${effectiveLeftOffsetPx}px` : undefined,
+        right: !isLeftAligned ? `${effectiveRightOffsetPx}px` : undefined,
         backgroundColor: 'var(--ov-bg-elevated)',
         borderColor: 'var(--ov-border)',
         color: 'var(--ov-text-secondary)',
@@ -416,7 +427,7 @@ export const MarkdownBlockUndoToast: React.FC<MarkdownBlockUndoToastProps> = ({
         color: 'var(--ov-text)',
         boxShadow: 'var(--ov-shadow)',
       }}
-      className="sticky bottom-4 ml-auto mr-2 w-fit z-40 flex items-center gap-3 px-3.5 py-2 rounded-xl border text-xs transition-all duration-200 select-none"
+      className="sticky bottom-4 ml-2 mr-auto w-fit z-40 flex items-center gap-3 px-3.5 py-2 rounded-xl border text-xs transition-all duration-200 select-none"
     >
       <div className="flex items-center gap-1.5">
         <span
