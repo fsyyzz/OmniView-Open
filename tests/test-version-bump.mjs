@@ -105,4 +105,15 @@ try {
   rmSync(tempDir, { recursive: true, force: true });
 }
 
-console.log('🎉 全部 5 组 AI-SE 版本自动化与自增单元测试 100% 通过！\n');
+// 测试 6: 验证仓库 CHANGELOG.md 遵守最近 10 次变更滚动保留约定
+console.log('--- 测试 6: CHANGELOG.md 最近 10 次变更滚动保留校验 ---');
+const repoChangelogPath = join(process.cwd(), 'CHANGELOG.md');
+const repoChangelog = readFileSync(repoChangelogPath, 'utf8');
+const changelogHeadings = repoChangelog.match(/^##\s+\[[^\]]+\]/gm) || [];
+assert.ok(
+  changelogHeadings.length >= 1 && changelogHeadings.length <= 10,
+  `CHANGELOG.md 只能保留最近 1~10 次修改记录，实际发现 ${changelogHeadings.length} 个版本节`
+);
+console.log(`✅ CHANGELOG.md 滚动保留校验通过：当前共 ${changelogHeadings.length} / 10 个版本节`);
+
+console.log('🎉 全部 6 组 AI-SE 版本自动化与 CHANGELOG 滚动保留单元测试 100% 通过！\n');

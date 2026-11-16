@@ -1,12 +1,16 @@
 import React from 'react';
 import { EyeOff, MessageSquare, Search, X } from 'lucide-react';
 import type { PptxSlide } from '../../../lib/pptxEngine';
+import type { PptxColorPresetId } from '../../../lib/pptxStagePresets';
 import { PptxSlideStage } from './PptxSlideStage';
 
 export interface PptxGridOverviewProps {
   slides: PptxSlide[];
   slideWidth: number;
   slideHeight: number;
+  nativeWidth?: number;
+  nativeHeight?: number;
+  colorPresetId?: PptxColorPresetId;
   currentSlideIndex: number;
   matchedSlideIndices?: Set<number>;
   searchQuery?: string;
@@ -19,6 +23,9 @@ export const PptxGridOverview: React.FC<PptxGridOverviewProps> = ({
   slides,
   slideWidth,
   slideHeight,
+  nativeWidth,
+  nativeHeight,
+  colorPresetId = 'original',
   currentSlideIndex,
   matchedSlideIndices,
   searchQuery,
@@ -95,8 +102,11 @@ export const PptxGridOverview: React.FC<PptxGridOverviewProps> = ({
                     slide={slide}
                     width={slideWidth}
                     height={slideHeight}
+                    nativeWidth={nativeWidth}
+                    nativeHeight={nativeHeight}
                     scale={thumbScale}
                     searchQuery={searchQuery}
+                    colorPresetId={colorPresetId}
                     compact={true}
                     showSlideNumber={false}
                   />

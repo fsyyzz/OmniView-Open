@@ -1,5 +1,12 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { PptxSlide, PptxElement, PptxParagraph, PptxTextRun } from '../../../lib/pptxEngine';
+import {
+  getPptxColorPreset,
+  adaptColorForPreset,
+  projectElementToStageDimensions,
+  type PptxColorPreset,
+  type PptxColorPresetId,
+} from '../../../lib/pptxStagePresets';
 import { PptxShapeSvg } from './PptxShapeSvg';
 import { PptxChartElement } from './PptxChartElement';
 
@@ -7,12 +14,16 @@ export interface PptxSlideStageProps {
   slide: PptxSlide;
   width: number;
   height: number;
+  nativeWidth?: number;
+  nativeHeight?: number;
   scale?: number;
   searchQuery?: string;
   compact?: boolean;
   laserActive?: boolean;
   showSlideNumber?: boolean;
   totalSlides?: number;
+  colorPresetId?: PptxColorPresetId;
+  selectedElementId?: string | null;
   stageRef?: React.RefObject<HTMLDivElement | null>;
   className?: string;
 }
@@ -106,6 +117,7 @@ function buildElementTransform(el: PptxElement): string | undefined {
 function renderParagraphContent(
   p: PptxParagraph,
   pIdx: number,
+  colorPreset: PptxColorPreset,
   searchQuery?: string
 ): React.ReactNode {
   const prefixText =
@@ -118,6 +130,10 @@ function renderParagraphContent(
   const textAlign = p.align || 'left';
   const paddingLeft = p.marginLeft && p.marginLeft > 0 ? `${p.marginLeft}px` : undefined;
   const textIndent = p.indent ? `${p.indent}px` : undefined;
+
+  const bulletClr =
+    adaptColorForPreset(p.bulletColor || p.runs[0]?.color, colorPreset, 'accent') ||
+    colorPreset.accent;
 
   return (
     <p
@@ -135,7 +151,7 @@ function renderParagraphContent(
       {prefixText && (
         <span
           style={{
-            color: p.bulletColor || p.runs[0]?.color || '#3B82F6',
+            color: bulletClr,
             fontSize: p.runs[0]?.fontSize ? `${p.runs[0].fontSize}px` : '15px',
             fontWeight: p.autoNumIndex !== undefined ? 600 : 700,
           }}
@@ -159,12 +175,16 @@ function renderParagraphContent(
         const baseSize = r.fontSize || 15;
         const computedSize = r.baseline ? Math.max(9, Math.round(baseSize * 0.7)) : baseSize;
 
+        const adaptedColor =
+          adaptColorForPreset(r.color, colorPreset, 'text') ||
+          (safeHref ? colorPreset.accent : colorPreset.textPrimary);
+
         const spanStyle: React.CSSProperties = {
           fontWeight: r.bold ? 700 : 400,
           fontStyle: r.italic ? 'italic' : 'normal',
           textDecoration,
           fontSize: `${computedSize}px`,
-          color: r.color || (safeHref ? '#2563EB' : '#0F172A'),
+          color: adaptedColor,
           fontFamily: r.fontFamily || 'inherit',
           verticalAlign: r.baseline
             ? r.baseline > 0
@@ -205,16 +225,32 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
   slide,
   width,
   height,
+  nativeWidth,
+  nativeHeight,
   scale = 1,
   searchQuery,
   compact = false,
   laserActive = false,
   showSlideNumber = true,
   totalSlides,
+  colorPresetId = 'original',
+  selectedElementId,
   stageRef,
   className = '',
 }) => {
   const [laserPos, setLaserPos] = useState<{ x: number; y: number } | null>(null);
+  const colorPreset = useMemo(() => getPptxColorPreset(colorPresetId), [colorPresetId]);
+
+  const srcW = nativeWidth || width;
+  const srcH = nativeHeight || height;
+
+  const projectedElements = useMemo(() => {
+    const ordered = [...slide.elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+    if (Math.abs(srcW - width) < 0.5 && Math.abs(srcH - height) < 0.5) {
+      return ordered;
+    }
+    return ordered.map(el => projectElementToStageDimensions(el, srcW, srcH, width, height));
+  }, [slide.elements, srcW, srcH, width, height]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -236,16 +272,21 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
   const outerWidth = Math.max(1, Math.round(width * scale * 10) / 10);
   const outerHeight = Math.max(1, Math.round(height * scale * 10) / 10);
 
+  const stageBgColor =
+    adaptColorForPreset(slide.backgroundColor, colorPreset, 'bg') || colorPreset.stageBg;
+  const stageBgGradient =
+    adaptColorForPreset(slide.backgroundGradient, colorPreset, 'bg') || colorPreset.stageGradient;
+
   const stageBackgroundStyle: React.CSSProperties = slide.backgroundImage
     ? {
         backgroundImage: `url(${slide.backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundColor: slide.backgroundColor || '#ffffff',
+        backgroundColor: stageBgColor,
       }
-    : slide.backgroundGradient
-    ? { background: slide.backgroundGradient }
-    : { background: slide.backgroundColor || '#ffffff' };
+    : stageBgGradient
+    ? { background: stageBgGradient }
+    : { background: stageBgColor };
 
   return (
     <div
@@ -253,6 +294,7 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
         width: `${outerWidth}px`,
         height: `${outerHeight}px`,
       }}
+      data-pptx-color={colorPreset.id}
       className={`relative shrink-0 overflow-hidden ${className}`}
     >
       <div
@@ -264,23 +306,31 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
           height: `${height}px`,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
+          isolation: 'isolate',
+          color: colorPreset.textPrimary,
           ...stageBackgroundStyle,
           cursor: laserActive && !compact ? 'none' : undefined,
         }}
-        className={`relative overflow-hidden text-slate-900 ${
+        className={`relative overflow-hidden ${
           compact ? 'pointer-events-none select-none' : 'select-text'
         }`}
       >
-        {slide.elements.map(el => {
+        {projectedElements.map((el, elIdx) => {
           const transform = buildElementTransform(el);
+          const zIndex = el.zIndex ?? elIdx + 1;
+          const isSelected = Boolean(!compact && selectedElementId && selectedElementId === el.id);
+
           const posStyle: React.CSSProperties = {
             position: 'absolute',
             left: `${el.x}px`,
             top: `${el.y}px`,
             width: `${el.width}px`,
             height: `${el.height}px`,
+            zIndex,
             transform,
             opacity: el.opacity,
+            outline: isSelected ? `2px solid ${colorPreset.accent}` : undefined,
+            outlineOffset: isSelected ? '2px' : undefined,
           };
 
           // 1. 图片图元
@@ -294,6 +344,10 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
             return (
               <div
                 key={el.id}
+                data-element-id={el.id}
+                data-layer-tier={el.layerTier || 'slide'}
+                data-z-index={zIndex}
+                data-selected={isSelected ? 'true' : undefined}
                 style={posStyle}
                 className="overflow-hidden flex items-center justify-center pointer-events-none"
               >
@@ -313,7 +367,15 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
           // 2. 表格图元 (支持跨行/跨列合并与列宽比)
           if (el.type === 'table' && el.tableRows && el.tableRows.length > 0) {
             return (
-              <div key={el.id} style={posStyle} className="overflow-hidden">
+              <div
+                key={el.id}
+                data-element-id={el.id}
+                data-layer-tier={el.layerTier || 'slide'}
+                data-z-index={zIndex}
+                data-selected={isSelected ? 'true' : undefined}
+                style={posStyle}
+                className="overflow-hidden"
+              >
                 <table className="w-full h-full border-collapse table-fixed">
                   {el.colWidthsPct && el.colWidthsPct.length > 0 && (
                     <colgroup>
@@ -338,18 +400,28 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
                               : cell.vAlign === 'bottom'
                               ? 'align-bottom'
                               : 'align-middle';
+                          const cellBg = cell.isHeader && colorPreset.id !== 'original'
+                            ? colorPreset.accentSoft
+                            : adaptColorForPreset(cell.background, colorPreset, 'bg') || 'transparent';
+                          const cellText =
+                            adaptColorForPreset(cell.color, colorPreset, 'text') ||
+                            colorPreset.textPrimary;
+                          const cellBorder =
+                            adaptColorForPreset(cell.borderColor, colorPreset, 'stroke') ||
+                            colorPreset.border;
+
                           return (
                             <td
                               key={cIdx}
                               colSpan={cell.colSpan}
                               rowSpan={cell.rowSpan}
                               style={{
-                                backgroundColor: cell.background || 'transparent',
-                                color: cell.color || '#0F172A',
+                                backgroundColor: cellBg,
+                                color: cellText,
                                 textAlign: cell.align || 'left',
                                 fontWeight: cell.bold || cell.isHeader ? 600 : 400,
                                 fontSize: cell.fontSize ? `${Math.max(10, cell.fontSize * 0.9)}px` : '12px',
-                                borderColor: cell.borderColor || '#CBD5E1',
+                                borderColor: cellBorder,
                               }}
                               className={`p-1.5 border break-words ${vAlignClass}`}
                             >
@@ -368,7 +440,15 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
           // 3. 原生内嵌图表
           if (el.type === 'chart' && el.chartData) {
             return (
-              <div key={el.id} style={posStyle} className="overflow-hidden">
+              <div
+                key={el.id}
+                data-element-id={el.id}
+                data-layer-tier={el.layerTier || 'slide'}
+                data-z-index={zIndex}
+                data-selected={isSelected ? 'true' : undefined}
+                style={posStyle}
+                className="overflow-hidden"
+              >
                 <PptxChartElement
                   chartData={el.chartData}
                   width={el.width}
@@ -379,18 +459,39 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
             );
           }
 
-          // 4. 纯矢量几何形状与连线
+          // 4. 纯矢量几何形状、多边形、星形、自由多边形与连线
           if (el.type === 'shape') {
+            const fillOverride = adaptColorForPreset(el.fillColor, colorPreset, 'accent');
+            const gradientOverride = adaptColorForPreset(el.fillGradient, colorPreset, 'bg');
+            const strokeOverride = adaptColorForPreset(el.strokeColor, colorPreset, 'stroke');
+
             return (
-              <div key={el.id} style={posStyle} className="pointer-events-none">
-                <PptxShapeSvg element={el} />
+              <div
+                key={el.id}
+                data-element-id={el.id}
+                data-layer-tier={el.layerTier || 'slide'}
+                data-shape-type={el.shapeType}
+                data-z-index={zIndex}
+                data-selected={isSelected ? 'true' : undefined}
+                style={posStyle}
+                className="pointer-events-none"
+              >
+                <PptxShapeSvg
+                  element={el}
+                  fillOverride={fillOverride}
+                  gradientOverride={gradientOverride}
+                  strokeOverride={strokeOverride}
+                />
               </div>
             );
           }
 
-          // 5. 富文本框与带形状背景的复合文本块
-          const hasNonRectShape =
-            el.shapeType && el.shapeType !== 'rect' && el.shapeType !== 'custom';
+          // 5. 富文本框与带多边形/形状底板的复合文本块
+          const hasCustomPaths = Boolean(el.customPaths && el.customPaths.length > 0);
+          const hasNonRectShape = Boolean(
+            (el.shapeType && el.shapeType !== 'rect' && el.shapeType !== 'custom') ||
+              hasCustomPaths
+          );
           const justifyClass =
             el.verticalAlign === 'middle'
               ? 'justify-center'
@@ -399,24 +500,33 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
               : 'justify-start';
           const boxPadding = el.padding
             ? `${el.padding.top}px ${el.padding.right}px ${el.padding.bottom}px ${el.padding.left}px`
-            : el.backgroundColor || el.backgroundGradient || el.borderColor
+            : el.backgroundColor || el.backgroundGradient || el.borderColor || hasNonRectShape
             ? '6px 10px'
             : '2px 4px';
+
+          const adaptedBg = adaptColorForPreset(el.backgroundColor, colorPreset, 'bg');
+          const adaptedGrad = adaptColorForPreset(el.backgroundGradient, colorPreset, 'bg');
+          const adaptedBorder = adaptColorForPreset(el.borderColor, colorPreset, 'stroke');
 
           return (
             <div
               key={el.id}
+              data-element-id={el.id}
+              data-layer-tier={el.layerTier || 'slide'}
+              data-shape-type={el.shapeType}
+              data-z-index={zIndex}
+              data-selected={isSelected ? 'true' : undefined}
               style={{
                 ...posStyle,
                 height: undefined,
                 minHeight: `${el.height}px`,
                 background: !hasNonRectShape
-                  ? el.backgroundGradient || el.backgroundColor || 'transparent'
+                  ? adaptedGrad || adaptedBg || 'transparent'
                   : undefined,
-                borderColor: !hasNonRectShape ? el.borderColor || 'transparent' : undefined,
+                borderColor: !hasNonRectShape ? adaptedBorder || 'transparent' : undefined,
                 borderWidth: !hasNonRectShape && el.borderWidth ? `${el.borderWidth}px` : undefined,
-                borderStyle: !hasNonRectShape && el.borderColor ? 'solid' : 'none',
-                borderRadius: !hasNonRectShape && el.backgroundColor ? '4px' : undefined,
+                borderStyle: !hasNonRectShape && adaptedBorder ? 'solid' : 'none',
+                borderRadius: !hasNonRectShape && adaptedBg ? '4px' : undefined,
                 boxShadow:
                   !hasNonRectShape && el.hasShadow
                     ? '0 3px 8px rgba(15, 23, 42, 0.14)'
@@ -427,11 +537,18 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
             >
               {hasNonRectShape && (
                 <div className="absolute inset-0 pointer-events-none z-0">
-                  <PptxShapeSvg element={el} />
+                  <PptxShapeSvg
+                    element={el}
+                    fillOverride={adaptedBg}
+                    gradientOverride={adaptedGrad}
+                    strokeOverride={adaptedBorder}
+                  />
                 </div>
               )}
               <div className="relative z-10 w-full">
-                {el.paragraphs?.map((p, pIdx) => renderParagraphContent(p, pIdx, searchQuery))}
+                {el.paragraphs?.map((p, pIdx) =>
+                  renderParagraphContent(p, pIdx, colorPreset, searchQuery)
+                )}
               </div>
             </div>
           );
@@ -445,14 +562,18 @@ export const PptxSlideStage: React.FC<PptxSlideStageProps> = ({
               top: `${laserPos.y}px`,
               transform: 'translate(-50%, -50%)',
               boxShadow: '0 0 12px 4px rgba(239, 68, 68, 0.75)',
+              zIndex: 9998,
             }}
-            className="absolute w-3.5 h-3.5 rounded-full bg-red-500 border border-white pointer-events-none z-50"
+            className="absolute w-3.5 h-3.5 rounded-full bg-red-500 border border-white pointer-events-none"
           />
         )}
 
         {/* 右下角页码角标 */}
         {showSlideNumber && !compact && (
-          <div className="absolute right-4 bottom-3 text-[11px] font-mono text-slate-500/70 select-none pointer-events-none">
+          <div
+            className="absolute right-4 bottom-3 text-[11px] font-mono select-none pointer-events-none opacity-70"
+            style={{ color: colorPreset.textMuted, zIndex: 9990 }}
+          >
             {slide.index + 1} / {totalSlides || 1}
           </div>
         )}

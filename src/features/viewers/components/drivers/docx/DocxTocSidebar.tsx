@@ -8,6 +8,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   ListTree,
+  FileText,
   X,
   Search,
   ChevronRight,
@@ -16,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { DocxTocItem } from '../../../lib/docxEngine';
+import type { DocxPageSummary } from '../../../lib/docxPaginationEngine';
 import type { DocxSectionSearchMatch } from '../../../lib/docxSearchAggregator';
 import type { Locale } from '../../../../../shared/lib/i18n';
 
@@ -23,6 +25,10 @@ export interface DocxTocSidebarProps {
   showNavigation: boolean;
   tocItems: DocxTocItem[];
   activeHeadingId: string | null;
+  /** 物理分页摘要列表（用于“页面”一页一页导航视图） */
+  pageSummaries?: DocxPageSummary[];
+  /** 当前所在物理页码 (1-indexed) */
+  currentPage?: number;
   /** 全文检索关键字 (若处于搜索态) */
   searchQuery?: string;
   /** 全文匹配总数 */
@@ -34,11 +40,14 @@ export interface DocxTocSidebarProps {
   locale?: Locale;
   onClose: () => void;
   onSelectHeading: (item: DocxTocItem) => void;
+  onSelectPage?: (pageNumber: number) => void;
   onSelectMatch?: (matchIndex: number) => void;
 }
 
 const TOC_COPY: Record<Locale, {
   title: string;
+  tabOutline: string;
+  tabPages: string;
   closeTip: string;
   matchesFound: (n: number) => string;
   onlyMatched: string;
@@ -46,6 +55,7 @@ const TOC_COPY: Record<Locale, {
   onlyMatchedTip: string;
   distribution: (n: number) => string;
   filterPlaceholder: string;
+  filterPagesPlaceholder: string;
   matchesCountTip: (n: number) => string;
   expandContextTip: string;
   jumpMatchTip: (n: number) => string;
@@ -54,9 +64,13 @@ const TOC_COPY: Record<Locale, {
   emptyMatchedHint: string;
   emptyHeadings: string;
   emptyHeadingsHint: string;
+  pageLabel: (n: number) => string;
+  emptyPages: string;
 }> = {
   'zh-CN': {
     title: '文档导航',
+    tabOutline: '大纲',
+    tabPages: '页面',
     closeTip: '收起导航窗口 (Ctrl+Shift+O)',
     matchesFound: (n) => `找到 ${n} 处匹配`,
     onlyMatched: '仅显命中',
@@ -64,17 +78,22 @@ const TOC_COPY: Record<Locale, {
     onlyMatchedTip: '当大纲较多时，一键隐藏无匹配项的章节',
     distribution: (n) => `分布于 ${n} 个章节，点击章节角标展开上下文`,
     filterPlaceholder: '在目录大纲中过滤...',
+    filterPagesPlaceholder: '按页码或页面摘要过滤...',
     matchesCountTip: (n) => `${n} 处匹配`,
     expandContextTip: '点击展开/折叠本章节搜索上下文',
-    jumpMatchTip: (n) => `跳转至第 ${n} 处匹配`,
+    jumpMatchTip: (n: number) => `跳转至第 ${n} 处匹配`,
     currentMatch: '当前',
     emptyMatched: '当前搜索词无对应章节匹配',
     emptyMatchedHint: '可点击上方“已过滤”还原完整大纲',
     emptyHeadings: '未搜寻到匹配标题',
-    emptyHeadingsHint: '请检查搜索词或尝试重置',
+    emptyHeadingsHint: '可切换至上方“页面”标签按页浏览',
+    pageLabel: (n) => `第 ${n} 页`,
+    emptyPages: '未找到匹配的页面',
   },
   'en-US': {
     title: 'Navigation',
+    tabOutline: 'Outline',
+    tabPages: 'Pages',
     closeTip: 'Collapse navigation pane (Ctrl+Shift+O)',
     matchesFound: (n) => `${n} matches found`,
     onlyMatched: 'Matched',
@@ -82,14 +101,17 @@ const TOC_COPY: Record<Locale, {
     onlyMatchedTip: 'Hide sections without search matches',
     distribution: (n) => `Across ${n} sections; click badge to expand context`,
     filterPlaceholder: 'Filter outline headings...',
+    filterPagesPlaceholder: 'Filter pages by number or text...',
     matchesCountTip: (n) => `${n} matches`,
     expandContextTip: 'Expand/collapse section search snippets',
-    jumpMatchTip: (n) => `Jump to match #${n}`,
+    jumpMatchTip: (n: number) => `Jump to match #${n}`,
     currentMatch: 'Active',
     emptyMatched: 'No sections match the search query',
     emptyMatchedHint: 'Click "Filtered" above to restore full outline',
     emptyHeadings: 'No matching headings found',
-    emptyHeadingsHint: 'Adjust filter or reset search',
+    emptyHeadingsHint: 'Switch to the "Pages" tab above to browse page by page',
+    pageLabel: (n) => `Page ${n}`,
+    emptyPages: 'No matching pages found',
   },
 };
 
@@ -97,6 +119,8 @@ export const DocxTocSidebar: React.FC<DocxTocSidebarProps> = ({
   showNavigation,
   tocItems,
   activeHeadingId,
+  pageSummaries = [],
+  currentPage = 1,
   searchQuery = '',
   totalMatchesCount = 0,
   activeMatchIndex = -1,
@@ -104,11 +128,14 @@ export const DocxTocSidebar: React.FC<DocxTocSidebarProps> = ({
   locale = 'zh-CN',
   onClose,
   onSelectHeading,
+  onSelectPage,
   onSelectMatch,
 }) => {
   const copy = TOC_COPY[locale] || TOC_COPY['zh-CN'];
 
-  // 侧边栏内部大纲标题快速过滤
+  // 导航侧边栏标签页：大纲 (outline) vs 页面 (pages)
+  const [navTab, setNavTab] = useState<'outline' | 'pages'>('outline');
+  // 侧边栏内部大纲标题/页面快速过滤
   const [filterQuery, setFilterQuery] = useState<string>('');
   // 处于全文搜索态时，用户可一键折叠无匹配项章节
   const [filterOnlyMatched, setFilterOnlyMatched] = useState<boolean>(false);
@@ -152,6 +179,18 @@ export const DocxTocSidebar: React.FC<DocxTocSidebarProps> = ({
     return list;
   }, [tocItems, hasGlobalSearch, filterOnlyMatched, searchGroups, filterQuery]);
 
+  // 过滤后的物理页面列表
+  const displayedPages = useMemo(() => {
+    if (!filterQuery.trim()) return pageSummaries;
+    const q = filterQuery.toLowerCase().trim();
+    return pageSummaries.filter(
+      p =>
+        String(p.pageNumber).includes(q) ||
+        p.title.toLowerCase().includes(q) ||
+        p.snippet.toLowerCase().includes(q)
+    );
+  }, [pageSummaries, filterQuery]);
+
   if (!showNavigation) return null;
 
   return (
@@ -163,7 +202,7 @@ export const DocxTocSidebar: React.FC<DocxTocSidebarProps> = ({
             <ListTree className="w-3.5 h-3.5" />
           </div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--ov-text)] truncate tabular-nums">
-            {copy.title} ({tocItems.length})
+            {copy.title} ({navTab === 'pages' ? pageSummaries.length : tocItems.length})
           </h3>
         </div>
         <button
@@ -176,6 +215,36 @@ export const DocxTocSidebar: React.FC<DocxTocSidebarProps> = ({
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {/* 大纲 / 页面 视图切换栏 */}
+      {pageSummaries.length > 0 && (
+        <div className="px-2 pt-2 pb-1 border-b border-[var(--ov-border)] bg-[var(--ov-surface)] flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setNavTab('outline')}
+            className={`flex-1 py-1 px-2 rounded text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              navTab === 'outline'
+                ? 'bg-[var(--ov-accent-subtle)] text-[var(--ov-accent)] border border-[var(--ov-accent)]/35'
+                : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-bg-elevated)] border border-transparent'
+            }`}
+          >
+            <ListTree className="w-3 h-3" />
+            <span>{copy.tabOutline} ({tocItems.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setNavTab('pages')}
+            className={`flex-1 py-1 px-2 rounded text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              navTab === 'pages'
+                ? 'bg-[var(--ov-accent-subtle)] text-[var(--ov-accent)] border border-[var(--ov-accent)]/35'
+                : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)] hover:bg-[var(--ov-bg-elevated)] border border-transparent'
+            }`}
+          >
+            <FileText className="w-3 h-3" />
+            <span>{copy.tabPages} ({pageSummaries.length})</span>
+          </button>
+        </div>
+      )}
 
       {/* 全文检索热力态状态看板 */}
       {hasGlobalSearch && (
@@ -205,13 +274,13 @@ export const DocxTocSidebar: React.FC<DocxTocSidebarProps> = ({
         </div>
       )}
 
-      {/* 大纲局部过滤框 */}
+      {/* 大纲/页面局部过滤框 */}
       <div className="p-2 border-b border-[var(--ov-border)]">
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-[var(--ov-bg-elevated)] border border-[var(--ov-border)] focus-within:border-[var(--ov-accent)] transition-colors">
           <Search className="w-3.5 h-3.5 text-[var(--ov-text-secondary)] shrink-0" />
           <input
             type="text"
-            placeholder={copy.filterPlaceholder}
+            placeholder={navTab === 'pages' ? copy.filterPagesPlaceholder : copy.filterPlaceholder}
             value={filterQuery}
             onChange={e => setFilterQuery(e.target.value)}
             className="w-full bg-transparent border-none outline-none text-xs text-[var(--ov-text)] placeholder:text-[var(--ov-text-secondary)]/70"
@@ -228,9 +297,62 @@ export const DocxTocSidebar: React.FC<DocxTocSidebarProps> = ({
         </div>
       </div>
 
-      {/* 标题大纲与搜索热力列表 */}
+      {/* 标题大纲 / 页面列表 */}
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {displayedToc.length > 0 ? (
+        {navTab === 'pages' ? (
+          displayedPages.length > 0 ? (
+            <div className="space-y-1.5">
+              {displayedPages.map((pg) => {
+                const isCurrent = currentPage === pg.pageNumber;
+                return (
+                  <button
+                    key={`page-card-${pg.pageNumber}`}
+                    type="button"
+                    onClick={() => onSelectPage?.(pg.pageNumber)}
+                    className={`w-full p-2.5 rounded-md text-left transition-colors border flex items-start gap-2.5 ${
+                      isCurrent
+                        ? 'bg-[var(--ov-accent-subtle)] border-[var(--ov-accent)] text-[var(--ov-text)] shadow-sm'
+                        : 'bg-[var(--ov-bg-elevated)]/60 border-[var(--ov-border)] hover:bg-[var(--ov-bg-elevated)] hover:border-[var(--ov-accent)]/50 text-[var(--ov-text)]'
+                    }`}
+                  >
+                    {/* 拟真微缩 A4 页码标识卡 */}
+                    <div
+                      className={`w-9 h-12 rounded border flex flex-col items-center justify-center shrink-0 font-mono text-[11px] font-bold tabular-nums ${
+                        isCurrent
+                          ? 'bg-[var(--ov-accent)] text-white border-[var(--ov-accent)]'
+                          : 'bg-[var(--ov-surface)] text-[var(--ov-text-secondary)] border-[var(--ov-border)]'
+                      }`}
+                    >
+                      <span className="text-[9px] opacity-75 font-normal">A4</span>
+                      <span>{pg.pageNumber}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span
+                          className={`text-xs font-semibold truncate ${
+                            isCurrent ? 'text-[var(--ov-accent)]' : 'text-[var(--ov-text)]'
+                          }`}
+                        >
+                          {pg.title}
+                        </span>
+                        <span className="text-[10px] font-mono tabular-nums text-[var(--ov-text-secondary)] shrink-0">
+                          {copy.pageLabel(pg.pageNumber)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[var(--ov-text-secondary)] line-clamp-2 mt-0.5 leading-snug break-all">
+                        {pg.snippet}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-6 text-center text-xs text-[var(--ov-text-secondary)]">
+              <p className="font-medium">{copy.emptyPages}</p>
+            </div>
+          )
+        ) : displayedToc.length > 0 ? (
           displayedToc.map((item, idx) => {
             const isActive = activeHeadingId === item.id;
             const indentPx = Math.max(0, (item.level - 1) * 12);

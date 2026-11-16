@@ -135,7 +135,7 @@ export function runVersionBump(options = {}) {
 
   console.log(`🚀 [Version Auto-Bump] 未检测到显式版本更新，已自动将小版本号自增: v${currentVersion} -> v${newVersion}`);
 
-  // 5. 检查 CHANGELOG.md 是否已记录新版本
+  // 5. 检查 CHANGELOG.md 是否已记录新版本且未超出最近 10 次变更上限
   const changelogPath = join(rootDir, 'CHANGELOG.md');
   try {
     const changelogContent = readFileSync(changelogPath, 'utf8');
@@ -143,6 +143,12 @@ export function runVersionBump(options = {}) {
       console.log(`💡 [Changelog Guard] 提示: CHANGELOG.md 尚未包含 v${newVersion} 的更新说明，请记得更新发布日志！`);
     } else {
       console.log(`📝 [Changelog Guard] CHANGELOG.md 已就绪并包含 v${newVersion} 发布说明。`);
+    }
+    const entryCount = (changelogContent.match(/^##\s+\[[^\]]+\]/gm) || []).length;
+    if (entryCount > 10) {
+      console.log(
+        `⚠️ [Changelog Guard] CHANGELOG.md 当前包含 ${entryCount} 个版本节，超过 AI-SE 最近 10 次保留约定，请裁剪第 11 个及更早的历史版本！`
+      );
     }
   } catch {
     // 忽略缺少 CHANGELOG 的外部环境

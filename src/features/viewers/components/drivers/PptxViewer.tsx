@@ -28,6 +28,10 @@ import {
   EyeOff,
   Crosshair,
   Clock,
+  Layers,
+  Palette,
+  Scaling,
+  ChevronDown,
 } from 'lucide-react';
 import {
   parsePptx,
@@ -37,11 +41,21 @@ import {
   type ParsedPptxPresentation,
   type PptxSlide,
 } from '../../lib/pptxEngine';
+import {
+  PPTX_COLOR_PRESETS,
+  PPTX_ASPECT_PRESETS,
+  PPTX_SCALE_PRESETS,
+  getPptxColorPreset,
+  resolveStageDimensions,
+  type PptxColorPresetId,
+  type PptxAspectPresetId,
+} from '../../lib/pptxStagePresets';
 import { requestPrintHtml } from '../../../../shared/lib/printBridge';
 import type { ThemeId } from '../../../../shared/types';
 import { type Locale } from '../../../../shared/lib/i18n';
 import { PptxSlideStage } from './pptx/PptxSlideStage';
 import { PptxGridOverview } from './pptx/PptxGridOverview';
+import { PptxLayerTreePanel } from './pptx/PptxLayerTreePanel';
 
 export interface PptxViewerProps {
   content?: string;
@@ -97,6 +111,12 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
   const [data, setData] = useState<ParsedPptxPresentation | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
   const [showThumbnails, setShowThumbnails] = useState<boolean>(true);
+  const [leftPanelMode, setLeftPanelMode] = useState<'slides' | 'layers'>('slides');
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [colorPresetId, setColorPresetId] = useState<PptxColorPresetId>('original');
+  const [aspectPresetId, setAspectPresetId] = useState<PptxAspectPresetId>('native');
+  const [showColorMenu, setShowColorMenu] = useState<boolean>(false);
+  const [showSizeMenu, setShowSizeMenu] = useState<boolean>(false);
   const [showGrid, setShowGrid] = useState<boolean>(false);
   const [showNotes, setShowNotes] = useState<boolean>(false);
   const [showInfo, setShowInfo] = useState<boolean>(false);
@@ -117,6 +137,8 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const colorMenuRef = useRef<HTMLDivElement>(null);
+  const sizeMenuRef = useRef<HTMLDivElement>(null);
   const hudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -171,9 +193,39 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
   }, [content, binaryUrl, reloadNonce]);
 
   const totalSlides = data?.slides.length || 0;
-  const slideWidth = data?.metadata?.width || 960;
-  const slideHeight = data?.metadata?.height || 540;
+  const nativeWidth = data?.metadata?.width || 960;
+  const nativeHeight = data?.metadata?.height || 540;
+  const { width: slideWidth, height: slideHeight } = useMemo(
+    () => resolveStageDimensions(nativeWidth, nativeHeight, aspectPresetId),
+    [nativeWidth, nativeHeight, aspectPresetId]
+  );
+  const colorPreset = useMemo(() => getPptxColorPreset(colorPresetId), [colorPresetId]);
+  const activeAspectPreset = useMemo(
+    () => PPTX_ASPECT_PRESETS.find(p => p.id === aspectPresetId) || PPTX_ASPECT_PRESETS[0],
+    [aspectPresetId]
+  );
   const currentSlide: PptxSlide | undefined = data?.slides[currentSlideIndex];
+
+  // 翻页或重载时清空图层选中态
+  useEffect(() => {
+    setSelectedElementId(null);
+  }, [currentSlideIndex, data]);
+
+  // 点击弹出菜单外部时自动收起配色/尺寸浮层
+  useEffect(() => {
+    if (!showColorMenu && !showSizeMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (showColorMenu && colorMenuRef.current && target && !colorMenuRef.current.contains(target)) {
+        setShowColorMenu(false);
+      }
+      if (showSizeMenu && sizeMenuRef.current && target && !sizeMenuRef.current.contains(target)) {
+        setShowSizeMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showColorMenu, showSizeMenu]);
 
   // ResizeObserver 计算 1:1 舞台自适应缩放比
   useEffect(() => {
@@ -334,6 +386,11 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
       }
 
       if (e.key === 'Escape') {
+        if (showColorMenu || showSizeMenu) {
+          setShowColorMenu(false);
+          setShowSizeMenu(false);
+          return;
+        }
         if (showSearch) {
           setShowSearch(false);
           setSearchQuery('');
@@ -386,7 +443,7 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToPrev, goToNext, totalSlides, toggleFullscreen, exitPresentation, isFullscreen, showSearch, showGrid, showInfo, showNotes]);
+  }, [goToPrev, goToNext, totalSlides, toggleFullscreen, exitPresentation, isFullscreen, showSearch, showGrid, showInfo, showNotes, showColorMenu, showSizeMenu]);
 
   const handleCopyMarkdown = useCallback(async () => {
     if (!data) return;
@@ -418,6 +475,8 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
     <div
       ref={containerRef}
       onMouseMove={bumpHudVisibility}
+      data-pptx-color={colorPresetId}
+      data-pptx-aspect={aspectPresetId}
       className="w-full h-full flex flex-col overflow-hidden relative select-none font-sans"
       style={{ backgroundColor: 'var(--ov-bg)', color: 'var(--ov-text)' }}
     >
@@ -430,14 +489,21 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
             borderColor: 'var(--ov-border)',
           }}
         >
-          {/* 左侧：缩略图开关、平铺总览与文稿标题 */}
+          {/* 左侧：缩略图大纲、图层结构、平铺总览与文稿标题 */}
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
               type="button"
-              onClick={() => setShowThumbnails(prev => !prev)}
+              onClick={() => {
+                if (showThumbnails && leftPanelMode === 'layers') {
+                  setLeftPanelMode('slides');
+                } else {
+                  setLeftPanelMode('slides');
+                  setShowThumbnails(prev => !prev);
+                }
+              }}
               className="p-1.5 rounded-lg border transition flex items-center gap-1.5 text-xs font-medium"
               style={
-                showThumbnails
+                showThumbnails && leftPanelMode === 'slides'
                   ? {
                       backgroundColor: 'var(--ov-accent)',
                       color: 'var(--ov-text-on-accent)',
@@ -453,6 +519,39 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
             >
               <LayoutGrid className="w-4 h-4" />
               <span className="hidden sm:inline">{isEn ? 'Outline' : '大纲'}</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="pptx-layer-toggle"
+              onClick={() => {
+                if (!showThumbnails) {
+                  setLeftPanelMode('layers');
+                  setShowThumbnails(true);
+                } else if (leftPanelMode !== 'layers') {
+                  setLeftPanelMode('layers');
+                } else {
+                  setLeftPanelMode('slides');
+                }
+              }}
+              className="p-1.5 rounded-lg border transition flex items-center gap-1 text-xs font-medium"
+              style={
+                showThumbnails && leftPanelMode === 'layers'
+                  ? {
+                      backgroundColor: 'var(--ov-accent)',
+                      color: 'var(--ov-text-on-accent)',
+                      borderColor: 'var(--ov-accent)',
+                    }
+                  : {
+                      backgroundColor: 'var(--ov-surface)',
+                      color: 'var(--ov-text)',
+                      borderColor: 'var(--ov-border)',
+                    }
+              }
+              title={isEn ? 'Element Layer Hierarchy' : '页面元素层级结构树'}
+            >
+              <Layers className="w-4 h-4" />
+              <span className="hidden md:inline">{isEn ? 'Layers' : '图层'}</span>
             </button>
 
             <button
@@ -565,8 +664,195 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
             </div>
           </div>
 
-          {/* 右侧：搜索、导出、打印、备注、信息、放映 */}
+          {/* 右侧：配色、尺寸比例、搜索、导出、打印、备注、信息、放映 */}
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* 舞台配色主题选择 */}
+            <div ref={colorMenuRef} className="relative">
+              <button
+                type="button"
+                data-testid="pptx-color-selector"
+                onClick={() => {
+                  setShowSizeMenu(false);
+                  setShowColorMenu(prev => !prev);
+                }}
+                className="px-2 py-1 rounded-md border transition flex items-center gap-1.5 text-xs"
+                style={{
+                  backgroundColor: showColorMenu ? 'var(--ov-accent-subtle)' : 'var(--ov-surface)',
+                  borderColor: showColorMenu ? 'var(--ov-accent)' : 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                title={isEn ? 'Stage Color Theme' : '舞台配色方案'}
+              >
+                <Palette className="w-3.5 h-3.5 shrink-0" />
+                <span
+                  className="w-2.5 h-2.5 rounded-full border shrink-0"
+                  style={{
+                    backgroundColor: colorPreset.swatch,
+                    borderColor: colorPreset.secondarySwatch,
+                  }}
+                />
+                <span className="hidden xl:inline">{isEn ? colorPreset.labelEn : colorPreset.labelZh}</span>
+                <ChevronDown className="w-3 h-3 opacity-60 hidden sm:inline" />
+              </button>
+
+              {showColorMenu && (
+                <div
+                  data-testid="pptx-color-menu"
+                  className="absolute right-0 mt-1.5 w-52 rounded-xl border p-2 shadow-2xl z-50 space-y-1"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                >
+                  <div
+                    className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: 'var(--ov-text-secondary)' }}
+                  >
+                    {isEn ? 'Stage Color Presets' : '演播配色方案 (6种)'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {PPTX_COLOR_PRESETS.map(preset => {
+                      const active = preset.id === colorPresetId;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          data-color-preset={preset.id}
+                          onClick={() => {
+                            setColorPresetId(preset.id);
+                            setShowColorMenu(false);
+                          }}
+                          className="px-2 py-1.5 rounded-lg border text-left text-xs flex items-center gap-1.5 transition hover:opacity-90"
+                          style={{
+                            backgroundColor: active ? 'var(--ov-accent-subtle)' : 'var(--ov-bg)',
+                            borderColor: active ? 'var(--ov-accent)' : 'var(--ov-border-subtle)',
+                            color: 'var(--ov-text)',
+                          }}
+                        >
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border shrink-0"
+                            style={{
+                              backgroundColor: preset.swatch,
+                              borderColor: preset.secondarySwatch,
+                              boxShadow: `inset 0 0 0 2px ${preset.secondarySwatch}33`,
+                            }}
+                          />
+                          <span className="truncate font-medium">
+                            {isEn ? preset.labelEn : preset.labelZh}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 画幅比例与尺寸缩放选择 */}
+            <div ref={sizeMenuRef} className="relative">
+              <button
+                type="button"
+                data-testid="pptx-size-selector"
+                onClick={() => {
+                  setShowColorMenu(false);
+                  setShowSizeMenu(prev => !prev);
+                }}
+                className="px-2 py-1 rounded-md border transition flex items-center gap-1.5 text-xs"
+                style={{
+                  backgroundColor: showSizeMenu ? 'var(--ov-accent-subtle)' : 'var(--ov-surface)',
+                  borderColor: showSizeMenu ? 'var(--ov-accent)' : 'var(--ov-border)',
+                  color: 'var(--ov-text)',
+                }}
+                title={isEn ? 'Slide Aspect & Size' : '画幅比例与显示尺寸'}
+              >
+                <Scaling className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden xl:inline font-mono">
+                  {activeAspectPreset.shortLabel}
+                </span>
+                <ChevronDown className="w-3 h-3 opacity-60 hidden sm:inline" />
+              </button>
+
+              {showSizeMenu && (
+                <div
+                  data-testid="pptx-size-menu"
+                  className="absolute right-0 mt-1.5 w-60 rounded-xl border p-2.5 shadow-2xl z-50 space-y-2.5"
+                  style={{
+                    backgroundColor: 'var(--ov-surface)',
+                    borderColor: 'var(--ov-border)',
+                    color: 'var(--ov-text)',
+                  }}
+                >
+                  <div>
+                    <div
+                      className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--ov-text-secondary)' }}
+                    >
+                      {isEn ? 'Slide Aspect Ratio' : '画幅尺寸比例'}
+                    </div>
+                    <div className="space-y-1">
+                      {PPTX_ASPECT_PRESETS.map(preset => {
+                        const active = preset.id === aspectPresetId;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            data-aspect-preset={preset.id}
+                            onClick={() => {
+                              setAspectPresetId(preset.id);
+                              setShowSizeMenu(false);
+                            }}
+                            className="w-full px-2 py-1 rounded-lg border text-left text-xs flex items-center justify-between transition"
+                            style={{
+                              backgroundColor: active ? 'var(--ov-accent-subtle)' : 'var(--ov-bg)',
+                              borderColor: active ? 'var(--ov-accent)' : 'var(--ov-border-subtle)',
+                              color: 'var(--ov-text)',
+                            }}
+                          >
+                            <span className="font-medium">{isEn ? preset.labelEn : preset.labelZh}</span>
+                            {active && <Check className="w-3.5 h-3.5" style={{ color: 'var(--ov-accent)' }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t" style={{ borderColor: 'var(--ov-border-subtle)' }}>
+                    <div
+                      className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--ov-text-secondary)' }}
+                    >
+                      {isEn ? 'Stage Zoom Scale' : '舞台显示倍率'}
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {PPTX_SCALE_PRESETS.map(sp => {
+                        const active = Math.abs(zoomFactor - sp.zoom) < 0.02;
+                        return (
+                          <button
+                            key={sp.id}
+                            type="button"
+                            data-scale-preset={sp.id}
+                            onClick={() => {
+                              setZoomFactor(sp.zoom);
+                              setShowSizeMenu(false);
+                            }}
+                            className="px-1.5 py-1 rounded-md border text-[11px] font-mono text-center transition"
+                            style={{
+                              backgroundColor: active ? 'var(--ov-accent)' : 'var(--ov-bg)',
+                              borderColor: active ? 'var(--ov-accent)' : 'var(--ov-border-subtle)',
+                              color: active ? 'var(--ov-text-on-accent)' : 'var(--ov-text)',
+                            }}
+                          >
+                            {sp.shortLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => {
@@ -780,7 +1066,7 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
 
       {/* 主视口布局：左侧真实缩略图 + 中间 1:1 矢量舞台 + 备注/信息抽屉 */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* 左侧：幻灯片缩略图抽屉 */}
+        {/* 左侧：幻灯片缩略图 / 元素层级树抽屉 */}
         {!isFullscreen && showThumbnails && (
           <aside
             className="w-52 sm:w-56 h-full border-r flex flex-col shrink-0 z-20 overflow-y-auto p-2.5 space-y-2.5"
@@ -789,64 +1075,81 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
               borderColor: 'var(--ov-border)',
             }}
           >
-            {data?.slides.map((slide, idx) => {
-              const isSelected = idx === currentSlideIndex;
-              const isMatched = matchedSlideSet.has(idx);
+            {leftPanelMode === 'layers' && currentSlide ? (
+              <PptxLayerTreePanel
+                elements={currentSlide.elements}
+                selectedElementId={selectedElementId}
+                onSelectElement={elId => setSelectedElementId(prev => (prev === elId ? null : elId))}
+                locale={locale}
+              />
+            ) : (
+              data?.slides.map((slide, idx) => {
+                const isSelected = idx === currentSlideIndex;
+                const isMatched = matchedSlideSet.has(idx);
 
-              return (
-                <button
-                  key={`thumb-${idx}`}
-                  type="button"
-                  onClick={() => setCurrentSlideIndex(idx)}
-                  className="w-full p-1.5 rounded-xl border text-left transition flex flex-col gap-1.5 group"
-                  style={{
-                    backgroundColor: isSelected ? 'var(--ov-accent-subtle)' : 'var(--ov-surface)',
-                    borderColor: isSelected ? 'var(--ov-accent)' : 'var(--ov-border)',
-                    boxShadow: isSelected ? '0 0 0 1px var(--ov-accent)' : undefined,
-                  }}
-                >
-                  {/* 等比真实缩略图预览框 */}
-                  <div
-                    className="w-full aspect-video rounded-md border overflow-hidden relative flex items-center justify-center bg-white"
-                    style={{ borderColor: 'var(--ov-border-subtle)' }}
+                return (
+                  <button
+                    key={`thumb-${idx}`}
+                    type="button"
+                    onClick={() => setCurrentSlideIndex(idx)}
+                    className="w-full p-1.5 rounded-xl border text-left transition flex flex-col gap-1.5 group"
+                    style={{
+                      backgroundColor: isSelected ? 'var(--ov-accent-subtle)' : 'var(--ov-surface)',
+                      borderColor: isSelected ? 'var(--ov-accent)' : 'var(--ov-border)',
+                      boxShadow: isSelected ? '0 0 0 1px var(--ov-accent)' : undefined,
+                    }}
                   >
-                    <PptxSlideStage
-                      slide={slide}
-                      width={slideWidth}
-                      height={slideHeight}
-                      scale={thumbScale}
-                      searchQuery={searchQuery}
-                      compact={true}
-                      showSlideNumber={false}
-                    />
-                    {slide.isHidden && (
-                      <span
-                        className="absolute top-1 right-1 px-1 py-0.5 rounded bg-slate-900/75 text-white text-[9px] flex items-center gap-0.5"
-                        title={isEn ? 'Hidden Slide' : '已隐藏幻灯片'}
-                      >
-                        <EyeOff className="w-2.5 h-2.5" />
-                      </span>
-                    )}
-                  </div>
+                    {/* 等比真实缩略图预览框 */}
+                    <div
+                      className={`w-full rounded-md border overflow-hidden relative flex items-center justify-center bg-white ${
+                        aspectPresetId === 'native' ? 'aspect-video' : ''
+                      }`}
+                      style={{
+                        borderColor: 'var(--ov-border-subtle)',
+                        ...(aspectPresetId !== 'native' ? { aspectRatio: `${slideWidth} / ${slideHeight}` } : {}),
+                      }}
+                    >
+                      <PptxSlideStage
+                        slide={slide}
+                        width={slideWidth}
+                        height={slideHeight}
+                        nativeWidth={nativeWidth}
+                        nativeHeight={nativeHeight}
+                        scale={thumbScale}
+                        searchQuery={searchQuery}
+                        colorPresetId={colorPresetId}
+                        compact={true}
+                        showSlideNumber={false}
+                      />
+                      {slide.isHidden && (
+                        <span
+                          className="absolute top-1 right-1 px-1 py-0.5 rounded bg-slate-900/75 text-white text-[9px] flex items-center gap-0.5"
+                          title={isEn ? 'Hidden Slide' : '已隐藏幻灯片'}
+                        >
+                          <EyeOff className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="flex items-center justify-between px-1 text-[11px] gap-1.5">
-                    <div className="flex items-center gap-1 min-w-0">
-                      <span
-                        className="font-mono font-bold shrink-0"
-                        style={{ color: isSelected ? 'var(--ov-accent)' : 'var(--ov-text-secondary)' }}
-                      >
-                        #{idx + 1}
-                      </span>
-                      <span className="truncate font-medium">{slide.title}</span>
+                    <div className="flex items-center justify-between px-1 text-[11px] gap-1.5">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span
+                          className="font-mono font-bold shrink-0"
+                          style={{ color: isSelected ? 'var(--ov-accent)' : 'var(--ov-text-secondary)' }}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <span className="truncate font-medium">{slide.title}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isMatched && <Search className="w-3 h-3 text-amber-500" />}
+                        {slide.notes && <MessageSquare className="w-3 h-3 opacity-55" />}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {isMatched && <Search className="w-3 h-3 text-amber-500" />}
-                      {slide.notes && <MessageSquare className="w-3 h-3 opacity-55" />}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })
+            )}
           </aside>
         )}
 
@@ -854,7 +1157,7 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
         <main
           ref={viewportRef}
           className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-auto relative"
-          style={{ backgroundColor: isFullscreen ? '#090D16' : 'var(--ov-bg)' }}
+          style={{ backgroundColor: isFullscreen ? '#090D16' : colorPreset.workspaceBg }}
         >
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-3 opacity-75">
@@ -883,10 +1186,14 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
                 slide={currentSlide}
                 width={slideWidth}
                 height={slideHeight}
+                nativeWidth={nativeWidth}
+                nativeHeight={nativeHeight}
                 scale={effectiveScale}
                 searchQuery={searchQuery}
                 laserActive={laserActive}
                 totalSlides={totalSlides}
+                colorPresetId={colorPresetId}
+                selectedElementId={selectedElementId}
                 stageRef={stageRef}
               />
             </div>
@@ -1039,6 +1346,9 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
             slides={data.slides}
             slideWidth={slideWidth}
             slideHeight={slideHeight}
+            nativeWidth={nativeWidth}
+            nativeHeight={nativeHeight}
+            colorPresetId={colorPresetId}
             currentSlideIndex={currentSlideIndex}
             matchedSlideIndices={matchedSlideSet}
             searchQuery={searchQuery}
@@ -1093,7 +1403,7 @@ export const PptxViewer: React.FC<PptxViewerProps> = ({
                   {isEn ? 'Aspect Ratio & Stage' : '画布比例 / Stage Size'}
                 </span>
                 <p className="font-mono">
-                  {data?.metadata?.aspectRatio} ({slideWidth} × {slideHeight} pt)
+                  {aspectPresetId === 'native' ? data?.metadata?.aspectRatio : activeAspectPreset.shortLabel} ({slideWidth} × {slideHeight} pt)
                 </p>
               </div>
 

@@ -12,6 +12,8 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   PanelLeft,
   Copy,
   Check,
@@ -24,10 +26,17 @@ import {
   renderDocxToContainer,
   base64ToBytes,
   extractHeadingsFromDom,
+  isTocEntryElement,
+  isTocTitleText,
+  resolveBodyHeadingElement,
   type ParsedDocxDocument,
   type DocxTocItem,
 } from '../../lib/docxEngine';
-import { paginateDocxContainer } from '../../lib/docxPaginationEngine';
+import {
+  paginateDocxContainer,
+  extractDocxPageSummaries,
+  type DocxPageSummary,
+} from '../../lib/docxPaginationEngine';
 import { docxDomToMarkdown } from '../../lib/docxMarkdownConverter';
 import { DocxTocSidebar } from './docx/DocxTocSidebar';
 import { LightboxModal, type LightboxItem } from '../common/LightboxModal';
@@ -58,6 +67,8 @@ const DOCX_COPY: Record<Locale, {
   fitWidthTip: string;
   prevPageTip: string;
   nextPageTip: string;
+  prevPageLabel: string;
+  nextPageLabel: string;
   pagePrefix: string;
   pageSuffix: (total: number) => string;
   pageInputTip: string;
@@ -65,10 +76,12 @@ const DOCX_COPY: Record<Locale, {
   clearSearchTip: string;
   prevMatchTip: string;
   nextMatchTip: string;
-  modeFluid: string;
-  modeFluidTip: string;
   modePaged: string;
   modePagedTip: string;
+  modeSingle: string;
+  modeSingleTip: string;
+  modeFluid: string;
+  modeFluidTip: string;
   themePaper: string;
   themePaperTip: string;
   themeSepia: string;
@@ -97,13 +110,20 @@ const DOCX_COPY: Record<Locale, {
   metaPages: (n: number) => string;
   metaWords: (v: string | number) => string;
   metaSize: (s: string) => string;
+  metaSectionPageProps: string;
+  metaPaperLabel: string;
+  metaOrientationPortrait: string;
+  metaOrientationLandscape: string;
+  metaMarginsLabel: string;
+  metaTypographyLabel: string;
+  metaColumnsLabel: string;
   imageLabel: (idx: number) => string;
   parseErrorFallback: string;
   renderErrorFallback: string;
 }> = {
   'zh-CN': {
     nav: '导航',
-    navTip: '导航窗口 / 目录大纲 (Ctrl+Shift+O)',
+    navTip: '导航窗口 / 目录大纲与页面 (Ctrl+Shift+O)',
     zoomOutTip: '缩小 (Ctrl + 滚轮)',
     zoomInTip: '放大 (Ctrl + 滚轮)',
     zoomResetTip: '重置缩放 (100%)',
@@ -111,6 +131,8 @@ const DOCX_COPY: Record<Locale, {
     fitWidthTip: '自动适配当前视口宽度',
     prevPageTip: '上一页 (PageUp)',
     nextPageTip: '下一页 (PageDown)',
+    prevPageLabel: '上一页',
+    nextPageLabel: '下一页',
     pagePrefix: '第',
     pageSuffix: (total) => `/ ${total} 页`,
     pageInputTip: '输入页码回车直达',
@@ -118,10 +140,12 @@ const DOCX_COPY: Record<Locale, {
     clearSearchTip: '清除搜索 (Esc)',
     prevMatchTip: '上一个匹配项 (Shift+Enter)',
     nextMatchTip: '下一个匹配项 (Enter)',
-    modeFluid: '流式',
-    modeFluidTip: '现代化无缝流式阅读：无截断、无大段空白，长文表格丝滑展开',
     modePaged: '分页',
-    modePagedTip: 'A4 物理分页排版：模拟实体纸张排版与跨页长表延续',
+    modePagedTip: '原生 A4 物理分页排版：一页一页独立纸张连续排列与跨页长表延续',
+    modeSingle: '单页',
+    modeSingleTip: '原生单页翻阅模式：每次仅聚焦呈现单张物理页面，支持 PageUp/PageDown 逐页翻阅',
+    modeFluid: '流式',
+    modeFluidTip: '现代化无缝流式阅读：无分页间隙，长文表格丝滑展开',
     themePaper: '原纸',
     themePaperTip: '原始白纸排版 (Classic Paper)',
     themeSepia: '羊皮',
@@ -150,13 +174,20 @@ const DOCX_COPY: Record<Locale, {
     metaPages: (n) => `文档总页数: ${n} 页`,
     metaWords: (v) => `字数统计: ${v}`,
     metaSize: (s) => `文件大小: ${s}`,
+    metaSectionPageProps: 'OOXML 页面与排版属性',
+    metaPaperLabel: '纸张与方向',
+    metaOrientationPortrait: '纵向',
+    metaOrientationLandscape: '横向',
+    metaMarginsLabel: '页边距 (上/右/下/左)',
+    metaTypographyLabel: '默认字号与行距',
+    metaColumnsLabel: '分栏与垂直对齐',
     imageLabel: (idx) => `文档插图 #${idx}`,
     parseErrorFallback: 'DOCX 文档解析异常',
     renderErrorFallback: 'DOCX 视图渲染异常',
   },
   'en-US': {
     nav: 'Outline',
-    navTip: 'Navigation Pane / Outline (Ctrl+Shift+O)',
+    navTip: 'Navigation Pane / Outline & Pages (Ctrl+Shift+O)',
     zoomOutTip: 'Zoom Out (Ctrl + Wheel)',
     zoomInTip: 'Zoom In (Ctrl + Wheel)',
     zoomResetTip: 'Reset Zoom (100%)',
@@ -164,6 +195,8 @@ const DOCX_COPY: Record<Locale, {
     fitWidthTip: 'Fit document to viewport width',
     prevPageTip: 'Previous Page (PageUp)',
     nextPageTip: 'Next Page (PageDown)',
+    prevPageLabel: 'Prev',
+    nextPageLabel: 'Next',
     pagePrefix: 'P',
     pageSuffix: (total) => `/ ${total}`,
     pageInputTip: 'Enter page number and press Enter',
@@ -171,10 +204,12 @@ const DOCX_COPY: Record<Locale, {
     clearSearchTip: 'Clear search (Esc)',
     prevMatchTip: 'Previous match (Shift+Enter)',
     nextMatchTip: 'Next match (Enter)',
+    modePaged: 'Paged',
+    modePagedTip: 'Native A4 page-by-page paper layout with multi-page table splitting',
+    modeSingle: 'Single',
+    modeSingleTip: 'Single-page flip mode: view one physical page at a time',
     modeFluid: 'Fluid',
     modeFluidTip: 'Continuous fluid reading without page gaps',
-    modePaged: 'Paged',
-    modePagedTip: 'A4 paginated paper layout with multi-page table splitting',
     themePaper: 'Paper',
     themePaperTip: 'Classic white paper',
     themeSepia: 'Sepia',
@@ -203,6 +238,13 @@ const DOCX_COPY: Record<Locale, {
     metaPages: (n) => `Total pages: ${n}`,
     metaWords: (v) => `Word count: ${v}`,
     metaSize: (s) => `File size: ${s}`,
+    metaSectionPageProps: 'OOXML Page & Typography',
+    metaPaperLabel: 'Paper & Orientation',
+    metaOrientationPortrait: 'Portrait',
+    metaOrientationLandscape: 'Landscape',
+    metaMarginsLabel: 'Margins (T/R/B/L)',
+    metaTypographyLabel: 'Default Font & Line Height',
+    metaColumnsLabel: 'Columns & Vertical Align',
     imageLabel: (idx) => `Document Image #${idx}`,
     parseErrorFallback: 'Failed to parse DOCX document',
     renderErrorFallback: 'Failed to render DOCX view',
@@ -232,11 +274,14 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [showNavigation, setShowNavigation] = useState<boolean>(true);
   const [tocItems, setTocItems] = useState<DocxTocItem[]>([]);
+  const [pageSummaries, setPageSummaries] = useState<DocxPageSummary[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [hudVisible, setHudVisible] = useState<boolean>(true);
 
-  const [viewMode, setViewMode] = useState<'fluid' | 'paged'>('fluid');
+  // 默认启用原生物理分页模式 ('paged')，并支持单页逐页翻阅模式 ('single') 与流式模式 ('fluid')
+  const [viewMode, setViewMode] = useState<'paged' | 'single' | 'fluid'>('paged');
+  const isPagedLayout = viewMode === 'paged' || viewMode === 'single';
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [pageInputVal, setPageInputVal] = useState<string>('1');
@@ -261,7 +306,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchQueryRef = useRef<string>(searchQuery);
   const pendingScrollRatioRef = useRef<number | null>(null);
-  const prevViewModeRef = useRef<'fluid' | 'paged'>(viewMode);
+  const prevPagedLayoutRef = useRef<boolean>(isPagedLayout);
   const hudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -279,7 +324,11 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         setViewportWidth(scrollEl.clientWidth);
       }
       if (mountEl) {
-        const w = mountEl.scrollWidth || mountEl.offsetWidth || 0;
+        const activeSheet = mountEl.querySelector<HTMLElement>('.docx-paged-sheet');
+        const declaredSheetW = activeSheet
+          ? parseInt(activeSheet.getAttribute('data-page-width') || '0', 10) || activeSheet.offsetWidth
+          : 0;
+        const w = declaredSheetW > 0 ? declaredSheetW : (mountEl.scrollWidth || mountEl.offsetWidth || 0);
         const h = mountEl.scrollHeight || mountEl.offsetHeight || 0;
         if (w > 0 || h > 0) {
           setNaturalSize(prev => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
@@ -358,6 +407,12 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     const scopedDocxStyles = styleContainerRef.current?.innerHTML || '';
 
     const printTitle = docData?.metadata?.title || fileName || 'Word Document';
+    const pg = docData?.metadata?.pageProperties;
+    const pageSizeCss = pg ? `${pg.widthMm}mm ${pg.heightMm}mm` : 'A4 portrait';
+    const pageMarginCss = pg
+      ? `${pg.margins.topMm}mm ${pg.margins.rightMm}mm ${pg.margins.bottomMm}mm ${pg.margins.leftMm}mm`
+      : '15mm 15mm';
+
     const printHtml = `<!DOCTYPE html>
 <html lang="${locale}">
 <head>
@@ -367,8 +422,8 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   ${scopedDocxStyles}
   <style>
     @page {
-      size: A4 portrait;
-      margin: 15mm 15mm;
+      size: ${pageSizeCss};
+      margin: ${pageMarginCss};
     }
     html, body {
       margin: 0 !important;
@@ -472,12 +527,28 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     return () => clearTimeout(timer);
   }, [searchQuery, tocItems]);
 
+  // 在单页翻阅模式下，若目标元素位于其他物理页，自动翻转至对应页码
+  const syncElementToPageIfSingle = useCallback((el: HTMLElement | null) => {
+    if (!el) return;
+    const sheet = el.closest?.('.docx-paged-sheet') as HTMLElement | null;
+    if (!sheet) return;
+    const pageNum = parseInt(sheet.getAttribute('data-page-number') || '0', 10);
+    if (pageNum > 0) {
+      setCurrentPage(pageNum);
+      setPageInputVal(String(pageNum));
+    }
+  }, []);
+
   const handleNavigateMatch = (backwards = false) => {
     if (!docxMountRef.current || matchCount === 0) return;
     setActiveMatchIndex(prev => {
       let next = backwards ? prev - 1 : prev + 1;
       if (next < 0) next = matchCount - 1;
       if (next >= matchCount) next = 0;
+      const marks = docxMountRef.current?.querySelectorAll<HTMLElement>('mark.ov-search-match');
+      if (marks && marks[next]) {
+        syncElementToPageIfSingle(marks[next]);
+      }
       activateMatch(docxMountRef.current, next, true);
       return next;
     });
@@ -486,14 +557,29 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   // 点击左侧导航栏匹配卡片，直接高亮并精准跳转到对应位置
   const handleSelectMatch = useCallback((targetMatchIndex: number) => {
     if (!docxMountRef.current) return;
+    const marks = docxMountRef.current.querySelectorAll<HTMLElement>('mark.ov-search-match');
+    if (marks && marks[targetMatchIndex]) {
+      syncElementToPageIfSingle(marks[targetMatchIndex]);
+    }
     setActiveMatchIndex(targetMatchIndex);
     activateMatch(docxMountRef.current, targetMatchIndex, true);
-  }, []);
+  }, [syncElementToPageIfSingle]);
 
-  // 跳转至指定页码
+  // 跳转至指定页码（兼容连续分页滚动与单页聚焦翻阅）
   const handleJumpToPage = useCallback((pageNum: number) => {
     if (!docxMountRef.current || !scrollAreaRef.current) return;
     const targetPage = Math.max(1, Math.min(totalPages, pageNum));
+    setCurrentPage(targetPage);
+    setPageInputVal(String(targetPage));
+
+    if (viewMode === 'single') {
+      scrollAreaRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+      return;
+    }
+
     const sheet = docxMountRef.current.querySelector<HTMLElement>(`[data-page-number="${targetPage}"]`);
     if (sheet) {
       const scrollContainer = scrollAreaRef.current;
@@ -505,13 +591,11 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
         top: targetScrollTop,
         behavior: 'smooth',
       });
-      setCurrentPage(targetPage);
-      setPageInputVal(String(targetPage));
     }
-  }, [totalPages]);
+  }, [totalPages, viewMode]);
 
-  // 切换流式/分页模式时记录滚动比例，实现无感平滑过渡
-  const handleSwitchViewMode = useCallback((nextMode: 'fluid' | 'paged') => {
+  // 切换分页/单页/流式模式时记录滚动比例，实现无感平滑过渡
+  const handleSwitchViewMode = useCallback((nextMode: 'paged' | 'single' | 'fluid') => {
     if (nextMode === viewMode) return;
     if (scrollAreaRef.current) {
       const el = scrollAreaRef.current;
@@ -520,6 +604,35 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     }
     setViewMode(nextMode);
   }, [viewMode]);
+
+  // 同步单页模式下的页面显隐状态（仅显示当前页，其余物理页隐藏）
+  useEffect(() => {
+    if (!docxMountRef.current) return;
+    const sheets = Array.from(docxMountRef.current.querySelectorAll<HTMLElement>('.docx-paged-sheet'));
+    if (sheets.length === 0) return;
+
+    sheets.forEach((sheet, idx) => {
+      const pageNum = parseInt(sheet.getAttribute('data-page-number') || String(idx + 1), 10) || (idx + 1);
+      if (viewMode === 'single') {
+        if (pageNum === currentPage) {
+          sheet.classList.remove('docx-single-hidden-sheet');
+          sheet.classList.add('docx-single-active-sheet');
+        } else {
+          sheet.classList.add('docx-single-hidden-sheet');
+          sheet.classList.remove('docx-single-active-sheet');
+        }
+      } else {
+        sheet.classList.remove('docx-single-hidden-sheet');
+        sheet.classList.remove('docx-single-active-sheet');
+      }
+    });
+
+    const w = docxMountRef.current.scrollWidth || docxMountRef.current.offsetWidth || 0;
+    const h = docxMountRef.current.scrollHeight || docxMountRef.current.offsetHeight || 0;
+    if (w > 0 || h > 0) {
+      setNaturalSize(prev => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+    }
+  }, [viewMode, currentPage, totalPages, loading]);
 
   // Ctrl+滚轮平滑缩放
   const handleViewportWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
@@ -536,6 +649,9 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
   // 全局快捷键：Ctrl+F (搜索) / Ctrl+Shift+O (目录大纲) / Ctrl+P (打印) / PageUp / PageDown
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement as HTMLElement | null)?.tagName?.toLowerCase();
+      const isInputFocused = activeTag === 'input' || activeTag === 'textarea';
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         setTimeout(() => {
@@ -555,10 +671,10 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         handlePrint();
-      } else if (e.key === 'PageUp' && viewMode === 'paged') {
+      } else if (!isInputFocused && (e.key === 'PageUp' || (viewMode === 'single' && e.key === 'ArrowLeft')) && isPagedLayout) {
         e.preventDefault();
         handleJumpToPage(currentPage - 1);
-      } else if (e.key === 'PageDown' && viewMode === 'paged') {
+      } else if (!isInputFocused && (e.key === 'PageDown' || (viewMode === 'single' && e.key === 'ArrowRight')) && isPagedLayout) {
         e.preventDefault();
         handleJumpToPage(currentPage + 1);
       } else if (e.key === 'Escape' && isFullscreen && lightboxIndex < 0) {
@@ -576,7 +692,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrint, viewMode, currentPage, handleJumpToPage, isFullscreen, lightboxIndex]);
+  }, [handlePrint, viewMode, isPagedLayout, currentPage, handleJumpToPage, isFullscreen, lightboxIndex]);
 
   const [reloadNonce, setReloadNonce] = useState(0);
   const loadDocument = useCallback(() => setReloadNonce(n => n + 1), []);
@@ -628,12 +744,12 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     };
   }, [content, binaryUrl, reloadNonce, copy.parseErrorFallback]);
 
-  // 当 docData 解析完毕后，渲染至 DOM 挂载容器并提取大纲标题
+  // 当 docData 解析完毕或分页/流式布局策略变更后，渲染至 DOM 挂载容器并提取大纲标题与物理分页摘要
   useEffect(() => {
     if (!docData?.rawBytes || !docxMountRef.current) return;
     let isCancelled = false;
-    const isModeSwitch = prevViewModeRef.current !== viewMode;
-    prevViewModeRef.current = viewMode;
+    const isLayoutSwitch = prevPagedLayoutRef.current !== isPagedLayout;
+    prevPagedLayoutRef.current = isPagedLayout;
 
     const render = async () => {
       try {
@@ -643,33 +759,44 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           docxMountRef.current,
           {
             inWrapper: true,
-            ignoreWidth: viewMode === 'fluid',
-            breakPages: viewMode === 'paged',
+            ignoreWidth: !isPagedLayout,
+            breakPages: isPagedLayout,
             ignoreLastRenderedPageBreak: false,
           },
-          styleContainerRef.current ?? undefined
+          styleContainerRef.current ?? undefined,
+          docData.formattingProfile
         );
 
         if (!isCancelled) {
           setLoading(false);
 
-          if (viewMode === 'paged' && docxMountRef.current) {
+          if (isPagedLayout && docxMountRef.current) {
             const pageRes = paginateDocxContainer(docxMountRef.current, {
               expectedPageCount: docData.metadata?.pageCount,
+              pageProperties: docData.metadata?.pageProperties,
               locale,
             });
+            const summaries = extractDocxPageSummaries(docxMountRef.current, locale);
+            setPageSummaries(summaries);
             setTotalPages(pageRes.totalPages);
             setCurrentPage(1);
             setPageInputVal('1');
           } else {
+            setPageSummaries([]);
             setTotalPages(1);
             setCurrentPage(1);
             setPageInputVal('1');
           }
 
-          // 测量自然宽高
+          // 测量自然宽高（分页/单页模式优先取标准物理纸张宽度，避免内层长元素影响缩放基准）
           if (docxMountRef.current) {
-            const w = docxMountRef.current.scrollWidth || docxMountRef.current.offsetWidth || 0;
+            const firstSheet = docxMountRef.current.querySelector<HTMLElement>('.docx-paged-sheet');
+            const declaredSheetW = firstSheet
+              ? parseInt(firstSheet.getAttribute('data-page-width') || '0', 10) || firstSheet.offsetWidth
+              : 0;
+            const w = declaredSheetW > 0
+              ? declaredSheetW
+              : (docxMountRef.current.scrollWidth || docxMountRef.current.offsetWidth || 0);
             const h = docxMountRef.current.scrollHeight || docxMountRef.current.offsetHeight || 0;
             if (w > 0 || h > 0) {
               setNaturalSize({ width: w, height: h });
@@ -700,7 +827,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
               }
             }
 
-            if (isModeSwitch && pendingScrollRatioRef.current !== null && scrollAreaRef.current) {
+            if (isLayoutSwitch && pendingScrollRatioRef.current !== null && scrollAreaRef.current) {
               const ratio = pendingScrollRatioRef.current;
               pendingScrollRatioRef.current = null;
               const el = scrollAreaRef.current;
@@ -721,12 +848,98 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [docData, viewMode, locale, copy.renderErrorFallback]);
+  }, [docData, isPagedLayout, locale, copy.renderErrorFallback]);
 
-  // 文档内点击图片弹出 Lightbox 大图阅览
+  // 导航选中标题定位（始终解析并跳转至正文真实章节标题，绝不停留在文档内目录页）
+  const handleSelectHeading = useCallback((item: DocxTocItem) => {
+    setActiveHeadingId(item.id);
+    const scrollContainer = scrollAreaRef.current;
+    let targetEl = docxMountRef.current
+      ? resolveBodyHeadingElement(docxMountRef.current, item, item.text)
+      : null;
+
+    if (!targetEl) {
+      targetEl = item.element || (docxMountRef.current ? document.getElementById(item.id) : null);
+    }
+
+    if (targetEl) {
+      syncElementToPageIfSingle(targetEl);
+      const sheet = targetEl.closest<HTMLElement>('.docx-paged-sheet');
+      if (sheet && docxMountRef.current) {
+        const sheets = Array.from(docxMountRef.current.querySelectorAll<HTMLElement>('.docx-paged-sheet'));
+        const idx = sheets.indexOf(sheet);
+        if (idx !== -1) {
+          setCurrentPage(idx + 1);
+          setPageInputVal(String(idx + 1));
+        }
+      }
+    }
+
+    if (targetEl && scrollContainer) {
+      requestAnimationFrame(() => {
+        if (!targetEl || !scrollContainer) return;
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const targetRect = targetEl.getBoundingClientRect();
+        const relativeTop = targetRect.top - containerRect.top;
+        const targetScrollTop = Math.max(0, scrollContainer.scrollTop + relativeTop - 24);
+
+        scrollContainer.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth',
+        });
+
+        targetEl.classList.add('docx-heading-highlight-flash');
+        setTimeout(() => {
+          targetEl?.classList.remove('docx-heading-highlight-flash');
+        }, 1600);
+      });
+    }
+  }, [syncElementToPageIfSingle]);
+
+  // 文档内点击交互：1) 点击图片弹出 Lightbox；2) 点击文档内部目录 (TOC) 条目或锚点时直接跳转至正文对应章节
   const handleDocumentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
     if (!target || !docxMountRef.current) return;
+
+    // 1. 检查是否点击了文档内的目录锚点 (a[href^="#"]) 或目录条目行
+    const anchorEl = (target.tagName === 'A' ? target : target.closest('a[href^="#"]')) as HTMLAnchorElement | null;
+    const blockEl = target.closest<HTMLElement>('p, li, h1, h2, h3, h4, h5, h6');
+    const isAnchorJump = Boolean(anchorEl && (anchorEl.getAttribute('href') || '').startsWith('#'));
+    const isTocBlockClick = Boolean(
+      blockEl &&
+      docxMountRef.current.contains(blockEl) &&
+      isTocEntryElement(blockEl, docxMountRef.current) &&
+      !isTocTitleText(blockEl.textContent || '')
+    );
+
+    if (isAnchorJump || isTocBlockClick) {
+      const sourceNode = anchorEl || blockEl;
+      if (sourceNode) {
+        const bodyHeadingEl = resolveBodyHeadingElement(docxMountRef.current, sourceNode);
+        if (bodyHeadingEl && bodyHeadingEl !== blockEl) {
+          e.preventDefault();
+          const matchedToc = tocItems.find(
+            t => t.element === bodyHeadingEl || (bodyHeadingEl.id && t.id === bodyHeadingEl.id)
+          );
+          if (matchedToc) {
+            handleSelectHeading(matchedToc);
+          } else {
+            if (!bodyHeadingEl.id) {
+              bodyHeadingEl.id = `docx-heading-jump-${Math.random().toString(36).substring(2, 7)}`;
+            }
+            handleSelectHeading({
+              id: bodyHeadingEl.id,
+              text: (bodyHeadingEl.textContent || '').trim(),
+              level: 1,
+              element: bodyHeadingEl,
+            });
+          }
+          return;
+        }
+      }
+    }
+
+    // 2. 检查是否点击了图片以打开 Lightbox 大图阅览
     const imgEl = (target.tagName === 'IMG' ? target : target.closest('img')) as HTMLImageElement | null;
     if (!imgEl) return;
     const src = imgEl.getAttribute('src') || imgEl.src;
@@ -747,51 +960,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
       setLightboxItems(items);
       setLightboxIndex(clickedIdx);
     }
-  }, [copy]);
-
-  // 导航选中标题定位
-  const handleSelectHeading = useCallback((item: DocxTocItem) => {
-    setActiveHeadingId(item.id);
-    const scrollContainer = scrollAreaRef.current;
-    let targetEl = item.element || (docxMountRef.current ? document.getElementById(item.id) : null);
-
-    if (docxMountRef.current && targetEl) {
-      if (
-        targetEl.closest('[class*="toc"], [class*="TOC"], .docx-toc, .word-toc, sdt') ||
-        /\btoc[0-9]?\b/i.test(targetEl.className)
-      ) {
-        const cleanText = item.text.trim().toLowerCase();
-        const allHeadings = Array.from(docxMountRef.current.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, p'));
-        const bodyHeading = allHeadings.find(el => {
-          if (el.closest('[class*="toc"], [class*="TOC"], .docx-toc, .word-toc, sdt') || /\btoc[0-9]?\b/i.test(el.className)) {
-            return false;
-          }
-          const txt = el.textContent?.trim().toLowerCase() || '';
-          return txt === cleanText || (txt.length > 0 && cleanText.length > 0 && (txt.includes(cleanText) || cleanText.includes(txt)));
-        });
-        if (bodyHeading) {
-          targetEl = bodyHeading;
-        }
-      }
-    }
-
-    if (targetEl && scrollContainer) {
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const targetRect = targetEl.getBoundingClientRect();
-      const relativeTop = targetRect.top - containerRect.top;
-      const targetScrollTop = Math.max(0, scrollContainer.scrollTop + relativeTop - 24);
-
-      scrollContainer.scrollTo({
-        top: targetScrollTop,
-        behavior: 'smooth',
-      });
-
-      targetEl.classList.add('docx-heading-highlight-flash');
-      setTimeout(() => {
-        targetEl?.classList.remove('docx-heading-highlight-flash');
-      }, 1600);
-    }
-  }, []);
+  }, [copy, tocItems, handleSelectHeading]);
 
   // 滚动时检测视口最上方的标题项以及当前可见的页码
   const handleMainScroll = useCallback(() => {
@@ -952,8 +1121,8 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
             <span className="hidden lg:inline">{copy.fitWidth}</span>
           </button>
 
-          {/* 真实物理页数导航器 (分页模式且多页时) */}
-          {viewMode === 'paged' && totalPages > 1 && (
+          {/* 真实物理页数导航器 (分页/单页模式下始终可见) */}
+          {isPagedLayout && (
             <div className="flex items-center gap-1 bg-[var(--ov-bg-elevated)] px-2 py-0.5 rounded-md border border-[var(--ov-border)] text-xs font-mono tabular-nums ml-1">
               <button
                 type="button"
@@ -962,7 +1131,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                 className="p-0.5 rounded hover:bg-[var(--ov-surface)] disabled:opacity-30 transition-colors"
                 title={copy.prevPageTip}
               >
-                <ChevronUp className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <span className="text-[var(--ov-text-secondary)] text-[11px]">{copy.pagePrefix}</span>
               <input
@@ -994,7 +1163,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                 className="p-0.5 rounded hover:bg-[var(--ov-surface)] disabled:opacity-30 transition-colors"
                 title={copy.nextPageTip}
               >
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
@@ -1062,20 +1231,8 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
 
         {/* 右侧：视图模式切换、纸张主题、打印与元数据 */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* 视图模式切换：流式 vs 分页 */}
+          {/* 视图模式切换：分页(默认) / 单页 / 流式 */}
           <div className="flex items-center bg-[var(--ov-bg-elevated)] rounded-md p-0.5 border border-[var(--ov-border)]">
-            <button
-              type="button"
-              onClick={() => handleSwitchViewMode('fluid')}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors whitespace-nowrap ${
-                viewMode === 'fluid'
-                  ? 'bg-[var(--ov-accent)] text-white'
-                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)]'
-              }`}
-              title={copy.modeFluidTip}
-            >
-              {copy.modeFluid}
-            </button>
             <button
               type="button"
               onClick={() => handleSwitchViewMode('paged')}
@@ -1087,6 +1244,30 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
               title={copy.modePagedTip}
             >
               {copy.modePaged}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchViewMode('single')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors whitespace-nowrap ${
+                viewMode === 'single'
+                  ? 'bg-[var(--ov-accent)] text-white'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)]'
+              }`}
+              title={copy.modeSingleTip}
+            >
+              {copy.modeSingle}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchViewMode('fluid')}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors whitespace-nowrap ${
+                viewMode === 'fluid'
+                  ? 'bg-[var(--ov-accent)] text-white'
+                  : 'text-[var(--ov-text-secondary)] hover:text-[var(--ov-text)]'
+              }`}
+              title={copy.modeFluidTip}
+            >
+              {copy.modeFluid}
             </button>
           </div>
 
@@ -1219,6 +1400,8 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           showNavigation={showNavigation}
           tocItems={tocItems}
           activeHeadingId={activeHeadingId}
+          pageSummaries={pageSummaries}
+          currentPage={currentPage}
           searchQuery={searchQuery}
           totalMatchesCount={matchCount}
           activeMatchIndex={activeMatchIndex}
@@ -1226,6 +1409,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           locale={locale}
           onClose={() => setShowNavigation(false)}
           onSelectHeading={handleSelectHeading}
+          onSelectPage={handleJumpToPage}
           onSelectMatch={handleSelectMatch}
         />
 
@@ -1234,7 +1418,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           ref={scrollAreaRef}
           onScroll={handleMainScroll}
           onWheel={handleViewportWheel}
-          className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center items-start relative bg-[var(--ov-bg)]"
+          className="flex-1 overflow-auto p-4 sm:p-8 pb-20 flex justify-center items-start relative bg-[var(--ov-bg)]"
         >
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 m-auto py-16 bg-[var(--ov-bg)]/85 z-20">
@@ -1279,33 +1463,47 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    gap: 20px;
+                    gap: 28px;
                     min-height: 400px;
+                    font-size: 14px;
+                    line-height: 1.35;
                     user-select: text;
                     -webkit-user-select: text;
+                  }
+                  /* 彻底重置 docx-preview 默认注入的灰色外层 wrapper 背景与内边距，让每一页作为独立物理纸张悬浮呈现 */
+                  .docx-viewport-root .docx-rendered-wrapper-wrapper {
+                    background: transparent !important;
+                    padding: 0 !important;
+                    margin: 0 auto !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: center !important;
+                    gap: 28px !important;
+                    width: 100% !important;
                   }
                   .docx-viewport-root img {
                     cursor: zoom-in;
                     max-width: 100%;
                   }
                   .docx-viewport-root section,
-                  .docx-viewport-root .docx-rendered-wrapper,
                   .docx-viewport-root section.docx-rendered-wrapper,
-                  .docx-viewport-root .docx_page {
+                  .docx-viewport-root .docx_page,
+                  .docx-viewport-root .docx-paged-sheet {
                     background: #ffffff;
                     color: #1e293b;
-                    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.1);
-                    border: 1px solid rgba(15, 23, 42, 0.08);
+                    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+                    border: 1px solid rgba(15, 23, 42, 0.12);
                     border-radius: 3px;
                     box-sizing: border-box;
-                    margin-bottom: 24px;
+                    margin-bottom: 0;
                   }
                   .docx-viewport-root table {
                     border-collapse: collapse;
                   }
                   /* 护眼羊皮纸纸张主题：柔和暖黄底色与温润墨色，保持插图自然过渡 */
                   .docx-viewport-root[data-paper-theme="sepia"] section,
-                  .docx-viewport-root[data-paper-theme="sepia"] .docx-rendered-wrapper,
                   .docx-viewport-root[data-paper-theme="sepia"] section.docx-rendered-wrapper,
                   .docx-viewport-root[data-paper-theme="sepia"] .docx_page,
                   .docx-viewport-root[data-paper-theme="sepia"] .docx-paged-sheet {
@@ -1318,7 +1516,6 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   }
                   /* 暗夜阅读纸张主题：语义化深色纸张与亮色文本，严禁暴力反转图片/矢量图原彩 */
                   .docx-viewport-root[data-paper-theme="dark"] section,
-                  .docx-viewport-root[data-paper-theme="dark"] .docx-rendered-wrapper,
                   .docx-viewport-root[data-paper-theme="dark"] section.docx-rendered-wrapper,
                   .docx-viewport-root[data-paper-theme="dark"] .docx_page,
                   .docx-viewport-root[data-paper-theme="dark"] .docx-paged-sheet {
@@ -1389,13 +1586,32 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   .docx-viewport-root.mode-paged .docx-paged-sheet {
                     position: relative !important;
                     box-sizing: border-box !important;
-                    margin: 0 auto 28px auto !important;
-                    overflow: visible !important;
+                    margin: 0 auto !important;
+                    overflow: hidden !important;
+                    flex-shrink: 0 !important;
+                  }
+                  .docx-viewport-root.mode-paged .docx-paged-sheet > article,
+                  .docx-viewport-root.mode-paged .docx-paged-sheet .docx-page-article {
+                    max-width: 100% !important;
+                    overflow-wrap: break-word;
+                    word-break: break-word;
+                  }
+                  .docx-viewport-root.mode-paged .docx-paged-sheet table {
+                    max-width: 100% !important;
+                  }
+                  .docx-viewport-root.mode-paged .docx-paged-sheet pre {
+                    max-width: 100% !important;
+                    white-space: pre-wrap !important;
+                    word-break: break-word !important;
+                  }
+                  /* 单页逐页翻阅模式：隐藏非当前物理页 */
+                  .docx-viewport-root.mode-single .docx-paged-sheet.docx-single-hidden-sheet {
+                    display: none !important;
                   }
                   .docx-page-number-badge {
                     position: absolute;
-                    bottom: 8px;
-                    right: 16px;
+                    bottom: 10px;
+                    right: 18px;
                     font-size: 11px;
                     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
                     font-variant-numeric: tabular-nums;
@@ -1414,7 +1630,6 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                     margin: 0 auto;
                   }
                   .docx-viewport-root.mode-fluid section,
-                  .docx-viewport-root.mode-fluid .docx-rendered-wrapper,
                   .docx-viewport-root.mode-fluid section.docx-rendered-wrapper {
                     width: 100% !important;
                     max-width: 100% !important;
@@ -1452,7 +1667,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                     border-radius: 3px;
                   }
                   @media print {
-                    header, aside, .docx-toc-sidebar, .docx-fullscreen-hud {
+                    header, aside, .docx-toc-sidebar, .docx-fullscreen-hud, .docx-page-flip-bar {
                       display: none !important;
                     }
                     .docx-scale-frame {
@@ -1468,10 +1683,13 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                     .docx-viewport-root {
                       gap: 0 !important;
                     }
+                    .docx-viewport-root.mode-single .docx-paged-sheet.docx-single-hidden-sheet {
+                      display: flex !important;
+                    }
                     .docx-viewport-root section,
-                    .docx-viewport-root .docx-rendered-wrapper,
                     .docx-viewport-root section.docx-rendered-wrapper,
-                    .docx-viewport-root .docx_page {
+                    .docx-viewport-root .docx_page,
+                    .docx-viewport-root .docx-paged-sheet {
                       background: #ffffff !important;
                       color: #1a1a1a !important;
                       box-shadow: none !important;
@@ -1486,8 +1704,15 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                 <div
                   ref={docxMountRef}
                   data-paper-theme={paperTheme}
+                  data-active-page={String(currentPage)}
                   onClick={handleDocumentClick}
-                  className={`docx-viewport-root mode-${viewMode}`}
+                  className={`docx-viewport-root ${
+                    viewMode === 'fluid'
+                      ? 'mode-fluid'
+                      : viewMode === 'single'
+                      ? 'mode-paged mode-single'
+                      : 'mode-paged'
+                  }`}
                 />
               </div>
             </div>
@@ -1553,6 +1778,47 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                   </div>
                 )}
 
+                {docData?.metadata?.pageProperties && (
+                  <div className="pt-4 border-t border-[var(--ov-border)] space-y-2">
+                    <span className="text-[10px] font-mono text-[var(--ov-accent)] block uppercase font-semibold">
+                      {copy.metaSectionPageProps}
+                    </span>
+                    <div className="space-y-1 text-[11px] text-[var(--ov-text-secondary)]">
+                      <div>
+                        <span className="text-[var(--ov-text)] font-medium">{copy.metaPaperLabel}: </span>
+                        <span className="font-mono tabular-nums">
+                          {docData.metadata.pageProperties.paperName}{' '}
+                          {docData.metadata.pageProperties.orientation === 'landscape'
+                            ? copy.metaOrientationLandscape
+                            : copy.metaOrientationPortrait}{' '}
+                          ({docData.metadata.pageProperties.widthMm}×{docData.metadata.pageProperties.heightMm} mm)
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[var(--ov-text)] font-medium">{copy.metaMarginsLabel}: </span>
+                        <span className="font-mono tabular-nums">
+                          {docData.metadata.pageProperties.margins.topMm} /{' '}
+                          {docData.metadata.pageProperties.margins.rightMm} /{' '}
+                          {docData.metadata.pageProperties.margins.bottomMm} /{' '}
+                          {docData.metadata.pageProperties.margins.leftMm} mm
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[var(--ov-text)] font-medium">{copy.metaTypographyLabel}: </span>
+                        <span className="font-mono tabular-nums">
+                          {docData.metadata.defaultFontSizePt ?? 10.5}pt · {docData.metadata.defaultLineHeightLabel || '1.25x'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[var(--ov-text)] font-medium">{copy.metaColumnsLabel}: </span>
+                        <span className="font-mono tabular-nums">
+                          {docData.metadata.pageProperties.columns.count} · {docData.metadata.pageProperties.verticalAlign}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-[var(--ov-border)] space-y-1 font-mono text-[11px] text-[var(--ov-text-secondary)] tabular-nums">
                   <div>{copy.metaPages(docData?.metadata?.pageCount || totalPages)}</div>
                   <div>{copy.metaWords(docData?.metadata?.wordCount ?? (locale === 'zh-CN' ? '已载入' : 'Loaded'))}</div>
@@ -1562,6 +1828,35 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
             </aside>
           )}
         </div>
+
+        {/* 底部原生翻页控制胶囊 (分页 / 单页模式下提供直观的一页一页翻阅入口) */}
+        {isPagedLayout && !loading && !error && !isFullscreen && (
+          <div className="docx-page-flip-bar absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--ov-surface)]/95 border border-[var(--ov-border)] shadow-lg backdrop-blur-md text-xs">
+            <button
+              type="button"
+              onClick={() => handleJumpToPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-2 py-0.5 rounded-full hover:bg-[var(--ov-bg-elevated)] text-[var(--ov-text)] disabled:opacity-35 transition-colors flex items-center gap-1 font-medium"
+              title={copy.prevPageTip}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>{copy.prevPageLabel}</span>
+            </button>
+            <span className="px-2 font-mono font-semibold tabular-nums text-[var(--ov-text)]">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleJumpToPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="px-2 py-0.5 rounded-full hover:bg-[var(--ov-bg-elevated)] text-[var(--ov-text)] disabled:opacity-35 transition-colors flex items-center gap-1 font-medium"
+              title={copy.nextPageTip}
+            >
+              <span>{copy.nextPageLabel}</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 全屏沉浸式悬浮 HUD */}
@@ -1596,7 +1891,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
-          {viewMode === 'paged' && totalPages > 1 && (
+          {isPagedLayout && (
             <>
               <div className="h-4 w-px bg-[var(--ov-border)]" />
               <button
@@ -1605,7 +1900,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                 disabled={currentPage <= 1}
                 className="p-1 rounded hover:bg-[var(--ov-bg-elevated)] disabled:opacity-30"
               >
-                <ChevronUp className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <span className="text-xs font-mono tabular-nums">
                 {currentPage}/{totalPages}
@@ -1616,7 +1911,7 @@ export const DocxViewer: React.FC<DocxViewerProps> = ({
                 disabled={currentPage >= totalPages}
                 className="p-1 rounded hover:bg-[var(--ov-bg-elevated)] disabled:opacity-30"
               >
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </>
           )}

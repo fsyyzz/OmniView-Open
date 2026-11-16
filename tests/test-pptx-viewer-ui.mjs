@@ -8,7 +8,7 @@
  * 4. Ctrl+F 全文搜索过滤与 <mark> 高亮渲染
  * 5. 损坏字节流自愈降级提示横幅渲染与关闭
  */
-import { setupDomEnvironment, bundleAndLoadTsx, it, assert } from './harness/index.mjs';
+import { setupDomEnvironment, bundleAndLoadTsx, it, assert, reportSummary } from './harness/index.mjs';
 
 setupDomEnvironment();
 
@@ -283,4 +283,151 @@ await it('VS Code Webview 禁用 Fullscreen API 时，可通过底部 HUD 退出
   }
 });
 
+await it('PPTX 多边形 SVG 渲染、图层层级树面板、多配色切换与画幅尺寸切换交互验证', async () => {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  zip.file(
+    'ppt/presentation.xml',
+    `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+      <p:sldSz cx="12192000" cy="6858000"/>
+      <p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>
+    </p:presentation>`
+  );
+  zip.file(
+    'ppt/_rels/presentation.xml.rels',
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+    </Relationships>`
+  );
+  zip.file(
+    'ppt/slides/slide1.xml',
+    `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld><p:spTree>
+        <p:sp>
+          <p:nvSpPr><p:cNvPr id="2" name="正五边形节点"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+          <p:spPr>
+            <a:xfrm><a:off x="635000" y="635000"/><a:ext cx="1905000" cy="1905000"/></a:xfrm>
+            <a:prstGeom prst="pentagon"/>
+            <a:solidFill><a:srgbClr val="3B82F6"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+        <p:sp>
+          <p:nvSpPr><p:cNvPr id="3" name="自由多边形徽标"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+          <p:spPr>
+            <a:xfrm><a:off x="3175000" y="635000"/><a:ext cx="1905000" cy="1905000"/></a:xfrm>
+            <a:custGeom><a:pathLst><a:path w="100" h="100">
+              <a:moveTo><a:pt x="0" y="0"/></a:moveTo>
+              <a:lnTo><a:pt x="100" y="40"/></a:lnTo>
+              <a:lnTo><a:pt x="50" y="100"/></a:lnTo>
+              <a:close/>
+            </a:path></a:pathLst></a:custGeom>
+            <a:solidFill><a:srgbClr val="10B981"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+      </p:spTree></p:cSld>
+    </p:sld>`
+  );
+
+  const customBytes = await zip.generateAsync({ type: 'uint8array' });
+  const customB64 = bytesToBase64(customBytes);
+
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  let root;
+
+  await act(async () => {
+    root = createRoot(container);
+    root.render(
+      React.createElement(PptxViewer, {
+        binaryUrl: customB64,
+        fileName: 'polygons-layers.pptx',
+        locale: 'zh-CN',
+      })
+    );
+  });
+  await flushUi(120);
+
+  // 1. 验证 pentagon 渲染出 SVG <polygon>，custom 渲染出 SVG <path>
+  const pentagonNode = container.querySelector('[data-shape-type="pentagon"]');
+  assert.ok(pentagonNode?.querySelector('polygon'), '正五边形必须渲染为 SVG <polygon>');
+  const customPolyNode = container.querySelector('[data-shape-type="custom"]');
+  assert.ok(customPolyNode?.querySelector('path'), 'custGeom 自由多边形必须渲染为 SVG <path>');
+
+  // 2. 验证切换多种配色方案
+  const colorBtn = container.querySelector('[data-testid="pptx-color-selector"]');
+  assert.ok(colorBtn, '顶栏应渲染配色方案选择器');
+  await act(async () => {
+    colorBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  await flushUi(30);
+  const colorMenu = container.querySelector('[data-testid="pptx-color-menu"]');
+  assert.ok(colorMenu, '点击配色选择器应展开 6 种配色方案浮层');
+  assert.strictEqual(colorMenu.querySelectorAll('button[data-color-preset]').length, 6, '应提供 6 种演播配色预设');
+
+  const darkColorOpt = colorMenu.querySelector('button[data-color-preset="dark"]');
+  await act(async () => {
+    darkColorOpt.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  await flushUi(40);
+  assert.strictEqual(
+    container.querySelector('[data-pptx-color]')?.getAttribute('data-pptx-color'),
+    'dark',
+    '选择暗夜配色后应激活 data-pptx-color="dark"'
+  );
+
+  // 3. 验证切换多种画幅尺寸与缩放倍率
+  const sizeBtn = container.querySelector('[data-testid="pptx-size-selector"]');
+  assert.ok(sizeBtn, '顶栏应渲染画幅尺寸选择器');
+  await act(async () => {
+    sizeBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  await flushUi(30);
+  const sizeMenu = container.querySelector('[data-testid="pptx-size-menu"]');
+  assert.ok(sizeMenu, '点击尺寸选择器应展开画幅比例与缩放预设面板');
+  assert.ok(sizeMenu.querySelectorAll('button[data-aspect-preset]').length >= 5, '应至少提供 5 种画幅尺寸预设');
+
+  const aspect43Btn = sizeMenu.querySelector('button[data-aspect-preset="4:3"]');
+  await act(async () => {
+    aspect43Btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  await flushUi(40);
+  assert.strictEqual(
+    container.querySelector('[data-pptx-aspect]')?.getAttribute('data-pptx-aspect'),
+    '4:3',
+    '选择 4:3 画幅后应激活 data-pptx-aspect="4:3"'
+  );
+
+  // 4. 验证打开图层层级结构树并高亮选中图元
+  const layerToggle = container.querySelector('[data-testid="pptx-layer-toggle"]');
+  assert.ok(layerToggle, '顶栏应提供图层层级树切换按钮');
+  await act(async () => {
+    layerToggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  await flushUi(40);
+
+  const layerTree = container.querySelector('[data-testid="pptx-layer-tree"]');
+  assert.ok(layerTree, '切换后左侧边栏应渲染元素层级树面板');
+  assert.ok(layerTree.textContent?.includes('前景图元层'), '层级树应划分前景图元层');
+  assert.ok(layerTree.textContent?.includes('正五边形节点'), '层级树应列出正五边形节点');
+
+  const polyLayerBtn = Array.from(layerTree.querySelectorAll('button')).find(b =>
+    b.textContent?.includes('正五边形节点')
+  );
+  await act(async () => {
+    polyLayerBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+  await flushUi(30);
+  const selectedEl = container.querySelector('[data-element-id][data-selected="true"]');
+  assert.ok(selectedEl, '点击图层列表项后，主舞台对应图元应具备 data-selected="true" 高亮态');
+
+  await act(async () => {
+    root.unmount();
+  });
+  container.remove();
+});
+
+const summary = reportSummary('PptxViewer Headless DOM 组件交互测试');
+if (summary.failed > 0) {
+  process.exit(1);
+}
 console.log('\n🎉 全部 PptxViewer Headless DOM 组件交互验证测试通过！\n');

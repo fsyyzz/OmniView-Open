@@ -105,26 +105,80 @@ export interface PptxChartData {
 export type PptxShapeType =
   | 'rect'
   | 'roundRect'
+  | 'snip1Rect'
+  | 'snip2SameRect'
+  | 'snip2DiagRect'
+  | 'round2SameRect'
+  | 'round2DiagRect'
+  | 'plaque'
+  | 'foldedCorner'
+  | 'frame'
   | 'ellipse'
+  | 'donut'
+  | 'pie'
+  | 'blockArc'
+  | 'can'
+  | 'cube'
+  | 'teardrop'
   | 'line'
   | 'arrow'
   | 'rightArrow'
   | 'leftArrow'
   | 'upArrow'
   | 'downArrow'
+  | 'leftRightArrow'
+  | 'upDownArrow'
+  | 'quadArrow'
+  | 'notchedRightArrow'
+  | 'stripedRightArrow'
+  | 'bentArrow'
+  | 'uturnArrow'
   | 'triangle'
   | 'rtTriangle'
+  | 'parallelogram'
+  | 'trapezoid'
   | 'diamond'
   | 'pentagon'
+  | 'homePlate'
   | 'hexagon'
+  | 'heptagon'
+  | 'octagon'
+  | 'decagon'
+  | 'dodecagon'
+  | 'star4'
+  | 'star5'
   | 'star'
+  | 'star6'
+  | 'star8'
+  | 'star10'
+  | 'star12'
+  | 'star16'
+  | 'star24'
+  | 'star32'
+  | 'plus'
+  | 'heart'
+  | 'lightningBolt'
+  | 'sun'
+  | 'moon'
+  | 'cloud'
+  | 'wave'
+  | 'ribbon'
   | 'chevron'
   | 'callout'
   | 'connector'
   | 'custom';
 
+export interface PptxCustomPath {
+  d: string;
+  viewBoxW: number;
+  viewBoxH: number;
+  fillMode?: 'norm' | 'none' | 'lighten' | 'darken';
+  stroked?: boolean;
+}
+
 export interface PptxElement {
   id: string;
+  name?: string;
   type: 'text' | 'shape' | 'image' | 'table' | 'chart';
   x: number; // pt
   y: number;
@@ -136,6 +190,11 @@ export interface PptxElement {
   opacity?: number;
   hasShadow?: boolean;
   isFromMaster?: boolean;
+  // 层级与结构元数据
+  zIndex?: number;
+  layerTier?: 'master' | 'layout' | 'slide';
+  groupPath?: string[];
+  isBackgroundShape?: boolean;
   // 文本专属
   paragraphs?: PptxParagraph[];
   backgroundColor?: string;
@@ -144,8 +203,11 @@ export interface PptxElement {
   borderWidth?: number;
   verticalAlign?: 'top' | 'middle' | 'bottom';
   padding?: { top: number; right: number; bottom: number; left: number };
-  // 形状专属
+  // 形状与多边形专属
   shapeType?: PptxShapeType;
+  rawPresetName?: string;
+  shapeAdjusts?: Record<string, number>;
+  customPaths?: PptxCustomPath[];
   fillColor?: string;
   fillGradient?: string;
   strokeColor?: string;
@@ -400,31 +462,199 @@ function extractGeometryFromXfrm(xfrmNode: XmlNode | undefined, tx: CoordTransfo
   };
 }
 
-function mapPresetShapeType(prst?: string, isConnector = false): PptxShapeType {
-  if (isConnector && (!prst || prst.includes('Connector') || prst === 'line')) {
+export function mapPresetShapeType(prst?: string, isConnector = false): PptxShapeType {
+  if (isConnector && (!prst || prst.toLowerCase().includes('connector') || prst === 'line')) {
     return 'connector';
   }
   if (!prst) return 'rect';
   const val = prst.toLowerCase();
-  if (val === 'roundrect' || val === 'round1rect' || val === 'round2same' || val === 'sniproundrect') return 'roundRect';
-  if (val === 'ellipse') return 'ellipse';
-  if (val === 'line') return 'line';
+
+  // 圆角与切角矩形家族
+  if (val === 'roundrect' || val === 'round1rect' || val === 'sniproundrect' || val === 'flowchartalternateprocess') {
+    return 'roundRect';
+  }
+  if (val === 'round2samerect' || val === 'round2same') return 'round2SameRect';
+  if (val === 'round2diagrect' || val === 'round2diag') return 'round2DiagRect';
+  if (val === 'snip1rect') return 'snip1Rect';
+  if (val === 'snip2samerect' || val === 'snip2same') return 'snip2SameRect';
+  if (val === 'snip2diagrect' || val === 'snip2diag') return 'snip2DiagRect';
+  if (val === 'plaque') return 'plaque';
+  if (val === 'foldedcorner' || val === 'flowchartdocument') return 'foldedCorner';
+  if (val === 'frame' || val === 'halfframe') return 'frame';
+
+  // 圆、弧、扇形、圆柱与立方体
+  if (val === 'ellipse' || val === 'flowchartconnector' || val === 'actionbuttonblank') return 'ellipse';
+  if (val === 'donut') return 'donut';
+  if (val === 'pie' || val === 'pieslice' || val === 'chord') return 'pie';
+  if (val === 'blockarc' || val === 'arc') return 'blockArc';
+  if (val === 'can' || val === 'flowchartmagneticdisk' || val === 'cylinder') return 'can';
+  if (val === 'cube' || val === 'bevel') return 'cube';
+  if (val === 'teardrop') return 'teardrop';
+
+  // 直线与连接线
+  if (val === 'line' || val === 'lineinv') return 'line';
+  if (val.includes('connector')) return 'connector';
+
+  // 多边形家族（三角形、平行四边形、梯形、菱形、正五边形、五边标签、六/七/八/十/十二边形）
+  if (val === 'triangle' || val === 'isoscelestriangle' || val === 'flowchartextract') return 'triangle';
+  if (val === 'rttriangle') return 'rtTriangle';
+  if (val === 'parallelogram' || val === 'flowchartdata') return 'parallelogram';
+  if (val === 'trapezoid' || val === 'nonisoscelestrapezoid' || val === 'flowchartmanualoperation') return 'trapezoid';
+  if (val === 'diamond' || val === 'flowchartdecision') return 'diamond';
+  if (val === 'pentagon') return 'pentagon';
+  if (val === 'homeplate' || val === 'flowchartoffpageconnector') return 'homePlate';
+  if (val === 'hexagon' || val === 'flowchartpreparation') return 'hexagon';
+  if (val === 'heptagon') return 'heptagon';
+  if (val === 'octagon') return 'octagon';
+  if (val === 'decagon') return 'decagon';
+  if (val === 'dodecagon') return 'dodecagon';
+
+  // 星形与徽章家族
+  if (val === 'star4') return 'star4';
+  if (val === 'star5') return 'star5';
+  if (val === 'star6') return 'star6';
+  if (val === 'star7' || val === 'star8') return 'star8';
+  if (val === 'star10') return 'star10';
+  if (val === 'star12') return 'star12';
+  if (val === 'star16') return 'star16';
+  if (val === 'star24') return 'star24';
+  if (val === 'star32' || val.startsWith('seal')) return 'star32';
+  if (val.startsWith('star')) return 'star';
+
+  // 箭头与燕尾形家族
+  if (val === 'chevron') return 'chevron';
+  if (val === 'notchedrightarrow') return 'notchedRightArrow';
+  if (val === 'stripedrightarrow') return 'stripedRightArrow';
+  if (val === 'leftrightarrow') return 'leftRightArrow';
+  if (val === 'updownarrow') return 'upDownArrow';
+  if (val === 'quadarrow' || val === 'leftrightupdownarrow') return 'quadArrow';
+  if (val === 'bentarrow' || val === 'bentuparrow') return 'bentArrow';
+  if (val === 'uturnarrow' || val === 'curvedrightarrow' || val === 'curvedleftarrow') return 'uturnArrow';
   if (val === 'rightarrow') return 'rightArrow';
   if (val === 'leftarrow') return 'leftArrow';
   if (val === 'uparrow') return 'upArrow';
   if (val === 'downarrow') return 'downArrow';
   if (val.includes('arrow')) return 'arrow';
-  if (val === 'triangle') return 'triangle';
-  if (val === 'rttriangle') return 'rtTriangle';
-  if (val === 'diamond' || val === 'flowchartdecision') return 'diamond';
-  if (val === 'pentagon' || val === 'homeplate') return 'pentagon';
-  if (val === 'hexagon') return 'hexagon';
-  if (val.startsWith('star')) return 'star';
-  if (val === 'chevron') return 'chevron';
+
+  // 符号与装饰形状
+  if (val === 'plus' || val === 'mathplus' || val === 'cross') return 'plus';
+  if (val === 'heart') return 'heart';
+  if (val === 'lightningbolt') return 'lightningBolt';
+  if (val === 'sun') return 'sun';
+  if (val === 'moon') return 'moon';
+  if (val === 'cloud' || val === 'cloudcallout') return 'cloud';
+  if (val === 'wave' || val === 'doublewave') return 'wave';
+  if (val.includes('ribbon') || val.includes('scroll')) return 'ribbon';
   if (val.includes('callout')) return 'callout';
-  if (val.includes('connector')) return 'connector';
-  if (val === 'rect' || val === 'flowchartprocess') return 'rect';
+  if (val === 'rect' || val.startsWith('flowchart')) return 'rect';
   return 'custom';
+}
+
+/**
+ * 解析 <a:prstGeom><a:avLst><a:gd name="adj..." fmla="val ..."/></a:avLst> 形状调节柄参数
+ */
+function parseShapeAdjusts(prstGeomNode: XmlNode | undefined): Record<string, number> | undefined {
+  if (!prstGeomNode) return undefined;
+  const avLst = findChild(prstGeomNode, 'avLst');
+  if (!avLst) return undefined;
+  const adjusts: Record<string, number> = {};
+  let hasAny = false;
+  for (const gd of findChildren(avLst, 'gd')) {
+    const name = gd.attrs.name || '';
+    const fmla = gd.attrs.fmla || '';
+    const match = fmla.match(/val\s+(-?\d+)/i);
+    if (name && match) {
+      const val = parseInt(match[1], 10);
+      if (Number.isFinite(val)) {
+        adjusts[name] = val;
+        hasAny = true;
+      }
+    }
+  }
+  return hasAny ? adjusts : undefined;
+}
+
+/**
+ * 解析 OOXML 自由多边形 / 自定义矢量几何路径 (<a:custGeom><a:pathLst><a:path>)
+ */
+function parseCustomGeometryPaths(
+  custGeomNode: XmlNode | undefined,
+  geomWidthPt: number,
+  geomHeightPt: number
+): PptxCustomPath[] | undefined {
+  if (!custGeomNode) return undefined;
+  const pathLst = findChild(custGeomNode, 'pathLst');
+  if (!pathLst) return undefined;
+
+  const paths: PptxCustomPath[] = [];
+  for (const pathNode of findChildren(pathLst, 'path')) {
+    const rawW = pathNode.attrs.w ? parseInt(pathNode.attrs.w, 10) : 0;
+    const rawH = pathNode.attrs.h ? parseInt(pathNode.attrs.h, 10) : 0;
+    const useLocalCoord = rawW > 0 && rawH > 0;
+    const viewBoxW = useLocalCoord ? rawW : Math.max(1, geomWidthPt);
+    const viewBoxH = useLocalCoord ? rawH : Math.max(1, geomHeightPt);
+
+    const toCoordX = (rawVal?: string): number => {
+      const v = parseInt(rawVal || '0', 10);
+      if (!Number.isFinite(v)) return 0;
+      return useLocalCoord ? v : emuToPt(v);
+    };
+    const toCoordY = (rawVal?: string): number => {
+      const v = parseInt(rawVal || '0', 10);
+      if (!Number.isFinite(v)) return 0;
+      return useLocalCoord ? v : emuToPt(v);
+    };
+
+    const cmds: string[] = [];
+    for (const cmd of pathNode.children) {
+      const name = cmd.localName;
+      if (name === 'moveTo') {
+        const pt = findChild(cmd, 'pt');
+        if (pt) {
+          cmds.push(`M ${toCoordX(pt.attrs.x)} ${toCoordY(pt.attrs.y)}`);
+        }
+      } else if (name === 'lnTo') {
+        const pt = findChild(cmd, 'pt');
+        if (pt) {
+          cmds.push(`L ${toCoordX(pt.attrs.x)} ${toCoordY(pt.attrs.y)}`);
+        }
+      } else if (name === 'cubicBezTo') {
+        const pts = findChildren(cmd, 'pt');
+        if (pts.length >= 3) {
+          cmds.push(
+            `C ${toCoordX(pts[0].attrs.x)} ${toCoordY(pts[0].attrs.y)}, ${toCoordX(pts[1].attrs.x)} ${toCoordY(
+              pts[1].attrs.y
+            )}, ${toCoordX(pts[2].attrs.x)} ${toCoordY(pts[2].attrs.y)}`
+          );
+        }
+      } else if (name === 'quadBezTo') {
+        const pts = findChildren(cmd, 'pt');
+        if (pts.length >= 2) {
+          cmds.push(
+            `Q ${toCoordX(pts[0].attrs.x)} ${toCoordY(pts[0].attrs.y)}, ${toCoordX(pts[1].attrs.x)} ${toCoordY(
+              pts[1].attrs.y
+            )}`
+          );
+        }
+      } else if (name === 'close') {
+        cmds.push('Z');
+      }
+    }
+
+    if (cmds.length > 0) {
+      const fillAttr = pathNode.attrs.fill as PptxCustomPath['fillMode'] | undefined;
+      const strokeAttr = pathNode.attrs.stroke;
+      paths.push({
+        d: cmds.join(' '),
+        viewBoxW,
+        viewBoxH,
+        fillMode: fillAttr || 'norm',
+        stroked: strokeAttr !== '0' && strokeAttr !== 'false',
+      });
+    }
+  }
+
+  return paths.length > 0 ? paths : undefined;
 }
 
 interface PlaceholderTemplate {
@@ -735,8 +965,17 @@ function parseSpNodeFromXml(
     };
   }
 
+  const cNvPr = findDescendant(spNode, 'cNvPr');
+  const rawNodeName = cNvPr?.attrs.name?.trim() || undefined;
+
   const prstGeom = findChild(spPr, 'prstGeom');
-  const shapeType = mapPresetShapeType(prstGeom?.attrs.prst, isConnector);
+  const custGeom = findChild(spPr, 'custGeom');
+  const rawPresetName = prstGeom?.attrs.prst;
+  const shapeAdjusts = parseShapeAdjusts(prstGeom);
+  const customPaths = parseCustomGeometryPaths(custGeom, geom.width, geom.height);
+  const shapeType: PptxShapeType = customPaths
+    ? 'custom'
+    : mapPresetShapeType(rawPresetName, isConnector);
   const {
     fillColor,
     fillGradient,
@@ -957,11 +1196,19 @@ function parseSpNodeFromXml(
   }
 
   const effectiveBg = fillColor && fillColor !== 'transparent' ? fillColor : undefined;
-  const hasVisibleShape = Boolean(effectiveBg || fillGradient || strokeColor || shapeType !== 'rect');
+  const hasVisibleShape = Boolean(
+    effectiveBg ||
+      fillGradient ||
+      strokeColor ||
+      shapeType !== 'rect' ||
+      (customPaths && customPaths.length > 0)
+  );
 
   if (cleanedParagraphs.length > 0) {
+    const firstLine = cleanedParagraphs[0].runs.map(r => r.text).join('').trim().slice(0, 24);
     return {
       id: elementId,
+      name: rawNodeName || (firstLine ? `文本: ${firstLine}` : '文本框'),
       type: 'text',
       x: geom.x,
       y: geom.y,
@@ -973,6 +1220,9 @@ function parseSpNodeFromXml(
       hasShadow,
       isFromMaster: isFromMaster || undefined,
       shapeType: hasVisibleShape ? shapeType : undefined,
+      rawPresetName,
+      shapeAdjusts,
+      customPaths,
       paragraphs: cleanedParagraphs,
       backgroundColor: effectiveBg,
       backgroundGradient: fillGradient,
@@ -987,6 +1237,7 @@ function parseSpNodeFromXml(
   if (hasVisibleShape || isConnector) {
     return {
       id: elementId,
+      name: rawNodeName || rawPresetName || (isConnector ? '连接线' : '矢量形状'),
       type: 'shape',
       x: geom.x,
       y: geom.y,
@@ -998,6 +1249,9 @@ function parseSpNodeFromXml(
       hasShadow,
       isFromMaster: isFromMaster || undefined,
       shapeType,
+      rawPresetName,
+      shapeAdjusts,
+      customPaths,
       fillColor: fillColor || 'transparent',
       fillGradient,
       strokeColor: strokeColor || (isConnector ? themeColors.tx1 || '#64748B' : undefined),
@@ -1353,11 +1607,19 @@ async function parseContainerElements(
   tx: CoordTransform,
   layoutCtx?: MasterOrLayoutContext,
   masterCtx?: MasterOrLayoutContext,
-  isFromMaster = false
+  isFromMaster = false,
+  layerTier: 'master' | 'layout' | 'slide' = 'slide',
+  groupPath: string[] = []
 ): Promise<PptxElement[]> {
   if (!spTreeNode) return [];
   const elements: PptxElement[] = [];
   let idx = 0;
+
+  const attachHierarchyMeta = (el: PptxElement): PptxElement => ({
+    ...el,
+    layerTier,
+    groupPath: groupPath.length > 0 ? groupPath : undefined,
+  });
 
   const nodes = unwrapAlternateContent(spTreeNode.children);
   for (const node of nodes) {
@@ -1377,10 +1639,17 @@ async function parseContainerElements(
         masterCtx,
         isFromMaster
       );
-      if (el) elements.push(el);
+      if (el) elements.push(attachHierarchyMeta(el));
     } else if (name === 'pic') {
       const el = parsePicNodeFromXml(node, elId, mediaMap, tx, isFromMaster);
-      if (el) elements.push(el);
+      if (el) {
+        elements.push(
+          attachHierarchyMeta({
+            ...el,
+            name: el.name || el.imageAlt || '图片图元',
+          })
+        );
+      }
     } else if (name === 'graphicFrame') {
       const el = await parseGraphicFrameNodeFromXml(
         node,
@@ -1392,8 +1661,19 @@ async function parseContainerElements(
         tx,
         isFromMaster
       );
-      if (el) elements.push(el);
+      if (el) {
+        const gfName = findDescendant(node, 'cNvPr')?.attrs.name?.trim();
+        elements.push(
+          attachHierarchyMeta({
+            ...el,
+            name: gfName || (el.type === 'chart' ? el.chartData?.title || '数据图表' : '数据表格'),
+          })
+        );
+      }
     } else if (name === 'grpSp') {
+      const grpNv = findChild(node, 'nvGrpSpPr');
+      const grpName =
+        findChild(grpNv, 'cNvPr')?.attrs.name?.trim() || `组合图形 #${idx}`;
       const grpSpPr = findChild(node, 'grpSpPr');
       const xfrm = findChild(grpSpPr, 'xfrm');
       const grpGeom = extractGeometryFromXfrm(xfrm, tx);
@@ -1442,13 +1722,68 @@ async function parseContainerElements(
         childTransform,
         layoutCtx,
         masterCtx,
-        isFromMaster
+        isFromMaster,
+        layerTier,
+        [...groupPath, grpName]
       );
-      elements.push(...subEls);
+      // 若外层组合带有整体旋转或翻转，向未显式声明旋转/翻转的子图元继承
+      const normalizedSubEls = subEls.map(sub => ({
+        ...sub,
+        rotation: sub.rotation ?? grpGeom.rotation,
+        flipH: sub.flipH ?? grpGeom.flipH,
+        flipV: sub.flipV ?? grpGeom.flipV,
+      }));
+      elements.push(...normalizedSubEls);
     }
   }
 
   return elements;
+}
+
+/**
+ * 梳理并规范化幻灯片内所有图元的渲染层级结构 (Z-Order Layer Hierarchy)
+ * 保证：母版底层 (master) -> 版式装饰层 (layout) -> 幻灯片全屏底板形状 -> 幻灯片前景图元 (slide)，
+ * 并为每个元素分配从 1 递增的确定性 zIndex，杜绝前景文字被背景色块遮挡或 CSS 堆叠上下文串层
+ */
+export function sortAndAssignSlideLayerHierarchy(
+  masterElements: PptxElement[],
+  layoutElements: PptxElement[],
+  slideElements: PptxElement[],
+  slideWidth: number,
+  slideHeight: number
+): PptxElement[] {
+  const slideArea = Math.max(1, slideWidth * slideHeight);
+
+  // 识别幻灯片层中被用作全画幅背景底板的无字纯图形/底图（覆盖画布 >= 80% 且无文本）
+  const markedSlideEls = slideElements.map(el => {
+    const elArea = Math.max(0, el.width * el.height);
+    const isFullBleedBackdrop =
+      (el.type === 'shape' || el.type === 'image') &&
+      (!el.paragraphs || el.paragraphs.length === 0) &&
+      elArea / slideArea >= 0.8 &&
+      el.x <= slideWidth * 0.08 &&
+      el.y <= slideHeight * 0.08;
+    return {
+      ...el,
+      layerTier: 'slide' as const,
+      isBackgroundShape: isFullBleedBackdrop || undefined,
+    };
+  });
+
+  const slideBackdropEls = markedSlideEls.filter(el => el.isBackgroundShape);
+  const slideForegroundEls = markedSlideEls.filter(el => !el.isBackgroundShape);
+
+  const ordered = [
+    ...masterElements.map(el => ({ ...el, layerTier: 'master' as const, isFromMaster: true })),
+    ...layoutElements.map(el => ({ ...el, layerTier: 'layout' as const, isFromMaster: true })),
+    ...slideBackdropEls,
+    ...slideForegroundEls,
+  ];
+
+  return ordered.map((el, idx) => ({
+    ...el,
+    zIndex: idx + 1,
+  }));
 }
 
 async function loadMasterOrLayoutContext(
@@ -1540,6 +1875,7 @@ async function loadMasterOrLayoutContext(
     }
   }
 
+  const isMasterPart = rootEl.localName === 'sldMaster';
   const decorativeElements = await parseContainerElements(
     spTree,
     `master-${partPath.replace(/[^a-zA-Z0-9]/g, '')}`,
@@ -1551,7 +1887,8 @@ async function loadMasterOrLayoutContext(
     IDENTITY_TRANSFORM,
     undefined,
     parentCtx,
-    true
+    true,
+    isMasterPart ? 'master' : 'layout'
   );
 
   return {
@@ -2223,19 +2560,22 @@ export async function parsePptx(
 
       const showMasterSp = sldNode?.attrs.showMasterSp !== '0' && sldNode?.attrs.showMasterSp !== 'false';
       const layoutAllowsMasterSp = layoutCtx ? layoutCtx.showMasterSp !== false : true;
-      const inheritedDecorations: PptxElement[] = [];
-      if (showMasterSp) {
-        if (layoutAllowsMasterSp && masterCtx?.decorativeElements.length) {
-          inheritedDecorations.push(
-            ...masterCtx.decorativeElements.map((el, idx) => ({ ...el, id: `s${i}-m-${idx}-${el.id}` }))
-          );
-        }
-        if (layoutCtx?.decorativeElements.length) {
-          inheritedDecorations.push(
-            ...layoutCtx.decorativeElements.map((el, idx) => ({ ...el, id: `s${i}-l-${idx}-${el.id}` }))
-          );
-        }
-      }
+      const masterDecorations: PptxElement[] =
+        showMasterSp && layoutAllowsMasterSp && masterCtx?.decorativeElements.length
+          ? masterCtx.decorativeElements.map((el, idx) => ({
+              ...el,
+              id: `s${i}-m-${idx}-${el.id}`,
+              layerTier: 'master' as const,
+            }))
+          : [];
+      const layoutDecorations: PptxElement[] =
+        showMasterSp && layoutCtx?.decorativeElements.length
+          ? layoutCtx.decorativeElements.map((el, idx) => ({
+              ...el,
+              id: `s${i}-l-${idx}-${el.id}`,
+              layerTier: 'layout' as const,
+            }))
+          : [];
 
       const spTree = findChild(cSld, 'spTree');
       const slideElements = await parseContainerElements(
@@ -2249,14 +2589,17 @@ export async function parsePptx(
         IDENTITY_TRANSFORM,
         layoutCtx,
         masterCtx,
-        false
+        false,
+        'slide'
       );
 
-      const elements = [...slideElements, ...inheritedDecorations].sort((a, b) => {
-        if (a.isFromMaster && !b.isFromMaster) return -1;
-        if (!a.isFromMaster && b.isFromMaster) return 1;
-        return 0;
-      });
+      const elements = sortAndAssignSlideLayerHierarchy(
+        masterDecorations,
+        layoutDecorations,
+        slideElements,
+        metadata.width,
+        metadata.height
+      );
 
       metadata.chartCount = (metadata.chartCount || 0) + elements.filter(e => e.type === 'chart').length;
 

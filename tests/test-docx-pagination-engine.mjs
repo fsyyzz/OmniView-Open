@@ -7,6 +7,8 @@
 import assert from 'assert';
 import {
   paginateDocxContainer,
+  parseCssLengthToPx,
+  extractDocxPageSummaries,
   A4_WIDTH_PX,
   A4_HEIGHT_PX,
 } from '../src/features/viewers/lib/docxPaginationEngine.ts';
@@ -303,7 +305,118 @@ async function runTests() {
   assert(firstBadgeText.includes('Page 1 / '), `英文分页角标异常: ${firstBadgeText}`);
   console.log(`✅ 超长跨页表格成功拆分为 ${res4.totalPages} 页并自动延续表头与英文角标`);
 
-  console.log('\n🎉 全部 5 项 docx 物理页面排版与自然分页引擎测试 100% 通过！\n');
+  // --- 测试 6: pt/mm 物理单位换算与陈旧 expectedPageCount=1 下的自然多页切分 ---
+  console.log('--- 测试 6: pt/mm 单位换算与 expectedPageCount=1 自然多页切分 ---');
+  assert.strictEqual(parseCssLengthToPx('595.3pt', 794), 794, '595.3pt 应精确换算为 794px (A4 宽)');
+  assert.strictEqual(parseCssLengthToPx('841.9pt', 1123), 1123, '841.9pt 应精确换算为 1123px (A4 高)');
+  assert.strictEqual(parseCssLengthToPx('72pt', 36), 96, '72pt (1 inch) 应精确换算为 96px');
+  assert.strictEqual(parseCssLengthToPx('210mm', 0), 794, '210mm 应精确换算为 794px');
+
+  const container5 = createMockElement('div');
+  const ptSec = createMockElement('section', {
+    className: 'docx-rendered-wrapper docx',
+    style: { width: '595.3pt', minHeight: '841.9pt', paddingTop: '72pt', paddingBottom: '72pt' },
+    scrollHeight: 4200,
+    offsetHeight: 4200,
+  });
+  const ptArt = createMockElement('article');
+  for (let i = 1; i <= 24; i++) {
+    ptArt.appendChild(createMockElement('p', {
+      textContent: `原生 pt 纸张规格下无硬分页符的正文段落 #${i}`,
+      offsetHeight: 150,
+    }));
+  }
+  ptSec.appendChild(ptArt);
+  container5.appendChild(ptSec);
+
+  // 即使 app.xml 错误记录为 expectedPageCount: 1，也必须根据 4200px 真实高度切分为多页
+  const res5 = paginateDocxContainer(container5, { expectedPageCount: 1 });
+  assert.strictEqual(res5.paginated, true, 'expectedPageCount=1 时超长文档仍必须触发多页切分');
+  assert(res5.totalPages >= 4, `4200px 高度文档应至少切分为 4 页，当前: ${res5.totalPages}`);
+  const sheets5 = container5.querySelectorAll('section');
+  assert.strictEqual(sheets5[0].getAttribute('data-page-width'), '794', '切分后单页宽度必须为 794px 而非 595px');
+  assert.strictEqual(sheets5[0].getAttribute('data-page-height'), '1123', '切分后单页高度必须为 1123px 而非 842px');
+
+  const summaries = extractDocxPageSummaries(container5, 'zh-CN');
+  assert.strictEqual(summaries.length, res5.totalPages, '页面摘要数量应与切分后总页数一致');
+  assert.strictEqual(summaries[0].pageNumber, 1);
+  console.log(`✅ pt/mm 物理尺寸换算与陈旧 expectedPageCount=1 多页切分通过 (共 ${res5.totalPages} 页)`);
+
+  // --- 测试 7: 少内容单页（或缺失尺寸声明）也必须严格锁定标准 A4 固定宽高，绝不随内容变矮或变窄 ---
+  console.log('--- 测试 7: 稀疏内容单页仍锁定标准 A4 固定宽高 (794×1123) ---');
+  const container6 = createMockElement('div');
+  const sparseSec = createMockElement('section', {
+    className: 'docx-rendered-wrapper docx',
+    style: { width: '180px', minHeight: '120px' }, // 模拟极窄极矮的非标容器
+    scrollHeight: 90,
+    offsetHeight: 90,
+  });
+  sparseSec.appendChild(createMockElement('p', { textContent: '仅一行正文' }));
+  container6.appendChild(sparseSec);
+
+  const res6 = paginateDocxContainer(container6, { expectedPageCount: 1 });
+  assert.strictEqual(res6.totalPages, 1);
+  assert.strictEqual(sparseSec.getAttribute('data-page-width'), '794', '少内容或非标节宽度必须对齐 794px 标准 A4');
+  assert.strictEqual(sparseSec.getAttribute('data-page-height'), '1123', '少内容或非标节高度必须对齐 1123px 标准 A4');
+  assert.strictEqual(sparseSec.style.width, '794px', '单页 style.width 必须锁定为 794px');
+  assert.strictEqual(sparseSec.style.height, '1123px', '单页 style.height 必须锁定为 1123px');
+  assert.strictEqual(sparseSec.style.maxHeight, '1123px', '单页 style.maxHeight 必须锁定为 1123px');
+  console.log('✅ 稀疏内容单页标准物理宽高锁定验证通过');
+
+  // --- 测试 8: 分页拆分与二次溢出续页必须保留原节边距、页面边框、多栏排版及纸张属性标记 ---
+  console.log('--- 测试 8: 跨页拆分与溢出续页完整保留边距/边框/多栏与页面属性 ---');
+  const { Window: HappyWindow } = await import('happy-dom');
+  const hWin = new HappyWindow();
+  const hDoc = hWin.document;
+  const savedDoc = global.document;
+  const savedWin = global.window;
+  global.document = hDoc;
+  global.window = hWin;
+  try {
+    const colContainer = hDoc.createElement('div');
+    const colSec = hDoc.createElement('section');
+    colSec.className = 'docx-rendered-wrapper docx';
+    colSec.setAttribute(
+      'style',
+      'width: 794px; min-height: 1123px; padding: 96px 120px; border-top: 1pt solid #334155;'
+    );
+    colSec.setAttribute('data-paper-name', 'A4');
+    colSec.setAttribute('data-orientation', 'portrait');
+    colSec.setAttribute('data-cols', '2');
+
+    const colArt = hDoc.createElement('article');
+    colArt.setAttribute('style', 'column-count: 2; column-gap: 48px; column-rule: 1px solid #94a3b8;');
+    for (let i = 1; i <= 14; i++) {
+      const p = hDoc.createElement('p');
+      p.textContent = `双栏长文测试段落 #${i}：校验分页切分后每一页及溢出续页均完整继承边距、边框与双栏属性。`;
+      Object.defineProperty(p, 'offsetHeight', { value: 140, configurable: true });
+      colArt.appendChild(p);
+    }
+    colSec.appendChild(colArt);
+    Object.defineProperty(colSec, 'scrollHeight', { value: 2600, configurable: true });
+    colContainer.appendChild(colSec);
+
+    const res8 = paginateDocxContainer(colContainer, { locale: 'zh-CN' });
+    assert.strictEqual(res8.paginated, true, '多栏长节必须触发跨页切分');
+    assert(res8.totalPages >= 2, `多栏长节应切分为多页，实际: ${res8.totalPages}`);
+    const splitSheets = Array.from(colContainer.querySelectorAll('.docx-paged-sheet'));
+    splitSheets.forEach((s, idx) => {
+      assert.strictEqual(s.getAttribute('data-paper-name'), 'A4', `第 ${idx + 1} 页应保留 data-paper-name="A4"`);
+      assert.strictEqual(s.getAttribute('data-cols'), '2', `第 ${idx + 1} 页应保留 data-cols="2"`);
+      assert(s.style.paddingTop === '96px', `第 ${idx + 1} 页应保留 paddingTop=96px，实际: ${s.style.paddingTop}`);
+      assert(Boolean(s.style.borderTop), `第 ${idx + 1} 页应保留页面顶部边框`);
+      const art = s.querySelector('article');
+      assert.strictEqual(art?.style.columnCount, '2', `第 ${idx + 1} 页 article 必须继承 columnCount="2"`);
+      assert.strictEqual(art?.style.columnGap, '48px', `第 ${idx + 1} 页 article 必须继承 columnGap="48px"`);
+    });
+  } finally {
+    global.document = savedDoc;
+    global.window = savedWin;
+    await hWin.close();
+  }
+  console.log('✅ 分页与溢出续页完整保留边距/边框/多栏属性验证通过');
+
+  console.log('\n🎉 全部 8 项 docx 物理页面排版与自然分页引擎测试 100% 通过！\n');
 }
 
 runTests().catch(err => {

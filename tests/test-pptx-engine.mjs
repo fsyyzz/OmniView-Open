@@ -9,6 +9,8 @@ import {
   emuToPt,
   pptxToMarkdown,
   buildPptxPrintHtml,
+  mapPresetShapeType,
+  sortAndAssignSlideLayerHierarchy,
 } from '../src/features/viewers/lib/pptxEngine.ts';
 import {
   parseXmlTree,
@@ -332,7 +334,187 @@ async function runTests() {
   assert.strictEqual(bodyEl?.x, emuToPt(889000), '无 type 属性的 <p:ph idx="1"/> 应继承版式对应 idx 几何坐标');
   console.log('✅ 母版/版式占位符、模版编辑提示文本、‹#› 字段与隐藏节点过滤验证通过');
 
-  console.log('\n🎉 全部 16 项 PowerPoint (.pptx) AST 引擎、图表、母版与导出测试 100% 通过！\n');
+  // --- 测试 17: 多边形预设映射与自定义矢量路径 (<a:custGeom>) + 调节参数 (<a:avLst>) 解析 ---
+  console.log('--- 测试 17: 多边形预设与 <a:custGeom> 自定义多边形解析 ---');
+  assert.strictEqual(mapPresetShapeType('pentagon'), 'pentagon');
+  assert.strictEqual(mapPresetShapeType('homePlate'), 'homePlate');
+  assert.strictEqual(mapPresetShapeType('hexagon'), 'hexagon');
+  assert.strictEqual(mapPresetShapeType('heptagon'), 'heptagon');
+  assert.strictEqual(mapPresetShapeType('octagon'), 'octagon');
+  assert.strictEqual(mapPresetShapeType('decagon'), 'decagon');
+  assert.strictEqual(mapPresetShapeType('dodecagon'), 'dodecagon');
+  assert.strictEqual(mapPresetShapeType('parallelogram'), 'parallelogram');
+  assert.strictEqual(mapPresetShapeType('trapezoid'), 'trapezoid');
+  assert.strictEqual(mapPresetShapeType('star6'), 'star6');
+  assert.strictEqual(mapPresetShapeType('quadArrow'), 'quadArrow');
+  assert.strictEqual(mapPresetShapeType('leftRightArrow'), 'leftRightArrow');
+
+  const polyZip = new JSZip();
+  polyZip.file(
+    'ppt/presentation.xml',
+    `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+      <p:sldSz cx="12192000" cy="6858000"/>
+      <p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>
+    </p:presentation>`
+  );
+  polyZip.file(
+    'ppt/_rels/presentation.xml.rels',
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+    </Relationships>`
+  );
+  polyZip.file(
+    'ppt/slideMasters/slideMaster1.xml',
+    `<p:sldMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld><p:spTree>
+        <p:sp>
+          <p:nvSpPr><p:cNvPr id="10" name="母版右下角徽标"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+          <p:spPr>
+            <a:xfrm><a:off x="10160000" y="6096000"/><a:ext cx="1270000" cy="508000"/></a:xfrm>
+            <a:prstGeom prst="octagon"><a:avLst><a:gd name="adj" fmla="val 30000"/></a:avLst></a:prstGeom>
+            <a:solidFill><a:srgbClr val="64748B"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+      </p:spTree></p:cSld>
+    </p:sldMaster>`
+  );
+  polyZip.file(
+    'ppt/slideLayouts/slideLayout1.xml',
+    `<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld name="多边形测试版式"><p:spTree>
+        <p:sp>
+          <p:nvSpPr><p:cNvPr id="11" name="版式装饰条"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+          <p:spPr>
+            <a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="254000"/></a:xfrm>
+            <a:prstGeom prst="rect"/>
+            <a:solidFill><a:srgbClr val="1E293B"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+      </p:spTree></p:cSld>
+    </p:sldLayout>`
+  );
+  polyZip.file(
+    'ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+    </Relationships>`
+  );
+  polyZip.file(
+    'ppt/slides/_rels/slide1.xml.rels',
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+    </Relationships>`
+  );
+  polyZip.file(
+    'ppt/slides/slide1.xml',
+    `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld><p:spTree>
+        <p:sp>
+          <p:nvSpPr><p:cNvPr id="2" name="正六边形"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+          <p:spPr>
+            <a:xfrm><a:off x="635000" y="635000"/><a:ext cx="1905000" cy="1905000"/></a:xfrm>
+            <a:prstGeom prst="hexagon"><a:avLst><a:gd name="adj" fmla="val 25000"/></a:avLst></a:prstGeom>
+            <a:solidFill><a:srgbClr val="3B82F6"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+        <p:sp>
+          <p:nvSpPr><p:cNvPr id="3" name="自由多边形旗帜"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+          <p:spPr>
+            <a:xfrm><a:off x="3175000" y="635000"/><a:ext cx="2540000" cy="1905000"/></a:xfrm>
+            <a:custGeom>
+              <a:pathLst>
+                <a:path w="200" h="100">
+                  <a:moveTo><a:pt x="0" y="0"/></a:moveTo>
+                  <a:lnTo><a:pt x="200" y="0"/></a:lnTo>
+                  <a:lnTo><a:pt x="160" y="50"/></a:lnTo>
+                  <a:lnTo><a:pt x="200" y="100"/></a:lnTo>
+                  <a:lnTo><a:pt x="0" y="100"/></a:lnTo>
+                  <a:close/>
+                </a:path>
+              </a:pathLst>
+            </a:custGeom>
+            <a:solidFill><a:srgbClr val="10B981"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+        <p:grpSp>
+          <p:nvGrpSpPr><p:cNvPr id="20" name="星形流程组"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+          <p:grpSpPr>
+            <a:xfrm>
+              <a:off x="6350000" y="635000"/>
+              <a:ext cx="2540000" cy="1905000"/>
+              <a:chOff x="0" y="0"/>
+              <a:chExt cx="2540000" cy="1905000"/>
+            </a:xfrm>
+          </p:grpSpPr>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="21" name="六角星节点"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+            <p:spPr>
+              <a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="1270000"/></a:xfrm>
+              <a:prstGeom prst="star6"/>
+              <a:solidFill><a:srgbClr val="F59E0B"/></a:solidFill>
+            </p:spPr>
+          </p:sp>
+        </p:grpSp>
+        <p:sp>
+          <p:nvSpPr><p:cNvPr id="1" name="全屏画布底板"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+          <p:spPr>
+            <a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/></a:xfrm>
+            <a:prstGeom prst="rect"/>
+            <a:solidFill><a:srgbClr val="F8FAFC"/></a:solidFill>
+          </p:spPr>
+        </p:sp>
+      </p:spTree></p:cSld>
+    </p:sld>`
+  );
+
+  const polyParsed = await parsePptx(await polyZip.generateAsync({ type: 'uint8array' }));
+  const polySlide = polyParsed.slides[0];
+  const hexEl = polySlide.elements.find(e => e.name === '正六边形');
+  const custEl = polySlide.elements.find(e => e.name === '自由多边形旗帜');
+  const starEl = polySlide.elements.find(e => e.name === '六角星节点');
+  const backdropEl = polySlide.elements.find(e => e.name === '全屏画布底板');
+  const masterEl = polySlide.elements.find(e => e.name === '母版右下角徽标');
+  const layoutEl = polySlide.elements.find(e => e.name === '版式装饰条');
+
+  assert.strictEqual(hexEl?.shapeType, 'hexagon', '应准确解析 hexagon 多边形');
+  assert.strictEqual(hexEl?.shapeAdjusts?.adj, 25000, '应提取 <a:avLst><a:gd name="adj"/> 参数');
+  assert.strictEqual(custEl?.shapeType, 'custom', 'custGeom 应解析为 custom 类型');
+  assert(custEl?.customPaths?.length === 1 && custEl.customPaths[0].d.includes('M 0 0 L 200 0'), '应提取 custGeom SVG 矢量路径');
+  assert.strictEqual(starEl?.shapeType, 'star6', '应解析 star6 六角星');
+  assert.deepStrictEqual(starEl?.groupPath, ['星形流程组'], '组合子元素应记录完整 groupPath 层级路径');
+
+  // --- 测试 18: 页面元素层级 Z-Order 梳理 (母版 -> 版式 -> 全屏底板 -> 前景元素) ---
+  console.log('--- 测试 18: 页面元素 Z-Order 层级秩序验证 ---');
+  assert.strictEqual(masterEl?.layerTier, 'master');
+  assert.strictEqual(layoutEl?.layerTier, 'layout');
+  assert.strictEqual(backdropEl?.isBackgroundShape, true, '全屏无字底板即使写在 slide1.xml 最后，也应识别为画布底板层');
+  assert(
+    (masterEl?.zIndex || 0) < (layoutEl?.zIndex || 0) &&
+      (layoutEl?.zIndex || 0) < (backdropEl?.zIndex || 0) &&
+      (backdropEl?.zIndex || 0) < (hexEl?.zIndex || 0) &&
+      (hexEl?.zIndex || 0) < (starEl?.zIndex || 0),
+    `元素层级 Z-Order 必须严格递增: master(${masterEl?.zIndex}) < layout(${layoutEl?.zIndex}) < backdrop(${backdropEl?.zIndex}) < fg(${hexEl?.zIndex}) < star(${starEl?.zIndex})`
+  );
+
+  // 直接单元测试 sortAndAssignSlideLayerHierarchy
+  const sorted = sortAndAssignSlideLayerHierarchy(
+    [{ id: 'm1', type: 'shape', x: 0, y: 0, width: 40, height: 40 }],
+    [{ id: 'l1', type: 'shape', x: 0, y: 0, width: 40, height: 40 }],
+    [
+      { id: 'fg1', type: 'text', x: 100, y: 100, width: 200, height: 60 },
+      { id: 'bg1', type: 'shape', x: 0, y: 0, width: 960, height: 540 },
+    ],
+    960,
+    540
+  );
+  assert.deepStrictEqual(
+    sorted.map(e => e.id),
+    ['m1', 'l1', 'bg1', 'fg1'],
+    '层级梳理器必须按 母版 -> 版式 -> 全屏底板 -> 前景 排列'
+  );
+  console.log('✅ 多边形解析、custGeom 与四层 Z-Order 层级梳理测试全部通过');
+
+  console.log('\n🎉 全部 18 项 PowerPoint (.pptx) AST 引擎、多边形、层级与导出测试 100% 通过！\n');
 }
 
 runTests().catch(err => {

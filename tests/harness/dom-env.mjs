@@ -13,6 +13,8 @@ const GLOBAL_KEYS = [
   'document',
   'navigator',
   'HTMLElement',
+  'Node',
+  'NodeFilter',
   'SVGElement',
   'SVGSVGElement',
   'Event',
@@ -53,6 +55,15 @@ export function setupDomEnvironment(options = {}) {
     document,
     navigator: window.navigator,
     HTMLElement: window.HTMLElement,
+    Node: window.Node,
+    NodeFilter: window.NodeFilter || {
+      SHOW_ALL: 0xffffffff,
+      SHOW_ELEMENT: 1,
+      SHOW_TEXT: 4,
+      FILTER_ACCEPT: 1,
+      FILTER_REJECT: 2,
+      FILTER_SKIP: 3,
+    },
     SVGElement: window.SVGElement,
     SVGSVGElement: window.SVGSVGElement,
     Event: window.Event,
@@ -105,6 +116,25 @@ export function setupDomEnvironment(options = {}) {
     if (!window.SVGElement.prototype.releasePointerCapture) {
       window.SVGElement.prototype.releasePointerCapture = () => {};
     }
+  }
+
+  // 修复 happy-dom DOMParser("application/xml") 下 Attr.localName 错误保留前缀 (如 "w:val") 的标准偏差
+  const attrLocalNameDesc = window.Attr?.prototype
+    ? Object.getOwnPropertyDescriptor(window.Attr.prototype, 'localName')
+    : null;
+  if (attrLocalNameDesc?.configurable && typeof attrLocalNameDesc.get === 'function') {
+    const origGet = attrLocalNameDesc.get;
+    Object.defineProperty(window.Attr.prototype, 'localName', {
+      configurable: true,
+      enumerable: attrLocalNameDesc.enumerable ?? false,
+      get() {
+        const raw = origGet.call(this);
+        if (typeof raw === 'string' && raw.includes(':')) {
+          return raw.slice(raw.indexOf(':') + 1);
+        }
+        return raw;
+      },
+    });
   }
 
   return {

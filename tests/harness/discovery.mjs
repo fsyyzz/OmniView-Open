@@ -43,6 +43,8 @@ const SUITE_CONFIG_OVERRIDES = {
   'test-pdf-search-controller.mjs': { mode: 'node', category: 'unit' },
   'test-echarts-block.mjs': { mode: 'esbuild', packagesExternal: true, category: 'diagram' },
   'test-doc-image-export.mjs': { mode: 'node', category: 'office' },
+  'test-docx-viewer-ui.mjs': { mode: 'node', category: 'office' },
+  'test-pptx-viewer-ui.mjs': { mode: 'node', category: 'office' },
   'test-markdown-cross-reference.mjs': { mode: 'esbuild', packagesExternal: true, category: 'markdown' },
   'test-markdown-health-linter.mjs': { mode: 'esbuild', packagesExternal: true, category: 'markdown' },
   'test-block-height-cache.mjs': { mode: 'esbuild', packagesExternal: true, category: 'unit' },
