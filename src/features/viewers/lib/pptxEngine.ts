@@ -447,16 +447,75 @@ interface MasterOrLayoutContext {
   titleDefaultFontSize?: number;
   bodyDefaultFontSize?: number;
   layoutName?: string;
+  showMasterSp?: boolean;
 }
 
-function extractPlaceholderMeta(spNode: XmlNode): { phType?: string; phIdx?: string } {
-  const nvPr = findDescendant(spNode, 'nvPr');
+function extractPlaceholderMeta(node: XmlNode): {
+  isPlaceholder: boolean;
+  phType?: string;
+  phIdx?: string;
+} {
+  const nvPr = findDescendant(node, 'nvPr');
   const ph = findChild(nvPr, 'ph');
-  if (!ph) return {};
-  return {
-    phType: ph.attrs.type,
-    phIdx: ph.attrs.idx,
-  };
+  if (ph) {
+    return {
+      isPlaceholder: true,
+      phType: ph.attrs.type,
+      phIdx: ph.attrs.idx,
+    };
+  }
+  const cNvPr = findDescendant(node, 'cNvPr');
+  const name = cNvPr?.attrs.name || '';
+  if (/(?:占位符|Placeholder)/i.test(name)) {
+    return {
+      isPlaceholder: true,
+    };
+  }
+  return { isPlaceholder: false };
+}
+
+function isXmlNodeHidden(node: XmlNode): boolean {
+  for (const child of node.children) {
+    if (child.localName.startsWith('nv')) {
+      const cNvPr = findChild(child, 'cNvPr');
+      if (cNvPr && (cNvPr.attrs.hidden === '1' || cNvPr.attrs.hidden === 'true')) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * 识别 PowerPoint / WPS / Keynote 母版与版式中的默认占位提示语或母版标识文本
+ */
+function isMasterTemplatePromptText(rawText: string): boolean {
+  const t = rawText.trim().replace(/\s+/g, ' ');
+  if (!t) return false;
+  return (
+    /^(?:单击|点击|双击|请在此|在此)(?:此处)?(?:编辑|添加|输入|修改)(?:母版|模版|模板)?(?:标题|副标题|文本|正文|文字|内容|样式|图片|表格|图表|备注|页脚|日期|对象)?(?:样式)?[.。!！]*$/i.test(
+      t
+    ) ||
+    /(?:单击|点击|双击)此处(?:编辑|添加)(?:母版|模版|模板)?(?:标题|副标题|文本|正文|文字|样式)/i.test(t) ||
+    /编辑(?:母版|模版|模板)(?:文本|标题|副标题)?样式/i.test(t) ||
+    /^Click to (?:edit|add) (?:Master )?(?:title|subtitle|text|notes|header|footer|content)(?: styles?)?\.?$/i.test(
+      t
+    ) ||
+    /^Double-click to (?:edit|add) /i.test(t) ||
+    /^(?:‹#›|<#>|‹日期\/时间›|‹页脚›|‹幻灯片编号›|<date\/time>|<footer>|<header>|<slide number>)$/i.test(t)
+  );
+}
+
+/**
+ * 识别母版多级文本样式示例行（如“第二级”、“第三级”、“Second level”）
+ */
+function isMasterLevelSampleText(rawText: string): boolean {
+  const t = rawText.trim().replace(/\s+/g, ' ');
+  if (!t) return false;
+  return (
+    /^第[一二三四五六七八九十\d]+级(?:文本|标题|样式)?$/i.test(t) ||
+    /^(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth) level(?:\s+text)?$/i.test(t)
+  );
 }
 
 function parseColorMapNode(node: XmlNode | undefined, base: Record<string, string>): Record<string, string> {
@@ -633,12 +692,19 @@ function parseSpNodeFromXml(
   const xfrm = findChild(spPr, 'xfrm');
   let geom = extractGeometryFromXfrm(xfrm, tx);
 
-  // 占位符继承 (<p:ph>)，按 Layout -> Master 逐级合并属性
-  const { phType, phIdx } = extractPlaceholderMeta(spNode);
+  // 占位符继承 (<p:ph>)：母版/版式中的任何占位符仅提供几何与样式继承，绝不直接作为装饰图形渲染
+  const { isPlaceholder, phType, phIdx } = extractPlaceholderMeta(spNode);
+  if (isFromMaster && isPlaceholder) {
+    return null;
+  }
+
   const phLookupKeys: string[] = [];
   if (phType && phIdx) phLookupKeys.push(`type:${phType}:idx:${phIdx}`);
   if (phType) phLookupKeys.push(`type:${phType}`);
   if (phIdx) phLookupKeys.push(`idx:${phIdx}`);
+  if (isPlaceholder && !phType) {
+    phLookupKeys.push('type:body', 'type:obj');
+  }
 
   let layoutPh: PlaceholderTemplate | undefined;
   let masterPh: PlaceholderTemplate | undefined;
@@ -792,6 +858,9 @@ function parseSpNodeFromXml(
 
       const runs: PptxTextRun[] = [];
       for (const child of pNode.children) {
+        if (isFromMaster && child.localName === 'fld') {
+          continue;
+        }
         if (child.localName === 'r' || child.localName === 'fld') {
           const rPr = findChild(child, 'rPr');
           const tNode = findChild(child, 't');
@@ -868,14 +937,29 @@ function parseSpNodeFromXml(
     }
   }
 
-  if (isFromMaster && phType) {
+  // 过滤母版/模板占位提示语（如“单击此处编辑模版文本样式”、“第二级”等）
+  const rawParagraphCount = paragraphs.length;
+  const hasPromptParagraph = paragraphs.some(p =>
+    isMasterTemplatePromptText(p.runs.map(r => r.text).join(''))
+  );
+  const cleanedParagraphs = paragraphs.filter(p => {
+    const pText = p.runs.map(r => r.text).join('').trim();
+    if (!pText) return false;
+    if (isMasterTemplatePromptText(pText)) return false;
+    if ((hasPromptParagraph || isFromMaster || isPlaceholder) && isMasterLevelSampleText(pText)) {
+      return false;
+    }
+    return true;
+  });
+
+  if (rawParagraphCount > 0 && cleanedParagraphs.length === 0) {
     return null;
   }
 
   const effectiveBg = fillColor && fillColor !== 'transparent' ? fillColor : undefined;
   const hasVisibleShape = Boolean(effectiveBg || fillGradient || strokeColor || shapeType !== 'rect');
 
-  if (paragraphs.length > 0) {
+  if (cleanedParagraphs.length > 0) {
     return {
       id: elementId,
       type: 'text',
@@ -889,7 +973,7 @@ function parseSpNodeFromXml(
       hasShadow,
       isFromMaster: isFromMaster || undefined,
       shapeType: hasVisibleShape ? shapeType : undefined,
-      paragraphs,
+      paragraphs: cleanedParagraphs,
       backgroundColor: effectiveBg,
       backgroundGradient: fillGradient,
       borderColor: strokeColor,
@@ -934,6 +1018,9 @@ function parsePicNodeFromXml(
   tx: CoordTransform,
   isFromMaster = false
 ): PptxElement | null {
+  if (isFromMaster && extractPlaceholderMeta(picNode).isPlaceholder) {
+    return null;
+  }
   const spPr = findChild(picNode, 'spPr');
   const xfrm = findChild(spPr, 'xfrm');
   const geom = extractGeometryFromXfrm(xfrm, tx);
@@ -1088,6 +1175,9 @@ async function parseGraphicFrameNodeFromXml(
   tx: CoordTransform,
   isFromMaster = false
 ): Promise<PptxElement | null> {
+  if (isFromMaster && extractPlaceholderMeta(gfNode).isPlaceholder) {
+    return null;
+  }
   const xfrm = findChild(gfNode, 'xfrm');
   const geom = extractGeometryFromXfrm(xfrm, tx);
 
@@ -1271,6 +1361,7 @@ async function parseContainerElements(
 
   const nodes = unwrapAlternateContent(spTreeNode.children);
   for (const node of nodes) {
+    if (isXmlNodeHidden(node)) continue;
     const name = node.localName;
     const elId = `${idPrefix}-${name}-${idx++}`;
 
@@ -1375,6 +1466,8 @@ async function loadMasterOrLayoutContext(
   const rootEl = findChild(tree, 'sldMaster') || findChild(tree, 'sldLayout');
   if (!rootEl) return undefined;
 
+  const showMasterSp = rootEl.attrs.showMasterSp !== '0' && rootEl.attrs.showMasterSp !== 'false';
+
   const relsMap = await readRelsMap(zip, partPath);
   const mediaMap = await buildMediaDataMap(zip, relsMap);
 
@@ -1401,13 +1494,13 @@ async function loadMasterOrLayoutContext(
     if (bodySz) bodyDefaultFontSize = Math.round(parseInt(bodySz, 10) / 100);
   }
 
-  const placeholders = new Map<string, PlaceholderTemplate>();
+  const placeholders = new Map<string, PlaceholderTemplate>(parentCtx?.placeholders);
   const spTree = findChild(cSld, 'spTree');
 
   if (spTree) {
     for (const sp of findChildren(spTree, 'sp')) {
-      const { phType, phIdx } = extractPlaceholderMeta(sp);
-      if (!phType && !phIdx) continue;
+      const { isPlaceholder, phType, phIdx } = extractPlaceholderMeta(sp);
+      if (!isPlaceholder) continue;
       const spPr = findChild(sp, 'spPr');
       const xfrm = findChild(spPr, 'xfrm');
       const geom = extractGeometryFromXfrm(xfrm);
@@ -1417,19 +1510,33 @@ async function loadMasterOrLayoutContext(
       const defRPr = findChild(lvl1, 'defRPr') || findDescendant(txBody, 'rPr');
       const defFill = defRPr ? findChild(defRPr, 'solidFill') : undefined;
 
+      const parentMatch =
+        (phType && phIdx ? parentCtx?.placeholders.get(`type:${phType}:idx:${phIdx}`) : undefined) ||
+        (phType ? parentCtx?.placeholders.get(`type:${phType}`) : undefined) ||
+        (phIdx ? parentCtx?.placeholders.get(`idx:${phIdx}`) : undefined) ||
+        (!phType ? parentCtx?.placeholders.get('type:body') : undefined);
+
       const tpl: PlaceholderTemplate = {
-        key: phType ? `type:${phType}` : `idx:${phIdx}`,
-        geometry: geom.hasExplicitGeometry ? geom : undefined,
-        defaultFontSize: defRPr?.attrs.sz ? Math.round(parseInt(defRPr.attrs.sz, 10) / 100) : undefined,
-        defaultColor: defFill ? resolveColorFromNode(defFill, themeColors, colorMap) : undefined,
-        defaultBold: defRPr?.attrs.b === '1' || defRPr?.attrs.b === 'true',
-        defaultAlign: resolveAlign(lvl1?.attrs.algn),
-        defaultBullet: Boolean(lvl1 && findChild(lvl1, 'buChar')),
+        key: phType ? `type:${phType}` : phIdx ? `idx:${phIdx}` : 'type:body',
+        geometry: geom.hasExplicitGeometry ? geom : parentMatch?.geometry,
+        defaultFontSize: defRPr?.attrs.sz
+          ? Math.round(parseInt(defRPr.attrs.sz, 10) / 100)
+          : parentMatch?.defaultFontSize,
+        defaultColor: defFill
+          ? resolveColorFromNode(defFill, themeColors, colorMap)
+          : parentMatch?.defaultColor,
+        defaultBold:
+          defRPr?.attrs.b !== undefined
+            ? defRPr.attrs.b === '1' || defRPr.attrs.b === 'true'
+            : parentMatch?.defaultBold,
+        defaultAlign: resolveAlign(lvl1?.attrs.algn) || parentMatch?.defaultAlign,
+        defaultBullet: Boolean(lvl1 && findChild(lvl1, 'buChar')) || parentMatch?.defaultBullet,
       };
 
       if (phType && phIdx) placeholders.set(`type:${phType}:idx:${phIdx}`, tpl);
       if (phType) placeholders.set(`type:${phType}`, tpl);
       if (phIdx) placeholders.set(`idx:${phIdx}`, tpl);
+      if (!phType && !phIdx) placeholders.set('type:body', tpl);
     }
   }
 
@@ -1457,6 +1564,7 @@ async function loadMasterOrLayoutContext(
     titleDefaultFontSize,
     bodyDefaultFontSize,
     layoutName,
+    showMasterSp,
   };
 }
 
@@ -2114,9 +2222,10 @@ export async function parsePptx(
         slideBg.backgroundImage || (!slideBg.backgroundColor && !slideBg.backgroundGradient ? layoutCtx?.backgroundImage : undefined);
 
       const showMasterSp = sldNode?.attrs.showMasterSp !== '0' && sldNode?.attrs.showMasterSp !== 'false';
+      const layoutAllowsMasterSp = layoutCtx ? layoutCtx.showMasterSp !== false : true;
       const inheritedDecorations: PptxElement[] = [];
       if (showMasterSp) {
-        if (masterCtx?.decorativeElements.length) {
+        if (layoutAllowsMasterSp && masterCtx?.decorativeElements.length) {
           inheritedDecorations.push(
             ...masterCtx.decorativeElements.map((el, idx) => ({ ...el, id: `s${i}-m-${idx}-${el.id}` }))
           );
@@ -2180,7 +2289,15 @@ export async function parsePptx(
         const noteParas: string[] = [];
         for (const sp of findDescendants(noteTree, 'sp')) {
           const { phType } = extractPlaceholderMeta(sp);
-          if (phType === 'sldImg' || phType === 'sldNum') continue;
+          if (
+            phType === 'sldImg' ||
+            phType === 'sldNum' ||
+            phType === 'dt' ||
+            phType === 'hdr' ||
+            phType === 'ftr'
+          ) {
+            continue;
+          }
           const txBody = findChild(sp, 'txBody');
           if (!txBody) continue;
           for (const p of findChildren(txBody, 'p')) {
@@ -2188,7 +2305,9 @@ export async function parsePptx(
               .map(r => sanitizeText(collectNodeText(findChild(r, 't'))))
               .join('')
               .trim();
-            if (pText) noteParas.push(pText);
+            if (pText && !isMasterTemplatePromptText(pText) && !isMasterLevelSampleText(pText)) {
+              noteParas.push(pText);
+            }
           }
         }
         if (noteParas.length > 0) {

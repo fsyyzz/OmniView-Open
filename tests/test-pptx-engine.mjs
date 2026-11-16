@@ -217,7 +217,122 @@ async function runTests() {
   assert(printHtml.includes('备注 #1'), 'includeNotes=true 应包含备注面板');
   console.log('✅ Markdown 结构化导出与打印 HTML 构建验证通过');
 
-  console.log('\n🎉 全部 15 项 PowerPoint (.pptx) AST 引擎、图表、母版与导出测试 100% 通过！\n');
+  // --- 测试 16: 母版/版式占位符 (<p:ph idx="1"/> 无 type 属性) 与模板提示文本 ("单击此处编辑模版文本样式" / "第二级" / "‹#›") 彻底过滤 ---
+  console.log('--- 测试 16: 母版/版式占位符与模板编辑提示语过滤 ---');
+  const masterFilterZip = new JSZip();
+  masterFilterZip.file(
+    'ppt/presentation.xml',
+    `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+      <p:sldSz cx="12192000" cy="6858000"/>
+      <p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>
+    </p:presentation>`
+  );
+  masterFilterZip.file(
+    'ppt/_rels/presentation.xml.rels',
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+    </Relationships>`
+  );
+  masterFilterZip.file(
+    'ppt/slideMasters/slideMaster1.xml',
+    `<p:sldMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld>
+        <p:spTree>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="2" name="标题占位符 1"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
+            <p:spPr><a:xfrm><a:off x="635000" y="381000"/><a:ext cx="10922000" cy="889000"/></a:xfrm></p:spPr>
+            <p:txBody><a:p><a:r><a:t>单击此处编辑母版标题样式</a:t></a:r></a:p></p:txBody>
+          </p:sp>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="3" name="文本占位符 2"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>
+            <p:spPr><a:xfrm><a:off x="635000" y="1524000"/><a:ext cx="10922000" cy="4572000"/></a:xfrm></p:spPr>
+            <p:txBody>
+              <a:p><a:r><a:t>单击此处编辑模版文本样式</a:t></a:r></a:p>
+              <a:p><a:pPr lvl="1"/><a:r><a:t>第二级</a:t></a:r></a:p>
+              <a:p><a:pPr lvl="2"/><a:r><a:t>第三级</a:t></a:r></a:p>
+            </p:txBody>
+          </p:sp>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="4" name="编号区"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+            <p:spPr><a:xfrm><a:off x="10000000" y="6200000"/><a:ext cx="1270000" cy="381000"/></a:xfrm></p:spPr>
+            <p:txBody><a:p><a:fld id="f1" type="slidenum"><a:t>‹#›</a:t></a:fld></a:p></p:txBody>
+          </p:sp>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="5" name="隐藏装饰" hidden="1"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+            <p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="1270000"/></a:xfrm></p:spPr>
+            <p:txBody><a:p><a:r><a:t>不应显示的隐藏元素</a:t></a:r></a:p></p:txBody>
+          </p:sp>
+        </p:spTree>
+      </p:cSld>
+    </p:sldMaster>`
+  );
+  masterFilterZip.file(
+    'ppt/slideLayouts/slideLayout1.xml',
+    `<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld name="标题和内容">
+        <p:spTree>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="2" name="内容占位符"/><p:cNvSpPr/><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr>
+            <p:spPr><a:xfrm><a:off x="889000" y="1651000"/><a:ext cx="10414000" cy="4318000"/></a:xfrm></p:spPr>
+            <p:txBody>
+              <a:p><a:r><a:t>单击此处编辑模版文本样式</a:t></a:r></a:p>
+              <a:p><a:pPr lvl="1"/><a:r><a:t>第二级</a:t></a:r></a:p>
+            </p:txBody>
+          </p:sp>
+        </p:spTree>
+      </p:cSld>
+    </p:sldLayout>`
+  );
+  masterFilterZip.file(
+    'ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+    </Relationships>`
+  );
+  masterFilterZip.file(
+    'ppt/slides/_rels/slide1.xml.rels',
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+    </Relationships>`
+  );
+  masterFilterZip.file(
+    'ppt/slides/slide1.xml',
+    `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <p:cSld>
+        <p:spTree>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="2" name="内容 1"/><p:cNvSpPr/><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr>
+            <p:spPr/>
+            <p:txBody><a:p><a:r><a:t>真实业务幻灯片正文</a:t></a:r></a:p></p:txBody>
+          </p:sp>
+          <p:sp>
+            <p:nvSpPr><p:cNvPr id="3" name="未编辑占位框"/><p:cNvSpPr/><p:nvPr><p:ph idx="2"/></p:nvPr></p:nvSpPr>
+            <p:spPr/>
+            <p:txBody>
+              <a:p><a:r><a:t>单击此处编辑模版文本样式</a:t></a:r></a:p>
+              <a:p><a:r><a:t>第二级</a:t></a:r></a:p>
+            </p:txBody>
+          </p:sp>
+        </p:spTree>
+      </p:cSld>
+    </p:sld>`
+  );
+  const masterFilterParsed = await parsePptx(await masterFilterZip.generateAsync({ type: 'uint8array' }));
+  const mfSlide = masterFilterParsed.slides[0];
+  const allSlideTexts = mfSlide.elements
+    .flatMap(e => e.paragraphs || [])
+    .flatMap(p => p.runs.map(r => r.text))
+    .join(' | ');
+  assert(!allSlideTexts.includes('单击此处编辑'), `不应泄露母版编辑提示文本: ${allSlideTexts}`);
+  assert(!allSlideTexts.includes('第二级'), `不应泄露母版多级示例文本: ${allSlideTexts}`);
+  assert(!allSlideTexts.includes('‹#›'), `不应泄露母版页码字段占位符: ${allSlideTexts}`);
+  assert(!allSlideTexts.includes('不应显示的隐藏元素'), `不应渲染 hidden="1" 的隐藏节点: ${allSlideTexts}`);
+  assert(allSlideTexts.includes('真实业务幻灯片正文'), '真实业务正文必须正常保留');
+  const bodyEl = mfSlide.elements.find(e => e.type === 'text');
+  assert.strictEqual(bodyEl?.x, emuToPt(889000), '无 type 属性的 <p:ph idx="1"/> 应继承版式对应 idx 几何坐标');
+  console.log('✅ 母版/版式占位符、模版编辑提示文本、‹#› 字段与隐藏节点过滤验证通过');
+
+  console.log('\n🎉 全部 16 项 PowerPoint (.pptx) AST 引擎、图表、母版与导出测试 100% 通过！\n');
 }
 
 runTests().catch(err => {

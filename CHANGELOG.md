@@ -8,7 +8,20 @@
 
 ---
 
-## [1.4.48] - 2026-11-16 (当前最新发布)
+## [1.4.49] - 2026-11-16 (当前最新发布)
+
+> [!TIP] v1.4.49 核心修复亮点
+> **彻底修复 PPTX 浏览时母版/版式占位符标识与“单击此处编辑模版文本样式”等模板提示文本泄漏显示的问题**：
+> 1. **无 `type` 属性占位符 (`<p:ph idx="1"/>` / `<p:ph/>`) 精准识别与拦截 (`src/features/viewers/lib/pptxEngine.ts`)**：
+>    - 修复 `extractPlaceholderMeta` 仅依赖 `ph.attrs.type` 判断占位符的缺陷：在 OOXML 标准中，版式与母版的内容/对象占位符常仅声明 `<p:ph idx="1"/>` 或 `<p:ph/>`（无 `type` 属性），此前会被误判为母版装饰图形而直接渲染到幻灯片上；
+>    - 升级 `extractPlaceholderMeta` 返回显式 `isPlaceholder` 布尔标识（覆盖 `<p:ph>` 节点及占位符命名语义），确保 `slideMaster` 与 `slideLayout` 中的文本、图片、图表/表格占位符仅提供坐标与样式继承，绝不作为装饰图元泄漏渲染。
+> 2. **模板编辑提示语、多级示例文本、母版字段与隐藏节点清洗 (`pptxEngine.ts`)**：
+>    - 新增 `isMasterTemplatePromptText` 与 `isMasterLevelSampleText` 过滤器，精准剔除中英文母版默认提示词（如“单击此处编辑模版文本样式”、“单击此处编辑母版标题样式”、“第二级~第五级”、“Click to edit Master text styles”、“‹#›”等）以及母版 `<a:fld>` 字段占位符；
+>    - 新增 `<p:cNvPr hidden="1"/>` 隐藏节点跳过逻辑与 `<p:sldLayout showMasterSp="0">` 母版背景图形显隐继承控制，并同步净化演讲者备注 (`notesSlide`) 中的占位提示词。
+
+---
+
+## [1.4.48] - 2026-11-16
 
 > [!TIP] v1.4.48 核心修复亮点
 > **修复 VS Code 插件 Webview 中 PPTX 演播放映与 DOCX 全屏模式无法退出的阻断性问题**：
