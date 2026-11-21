@@ -8,7 +8,24 @@
 
 ---
 
-## [1.4.52] - 2026-11-16 (当前最新发布)
+## [1.4.53] - 2026-11-21 (当前最新发布)
+
+> [!TIP] v1.4.53 核心升级亮点
+> **EPUB 2/3 导航与资源解析深度升级、全书正文高亮搜索、书签/批注工具侧边栏与阅读状态持久化全面交付**：
+> 1. **EPUB 3 嵌套导航 (`nav.xhtml`) 与 EPUB 2 NCX 优雅回退 (`epubEngine.ts`)**：
+>    - 优先读取 EPUB 3 `nav.xhtml` 结构并保留多级嵌套子目录，当缺失时自动无缝回退解析 EPUB 2 `toc.ncx`；统一将导航路径归一化为 ZIP 规范路径，杜绝相对路径层级错位；
+>    - 解析并安全内联章节样式表与包内相对图片/SVG 资源（转换为 Data URL），支持跨章节锚点与脚注互跳。
+> 2. **全书正文搜索与上下文定位 (`epubEngine.ts`, `EpubToolsSidebar.tsx`, `EpubViewer.tsx`)**：
+>    - 新增 `searchEpubBook` 纯前端全文搜索算法，支持按章节索引提取上下文文本片段，并在阅读视图中快速直达目标章节与锚定高亮。
+> 3. **书签、划线高亮与阅读笔记侧栏与状态持久化 (`EpubToolsSidebar.tsx`, `epubSettingsStorage.ts`, `useEpubReader.ts`)**：
+>    - 新增独立阅读工具侧边栏，支持按书籍维度管理书签标记、选中文本划线及富文本笔记；
+>    - 持久化层增加 `omniview:epub:annotations` 独立存储分区，与 `omniview:epub:progress` 阅读进度实现双轨持久化与断点秒级还原。
+> 4. **文档对齐与自动化测试回归 (`docs/*`, `tests/test-epub-engine.mjs`)**：
+>    - 同步更新系统架构、驱动矩阵与持久化设计文档；完善全量 13 项 EPUB 引擎、导航、搜索与批注持久化自动化测试。
+
+---
+
+## [1.4.52] - 2026-11-16
 
 > [!TIP] v1.4.52 核心升级亮点
 > **Word (`.docx`) 过分页膨胀治理、第 1 页标题/页眉高保真防丢失修复与 VS Code 离线安装包正式发布**：
@@ -167,23 +184,5 @@
 
 ---
 
-## [1.4.40] - 2026-11-10
-
-> [!TIP] v1.4.40 核心升级亮点
-> **全面打通 PlantUML 与 DDD 领域驱动设计图表的 14 大渲染主题深度联动，彻底消除图表超出边界截断与遮盖太近**：
-> 1. **PlantUML 14 大主题高保真调色盘深度联动 (`src/shared/lib/plantuml.ts`, `PlantUmlBlock.tsx`)**：
->    - 定义专属 `PlantUmlThemePalette`，精准覆盖 `dracula` (德古拉紫)、`catppuccin` (摩卡)、`nord` (极地冰蓝)、`tokyo-night` (东京夜)、`sepia` (暖阳复古)、`forest` (深林翡翠)、`solarized` (日照青)、`notion`、`github-dark`、`midnight` 等 14 大渲染主题高保真调色盘；
->    - 彻底修复 `PlantUmlBlock` 切换主题时 `cachedSvg` 状态残留导致的图表主题锁死 Bug，缓存键升至 `plantuml:v3`；
-> 2. **DDD 领域驱动设计全景图表 14 大主题联动与超宽自适应 (`src/features/viewers/lib/dddModelingEngine.ts`, `DomainStoryBlock.tsx`)**：
->    - DDD 5 大图表（事件风暴时间轴、战略限界上下文映射图、核心域投资象限图、限界上下文战略画布、领域故事图）全面接入 14 大渲染主题系统，泳道底色、节点卡片、连线与铭牌随主题实时沉浸融合；
->    - **彻底消除事件风暴截断**：按实际节点、读模型与痛点便利贴精准动态计算总宽并保留呼吸留白，修复外层 SVG 容器嵌套选择器与超宽平滑横向滚动，彻底杜绝最右侧 HOTSPOT 痛点卡片被裁切截断；
->    - **彻底消除上下文映射图遮盖**：画布尺寸大幅扩展至 1520x960，卡片间距扩大至 140px+，分层渲染（连线 -> 卡片 -> 顶层铭牌）配合端点精确贴靠卡片边界与自动避碰算法，实现 100% 零遮盖；
-> 3. **测试基础设施并发鲁棒性加固 (`tests/harness/module-loader.mjs`)**：
->    - 模块测试加载器进程退出清理升级为精准按进程回收临时 bundle，彻底消除多工作进程并发运行 101 套测试时的目录误删竞争；
-> 4. **质量门禁与全量测试**：
->    - 全量 101/101 套自动化测试与 4 大物理门禁 100% 绿灯全通过。
-
----
-
 > [!NOTE] 历史版本归档提示
-> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认滚动保留最近 **10 次**版本变更记录。`v1.4.39` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。
+> 为保障发布日志可读性与轻量化浏览体验，`CHANGELOG.md` 规范默认滚动保留最近 **10 次**版本变更记录。`v1.4.40` 及更早的历史版本发布说明已完整归档至 Git 提交历史与 [GitHub Releases](https://github.com/fsyyzz/OmniView/releases)。

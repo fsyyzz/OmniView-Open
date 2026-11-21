@@ -38,8 +38,23 @@ export interface EpubReadingProgress {
   timestamp: number;
 }
 
+export interface EpubAnnotation {
+  id: string;
+  kind: 'bookmark' | 'highlight' | 'note';
+  chapterIndex: number;
+  pageIndex: number;
+  chapterHref: string;
+  chapterTitle: string;
+  quote: string;
+  note: string;
+  startOffset: number | null;
+  endOffset: number | null;
+  createdAt: number;
+}
+
 export const EPUB_SETTINGS_STORAGE_KEY = 'omniview:epub:settings:v1';
 export const EPUB_PROGRESS_STORAGE_PREFIX = 'omniview:epub:progress:';
+export const EPUB_ANNOTATIONS_STORAGE_PREFIX = 'omniview:epub:annotations:';
 
 export const DEFAULT_EPUB_SETTINGS: EpubReaderSettings = {
   readerTheme: 'auto',
@@ -218,5 +233,84 @@ export function saveEpubProgress(
     window.localStorage.setItem(key, JSON.stringify(payload));
   } catch (err) {
     console.warn('[EpubSettings] 持久化保存书籍阅读进度失败:', err);
+  }
+}
+
+function annotationStorageKey(identifierOrName: string): string {
+  return sanitizeBookStorageKey(identifierOrName).replace(
+    EPUB_PROGRESS_STORAGE_PREFIX,
+    EPUB_ANNOTATIONS_STORAGE_PREFIX
+  );
+}
+
+export function loadEpubAnnotations(identifierOrName: string): EpubAnnotation[] {
+  if (typeof window === 'undefined' || !window.localStorage || !identifierOrName) {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(annotationStorageKey(identifierOrName));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.flatMap((item): EpubAnnotation[] => {
+      if (typeof item !== 'object' || item === null) return [];
+      const value = item as Record<string, unknown>;
+      if (
+        typeof value.id !== 'string' ||
+        !['bookmark', 'highlight', 'note'].includes(String(value.kind)) ||
+        typeof value.chapterIndex !== 'number' ||
+        !Number.isFinite(value.chapterIndex) ||
+        value.chapterIndex < 0 ||
+        typeof value.chapterHref !== 'string'
+      ) {
+        return [];
+      }
+      const startOffset = typeof value.startOffset === 'number' && Number.isFinite(value.startOffset)
+        ? Math.max(0, Math.floor(value.startOffset))
+        : null;
+      const endOffset = typeof value.endOffset === 'number' && Number.isFinite(value.endOffset)
+        ? Math.max(0, Math.floor(value.endOffset))
+        : null;
+      return [{
+        id: value.id,
+        kind: value.kind as EpubAnnotation['kind'],
+        chapterIndex: Math.max(0, Math.floor(value.chapterIndex)),
+        pageIndex: typeof value.pageIndex === 'number' && Number.isFinite(value.pageIndex)
+          ? Math.max(0, Math.floor(value.pageIndex))
+          : 0,
+        chapterHref: value.chapterHref,
+        chapterTitle: typeof value.chapterTitle === 'string' ? value.chapterTitle : '',
+        quote: typeof value.quote === 'string' ? value.quote : '',
+        note: typeof value.note === 'string' ? value.note : '',
+        startOffset,
+        endOffset,
+        createdAt: typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)
+          ? value.createdAt
+          : Date.now(),
+      }];
+    });
+  } catch (err) {
+    console.warn('[EpubSettings] 读取书签与批注失败:', err);
+    return [];
+  }
+}
+
+export function saveEpubAnnotations(
+  identifierOrName: string,
+  annotations: EpubAnnotation[]
+): void {
+  if (typeof window === 'undefined' || !window.localStorage || !identifierOrName) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      annotationStorageKey(identifierOrName),
+      JSON.stringify(annotations)
+    );
+  } catch (err) {
+    console.warn('[EpubSettings] 保存书签与批注失败:', err);
   }
 }

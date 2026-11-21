@@ -4,14 +4,17 @@
  * 验证 EPUB 2.0 / 3.0 容器解压、元数据抽取、TOC 解析与章节正文清洗
  */
 import assert from 'node:assert';
-import { generateSampleEpubBytes, parseEpub, base64ToBytes } from '../src/features/viewers/lib/epubEngine.ts';
+import { generateSampleEpubBytes, parseEpub, base64ToBytes, searchEpubBook } from '../src/features/viewers/lib/epubEngine.ts';
 import {
   loadEpubSettings,
   saveEpubSettings,
   loadEpubProgress,
   saveEpubProgress,
+  loadEpubAnnotations,
+  saveEpubAnnotations,
   DEFAULT_EPUB_SETTINGS,
 } from '../src/features/viewers/lib/epubSettingsStorage.ts';
+import JSZip from 'jszip';
 
 console.log('📚 开始 OmniView 原生 EPUB 解析引擎自动化测试...');
 
@@ -30,6 +33,7 @@ async function runTests() {
   assert.strictEqual(typeof book.metadata.title, 'string');
   assert.ok(book.metadata.title.includes('OmniView'), `书名解析不正确: ${book.metadata.title}`);
   assert.strictEqual(typeof book.metadata.creator, 'string');
+  assert.strictEqual(book.metadata.identifier, 'urn:uuid:omniview-sample-epub-2026');
   assert.strictEqual(book.metadata.totalChapters, 3, '章节总数应为 3');
   console.log(`✅ 书籍元数据解析成功: 《${book.metadata.title}》 作者: ${book.metadata.creator}`);
 
@@ -40,7 +44,9 @@ async function runTests() {
   assert.ok(book.toc[0].label.includes('第一章'), '第 1 章节标题不匹配');
   assert.ok(book.toc[1].label.includes('第二章'), '第 2 章节标题不匹配');
   assert.ok(book.toc[2].label.includes('第三章'), '第 3 章节标题不匹配');
-  console.log(`✅ 目录大纲解析正确: 提取到 ${book.toc.length} 个层级目录节点`);
+  assert.strictEqual(book.toc[0].subitems?.[0]?.label, '1.1 阅读器功能', 'EPUB 3 nav 嵌套目录必须保留层级');
+  assert.strictEqual(book.toc[0].href, 'OEBPS/chapter1.xhtml', '导航目标应解析为 ZIP 内规范路径');
+  console.log(`✅ EPUB 3 导航大纲解析正确: 提取到 ${book.toc.length} 个顶层目录节点`);
 
   // 测试 4: 章节 XHTML 内容提取与 DOMPurify 安全过滤
   console.log('--- 测试 4: 章节正文提取与安全过滤 ---');
@@ -48,10 +54,27 @@ async function runTests() {
   const ch1 = book.chapters[0];
   assert.ok(ch1.htmlContent.includes('欢迎使用'), '第一章正文内容缺失');
   assert.ok(!ch1.htmlContent.includes('<script>'), 'XHTML 内容中不得存在未清洗的危险 script 标签');
+  assert.ok(ch1.htmlContent.includes('data-epub-href="OEBPS/chapter2.xhtml#chapter-two"'), '跨章节链接应解析为阅读器内部目标');
+  assert.ok(ch1.htmlContent.includes('data:image/svg+xml;base64,'), '相对 CSS 资源应内联为 data URL');
   console.log(`✅ 章节正文提取与 DOMPurify 沙箱过滤验证通过`);
 
-  // 测试 5: Base64 / Data URL 格式自动识别与转换
-  console.log('--- 测试 5: Base64 与 Data URL 解码 ---');
+  // 测试 5: 正文搜索与 EPUB 2 NCX 回退
+  console.log('--- 测试 5: 正文搜索与 EPUB 2 NCX 回退 ---');
+  const searchResults = searchEpubBook(book, '原生离线预览');
+  assert.ok(searchResults.length > 0, '正文搜索应返回匹配结果');
+  assert.strictEqual(searchResults[0].chapterIndex, 0);
+  assert.ok(searchResults[0].snippet.includes('原生离线预览'), '搜索结果应包含上下文片段');
+  assert.deepStrictEqual(searchEpubBook(book, '   '), [], '空白搜索词不应产生结果');
+  const epub2Zip = await JSZip.loadAsync(sampleBytes);
+  const epub2Opf = await epub2Zip.file('OEBPS/content.opf').async('text');
+  epub2Zip.file('OEBPS/content.opf', epub2Opf.replace(/<item id="nav"[^>]*\/>/, ''));
+  const epub2 = await parseEpub(await epub2Zip.generateAsync({ type: 'uint8array' }));
+  assert.strictEqual(epub2.toc.length, 3, '没有 EPUB 3 nav 时应回退解析 NCX');
+  assert.strictEqual(epub2.toc[1].href, 'OEBPS/chapter2.xhtml');
+  console.log('✅ 全书搜索、上下文片段与 NCX 回退通过');
+
+  // 测试 6: Base64 / Data URL 格式自动识别与转换
+  console.log('--- 测试 6: Base64 与 Data URL 解码 ---');
   const base64Str = Buffer.from(sampleBytes).toString('base64');
   const dataUrl = `data:application/epub+zip;base64,${base64Str}`;
   const bookFromDataUrl = await parseEpub(dataUrl);
@@ -59,16 +82,16 @@ async function runTests() {
   assert.strictEqual(bookFromDataUrl.chapters.length, 3);
   console.log('✅ Data URL / Base64 二进制解码与解析完全一致');
 
-  // 测试 6: 损坏数据或空输入自愈降级
-  console.log('--- 测试 6: 异常输入自愈机制 ---');
+  // 测试 7: 损坏数据或空输入自愈降级
+  console.log('--- 测试 7: 异常输入自愈机制 ---');
   const corruptData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
   const healedBook = await parseEpub(corruptData);
   assert.ok(healedBook, '遇到异常或损坏文件时应平滑自愈');
   assert.ok(healedBook.chapters.length > 0, '自愈后应具备默认阅读内容');
   console.log('✅ 异常数据自愈降级机制验证通过');
 
-  // 测试 7: 双叶并排流式布局与翻页页数换算全新几何物理步长模型验证
-  console.log('--- 测试 7: 双叶并排流式布局与翻页页数计算验证 ---');
+  // 测试 8: 双叶并排流式布局与翻页页数换算全新几何物理步长模型验证
+  console.log('--- 测试 8: 双叶并排流式布局与翻页页数计算验证 ---');
   const calculateSpreadPages = (scrollW, clientW, cols = 2, gap = 48) => {
     if (clientW <= 0 || scrollW <= 0) return 1;
     const colWidth = cols === 2 ? Math.max(1, (clientW - gap) / 2) : clientW;
@@ -85,8 +108,8 @@ async function runTests() {
   assert.strictEqual(pageStep, 848, '翻页单步物理位移必须严格等于 clientW + gap');
   console.log('✅ 双叶并排流式分页物理步长与几何跨页计算验证通过');
 
-  // 测试 8: EPUB 排版偏好设置持久化验证
-  console.log('--- 测试 8: EPUB 排版偏好设置读取与增量持久化验证 ---');
+  // 测试 9: EPUB 排版偏好设置持久化验证
+  console.log('--- 测试 9: EPUB 排版偏好设置读取与增量持久化验证 ---');
   const memStorage = new Map();
   const mockStorage = {
     getItem: (k) => memStorage.get(k) ?? null,
@@ -131,10 +154,11 @@ async function runTests() {
   assert.strictEqual(resolveEffectiveTheme('sepia', 'dark'), 'sepia', '独立设置的主题应优先于整体主题');
   console.log('✅ EPUB 排版偏好设置与阅读主题持久化验证通过');
 
-  // 测试 9: 电子书专属阅读进度持久化与还原验证
-  console.log('--- 测试 9: 电子书专属阅读进度持久化与还原验证 ---');
+  // 测试 10: 电子书专属阅读进度持久化与还原验证
+  console.log('--- 测试 10: 电子书专属阅读进度持久化与还原验证 ---');
   const bookKey = 'omniview_guide_v1';
   assert.strictEqual(loadEpubProgress(bookKey), null, '未阅读过的书籍应返回 null');
+  assert.deepStrictEqual(loadEpubAnnotations(bookKey), [], '新书应返回空批注列表');
 
   saveEpubProgress(bookKey, {
     chapterIndex: 2,
@@ -148,10 +172,27 @@ async function runTests() {
   assert.strictEqual(progress.pageIndex, 4, '页码索引应为 4');
   assert.strictEqual(progress.progressPercent, 68, '阅读百分比应为 68%');
   assert.ok(progress.timestamp > 0, '应包含有效的时间戳');
+  saveEpubAnnotations(bookKey, [{
+    id: 'annotation-1',
+    kind: 'note',
+    chapterIndex: 2,
+    pageIndex: 4,
+    chapterHref: 'OEBPS/chapter3.xhtml',
+    chapterTitle: '第三章',
+    quote: '测试划线',
+    note: '我的笔记',
+    startOffset: 12,
+    endOffset: 16,
+    createdAt: 123,
+  }]);
+  const annotations = loadEpubAnnotations(bookKey);
+  assert.strictEqual(annotations.length, 1, '批注应按书籍独立持久化');
+  assert.strictEqual(annotations[0].note, '我的笔记');
+  assert.strictEqual(annotations[0].startOffset, 12);
   console.log('✅ 电子书阅读进度持久化与自动还原验证通过');
 
-  // 测试 10: 目录跳转高容错相对路径/基名/ID 解析机制验证
-  console.log('--- 测试 10: 目录跳转高容错路径解析与常驻逻辑验证 ---');
+  // 测试 11: 目录跳转高容错相对路径/基名/ID 解析机制验证
+  console.log('--- 测试 11: 目录跳转高容错路径解析与常驻逻辑验证 ---');
   const mockChapters = [
     { id: 'ch-1', title: '引言与设计哲学', href: 'Text/chapter1.xhtml' },
     { id: 'ch-2', title: 'CSS 多列流式引擎', href: 'OEBPS/Text/chapter2.xhtml' },
@@ -194,8 +235,8 @@ async function runTests() {
   assert.strictEqual(resolveChapterIndex('unknown.html', null, '双叶并排排版实践'), 2, '通过标题降级应成功匹配第 3 章');
   console.log('✅ 目录跳转多阶容错解析匹配机制验证通过');
 
-  // 测试 11: 多种版心宽度切换与循环切换逻辑验证
-  console.log('--- 测试 11: 多种版心宽度切换与循环切换逻辑验证 ---');
+  // 测试 12: 多种版心宽度切换与循环切换逻辑验证
+  console.log('--- 测试 12: 多种版心宽度切换与循环切换逻辑验证 ---');
   const widthOrder = ['standard', 'wide', 'full'];
   const getNextWidth = (curr) => widthOrder[(widthOrder.indexOf(curr) + 1) % widthOrder.length];
   assert.strictEqual(getNextWidth('standard'), 'wide', 'standard 后续应为 wide');
@@ -209,8 +250,8 @@ async function runTests() {
   assert.strictEqual(loadEpubSettings().contentWidth, 'full', '全幅版心设置应正确持久化');
   console.log('✅ 多种版心宽度切换与循环切换逻辑验证通过');
 
-  // 测试 12: 连续流式滚动 (Continuous Flow Scroll) 全书连续渲染与滚动探针逻辑验证
-  console.log('--- 测试 12: 连续流式滚动全书连贯渲染与滚动探针逻辑验证 ---');
+  // 测试 13: 连续流式滚动 (Continuous Flow Scroll) 全书连续渲染与滚动探针逻辑验证
+  console.log('--- 测试 13: 连续流式滚动全书连贯渲染与滚动探针逻辑验证 ---');
   // 模拟章节相对偏移量
   const mockChapterOffsets = [
     { index: 0, top: 0, height: 1200 },
@@ -252,7 +293,7 @@ async function runTests() {
   assert.strictEqual(loadEpubSettings().flowMode, 'scroll', '连续流式滚动模式应正确持久化保存');
   console.log('✅ 连续流式滚动全书连贯渲染与滚动探针逻辑验证通过');
 
-  console.log('\n🎉 全部 12 项 EPUB 原生解析引擎、高容错目录跳转、多种宽度与连续流式滚动测试 100% 通过！\n');
+  console.log('\n🎉 EPUB 引擎、EPUB 3 导航、正文搜索、资源内联与持久化测试通过！\n');
 }
 
 runTests().catch((err) => {

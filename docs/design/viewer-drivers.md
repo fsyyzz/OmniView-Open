@@ -36,7 +36,7 @@ OmniView 采用轻量化、按需加载的微内核驱动架构。整个系统�
 | **20** | `ComposeViewer` | `docker-compose.yml`, `*.compose.yml` | OmniView Compose Topology Engine + Mermaid | 微服务依赖拓扑图、网络隔离与卷挂载图谱、敏感变量打码脱敏 | 拓扑图导出、端口冲突体检 |
 | **21** | `K8sViewer` | `k8s/*.yaml`, `*.k8s.yaml` | OmniView K8s Gravity Engine | 多文档 YAML 自动切分、4 层云原生引力拓扑、Selector 自动连线 | 探针/断链体检诊断、资源概览 |
 | **22** | `HtmlViewer` | `.html`, `.htm` | OmniView Native Web Sandbox Engine | 严格受控双层 iframe 沙箱、响应式设备仿真 (Desktop/Tablet/Mobile) | 纯本地实时分屏热重载、原生打印 |
-| **23** | `EpubViewer` | `.epub` | 纯前端 EPUB 解包 + 流式排版引擎 | 双叶并排/单页流式/连续滚动三视图、3D 拟真翻书动效、阅读进度持久化 | 护眼主题切换、排版偏好记忆 |
+| **23** | `EpubViewer` | `.epub` | 纯前端 EPUB 2/3 解包与资源解析 + 流式排版引擎 | 双叶并排/单页流式/连续滚动、EPUB 3 嵌套导航、全书搜索、书签/划线/笔记 | 阅读进度与批注持久化、内链跳转、书内 CSS/图片资源 |
 
 ---
 
@@ -280,5 +280,7 @@ OmniView 为桌面端办公文档提供零外部依赖、100% 本地沙箱离线
 
 ### 10.3 EpubViewer 现代流式电子书阅读器
 - **解包与流式排版**: 基于 JSZip 纯前端离线解开 EPUB 容器，流式排布 XHTML 章节内容；
+- **EPUB 2/3 导航与资源**: 优先读取 EPUB 3 `nav.xhtml` 并保留嵌套目录，回退支持 EPUB 2 NCX；将章节样式表与包内相对图片资源安全内联，并支持章节内链、脚注锚点跳转；
 - **三重阅读视口自由切换**: 支持双叶并排跨页 (Two-Page Spread)、单页流式 (Single-Page Flow) 与连续滚动 (Continuous Scroll)；
-- **3D 拟真翻书与进度记忆**: 配备平滑 3D 翻书卷页动画，并在本地存储中持久化各书籍的阅读百分比与当前章节断点，下次打开瞬间续读。
+- **搜索与阅读批注**: 支持全书正文搜索并跳转到命中位置；可选中文本添加高亮与笔记，也可为当前位置添加书签；
+- **3D 拟真翻书与进度记忆**: 配备平滑 3D 翻书卷页动画，并按书籍标识持久化阅读进度、书签与批注。

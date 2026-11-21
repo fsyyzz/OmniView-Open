@@ -67,11 +67,19 @@ export function useEpubReader({
 
   // 书籍标识符，用于进度本地持久化隔离
   const bookStorageKey = useMemo(() => {
+    if (book?.metadata?.identifier) {
+      return book.metadata.identifier;
+    }
     if (book?.metadata?.title) {
       return `${book.metadata.title}_${book.metadata.creator || ''}`;
     }
     return fileName || 'default_epub';
   }, [book, fileName]);
+
+  const legacyBookStorageKey = useMemo(() => {
+    if (!book?.metadata?.title || !book.metadata.identifier) return null;
+    return `${book.metadata.title}_${book.metadata.creator || ''}`;
+  }, [book]);
 
   // 更新设置并立即持久化
   const updateSetting = useCallback(
@@ -117,8 +125,12 @@ export function useEpubReader({
     if (!book || book.chapters.length === 0 || hasRestoredProgressRef.current) return;
     hasRestoredProgressRef.current = true;
 
-    const savedProgress = loadEpubProgress(bookStorageKey);
+    const savedProgress = loadEpubProgress(bookStorageKey)
+      || (legacyBookStorageKey ? loadEpubProgress(legacyBookStorageKey) : null);
     if (savedProgress && (savedProgress.chapterIndex > 0 || savedProgress.pageIndex > 0)) {
+      if (legacyBookStorageKey && !loadEpubProgress(bookStorageKey)) {
+        saveEpubProgress(bookStorageKey, savedProgress);
+      }
       const targetChap = Math.min(savedProgress.chapterIndex, book.chapters.length - 1);
       setCurrentChapterIndex(targetChap);
       setCurrentPageIndex(savedProgress.pageIndex);
@@ -130,7 +142,7 @@ export function useEpubReader({
       const timer = setTimeout(() => setProgressRestoredToast(null), 3800);
       return () => clearTimeout(timer);
     }
-  }, [book, bookStorageKey, locale]);
+  }, [book, bookStorageKey, legacyBookStorageKey, locale]);
 
   const isPaginatedMode = settings.flowMode === 'spread' || settings.flowMode === 'single';
 

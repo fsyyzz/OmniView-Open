@@ -17,11 +17,16 @@ import {
   BookOpen,
   Info,
   RotateCcw,
+  Highlighter,
+  StickyNote,
+  X,
 } from 'lucide-react';
 import {
+  searchEpubBook,
   type ParsedEpubBook,
   type EpubChapter,
   type EpubTocItem,
+  type EpubSearchResult,
 } from '../../lib/epubEngine';
 import {
   type EpubReaderSettings,
@@ -29,7 +34,10 @@ import {
   type EpubReaderTheme,
   type EpubFontFamily,
   type EpubContentWidth,
+  type EpubAnnotation,
   DEFAULT_EPUB_SETTINGS,
+  loadEpubAnnotations,
+  saveEpubAnnotations,
 } from '../../lib/epubSettingsStorage';
 import { useEpubReader } from '../../hooks/useEpubReader';
 import type { ThemeId, DensityMode } from '../../../../shared/types';
@@ -37,6 +45,115 @@ import { t, type Locale } from '../../../../shared/lib/i18n';
 import { EpubToolbar } from './epub/EpubToolbar';
 import { EpubTocSidebar } from './epub/EpubTocSidebar';
 import { EpubInfoModal } from './epub/EpubInfoModal';
+import { EpubToolsSidebar, type EpubToolsMode } from './epub/EpubToolsSidebar';
+
+interface SelectedEpubText {
+  quote: string;
+  chapterIndex: number;
+  startOffset: number;
+  endOffset: number;
+  left: number;
+  top: number;
+}
+
+function safeDecodeEpubPath(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function getTextNodes(root: HTMLElement): Text[] {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.textContent && !node.parentElement?.closest('style, script, head')) nodes.push(node as Text);
+  }
+  return nodes;
+}
+
+function textOffsetBeforeRange(root: HTMLElement, range: Range): number {
+  let offset = 0;
+  for (const node of getTextNodes(root)) {
+    if (node === range.startContainer) {
+      return offset + range.startOffset;
+    }
+    offset += node.length;
+  }
+  return offset;
+}
+
+function textRangeAtOffsets(root: HTMLElement, start: number, end: number): Range | null {
+  if (start < 0 || end <= start) return null;
+  const nodes = getTextNodes(root);
+  let cursor = 0;
+  let startNode: Text | null = null;
+  let startOffset = 0;
+  let endNode: Text | null = null;
+  let endOffset = 0;
+  for (const node of nodes) {
+    const length = node.data.length;
+    if (!startNode && start <= cursor + length) {
+      startNode = node;
+      startOffset = Math.max(0, start - cursor);
+    }
+    if (end <= cursor + length) {
+      endNode = node;
+      endOffset = Math.max(0, end - cursor);
+      break;
+    }
+    cursor += length;
+  }
+  if (!startNode || !endNode) return null;
+  const range = document.createRange();
+  range.setStart(startNode, Math.min(startOffset, startNode.length));
+  range.setEnd(endNode, Math.min(endOffset, endNode.length));
+  return range;
+}
+
+function textRangeForOccurrence(root: HTMLElement, query: string, occurrence: number): Range | null {
+  const normalizedQuery = query.toLocaleLowerCase();
+  if (!normalizedQuery || occurrence < 1) return null;
+  const nodes = getTextNodes(root);
+  const text = nodes.map(node => node.data).join('');
+  const normalizedText = text.toLocaleLowerCase();
+  let fromIndex = 0;
+  let matchIndex = -1;
+  for (let index = 0; index < occurrence; index += 1) {
+    matchIndex = normalizedText.indexOf(normalizedQuery, fromIndex);
+    if (matchIndex === -1) return null;
+    fromIndex = matchIndex + Math.max(1, normalizedQuery.length);
+  }
+  return textRangeAtOffsets(root, matchIndex, matchIndex + normalizedQuery.length);
+}
+
+function wrapTextRange(root: HTMLElement, start: number, end: number, annotationId: string): void {
+  let cursor = 0;
+  const segments: Array<{ node: Text; start: number; end: number }> = [];
+  for (const node of getTextNodes(root)) {
+    const nodeStart = cursor;
+    const nodeEnd = cursor + node.length;
+    cursor = nodeEnd;
+    const overlapStart = Math.max(start, nodeStart);
+    const overlapEnd = Math.min(end, nodeEnd);
+    if (overlapStart < overlapEnd) {
+      segments.push({ node, start: overlapStart - nodeStart, end: overlapEnd - nodeStart });
+    }
+  }
+
+  for (const segment of segments.reverse()) {
+    let selected = segment.node;
+    if (segment.end < selected.length) selected.splitText(segment.end);
+    if (segment.start > 0) selected = selected.splitText(segment.start);
+    const mark = document.createElement('mark');
+    mark.className = 'epub-saved-annotation';
+    mark.dataset.epubAnnotationId = annotationId;
+    selected.parentNode?.replaceChild(mark, selected);
+    mark.appendChild(selected);
+  }
+}
 
 export interface EpubViewerProps {
   content?: string;
@@ -99,10 +216,63 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [showTypographyMenu, setShowTypographyMenu] = useState<boolean>(false);
   const [tocSearch, setTocSearch] = useState<string>('');
+  const [toolsMode, setToolsMode] = useState<EpubToolsMode | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [annotations, setAnnotations] = useState<EpubAnnotation[]>([]);
+  const [annotationsBookKey, setAnnotationsBookKey] = useState<string>('');
+  const [selectedText, setSelectedText] = useState<SelectedEpubText | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const typographyMenuRef = useRef<HTMLDivElement>(null);
+
+  const bookStorageKey = useMemo(() => {
+    if (book?.metadata?.identifier) return book.metadata.identifier;
+    if (book?.metadata?.title) return `${book.metadata.title}_${book.metadata.creator || ''}`;
+    return fileName || 'default_epub';
+  }, [book, fileName]);
+
+  const searchResults = useMemo(
+    () => book ? searchEpubBook(book, searchQuery) : [],
+    [book, searchQuery]
+  );
+
+  useEffect(() => {
+    setAnnotations(loadEpubAnnotations(bookStorageKey));
+    setAnnotationsBookKey(bookStorageKey);
+  }, [bookStorageKey]);
+
+  useEffect(() => {
+    if (annotationsBookKey === bookStorageKey) {
+      saveEpubAnnotations(bookStorageKey, annotations);
+    }
+  }, [annotations, annotationsBookKey, bookStorageKey]);
+
+  useEffect(() => {
+    const activeChapterIndex = isPaginatedMode ? currentChapterIndex : -1;
+    const roots = document.querySelectorAll<HTMLElement>('.epub-rendered-content[data-chapter-index]');
+    roots.forEach(root => {
+      root.querySelectorAll('mark.epub-saved-annotation').forEach(mark => {
+        const parent = mark.parentNode;
+        if (!parent) return;
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+        parent.removeChild(mark);
+      });
+      const chapterIndex = Number(root.dataset.chapterIndex);
+      if (activeChapterIndex >= 0 && chapterIndex !== activeChapterIndex) return;
+      const matches = annotations
+        .filter(annotation =>
+          annotation.chapterIndex === chapterIndex &&
+          annotation.kind !== 'bookmark' &&
+          annotation.startOffset !== null &&
+          annotation.endOffset !== null
+        )
+        .sort((left, right) => (right.startOffset || 0) - (left.startOffset || 0));
+      matches.forEach(annotation => {
+        wrapTextRange(root, annotation.startOffset || 0, annotation.endOffset || 0, annotation.id);
+      });
+    });
+  }, [annotations, currentChapterIndex, isPaginatedMode, book]);
 
   // 点击外部自动收起排版面板
   useEffect(() => {
@@ -145,16 +315,53 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     setTimeout(recalculateSpreadPages, 50);
   }, [settings.contentWidth, updateSetting, recalculateSpreadPages]);
 
+  const navigateToEpubHref = (href: string): boolean => {
+    if (!book) return false;
+    const hashIndex = href.indexOf('#');
+    const rawPath = hashIndex === -1 ? href : href.slice(0, hashIndex);
+    const fragment = hashIndex === -1 ? '' : safeDecodeEpubPath(href.slice(hashIndex + 1));
+    const targetPath = rawPath ? safeDecodeEpubPath(rawPath) : book.chapters[currentChapterIndex]?.href;
+    let targetIndex = book.chapters.findIndex(chapter => chapter.href === targetPath);
+    if (targetIndex === -1 && targetPath) {
+      const baseName = targetPath.split('/').pop()?.toLowerCase();
+      targetIndex = book.chapters.findIndex(chapter => chapter.href.split('/').pop()?.toLowerCase() === baseName);
+    }
+    if (targetIndex === -1) return false;
+
+    setCurrentChapterIndex(targetIndex);
+    setCurrentPageIndex(0);
+    if (!isPaginatedMode) scrollToChapter(targetIndex, 'smooth');
+    if (fragment) {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const contentRoot = Array.from(
+          document.querySelectorAll<HTMLElement>('.epub-rendered-content[data-chapter-index]')
+        ).find(root => Number(root.dataset.chapterIndex) === targetIndex);
+        const target = contentRoot
+          ? Array.from(contentRoot.querySelectorAll<HTMLElement>('[id]')).find(element => element.id === fragment)
+          : null;
+        if (!target) return;
+        if (isPaginatedMode && spreadColumnsWrapperRef.current && pageStepPx > 0) {
+          const wrapperRect = spreadColumnsWrapperRef.current.getBoundingClientRect();
+          const page = Math.max(0, Math.floor((target.getBoundingClientRect().left - wrapperRect.left) / pageStepPx));
+          setCurrentPageIndex(Math.min(totalSpreadPages - 1, page));
+        } else {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }));
+    }
+    return true;
+  };
+
   // 目录跳转：高容错路径匹配，桌面端选定章节后保持目录常驻打开，窄屏移动端才自动收起
   const jumpToToc = (tocItem: EpubTocItem) => {
     if (!book || book.chapters.length === 0) return;
     const rawTarget = tocItem.href.split('#')[0];
-    const cleanTarget = decodeURIComponent(rawTarget.replace(/^\.\//, ''));
+    const cleanTarget = safeDecodeEpubPath(rawTarget.replace(/^\.\//, ''));
     const targetBaseName = cleanTarget.split('/').pop()?.toLowerCase();
 
     // 1. 精确相对路径匹配
     let foundIndex = book.chapters.findIndex(ch => {
-      const cleanCh = decodeURIComponent(ch.href.split('#')[0].replace(/^\.\//, ''));
+      const cleanCh = safeDecodeEpubPath(ch.href.split('#')[0].replace(/^\.\//, ''));
       return cleanCh === cleanTarget;
     });
 
@@ -177,12 +384,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     }
 
     if (foundIndex !== -1) {
-      if (isPaginatedMode) {
-        setCurrentChapterIndex(foundIndex);
-        setCurrentPageIndex(0);
-      } else {
-        scrollToChapter(foundIndex, 'smooth');
-      }
+      navigateToEpubHref(tocItem.href || book.chapters[foundIndex].href);
       // 桌面端保持目录常驻展开（方便用户连续浏览大纲），仅在小屏移动设备 (< 640px) 遮挡全文时才自动收起
       if (typeof window !== 'undefined' && window.innerWidth < 640) {
         setShowToc(false);
@@ -195,8 +397,163 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     if (!book) return [];
     if (!tocSearch.trim()) return book.toc;
     const q = tocSearch.toLowerCase();
-    return book.toc.filter(item => item.label.toLowerCase().includes(q));
+    const filterItems = (items: EpubTocItem[]): EpubTocItem[] =>
+      items.flatMap(item => {
+        const subitems = filterItems(item.subitems || []);
+        return item.label.toLowerCase().includes(q) || subitems.length > 0
+          ? [{ ...item, subitems }]
+          : [];
+      });
+    return filterItems(book.toc);
   }, [book, tocSearch]);
+
+  const openTools = (mode: EpubToolsMode) => {
+    setShowToc(false);
+    setToolsMode(mode);
+  };
+
+  const createAnnotation = (
+    kind: EpubAnnotation['kind'],
+    selection: SelectedEpubText | null = null
+  ) => {
+    if (!book) return;
+    const chapterIndex = selection?.chapterIndex ?? currentChapterIndex;
+    const chapter = book.chapters[chapterIndex];
+    if (!chapter) return;
+
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `epub-note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const annotation: EpubAnnotation = {
+      id,
+      kind,
+      chapterIndex,
+      pageIndex: isPaginatedMode ? currentPageIndex : 0,
+      chapterHref: chapter.href,
+      chapterTitle: chapter.title,
+      quote: selection?.quote || '',
+      note: '',
+      startOffset: selection?.startOffset ?? null,
+      endOffset: selection?.endOffset ?? null,
+      createdAt: Date.now(),
+    };
+    setAnnotations(previous => [annotation, ...previous]);
+    setSelectedText(null);
+    window.getSelection()?.removeAllRanges();
+    if (kind === 'note') openTools('annotations');
+  };
+
+  const captureTextSelection = () => {
+    const selection = window.getSelection();
+    const quote = selection?.toString() || '';
+    if (!selection || !quote.trim() || selection.rangeCount === 0 || !containerRef.current) {
+      setSelectedText(null);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const closestContent = (node: Node): HTMLElement | null => {
+      const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+      return element?.closest<HTMLElement>('.epub-rendered-content') || null;
+    };
+    const startRoot = closestContent(range.startContainer);
+    const endRoot = closestContent(range.endContainer);
+    if (!startRoot || startRoot !== endRoot) {
+      setSelectedText(null);
+      return;
+    }
+
+    const trimmedQuote = quote.trim();
+    const leadingWhitespace = quote.indexOf(trimmedQuote);
+    const startOffset = textOffsetBeforeRange(startRoot, range) + Math.max(0, leadingWhitespace);
+    const rect = range.getBoundingClientRect();
+    const rootRect = containerRef.current.getBoundingClientRect();
+    setSelectedText({
+      quote: trimmedQuote,
+      chapterIndex: Number(startRoot.dataset.chapterIndex ?? currentChapterIndex),
+      startOffset,
+      endOffset: startOffset + trimmedQuote.length,
+      left: Math.max(8, Math.min(rootRect.width - 210, rect.left - rootRect.left)),
+      top: Math.max(52, rect.bottom - rootRect.top + 6),
+    });
+  };
+
+  const getChapterContent = (chapterIndex: number): HTMLElement | null => {
+    const roots = document.querySelectorAll<HTMLElement>('.epub-rendered-content[data-chapter-index]');
+    return Array.from(roots).find(root => Number(root.dataset.chapterIndex) === chapterIndex) || null;
+  };
+
+  const placeRangeInReader = (range: Range) => {
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    if (isPaginatedMode && spreadColumnsWrapperRef.current && pageStepPx > 0) {
+      const wrapperRect = spreadColumnsWrapperRef.current.getBoundingClientRect();
+      const rangeRect = range.getBoundingClientRect();
+      const absoluteLeft = rangeRect.left - wrapperRect.left;
+      const targetPage = Math.max(0, Math.floor(absoluteLeft / pageStepPx));
+      setCurrentPageIndex(Math.min(totalSpreadPages - 1, targetPage));
+    } else {
+      const element = range.startContainer.parentElement;
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const navigateToPosition = (
+    chapterIndex: number,
+    findRange: (root: HTMLElement) => Range | null,
+    pageIndex = 0
+  ) => {
+    setCurrentChapterIndex(chapterIndex);
+    setCurrentPageIndex(pageIndex);
+    if (!isPaginatedMode) scrollToChapter(chapterIndex, 'smooth');
+    const locate = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const root = getChapterContent(chapterIndex);
+          const range = root ? findRange(root) : null;
+          if (range) placeRangeInReader(range);
+        });
+      });
+    };
+    locate();
+  };
+
+  const selectSearchResult = (result: EpubSearchResult) => {
+    navigateToPosition(
+      result.chapterIndex,
+      root => textRangeForOccurrence(root, searchQuery, result.matchOrdinal)
+    );
+  };
+
+  const selectAnnotation = (annotation: EpubAnnotation) => {
+    const hasTextAnchor = annotation.startOffset !== null && annotation.endOffset !== null;
+    navigateToPosition(
+      annotation.chapterIndex,
+      root => hasTextAnchor
+        ? textRangeAtOffsets(root, annotation.startOffset || 0, annotation.endOffset || 0)
+        : null,
+      annotation.pageIndex
+    );
+  };
+
+  const updateAnnotation = (id: string, patch: Partial<EpubAnnotation>) => {
+    setAnnotations(previous => previous.map(annotation =>
+      annotation.id === id ? { ...annotation, ...patch } : annotation
+    ));
+  };
+
+  const deleteAnnotation = (id: string) => {
+    setAnnotations(previous => previous.filter(annotation => annotation.id !== id));
+  };
+
+  const handleContentClick = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target;
+    const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
+    const anchor = element?.closest<HTMLAnchorElement>('a[data-epub-href]');
+    if (!anchor) return;
+    event.preventDefault();
+    navigateToEpubHref(anchor.dataset.epubHref || '');
+  };
 
   // 全屏切换
   const toggleFullscreen = () => {
@@ -332,7 +689,14 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         locale={locale}
         themeStyles={themeStyles}
         typographyMenuRef={typographyMenuRef}
-        onToggleToc={() => setShowToc(!showToc)}
+        onToggleToc={() => {
+          setToolsMode(null);
+          setShowToc(!showToc);
+        }}
+        onOpenSearch={() => openTools('search')}
+        onOpenAnnotations={() => openTools('annotations')}
+        onAddBookmark={() => createAnnotation('bookmark')}
+        hasAnnotations={annotations.length > 0}
         onToggleInfo={() => setShowInfo(!showInfo)}
         onToggleTypographyMenu={() => setShowTypographyMenu(!showTypographyMenu)}
         onToggleFullscreen={toggleFullscreen}
@@ -374,6 +738,22 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
           onJumpToToc={jumpToToc}
         />
 
+        {toolsMode && (
+          <EpubToolsSidebar
+            mode={toolsMode}
+            searchQuery={searchQuery}
+            searchResults={searchResults}
+            annotations={annotations}
+            themeStyles={themeStyles}
+            onClose={() => setToolsMode(null)}
+            onSearchChange={setSearchQuery}
+            onSelectSearchResult={selectSearchResult}
+            onSelectAnnotation={selectAnnotation}
+            onUpdateAnnotation={updateAnnotation}
+            onDeleteAnnotation={deleteAnnotation}
+          />
+        )}
+
         {/* 右侧：电子书元数据抽屉 (Info Drawer) */}
         <EpubInfoModal
           showInfo={showInfo}
@@ -386,6 +766,8 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         {/* 正文主视口 */}
         <main
           ref={scrollContainerRef}
+          onMouseUp={captureTextSelection}
+          onClick={handleContentClick}
           className="flex-1 h-full overflow-hidden flex flex-col items-center relative p-2 sm:p-5"
         >
           {isPaginatedMode ? (
@@ -501,6 +883,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
                         {currentChapter && (
                           <div
                             className="epub-rendered-content leading-relaxed"
+                            data-chapter-index={currentChapterIndex}
                             style={{
                               fontSize: `${settings.fontSize}px`,
                               lineHeight: settings.lineHeight,
@@ -579,7 +962,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
               onScroll={handleContinuousScroll}
               className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col items-center px-3 sm:px-6 relative scroll-smooth"
             >
-              <article className={`w-full ${maxWidthClass} transition-all duration-200 py-4`}>
+              <article className={`w-full ${maxWidthClass} transition-all duration-200 py-4 select-text`}>
                 {book?.chapters.map((chapter, idx) => (
                   <section
                     key={chapter.id || `chapter-section-${idx}`}
@@ -617,6 +1000,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
                     {/* 章节 HTML 正文渲染 */}
                     <div
                       className="epub-rendered-content leading-relaxed"
+                      data-chapter-index={idx}
                       style={{
                         fontSize: `${settings.fontSize}px`,
                         lineHeight: settings.lineHeight,
@@ -686,6 +1070,41 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
             </div>
           )}
         </main>
+        {selectedText && (
+          <div
+            className="absolute z-50 flex items-center gap-1 rounded-lg border p-1 shadow-xl backdrop-blur-md"
+            style={{
+              left: selectedText.left,
+              top: selectedText.top,
+              background: themeStyles.paper,
+              borderColor: themeStyles.border,
+            }}
+          >
+            <button
+              onClick={() => createAnnotation('highlight', selectedText)}
+              className="px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-amber-500/15 text-amber-600"
+              title="标记选中文本"
+            >
+              <Highlighter className="w-3.5 h-3.5" />
+              划线
+            </button>
+            <button
+              onClick={() => createAnnotation('note', selectedText)}
+              className="px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-blue-500/15"
+              title="为选中文本添加笔记"
+            >
+              <StickyNote className="w-3.5 h-3.5" />
+              笔记
+            </button>
+            <button
+              onClick={() => setSelectedText(null)}
+              className="p-1 rounded opacity-60 hover:opacity-100"
+              aria-label="关闭选中文本工具栏"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 注入流式排版专属样式 (字体、段落首行缩进、引用、表格与防冲突隔离) */}
@@ -701,6 +1120,12 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
           text-rendering: optimizeLegibility;
           -webkit-font-smoothing: antialiased;
           color: var(--ov-text) !important;
+        }
+        .epub-rendered-content mark.epub-saved-annotation {
+          color: inherit;
+          background: rgba(250, 204, 21, 0.4);
+          border-radius: 2px;
+          padding: 0 1px;
         }
         .epub-rendered-content p,
         .epub-rendered-content div:not(.callout),

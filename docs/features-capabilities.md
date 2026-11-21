@@ -96,7 +96,7 @@ OmniView 现已包含 **23 类专属文件格式驱动 (Viewer Drivers)**、**1 
 | **20** | `compose` | Docker Compose 微服务拓扑工作台 | `docker-compose.yml`, `*.compose.yml` | 容器微服务拓扑引力引擎 + 脱敏防护 | 生产就绪 (P0) |
 | **21** | `k8s` | Kubernetes 复合清单引力拓扑 | `k8s/*.yaml`, `*.k8s.yaml` | 4 层云原生引力拓扑引擎 + 断链体检 | 生产就绪 (P0) |
 | **22** | `html` | HTML5 网页与交互沙箱工作台 | `.html`, `.htm` | 严格受控双层 iframe 沙箱 + 设备视口仿真 | 生产就绪 (P0) |
-| **23** | `epub` | EPUB 现代电子书流式阅读器 | `.epub` | 纯前端 EPUB 解包 + 三重流式排版引擎 | 生产就绪 (P0) |
+| **23** | `epub` | EPUB 现代电子书流式阅读器 | `.epub` | EPUB 2/3 导航与资源解析、三重流式排版、全书搜索及书签/批注 | 生产就绪 (P0) |
 | **24** | `okf` | Google OKF 知识卡片体系 | `.okf`, `.okf.md` | Open Knowledge Format 规范解析器 | 生产就绪 (P1) |
 | **25** | `platform` | 工作台底座与通用平台子系统 | 全局系统能力 | React 19 + VS Code Extension IPC + CSS Tokens | 生产就绪 (P0) |
 

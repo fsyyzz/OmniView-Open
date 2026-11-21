@@ -33,6 +33,54 @@ export const EpubTocSidebar: React.FC<EpubTocSidebarProps> = ({
 }) => {
   if (!showToc) return null;
 
+  const decodePath = (value: string) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+
+  const renderItems = (items: EpubTocItem[], depth = 0): React.ReactNode =>
+    items.map((item, idx) => {
+      const cleanItem = decodePath(item.href.split('#')[0].replace(/^\.\//, ''));
+      const cleanCh = currentChapter ? decodePath(currentChapter.href.split('#')[0].replace(/^\.\//, '')) : '';
+      const itemBase = cleanItem.split('/').pop()?.toLowerCase();
+      const chBase = cleanCh.split('/').pop()?.toLowerCase();
+      const isCurrent =
+        cleanItem === cleanCh ||
+        (!!itemBase && !!chBase && itemBase === chBase) ||
+        (!!item.id && currentChapter?.id === item.id) ||
+        (!!item.label && currentChapter?.title === item.label);
+
+      return (
+        <div key={`${item.href}-${item.id}-${idx}`}>
+          <button
+            onClick={() => onJumpToToc(item)}
+            style={{ paddingLeft: `${8 + depth * 14}px` }}
+            title={item.label}
+            className={`w-full py-2 pr-2.5 rounded-lg text-left text-xs transition flex items-center justify-between group ${
+              isCurrent
+                ? 'bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold shadow-2xs'
+                : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
+            }`}
+          >
+            <span className="truncate pr-2">{item.label}</span>
+            {isCurrent ? (
+              <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 ml-1 shadow-xs ring-2 ring-blue-500/20" />
+            ) : (
+              <span className="text-[10px] font-mono opacity-30 group-hover:opacity-60 shrink-0">
+                #{item.order || idx + 1}
+              </span>
+            )}
+          </button>
+          {item.subitems && item.subitems.length > 0 && (
+            <div className="ml-1 border-l border-current/10">{renderItems(item.subitems, depth + 1)}</div>
+          )}
+        </div>
+      );
+    });
+
   return (
     <aside
       className="w-72 sm:w-80 h-full border-r flex flex-col z-20 shrink-0 shadow-xl transition-all duration-300"
@@ -78,40 +126,7 @@ export const EpubTocSidebar: React.FC<EpubTocSidebarProps> = ({
       {/* 目录列表 */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {filteredToc.length > 0 ? (
-          filteredToc.map((item, idx) => {
-            const cleanItem = decodeURIComponent(item.href.split('#')[0].replace(/^\.\//, ''));
-            const cleanCh = currentChapter ? decodeURIComponent(currentChapter.href.split('#')[0].replace(/^\.\//, '')) : '';
-            const itemBase = cleanItem.split('/').pop()?.toLowerCase();
-            const chBase = cleanCh.split('/').pop()?.toLowerCase();
-            const isCurrent =
-              cleanItem === cleanCh ||
-              (!!itemBase && !!chBase && itemBase === chBase) ||
-              (!!item.id && currentChapter?.id === item.id) ||
-              (!!item.label && currentChapter?.title === item.label);
-
-            return (
-              <button
-                key={`${item.href}-${idx}`}
-                onClick={() => onJumpToToc(item)}
-                style={{ paddingLeft: '8px' }}
-                title={item.label}
-                className={`w-full py-2 pr-2.5 rounded-lg text-left text-xs transition flex items-center justify-between group ${
-                  isCurrent
-                    ? 'bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold shadow-2xs'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
-                }`}
-              >
-                <span className="truncate pr-2">{item.label}</span>
-                {isCurrent ? (
-                  <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 ml-1 shadow-xs ring-2 ring-blue-500/20" />
-                ) : (
-                  <span className="text-[10px] font-mono opacity-30 group-hover:opacity-60 shrink-0">
-                    #{idx + 1}
-                  </span>
-                )}
-              </button>
-            );
-          })
+          renderItems(filteredToc)
         ) : (
           <div className="p-4 text-center text-xs opacity-50">未检索到匹配章节</div>
         )}

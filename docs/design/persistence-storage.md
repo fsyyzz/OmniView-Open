@@ -17,7 +17,7 @@ flowchart TD
     subgraph StorageModules ["核心持久化模块"]
         Adapter --> SettingsStore["全局配置中心 (settingsStorage.ts)<br/>Key: omniview:workbench:settings:v2"]
         Adapter --> FileStore["虚拟工作区存储 (fileStorage.ts)<br/>Key: omniview:workbench:files"]
-        Adapter --> ReaderStore["专有阅读进度与批注<br/>Key: omniview:epub:progress, omniview:pdf:annotations"]
+        Adapter --> ReaderStore["专有阅读进度与批注<br/>Key: omniview:epub:progress, omniview:epub:annotations, omniview:pdf:annotations"]
     end
 
     SettingsStore --> Guard["数值安全钳位与模式校验 (Safety Clamping)"]

@@ -21,6 +21,9 @@ import {
   Moon,
   Coffee,
   Laptop,
+  Search,
+  BookmarkPlus,
+  Highlighter,
 } from 'lucide-react';
 import {
   type EpubReaderSettings,
@@ -53,6 +56,10 @@ export interface EpubToolbarProps {
   };
   typographyMenuRef: React.RefObject<HTMLDivElement | null>;
   onToggleToc: () => void;
+  onOpenSearch: () => void;
+  onOpenAnnotations: () => void;
+  onAddBookmark: () => void;
+  hasAnnotations: boolean;
   onToggleInfo: () => void;
   onToggleTypographyMenu: () => void;
   onToggleFullscreen: () => void;
@@ -81,6 +88,10 @@ export const EpubToolbar: React.FC<EpubToolbarProps> = ({
   themeStyles,
   typographyMenuRef,
   onToggleToc,
+  onOpenSearch,
+  onOpenAnnotations,
+  onAddBookmark,
+  hasAnnotations,
   onToggleInfo,
   onToggleTypographyMenu,
   onToggleFullscreen,
@@ -114,6 +125,37 @@ export const EpubToolbar: React.FC<EpubToolbarProps> = ({
         >
           <List className="w-4 h-4" />
           <span className="hidden sm:inline">目录</span>
+        </button>
+        <button
+          onClick={onOpenSearch}
+          className="p-1.5 rounded-lg border transition flex items-center gap-1.5 text-xs font-medium hover:bg-black/10 dark:hover:bg-white/10"
+          style={{ borderColor: themeStyles.border }}
+          title="搜索全书正文"
+          aria-label="搜索全书正文"
+        >
+          <Search className="w-4 h-4" />
+          <span className="hidden sm:inline">搜索</span>
+        </button>
+        <button
+          onClick={onOpenAnnotations}
+          className={`p-1.5 rounded-lg border transition flex items-center gap-1.5 text-xs font-medium ${
+            hasAnnotations ? 'text-amber-500 border-amber-500/40' : 'hover:bg-black/10 dark:hover:bg-white/10'
+          }`}
+          style={{ borderColor: hasAnnotations ? undefined : themeStyles.border }}
+          title="打开书签与批注"
+          aria-label="打开书签与批注"
+        >
+          <Highlighter className="w-4 h-4" />
+          <span className="hidden sm:inline">批注</span>
+        </button>
+        <button
+          onClick={onAddBookmark}
+          className="p-1.5 rounded-lg border transition hover:bg-black/10 dark:hover:bg-white/10"
+          style={{ borderColor: themeStyles.border }}
+          title="为当前位置添加书签"
+          aria-label="添加书签"
+        >
+          <BookmarkPlus className="w-4 h-4" />
         </button>
 
         <div className="flex items-center gap-1.5 min-w-0">

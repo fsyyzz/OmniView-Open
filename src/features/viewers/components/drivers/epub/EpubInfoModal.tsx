@@ -70,6 +70,13 @@ export const EpubInfoModal: React.FC<EpubInfoModalProps> = ({
           <p>{book?.metadata?.publisher || '未记录'}</p>
         </div>
 
+        {book?.metadata?.publicationDate && (
+          <div>
+            <span className="text-[10px] font-mono opacity-50 block uppercase">出版日期 / Published</span>
+            <p>{book.metadata.publicationDate}</p>
+          </div>
+        )}
+
         <div>
           <span className="text-[10px] font-mono opacity-50 block uppercase">语言 / Language</span>
           <p className="font-mono">{book?.metadata?.language || 'und'}</p>
